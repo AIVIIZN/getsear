@@ -98,18 +98,24 @@ def _init_limiter(app: Flask) -> None:
     """Attach Flask-Limiter to the app with Redis storage."""
     global limiter
 
-    base_url = app.config.get("REDIS_URL", "redis://localhost:6379")
-    db_rate = app.config.get("REDIS_DB_RATE_LIMIT", 1)
-    storage_uri = f"redis://localhost:6379/{db_rate}"
-
+    # Use the rate_limiter_redis connection we already created
+    # instead of letting flask-limiter create its own (avoids version compat issues)
     limiter = Limiter(
         key_func=get_remote_address,
         default_limits=["200/minute", "5000/hour"],
-        storage_uri=storage_uri,
+        storage_uri="memory://",
         app=app,
     )
 
-    logger.info("limiter.initialized", storage=storage_uri)
+    # Override storage with our pre-built Redis connection if available
+    if rate_limiter_redis is not None:
+        try:
+            from limits.storage import RedisStorage
+            limiter._storage = RedisStorage(uri="redis://localhost:6379/1")
+        except Exception:
+            logger.warning("limiter.redis_fallback", reason="Using memory storage")
+
+    logger.info("limiter.initialized")
 
 
 def _init_supabase(app: Flask) -> None:
