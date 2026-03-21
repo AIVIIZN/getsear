@@ -118,12 +118,16 @@ def _init_limiter(app: Flask) -> None:
     logger.info("limiter.initialized")
 
 
+supabase_auth_client = None  # Anon key client for auth operations
+
 def _init_supabase(app: Flask) -> None:
-    """Initialize the Supabase client from app config."""
-    global supabase_client
+    """Initialize Supabase clients: service_role for data, anon for auth."""
+    global supabase_client, supabase_auth_client
 
     url = app.config.get("SUPABASE_URL", "")
-    key = app.config.get("SUPABASE_SERVICE_ROLE_KEY", "") or app.config.get("SUPABASE_ANON_KEY", "")
+    service_key = app.config.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    anon_key = app.config.get("SUPABASE_ANON_KEY", "")
+    key = service_key or anon_key
 
     if not url or not key:
         logger.warning("supabase.skipped", reason="SUPABASE_URL or key not configured")
@@ -132,6 +136,14 @@ def _init_supabase(app: Flask) -> None:
     from supabase import create_client
 
     supabase_client = create_client(url, key)
+
+    # Create a separate client with anon key for auth operations
+    # (sign_in_with_password requires anon key, not service_role)
+    if anon_key and anon_key != key:
+        supabase_auth_client = create_client(url, anon_key)
+    else:
+        supabase_auth_client = supabase_client
+
     logger.info("supabase.initialized", url=url)
 
 

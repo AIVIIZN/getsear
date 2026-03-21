@@ -10,7 +10,7 @@ import jwt
 import structlog
 from flask import current_app
 
-from app.extensions import supabase_client
+from app.extensions import supabase_client, supabase_auth_client
 
 logger = structlog.get_logger()
 
@@ -26,7 +26,8 @@ def authenticate_email(email: str, password: str) -> tuple[dict, dict]:
     Raises RuntimeError on unexpected Supabase errors.
     """
     try:
-        auth_resp = supabase_client.auth.sign_in_with_password({
+        client = supabase_auth_client or supabase_client
+        auth_resp = client.auth.sign_in_with_password({
             "email": email,
             "password": password,
         })
