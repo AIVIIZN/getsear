@@ -53,13 +53,14 @@ def create_app(config_name: str | None = None) -> Flask:
     # Register core blueprints
     _register_core_blueprints(app)
 
-    # Exempt API blueprints from CSRF (they use JWT auth, not cookies)
+    # Exempt all API blueprints from CSRF (they use JWT auth, not cookies)
     from app.extensions import csrf
-    for bp_name in (
-        "auth", "pos", "payments", "tables", "sse", "reconciliation",
-        "menu", "staff", "customers", "reports", "settings",
-    ):
-        csrf.exempt(bp_name)
+    if csrf is not None:
+        for rule in app.url_map.iter_rules():
+            if rule.rule.startswith("/api/"):
+                view_func = app.view_functions.get(rule.endpoint)
+                if view_func is not None:
+                    csrf.exempt(view_func)
 
     # Discover and load optional modules
     _register_modules(app)
