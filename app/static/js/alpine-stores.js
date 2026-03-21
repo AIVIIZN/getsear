@@ -27,7 +27,7 @@ document.addEventListener('alpine:init', () => {
     items: [],
     _counter: 0,
 
-    add(type, message, duration = 5000) {
+    add(message, type = 'info', duration = 5000) {
       const id = ++this._counter;
       const toast = { id, type, message, visible: true };
       this.items.push(toast);

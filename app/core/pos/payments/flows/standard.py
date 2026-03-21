@@ -252,13 +252,17 @@ class StandardPaymentFlow:
         try:
             resp = (
                 supabase_client.table("orders")
-                .select("id, org_id, status, subtotal_cents, tax_cents, total_cents, balance_due_cents")
+                .select("id, org_id, status, subtotal, tax_total, total, balance_due")
                 .eq("id", order_id)
                 .eq("org_id", org_id)
                 .single()
                 .execute()
             )
-            return resp.data
+            row = resp.data
+            if row:
+                row["balance_due_cents"] = int(float(row["balance_due"]) * 100)
+                row["total_cents"] = int(float(row["total"]) * 100)
+            return row
         except Exception:
             log.exception("payment.get_order_failed", order_id=order_id)
             return None
@@ -282,12 +286,13 @@ class StandardPaymentFlow:
         try:
             supabase_client.table("payment_transactions").insert({
                 "id": str(uuid4()),
-                "payment_id": payment_id,
                 "org_id": org_id,
                 "order_id": order_id,
-                "action": action,
-                "amount_cents": amount_cents,
-                "performed_by": user_id,
+                "processor_name": "valor",
+                "authorized_amount_cents": amount_cents,
+                "payment_method": "card",
+                "status": action,
+                "server_id": user_id or None,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }).execute()
         except Exception:
@@ -296,7 +301,7 @@ class StandardPaymentFlow:
     def _update_order_balance(self, order_id: str, org_id: str, new_balance_cents: int) -> None:
         try:
             supabase_client.table("orders").update({
-                "balance_due_cents": max(new_balance_cents, 0),
+                "balance_due": max(new_balance_cents, 0) / 100,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", order_id).eq("org_id", org_id).execute()
         except Exception:

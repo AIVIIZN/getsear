@@ -412,7 +412,7 @@ def get_server_performance(
         .eq("location_id", location_id)
         .gte("opened_at", f"{start_date}T00:00:00Z")
         .lte("opened_at", f"{end}T23:59:59Z")
-        .in_("status", ["closed", "paid"])
+        .in_("status", ["closed"])
         .execute()
     )
 
@@ -518,7 +518,7 @@ def get_labor_report(
         .eq("location_id", location_id)
         .gte("opened_at", f"{start_date}T00:00:00Z")
         .lte("opened_at", f"{end}T23:59:59Z")
-        .in_("status", ["closed", "paid"])
+        .in_("status", ["closed"])
         .execute()
     )
     total_sales = sum(float(o.get("total") or 0) for o in (sales_resp.data or []))
@@ -679,7 +679,7 @@ def get_payment_report(
                 "status, "
                 "orders!payments_order_id_fkey(location_id)")
         .eq("org_id", org_id)
-        .eq("status", "completed")
+        .eq("status", "captured")
         .gte("processed_at", f"{start_date}T00:00:00Z")
         .lte("processed_at", f"{end}T23:59:59Z")
         .execute()
@@ -769,7 +769,7 @@ def get_tax_report(
         .select("id, tax_total, subtotal, total")
         .eq("org_id", org_id)
         .eq("location_id", location_id)
-        .in_("status", ["closed", "paid"])
+        .in_("status", ["closed"])
         .gte("opened_at", f"{start_date}T00:00:00Z")
         .lte("opened_at", f"{end}T23:59:59Z")
         .execute()
@@ -948,7 +948,7 @@ def _build_daily_report_live(
         .eq("location_id", location_id)
         .gte("opened_at", f"{target_date}T00:00:00Z")
         .lte("opened_at", f"{target_date}T23:59:59Z")
-        .in_("status", ["closed", "paid"])
+        .in_("status", ["closed"])
         .execute()
     )
     orders = orders_resp.data or []
@@ -976,7 +976,7 @@ def _build_daily_report_live(
         .select("payment_method, total_amount, "
                 "orders!payments_order_id_fkey(location_id, opened_at)")
         .eq("org_id", org_id)
-        .eq("status", "completed")
+        .eq("status", "captured")
         .gte("processed_at", f"{target_date}T00:00:00Z")
         .lte("processed_at", f"{target_date}T23:59:59Z")
         .execute()
@@ -1057,7 +1057,7 @@ def _build_hourly_data_live(
         .eq("location_id", location_id)
         .gte("opened_at", f"{target_date}T00:00:00Z")
         .lte("opened_at", f"{target_date}T23:59:59Z")
-        .in_("status", ["closed", "paid"])
+        .in_("status", ["closed"])
         .execute()
     )
 

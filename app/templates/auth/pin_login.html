@@ -59,8 +59,8 @@
            this.loading = false;
            if (data.token) {
              localStorage.setItem('sear_token', data.token);
-             $store.auth.token = data.token;
-             $store.auth.user = data.user || {};
+             Alpine.store('auth').token = data.token;
+             Alpine.store('auth').user = data.user || {};
              if (data.clocked_in) {
                window.location.href = '/pos';
              } else {

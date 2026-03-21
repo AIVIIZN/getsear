@@ -19,6 +19,11 @@ from app.extensions import celery_app  # noqa: E402
 # Create a Flask app context so Celery tasks can access config and extensions
 flask_app = create_app()
 
+# Import tasks so they are discovered by Celery
+import app.tasks  # noqa: E402, F401
+
+celery_app.conf.include = ["app.tasks"]
+
 # --- Task routing ---
 celery_app.conf.task_routes = {
     "app.tasks.reports.*": {"queue": "reports"},

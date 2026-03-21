@@ -81,8 +81,9 @@ def get_categories(
     # Supabase Python SDK: use .or_ for OR conditions
     query = query.or_(f"location_id.eq.{location_id},location_id.is.null")
 
-    if menu_type:
-        query = query.eq("menu_type", menu_type)
+    # menu_type column does not exist on menu_categories; ignore filter
+    # if menu_type:
+    #     query = query.eq("menu_type", menu_type)
 
     resp = query.execute()
     categories = resp.data or []

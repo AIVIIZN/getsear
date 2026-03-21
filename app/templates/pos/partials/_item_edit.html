@@ -77,10 +77,6 @@
   {# Repeat #}
   <button @click="repeatItem(editItem)"
           class="w-full h-11 mb-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 flex items-center justify-center gap-2 transition-colors"
-          hx-post=""
-          :hx-vals="JSON.stringify({ order_id: orderId, menu_item_id: editItem?.menu_item_id, quantity: 1, modifiers: editItem?.modifiers, special_instructions: editItem?.special_instructions })"
-          hx-target="#order-panel"
-          hx-swap="innerHTML"
           style="touch-action:manipulation">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
     Repeat Item
@@ -98,10 +94,6 @@
   <button x-show="!editItem?.sent_at"
           @click="removeItem(editItem)"
           class="w-full h-11 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 active:bg-red-100 flex items-center justify-center gap-2 transition-colors"
-          hx-delete=""
-          :hx-vals="JSON.stringify({ order_id: orderId, item_id: editItem?.id })"
-          hx-target="#order-panel"
-          hx-swap="innerHTML"
           style="touch-action:manipulation">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
     Remove

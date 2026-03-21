@@ -628,7 +628,7 @@ def edit_time_entry(
         return None
 
     updates["updated_at"] = now
-    updates["edited_by"] = edited_by
+    updates["notes"] = f"Edited by {edited_by} at {now}"
 
     resp = (
         supabase_client.table("time_entries")

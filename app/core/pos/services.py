@@ -8,7 +8,7 @@ decimal serialization as strings or floats; we convert to float for calcs).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 import structlog
@@ -72,7 +72,7 @@ def create_order(
 
     # Get next sequential order number for this location today
     num_resp = supabase_client.rpc(
-        "next_order_number", {"p_location_id": location_id}
+        "next_order_number", {"p_location_id": location_id, "p_date": str(date.today())}
     ).execute()
     order_number = num_resp.data if isinstance(num_resp.data, int) else 1
 
@@ -142,7 +142,7 @@ def get_orders(
         .select("*, order_items(id, name, quantity, unit_price, line_total, is_voided, is_comped)", count="exact")
         .eq("org_id", org_id)
         .eq("location_id", location_id)
-        .is_("deleted_at", "null")  # soft-delete guard if applicable
+        # Note: orders table has no deleted_at column
     )
 
     if filters.get("status"):
@@ -761,7 +761,7 @@ def split_order(
 
         # Create a new order (child check) with same base data
         num_resp = supabase_client.rpc(
-            "next_order_number", {"p_location_id": order["location_id"]}
+            "next_order_number", {"p_location_id": order["location_id"], "p_date": str(date.today())}
         ).execute()
         order_number = num_resp.data if isinstance(num_resp.data, int) else 1
 

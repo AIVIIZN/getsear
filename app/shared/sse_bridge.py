@@ -49,6 +49,8 @@ def _on_order_updated(event_name: str, data: dict[str, Any]) -> None:
         return
     channel = build_channel(CHANNEL_ORDERS, location_id)
     publish_event(channel, "order.updated", data)
+    channel_kds = build_channel(CHANNEL_KDS, location_id)
+    publish_event(channel_kds, "ticket.update", data)
 
 
 def _on_order_voided(event_name: str, data: dict[str, Any]) -> None:
@@ -74,7 +76,7 @@ def _on_order_course_fired(event_name: str, data: dict[str, Any]) -> None:
     if not location_id:
         return
     channel_kds = build_channel(CHANNEL_KDS, location_id)
-    publish_event(channel_kds, "ticket.fire", data)
+    publish_event(channel_kds, "course.fired", data)
     channel_orders = build_channel(CHANNEL_ORDERS, location_id)
     publish_event(channel_orders, "order.course_fired", data)
 
@@ -147,6 +149,14 @@ def _on_kds_ticket_bumped(event_name: str, data: dict[str, Any]) -> None:
     publish_event(channel, "ticket.bump", data)
 
 
+def _on_kds_tickets_bumped(event_name: str, data: dict[str, Any]) -> None:
+    location_id = _get_location_id(data)
+    if not location_id:
+        return
+    channel = build_channel(CHANNEL_KDS, location_id)
+    publish_event(channel, "ticket.bump", data)
+
+
 def _on_kds_ticket_recalled(event_name: str, data: dict[str, Any]) -> None:
     location_id = _get_location_id(data)
     if not location_id:
@@ -174,6 +184,7 @@ def register_sse_bridge() -> None:
         "menu.item_86d": _on_menu_item_86d,
         "menu.item_un86d": _on_menu_item_un86d,
         "kds.ticket_bumped": _on_kds_ticket_bumped,
+        "kds.tickets_bumped": _on_kds_tickets_bumped,
         "kds.ticket_recalled": _on_kds_ticket_recalled,
     }
 

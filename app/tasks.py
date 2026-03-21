@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import structlog
 
-from app.extensions import celery_app, supabase_client
+from app.extensions import celery_app
 
 log = structlog.get_logger(__name__)
 
@@ -19,6 +19,7 @@ log = structlog.get_logger(__name__)
 @celery_app.task(name="app.tasks.aggregate_daily_metrics")
 def aggregate_daily_metrics() -> dict:
     """Aggregate yesterday's orders/payments into daily_metrics."""
+    from app.extensions import supabase_client
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
     day_start = f"{yesterday}T00:00:00+00:00"
     day_end = f"{yesterday}T23:59:59+00:00"
@@ -30,7 +31,7 @@ def aggregate_daily_metrics() -> dict:
             .select("org_id, location_id, total, tax_total, discount_total, tip_total")
             .gte("opened_at", day_start)
             .lte("opened_at", day_end)
-            .in_("status", ["closed", "paid"])
+            .in_("status", ["closed"])
             .execute()
         )
         orders = orders_resp.data or []
@@ -77,6 +78,7 @@ def aggregate_daily_metrics() -> dict:
 @celery_app.task(name="app.tasks.cleanup_stale_sessions")
 def cleanup_stale_sessions() -> dict:
     """Mark terminals with stale heartbeats as offline."""
+    from app.extensions import supabase_client
     threshold = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
 
     try:
@@ -106,6 +108,7 @@ def sync_offline_relays() -> dict:
 @celery_app.task(name="app.tasks.check_gift_card_expiry")
 def check_gift_card_expiry() -> dict:
     """Expire gift cards past their expiration date."""
+    from app.extensions import supabase_client
     now_iso = datetime.now(timezone.utc).isoformat()
 
     try:
@@ -129,6 +132,7 @@ def check_gift_card_expiry() -> dict:
 @celery_app.task(name="app.tasks.check_low_stock")
 def check_low_stock() -> dict:
     """Check inventory items at or below reorder point and log alerts."""
+    from app.extensions import supabase_client
     try:
         resp = (
             supabase_client.table("inventory_items")
@@ -204,6 +208,7 @@ def reconciliation_daily_aggregation(org_id: str, location_id: str, business_dat
 @celery_app.task(name="tasks.reconciliation.tip_distribution_calc")
 def reconciliation_tip_distribution_calc(org_id: str, location_id: str, business_date: str) -> dict:
     """Calculate tip distribution for the business day."""
+    from app.extensions import supabase_client
     log.info(
         "tasks.reconciliation.tip_distribution_calc",
         org_id=org_id,

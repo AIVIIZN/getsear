@@ -400,7 +400,7 @@ class RefundManager:
         try:
             order = (
                 supabase_client.table("orders")
-                .select("id, balance_due_cents, total_cents, status")
+                .select("id, balance_due, total, status")
                 .eq("id", order_id)
                 .eq("org_id", org_id)
                 .single()
@@ -408,12 +408,14 @@ class RefundManager:
             ).data
 
             if order:
+                balance_due_cents = int(float(order["balance_due"]) * 100)
+                total_cents = int(float(order["total"]) * 100)
                 new_balance = min(
-                    order["balance_due_cents"] + amount_cents,
-                    order["total_cents"],
+                    balance_due_cents + amount_cents,
+                    total_cents,
                 )
                 update_data: dict = {
-                    "balance_due_cents": new_balance,
+                    "balance_due": new_balance / 100,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
                 if order["status"] == "closed":
@@ -437,17 +439,18 @@ class RefundManager:
     ) -> None:
         record = {
             "id": str(uuid4()),
-            "payment_id": payment_id,
             "org_id": org_id,
             "order_id": order_id,
-            "action": action,
-            "amount_cents": amount_cents,
-            "performed_by": user_id,
-            "reason": reason or "",
+            "processor_name": "valor",
+            "authorized_amount_cents": amount_cents,
+            "payment_method": "card",
+            "status": action,
+            "server_id": user_id or None,
             "created_at": datetime.now(timezone.utc).isoformat(),
+            "metadata": {"reason": reason or ""},
         }
         if extra:
-            record["metadata"] = extra
+            record["metadata"].update(extra)
 
         try:
             supabase_client.table("payment_transactions").insert(record).execute()

@@ -478,9 +478,9 @@ function orderEntry() {
       }
 
       try {
-        this._sseSource = new EventSource('/api/v1/sse/orders');
+        this._sseSource = new EventSource('/api/v1/events/orders');
 
-        this._sseSource.addEventListener('order_update', (event) => {
+        this._sseSource.addEventListener('order.new', (event) => {
           try {
             const data = JSON.parse(event.data);
             if (data.order_id === this.orderId) {
@@ -491,7 +491,18 @@ function orderEntry() {
           }
         });
 
-        this._sseSource.addEventListener('item_86', (event) => {
+        this._sseSource.addEventListener('order.updated', (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.order_id === this.orderId) {
+              this.refreshOrderPanel();
+            }
+          } catch (e) {
+            console.error('SSE parse error:', e);
+          }
+        });
+
+        this._sseSource.addEventListener('item.86d', (event) => {
           try {
             const data = JSON.parse(event.data);
             window.showToast('warning', `${data.item_name} has been 86'd`);

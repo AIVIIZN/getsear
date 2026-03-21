@@ -12,7 +12,7 @@
  * displayValue formats as dollars (e.g., "0.00", "123.45").
  */
 
-export function numpad() {
+function numpad() {
   return {
     // Internal raw string of digits (no decimal point — cents)
     _raw: '',
@@ -76,36 +76,16 @@ export function numpad() {
      * Returns array of { value (cents), label (string) }.
      */
     get quickAmounts() {
-      const due = this.$data?.balanceDue || 0;
-      if (due <= 0) return [];
-
-      const amounts = [];
-      const roundUps = [500, 1000, 2000, 5000, 10000]; // $5, $10, $20, $50, $100
-
-      for (const amt of roundUps) {
-        if (amt >= due && amounts.length < 3) {
-          amounts.push({
-            value: amt,
-            label: '$' + (amt / 100).toFixed(0)
-          });
-        }
-      }
-
-      // If due is above $100, add next round-up
-      if (due > 10000) {
-        const nextRound = Math.ceil(due / 2000) * 2000;
-        amounts.push({
-          value: nextRound,
-          label: '$' + (nextRound / 100).toFixed(0)
-        });
-      }
-
-      return amounts;
+      return [
+        { value: 2000, label: '$20' },
+        { value: 5000, label: '$50' },
+        { value: 10000, label: '$100' },
+      ];
     }
   };
 }
 
-// Register as Alpine data if Alpine is available at load time
-if (typeof Alpine !== 'undefined') {
+// Register as Alpine data when Alpine initializes
+document.addEventListener('alpine:init', () => {
   Alpine.data('numpad', numpad);
-}
+});

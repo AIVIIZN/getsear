@@ -247,7 +247,7 @@ class ReconciliationEngine:
         # --- Cash tips reported (from time_entries for this date/location) ---
         time_resp = (
             supabase_client.table("time_entries")
-            .select("cash_tips, auto_gratuity")
+            .select("cash_tips")
             .eq("org_id", org_id)
             .eq("location_id", location_id)
             .gte("clock_in", day_start)
@@ -257,8 +257,23 @@ class ReconciliationEngine:
         for entry in (time_resp.data or []):
             cash_tips = entry.get("cash_tips") or 0
             recon.cash_tips_reported_cents += int(round(float(cash_tips) * 100))
-            auto_grat = entry.get("auto_gratuity") or 0
-            recon.auto_gratuity_cents += int(round(float(auto_grat) * 100))
+
+        # --- Auto-gratuity from tip_distributions (time_entries has no auto_gratuity column) ---
+        try:
+            tip_dist_resp = (
+                supabase_client.table("tip_distributions")
+                .select("auto_gratuity_amount")
+                .eq("org_id", org_id)
+                .eq("location_id", location_id)
+                .gte("created_at", day_start)
+                .lt("created_at", day_end)
+                .execute()
+            )
+            for td in (tip_dist_resp.data or []):
+                auto_grat = td.get("auto_gratuity_amount") or 0
+                recon.auto_gratuity_cents += int(round(float(auto_grat) * 100))
+        except Exception:
+            log.exception("reconciliation.tip_dist_query_failed")
 
         # --- Cash drawer expected ---
         # Cash expected = cash payments received - cash back given (change)

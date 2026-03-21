@@ -263,7 +263,9 @@
               <p class="text-xs text-gray-500" x-text="check.seat_label || ''"></p>
               <p class="text-lg font-bold text-blue-700 mt-1" x-text="formatMoney(check.total)"></p>
             </div>
-            <div class="flex-1 overflow-y-auto p-2 space-y-1" :id="'split-column-' + idx">
+            <div class="flex-1 overflow-y-auto p-2 space-y-1" :id="'split-column-' + idx"
+                 @dragover.prevent="onDragOver($event, idx)"
+                 @drop.prevent="onDrop($event, idx)">
               <template x-for="item in check.items" :key="item.id">
                 <div class="bg-white rounded-lg px-2 py-1.5 text-xs flex items-center gap-1 cursor-grab active:cursor-grabbing shadow-sm border border-gray-100"
                      draggable="true"

@@ -84,19 +84,22 @@ class BarTabManager:
             "order_id": order_id,
             "payment_method": "card",
             "status": TransactionStatus.AUTHORIZED.value,
-            "amount_cents": effective_hold,
-            "tip_cents": 0,
-            "total_cents": effective_hold,
+            "amount": effective_hold / 100,
+            "tip_amount": 0,
+            "total_amount": effective_hold / 100,
             "processor_transaction_id": auth_result.transaction_id,
             "auth_code": auth_result.auth_code,
             "card_brand": auth_result.card_info.brand.value if auth_result.card_info else None,
             "card_last_four": auth_result.card_info.last_four if auth_result.card_info else None,
-            "card_entry_mode": auth_result.card_info.entry_mode.value if auth_result.card_info else None,
-            "card_token": auth_result.card_info.token if auth_result.card_info else None,
-            "terminal_id": terminal_id,
-            "is_bar_tab": True,
-            "bar_tab_running_total_cents": 0,
-            "created_by": user_id,
+            "processed_by": user_id,
+            "processed_at": now_iso,
+            "processor_response": {
+                "is_bar_tab": True,
+                "bar_tab_running_total_cents": 0,
+                "terminal_id": terminal_id,
+                "card_entry_mode": auth_result.card_info.entry_mode.value if auth_result.card_info else None,
+                "card_token": auth_result.card_info.token if auth_result.card_info else None,
+            },
             "created_at": now_iso,
         }
 
@@ -110,8 +113,7 @@ class BarTabManager:
         try:
             supabase_client.table("orders").update({
                 "order_type": "bar",
-                "is_bar_tab": True,
-                "bar_tab_payment_id": payment_id,
+                "metadata": {"is_bar_tab": True, "bar_tab_payment_id": payment_id},
                 "updated_at": now_iso,
             }).eq("id", order_id).eq("org_id", org_id).execute()
         except Exception:
@@ -227,14 +229,17 @@ class BarTabManager:
                     "over_by_cents": estimated_final - auth_amount,
                 })
 
-        # Update running total and auth amount on payment record
+        # Update running total and auth amount on payment record (store in metadata)
         try:
-            update_data = {
-                "bar_tab_running_total_cents": new_running,
+            meta = tab_payment.get("processor_response") or {}
+            meta["bar_tab_running_total_cents"] = new_running
+            update_data: dict = {
+                "processor_response": meta,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             if auth_increased:
-                update_data["amount_cents"] = new_auth_amount
+                update_data["amount"] = new_auth_amount / 100
+                update_data["total_amount"] = new_auth_amount / 100
             supabase_client.table("payments").update(update_data).eq("id", tab_payment["id"]).execute()
         except Exception:
             log.exception("bar_tab.update_running_total_failed", order_id=order_id)
@@ -296,10 +301,9 @@ class BarTabManager:
         try:
             supabase_client.table("payments").update({
                 "status": TransactionStatus.CAPTURED.value,
-                "amount_cents": capture_amount_cents,
-                "tip_cents": tip_cents,
-                "total_cents": total_charged_cents,
-                "captured_at": now_iso,
+                "amount": capture_amount_cents / 100,
+                "tip_amount": tip_cents / 100,
+                "total_amount": total_charged_cents / 100,
                 "updated_at": now_iso,
             }).eq("id", tab_payment["id"]).execute()
         except Exception:
@@ -397,15 +401,16 @@ class BarTabManager:
         now_iso = datetime.now(timezone.utc).isoformat()
 
         try:
+            meta = tab_payment.get("processor_response") or {}
+            meta["is_walkout"] = True
+            meta["auto_gratuity_cents"] = auto_grat_cents
+            meta["auto_gratuity_is_service_charge"] = True
             supabase_client.table("payments").update({
                 "status": TransactionStatus.CAPTURED.value,
-                "amount_cents": subtotal_plus_tax,
-                "tip_cents": auto_grat_cents,
-                "total_cents": total_capture,
-                "is_walkout": True,
-                "auto_gratuity_cents": auto_grat_cents,
-                "auto_gratuity_is_service_charge": True,
-                "captured_at": now_iso,
+                "amount": subtotal_plus_tax / 100,
+                "tip_amount": auto_grat_cents / 100,
+                "total_amount": total_capture / 100,
+                "processor_response": meta,
                 "updated_at": now_iso,
             }).eq("id", tab_payment["id"]).execute()
         except Exception:
@@ -417,8 +422,8 @@ class BarTabManager:
         try:
             supabase_client.table("orders").update({
                 "status": "closed",
-                "balance_due_cents": 0,
-                "is_walkout": True,
+                "balance_due": 0,
+                "metadata": {"is_walkout": True, "auto_gratuity_cents": auto_grat_cents, "auto_gratuity_is_service_charge": True},
                 "closed_at": now_iso,
                 "updated_at": now_iso,
             }).eq("id", order_id).eq("org_id", org_id).execute()
@@ -542,13 +547,19 @@ class BarTabManager:
         try:
             resp = (
                 supabase_client.table("orders")
-                .select("id, org_id, status, subtotal_cents, tax_cents, total_cents, balance_due_cents")
+                .select("id, org_id, status, subtotal, tax_total, total, balance_due")
                 .eq("id", order_id)
                 .eq("org_id", org_id)
                 .single()
                 .execute()
             )
-            return resp.data
+            row = resp.data
+            if row:
+                row["balance_due_cents"] = int(float(row["balance_due"]) * 100)
+                row["total_cents"] = int(float(row["total"]) * 100)
+                row["subtotal_cents"] = int(float(row["subtotal"]) * 100)
+                row["tax_cents"] = int(float(row["tax_total"]) * 100)
+            return row
         except Exception:
             log.exception("bar_tab.get_order_failed", order_id=order_id)
             return None
@@ -560,13 +571,24 @@ class BarTabManager:
                 .select("*")
                 .eq("order_id", order_id)
                 .eq("org_id", org_id)
-                .eq("is_bar_tab", True)
                 .eq("status", TransactionStatus.AUTHORIZED.value)
                 .order("created_at", desc=True)
                 .limit(1)
                 .execute()
             )
-            return resp.data[0] if resp.data else None
+            # Filter for bar tab payments via metadata
+            for row in (resp.data or []):
+                meta = row.get("processor_response") or {}
+                if meta.get("is_bar_tab"):
+                    row["amount_cents"] = int(float(row.get("amount", 0)) * 100)
+                    row["bar_tab_running_total_cents"] = meta.get("bar_tab_running_total_cents", 0)
+                    row["card_token"] = meta.get("card_token")
+                    return row
+            if resp.data:
+                row = resp.data[0]
+                row["amount_cents"] = int(float(row.get("amount", 0)) * 100)
+                return row
+            return None
         except Exception:
             log.exception("bar_tab.get_tab_payment_failed", order_id=order_id)
             return None
@@ -575,14 +597,22 @@ class BarTabManager:
         try:
             resp = (
                 supabase_client.table("payments")
-                .select("id, order_id, processor_transaction_id, amount_cents, bar_tab_running_total_cents, card_token, status, created_at")
+                .select("id, order_id, processor_transaction_id, amount, processor_response, status, created_at")
                 .eq("org_id", org_id)
-                .eq("is_bar_tab", True)
                 .eq("status", TransactionStatus.AUTHORIZED.value)
                 .lt("created_at", cutoff.isoformat())
                 .execute()
             )
-            return resp.data or []
+            # Filter for bar tab payments via metadata
+            tabs = []
+            for row in (resp.data or []):
+                meta = row.get("processor_response") or {}
+                if meta.get("is_bar_tab"):
+                    row["amount_cents"] = int(float(row.get("amount", 0)) * 100)
+                    row["bar_tab_running_total_cents"] = meta.get("bar_tab_running_total_cents", 0)
+                    row["card_token"] = meta.get("card_token")
+                    tabs.append(row)
+            return tabs
         except Exception:
             log.exception("bar_tab.get_stale_tabs_failed", org_id=org_id)
             return []
@@ -599,21 +629,22 @@ class BarTabManager:
         try:
             supabase_client.table("payment_transactions").insert({
                 "id": str(uuid4()),
-                "payment_id": payment_id,
                 "org_id": org_id,
                 "order_id": order_id,
-                "action": action,
-                "amount_cents": amount_cents,
-                "performed_by": user_id,
+                "processor_name": "valor",
+                "authorized_amount_cents": amount_cents,
+                "payment_method": "card",
+                "status": action,
+                "server_id": user_id or None,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }).execute()
         except Exception:
-            log.exception("bar_tab.log_transaction_failed", payment_id=payment_id)
+            log.exception("bar_tab.log_transaction_failed")
 
     def _update_order_balance(self, order_id: str, org_id: str, new_balance_cents: int) -> None:
         try:
             supabase_client.table("orders").update({
-                "balance_due_cents": max(new_balance_cents, 0),
+                "balance_due": max(new_balance_cents, 0) / 100,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", order_id).eq("org_id", org_id).execute()
         except Exception:
