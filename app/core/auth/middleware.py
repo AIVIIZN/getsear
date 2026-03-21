@@ -87,16 +87,15 @@ def inject_security_headers(response: Response) -> Response:
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
-    # CSP — allow Supabase realtime + Valor payment iframe
-    tailwind_cdn = " https://cdn.tailwindcss.com" if current_app.debug else ""
+    # CSP — allow CDNs for htmx/Alpine/fonts, Supabase realtime, Valor iframe
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        f"script-src 'self'{tailwind_cdn}; "
+        "script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline'; "
         "frame-src https://*.valorpaytech.com; "
         "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.valorpaytech.com; "
         "img-src 'self' https://*.supabase.co data:; "
-        "style-src 'self' 'unsafe-inline'; "
-        "font-src 'self';"
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com;"
     )
 
     return response
