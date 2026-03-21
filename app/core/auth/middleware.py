@@ -90,7 +90,7 @@ def inject_security_headers(response: Response) -> Response:
     # CSP — allow CDNs for htmx/Alpine/fonts, Supabase realtime, Valor iframe
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline' 'unsafe-eval'; "
         "frame-src https://*.valorpaytech.com; "
         "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.valorpaytech.com; "
         "img-src 'self' https://*.supabase.co data:; "
