@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Alpine x-cloak elements until Alpine initializes */
+[x-cloak] { display: none !important; }
+
 /* ============================================================
    CSS Custom Properties (Design Tokens)
    ============================================================ */
@@ -144,7 +147,7 @@
     @apply btn bg-error-500 text-white
            hover:bg-error-600
            active:bg-error-700 active:scale-[0.98]
-           focus:ring-error-400;
+           focus:ring-red-400;
   }
 
   .btn-icon {

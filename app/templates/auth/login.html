@@ -11,6 +11,31 @@
        error: '',
        loading: false,
        shake: false,
+       async submit() {
+         this.loading = true;
+         this.error = '';
+         try {
+           const resp = await fetch('/api/v1/auth/login', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ email: this.email, password: this.password }),
+           });
+           const data = await resp.json();
+           if (resp.ok && data.ok && data.data && data.data.access_token) {
+             localStorage.setItem('sear_token', data.data.access_token);
+             document.cookie = 'sear_token=' + data.data.access_token + '; path=/; SameSite=Strict';
+             window.location.href = '/pos';
+           } else {
+             this.error = data.message || 'Invalid email or password';
+             this.shake = true;
+             setTimeout(() => this.shake = false, 300);
+           }
+         } catch (e) {
+           this.error = 'Connection error. Please try again.';
+         } finally {
+           this.loading = false;
+         }
+       }
      }">
 
   <div class="w-full max-w-sm">
@@ -27,46 +52,13 @@
 
     <!-- Login Card -->
     <div class="card-padded" :class="shake && 'animate-shake'">
-      <form @submit.prevent="
-              loading = true;
-              error = '';
-              htmx.ajax('POST', '/api/v1/auth/login', {
-                target: '#login-response',
-                swap: 'innerHTML',
-                values: { email: email, password: password },
-              }).then(() => {
-                loading = false;
-              }).catch(() => {
-                loading = false;
-              });
-            "
-            hx-post="/api/v1/auth/login"
-            hx-target="#login-response"
-            hx-swap="innerHTML"
-            hx-indicator=".login-spinner"
-            @htmx:after-request.window="
-              if ($event.detail.xhr.status === 200) {
-                let data = JSON.parse($event.detail.xhr.responseText);
-                if (data.access_token) {
-                  localStorage.setItem('sear_token', data.access_token);
-                  document.cookie = 'sear_token=' + data.access_token + '; path=/; SameSite=Strict';
-                  $store.auth.token = data.access_token;
-                  $store.auth.user = data.user || {};
-                  window.location.href = '/pos';
-                }
-              } else if ($event.detail.xhr.status >= 400) {
-                error = 'Invalid email or password';
-                shake = true;
-                setTimeout(() => shake = false, 300);
-              }
-            ">
+      <form @submit.prevent="submit()">
 
         <!-- Email -->
         <div class="mb-4">
           <label for="email" class="input-label">Email</label>
           <input id="email"
                  type="email"
-                 name="email"
                  x-model="email"
                  class="input-field"
                  placeholder="you@restaurant.com"
@@ -80,7 +72,6 @@
           <label for="password" class="input-label">Password</label>
           <input id="password"
                  type="password"
-                 name="password"
                  x-model="password"
                  class="input-field"
                  placeholder="Enter your password"
@@ -90,32 +81,29 @@
 
         <!-- Error message -->
         <div x-show="error"
+             x-cloak
              x-transition
              class="mb-4 p-3 bg-error-50 border border-error-200 rounded-md text-error-700 text-sm">
           <span x-text="error"></span>
         </div>
 
-        <!-- Hidden response target -->
-        <div id="login-response" class="hidden"></div>
-
         <!-- Submit -->
         <button type="submit"
-                class="btn-primary btn-md w-full"
+                class="btn-primary btn-md w-full flex items-center justify-center gap-2"
                 :disabled="!email || !password || loading">
-          <span x-show="!loading">Sign In</span>
-          <span x-show="loading" class="flex items-center gap-2">
+          <template x-if="loading">
             <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
             </svg>
-            Signing in...
-          </span>
+          </template>
+          <span x-text="loading ? 'Signing in...' : 'Sign In'"></span>
         </button>
 
       </form>
 
       <!-- Forgot Password -->
       <div class="text-center mt-4">
-        <a href="#" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+        <a href="/forgot-password" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
           Forgot Password?
         </a>
       </div>
