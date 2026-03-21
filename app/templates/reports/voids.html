@@ -1,0 +1,256 @@
+{% extends "base_backoffice.html" %}
+
+{% block title %}Voids / Comps / Discounts — Sear POS{% endblock %}
+
+{% block breadcrumb_items %}
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<a href="/reports" class="hover:text-gray-700 transition-colors">Reports</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<span class="text-gray-700 font-medium">Voids / Comps / Discounts</span>
+{% endblock %}
+
+{% block page_header %}{% endblock %}
+
+{% block page_body %}
+<div class="flex -m-6 h-[calc(100vh-var(--topbar-height)-48px)]"
+     x-data="voidsReport()"
+     x-init="fetchReport()">
+
+  {% include "reports/_reports_nav.html" %}
+
+  <div class="flex-1 overflow-y-auto p-6">
+    <!-- Top Bar: Date Range + Export -->
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+      <div class="flex-1 min-w-[400px]">
+        {% include "partials/_date_range_picker.html" %}
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="btn-secondary btn-sm gap-2" @click="exportCSV()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          Export CSV
+        </button>
+        <button class="btn-secondary btn-sm gap-2" @click="SearReports.printReport()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          Print
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-4 gap-3 mb-6">
+      <div class="card-padded">
+        <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Total Voids</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1" x-text="formatMoney(summary.totalVoids)">$0.00</p>
+      </div>
+      <div class="card-padded">
+        <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Total Comps</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1" x-text="formatMoney(summary.totalComps)">$0.00</p>
+      </div>
+      <div class="card-padded">
+        <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Total Discounts</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1" x-text="formatMoney(summary.totalDiscounts)">$0.00</p>
+      </div>
+      <div class="card-padded">
+        <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Void Rate</p>
+        <p class="text-2xl font-bold mt-1"
+           :class="summary.voidRate > (avgVoidRate * 2) ? 'text-red-600' : 'text-gray-900'"
+           x-text="summary.voidRate.toFixed(2) + '%'">0.00%</p>
+      </div>
+    </div>
+
+    <!-- Detail Table -->
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="cursor-pointer" @click="sortBy('timestamp')">
+                <span class="flex items-center gap-1">Date / Time <span x-show="sortCol === 'timestamp'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer" @click="sortBy('type')">
+                <span class="flex items-center gap-1">Type <span x-show="sortCol === 'type'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer" @click="sortBy('item_name')">
+                <span class="flex items-center gap-1">Item <span x-show="sortCol === 'item_name'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer text-right" @click="sortBy('amount')">
+                <span class="flex items-center justify-end gap-1">Amount <span x-show="sortCol === 'amount'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer" @click="sortBy('server_name')">
+                <span class="flex items-center gap-1">Server <span x-show="sortCol === 'server_name'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer" @click="sortBy('manager_name')">
+                <span class="flex items-center gap-1">Approved By <span x-show="sortCol === 'manager_name'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer" @click="sortBy('reason')">
+                <span class="flex items-center gap-1">Reason <span x-show="sortCol === 'reason'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="row in sortedItems" :key="row.id">
+              <tr :class="isHighVoidRow(row) ? 'bg-red-50' : ''">
+                <td class="whitespace-nowrap" x-text="formatDateTime(row.timestamp)"></td>
+                <td>
+                  <span class="badge"
+                        :class="{
+                          'bg-red-100 text-red-700': row.type === 'void',
+                          'bg-amber-100 text-amber-700': row.type === 'comp',
+                          'bg-blue-100 text-blue-700': row.type === 'discount',
+                        }"
+                        x-text="row.type.charAt(0).toUpperCase() + row.type.slice(1)">
+                  </span>
+                </td>
+                <td class="font-medium" x-text="row.item_name"></td>
+                <td class="text-right font-medium" x-text="formatMoney(row.amount)"></td>
+                <td x-text="row.server_name"></td>
+                <td x-text="row.manager_name || '-'"></td>
+                <td class="text-gray-500 max-w-[200px] truncate" x-text="row.reason || '-'"></td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot x-show="items.length > 0">
+            <tr class="bg-gray-50 font-semibold">
+              <td>Totals</td>
+              <td></td>
+              <td></td>
+              <td class="text-right" x-text="formatMoney(summary.totalVoids + summary.totalComps + summary.totalDiscounts)"></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div x-show="items.length === 0 && !loading" class="py-12 text-center text-gray-500">
+          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <p class="text-sm">No voids, comps, or discounts found for this date range.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- High void rate alert -->
+    <template x-if="summary.voidRate > (avgVoidRate * 2) && avgVoidRate > 0">
+      <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div class="flex items-center gap-2 text-red-700 text-sm font-medium">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.072 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+          </svg>
+          <span>Void rate is more than 2x the historical average</span>
+        </div>
+        <p class="text-red-600 text-sm mt-1">
+          Current void rate (<span x-text="summary.voidRate.toFixed(2)"></span>%) exceeds 2x the average (<span x-text="avgVoidRate.toFixed(2)"></span>%).
+          Review flagged rows above for potential issues.
+        </p>
+      </div>
+    </template>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('voidsReport', () => ({
+    activeReport: 'voids',
+    dateRange: initDateRange(),
+    loading: false,
+    sortCol: 'timestamp',
+    sortDir: 'desc',
+    items: [],
+    avgVoidRate: 0,
+    summary: {
+      totalVoids: 0,
+      totalComps: 0,
+      totalDiscounts: 0,
+      voidRate: 0,
+    },
+
+    selectPreset,
+
+    formatMoney(cents) {
+      return '$' + ((cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+
+    formatDateTime(ts) {
+      if (!ts) return '-';
+      const d = new Date(ts);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+             d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    },
+
+    sortBy(col) {
+      if (this.sortCol === col) {
+        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortCol = col;
+        this.sortDir = col === 'timestamp' ? 'desc' : 'asc';
+      }
+    },
+
+    get sortedItems() {
+      const arr = [...this.items];
+      if (!this.sortCol) return arr;
+      return arr.sort((a, b) => {
+        let va = a[this.sortCol], vb = b[this.sortCol];
+        if (typeof va === 'string') va = va.toLowerCase();
+        if (typeof vb === 'string') vb = vb.toLowerCase();
+        if (va < vb) return this.sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return this.sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    },
+
+    isHighVoidRow(row) {
+      return row.type === 'void' && this.avgVoidRate > 0 && this.summary.voidRate > this.avgVoidRate * 2;
+    },
+
+    async fetchReport() {
+      this.loading = true;
+      const params = new URLSearchParams({
+        start_date: this.dateRange.startDate,
+        end_date: this.dateRange.endDate,
+      });
+
+      try {
+        const resp = await fetch(`/api/v1/reports/discount-summary?${params}`);
+        const json = await resp.json();
+        if (json.status === 'success' && json.data) {
+          const d = json.data;
+          this.summary.totalVoids = d.total_voids || 0;
+          this.summary.totalComps = d.total_comps || 0;
+          this.summary.totalDiscounts = d.total_discounts || 0;
+          this.summary.voidRate = d.void_rate || 0;
+          this.avgVoidRate = d.avg_void_rate || 0;
+          this.items = (d.items || []).map(item => ({
+            id: item.id || crypto.randomUUID(),
+            timestamp: item.timestamp || item.created_at || '',
+            type: item.type || item.modification_type || 'void',
+            item_name: item.item_name || item.description || '',
+            amount: item.amount || 0,
+            server_name: item.server_name || item.server || '',
+            manager_name: item.manager_name || item.approved_by || '',
+            reason: item.reason || '',
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch voids report', err);
+        Alpine.store('toasts').add('Failed to load voids report', 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    exportCSV() {
+      SearReports.exportCSV('/api/v1/reports/export', {
+        report_type: 'voids',
+        start_date: this.dateRange.startDate,
+        end_date: this.dateRange.endDate,
+      });
+    },
+  }));
+});
+</script>
+{% endblock %}

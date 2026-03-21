@@ -1,0 +1,592 @@
+{% extends "base_backoffice.html" %}
+
+{% block title %}Staff Management — Sear POS{% endblock %}
+
+{% block breadcrumb_items %}
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<span class="text-gray-700 font-medium">Staff</span>
+{% endblock %}
+
+{% block page_body %}
+<div x-data="staffManager()" x-init="loadStaff()">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-4">
+      <h1 class="text-xl font-bold text-gray-900">Staff</h1>
+      <!-- Tabs -->
+      <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+        <button class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                :class="activeTab === 'roster' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                @click="activeTab = 'roster'">Roster</button>
+        <button class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                :class="activeTab === 'timeclock' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                @click="activeTab = 'timeclock'; loadTimeEntries()">Time Clock</button>
+      </div>
+    </div>
+    <button class="btn-primary btn-sm gap-2" @click="addNewStaff()" x-show="activeTab === 'roster'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Add Employee
+    </button>
+  </div>
+
+  <!-- ===== ROSTER TAB ===== -->
+  <div x-show="activeTab === 'roster'" class="flex gap-6">
+    <!-- Staff Table -->
+    <div class="flex-1 card overflow-hidden" :class="detailPanel.open && 'mr-[400px]'">
+      <!-- Filters -->
+      <div class="flex items-center gap-3 p-4 border-b border-gray-200">
+        <input type="text" placeholder="Search by name..."
+               class="input-field h-9 px-3 text-sm w-[240px]"
+               x-model="searchQuery"
+               @input.debounce.300ms="filterStaff()">
+        <select class="input-field h-9 px-3 text-sm w-[140px]"
+                x-model="roleFilter"
+                @change="filterStaff()">
+          <option value="">All Roles</option>
+          <option value="manager">Manager</option>
+          <option value="server">Server</option>
+          <option value="bartender">Bartender</option>
+          <option value="host">Host</option>
+          <option value="cook">Cook</option>
+          <option value="busser">Busser</option>
+        </select>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Phone</th>
+              <th>Last Clock-In</th>
+              <th class="w-20">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="emp in filteredStaff" :key="emp.id">
+              <tr class="cursor-pointer"
+                  :class="detailPanel.staffId === emp.id ? 'bg-primary-50' : ''"
+                  @click="openDetail(emp)">
+                <td class="font-medium" x-text="emp.display_name || (emp.first_name + ' ' + emp.last_name)"></td>
+                <td>
+                  <span class="badge" :class="roleBadge(emp.role)" x-text="emp.role"></span>
+                </td>
+                <td>
+                  <span class="flex items-center gap-2">
+                    <span class="status-dot" :class="emp.is_active ? 'bg-green-500' : 'bg-gray-400'"></span>
+                    <span class="text-sm" x-text="emp.is_active ? 'Active' : 'Inactive'"></span>
+                  </span>
+                </td>
+                <td class="text-gray-500" x-text="emp.phone || '-'"></td>
+                <td class="text-gray-500 text-sm" x-text="emp.last_clock_in ? formatDateTime(emp.last_clock_in) : 'Never'"></td>
+                <td>
+                  <button class="btn-icon btn-icon-sm" @click.stop="openDetail(emp)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Detail Panel (slides in) -->
+    <div class="fixed right-0 top-0 bottom-0 w-[400px] bg-white border-l border-gray-200 shadow-xl z-40 overflow-y-auto transition-transform duration-200"
+         :class="detailPanel.open ? 'translate-x-0' : 'translate-x-full'">
+      <template x-if="detailPanel.open">
+        <div class="p-6">
+          <!-- Header -->
+          <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+              <!-- Avatar -->
+              <div class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xl"
+                   x-text="(detailForm.first_name || 'N').charAt(0) + (detailForm.last_name || 'N').charAt(0)"></div>
+              <div>
+                <h2 class="text-lg font-bold text-gray-900" x-text="detailForm.first_name + ' ' + detailForm.last_name"></h2>
+                <span class="badge" :class="roleBadge(detailForm.role)" x-text="detailForm.role"></span>
+              </div>
+            </div>
+            <button class="btn-icon btn-icon-sm" @click="detailPanel.open = false">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="space-y-5">
+            <!-- Names -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="input-label">First Name</label>
+                <input type="text" class="input-field" x-model="detailForm.first_name">
+              </div>
+              <div>
+                <label class="input-label">Last Name</label>
+                <input type="text" class="input-field" x-model="detailForm.last_name">
+              </div>
+            </div>
+
+            <!-- Role -->
+            <div>
+              <label class="input-label">Role</label>
+              <select class="input-field" x-model="detailForm.role">
+                <option value="manager">Manager</option>
+                <option value="server">Server</option>
+                <option value="bartender">Bartender</option>
+                <option value="host">Host</option>
+                <option value="cook">Cook</option>
+                <option value="busser">Busser</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+
+            <!-- PIN -->
+            <div>
+              <label class="input-label">PIN</label>
+              <div class="flex items-center gap-2">
+                <input :type="showPin ? 'text' : 'password'"
+                       class="input-field w-[140px] tracking-[0.3em] text-center"
+                       x-model="detailForm.pin"
+                       maxlength="6"
+                       placeholder="****">
+                <button class="btn-ghost btn-sm" @click="showPin = !showPin"
+                        x-text="showPin ? 'Hide' : 'Show'"></button>
+              </div>
+            </div>
+
+            <!-- Phone / Email -->
+            <div>
+              <label class="input-label">Phone</label>
+              <input type="tel" class="input-field" x-model="detailForm.phone" placeholder="(555) 123-4567">
+            </div>
+            <div>
+              <label class="input-label">Email</label>
+              <input type="email" class="input-field" x-model="detailForm.email" placeholder="john@example.com">
+            </div>
+
+            <!-- Pay Rate -->
+            <div>
+              <label class="input-label">Pay Rate</label>
+              <div class="flex items-center gap-2">
+                <div class="relative flex-1">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                  <input type="text" class="input-field pl-7" x-model="detailForm.pay_rate_display"
+                         @blur="detailForm.pay_rate = Math.round(parseFloat(detailForm.pay_rate_display || 0) * 100); detailForm.pay_rate_display = (detailForm.pay_rate / 100).toFixed(2)">
+                </div>
+                <select class="input-field w-[120px]" x-model="detailForm.pay_type">
+                  <option value="hourly">Hourly</option>
+                  <option value="salary">Salary</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Location Checkboxes -->
+            <div>
+              <label class="input-label">Locations</label>
+              <div class="space-y-2 mt-1">
+                <template x-for="loc in locations" :key="loc.id">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox"
+                           class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                           :checked="detailForm.location_ids.includes(loc.id)"
+                           @change="toggleLocation(loc.id)">
+                    <span class="text-sm text-gray-700" x-text="loc.name"></span>
+                  </label>
+                </template>
+              </div>
+            </div>
+
+            <!-- Permissions -->
+            <div>
+              <label class="input-label">Permissions</label>
+              <div class="mt-2 space-y-1">
+                <template x-for="group in permissionGroups" :key="group.key">
+                  <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <button class="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            @click="group._open = !group._open">
+                      <span x-text="group.label"></span>
+                      <svg class="w-4 h-4 text-gray-400 transition-transform" :class="group._open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                      </svg>
+                    </button>
+                    <div x-show="group._open" x-cloak class="px-4 pb-3 space-y-2">
+                      <template x-for="perm in group.permissions" :key="perm.key">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox"
+                                 class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                 :checked="detailForm.permissions.includes(perm.key)"
+                                 @change="togglePermission(perm.key)">
+                          <span class="text-sm text-gray-600" x-text="perm.label"></span>
+                          <template x-if="perm.manager_only">
+                            <span class="text-[10px] text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded">MGR</span>
+                          </template>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3 pt-4 border-t border-gray-200">
+              <button class="btn-primary btn-sm flex-1" @click="saveStaff()">Save</button>
+              <template x-if="detailPanel.staffId">
+                <button class="btn-danger btn-sm" @click="deactivateStaff()">Deactivate</button>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ===== TIME CLOCK TAB ===== -->
+  <div x-show="activeTab === 'timeclock'" x-cloak>
+    <!-- Controls -->
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+      <div class="flex items-center gap-4">
+        {% include "partials/_date_range_picker.html" %}
+      </div>
+      <div class="flex items-center gap-2">
+        <select class="input-field h-9 px-3 text-sm w-[180px]"
+                x-model="timeClockEmployee"
+                @change="loadTimeEntries()">
+          <option value="">All Employees</option>
+          <template x-for="emp in staff" :key="emp.id">
+            <option :value="emp.id" x-text="emp.display_name || (emp.first_name + ' ' + emp.last_name)"></option>
+          </template>
+        </select>
+        <button class="btn-secondary btn-sm gap-2" @click="exportTimeClock()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          Export CSV
+        </button>
+        <button class="btn-secondary btn-sm gap-2" @click="SearReports.printReport()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          Print
+        </button>
+      </div>
+    </div>
+
+    <!-- Time Clock Table -->
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Date</th>
+              <th>Clock In</th>
+              <th>Clock Out</th>
+              <th class="text-right">Hours</th>
+              <th class="text-right">Overtime</th>
+              <th class="text-right">Break</th>
+              <th class="text-right">Tips</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="entry in timeEntries" :key="entry.id">
+              <tr :class="{
+                    'bg-amber-50': entry.overtime > 0,
+                    'bg-red-50': !entry.clock_out,
+                  }">
+                <td class="font-medium" x-text="entry.employee_name"></td>
+                <td x-text="entry.date"></td>
+                <td x-text="entry.clock_in_time"></td>
+                <td>
+                  <template x-if="entry.clock_out">
+                    <span x-text="entry.clock_out_time"></span>
+                  </template>
+                  <template x-if="!entry.clock_out">
+                    <span class="flex items-center gap-1 text-red-600 font-medium">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                      Missing punch
+                    </span>
+                  </template>
+                </td>
+                <td class="text-right" x-text="entry.hours ? entry.hours.toFixed(2) : '-'"></td>
+                <td class="text-right" :class="entry.overtime > 0 ? 'text-amber-600 font-semibold' : ''"
+                    x-text="entry.overtime ? entry.overtime.toFixed(2) : '-'"></td>
+                <td class="text-right" x-text="entry.break_time ? entry.break_time.toFixed(2) + 'h' : '-'"></td>
+                <td class="text-right" x-text="entry.tips ? '$' + (entry.tips / 100).toFixed(2) : '-'"></td>
+              </tr>
+            </template>
+          </tbody>
+          <!-- Totals -->
+          <tfoot>
+            <tr class="bg-gray-50 font-semibold">
+              <td colspan="4">Total</td>
+              <td class="text-right" x-text="timeClockTotals.hours.toFixed(2)"></td>
+              <td class="text-right" :class="timeClockTotals.overtime > 0 ? 'text-amber-600' : ''"
+                  x-text="timeClockTotals.overtime.toFixed(2)"></td>
+              <td class="text-right" x-text="timeClockTotals.breaks.toFixed(2) + 'h'"></td>
+              <td class="text-right" x-text="'$' + (timeClockTotals.tips / 100).toFixed(2)"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+<script src="{{ url_for('static', filename='js/backoffice.js') }}"></script>
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('staffManager', () => ({
+    activeTab: 'roster',
+    staff: [],
+    filteredStaff: [],
+    searchQuery: '',
+    roleFilter: '',
+    showPin: false,
+    locations: [],
+    dateRange: initDateRange(),
+    timeClockEmployee: '',
+    timeEntries: [],
+
+    detailPanel: { open: false, staffId: null },
+    detailForm: {},
+
+    permissionGroups: [
+      { key: 'orders', label: 'Orders', _open: false, permissions: [
+        { key: 'orders.create', label: 'Create orders' },
+        { key: 'orders.modify', label: 'Modify orders' },
+        { key: 'orders.void', label: 'Void items', manager_only: true },
+        { key: 'orders.discount', label: 'Apply discounts', manager_only: true },
+      ]},
+      { key: 'payments', label: 'Payments', _open: false, permissions: [
+        { key: 'payments.process', label: 'Process payments' },
+        { key: 'payments.refund', label: 'Issue refunds', manager_only: true },
+        { key: 'payments.no_sale', label: 'No-sale drawer open', manager_only: true },
+      ]},
+      { key: 'reports', label: 'Reports', _open: false, permissions: [
+        { key: 'reports.view_own', label: 'View own stats' },
+        { key: 'reports.view_all', label: 'View all reports', manager_only: true },
+        { key: 'reports.export', label: 'Export reports', manager_only: true },
+      ]},
+      { key: 'menu', label: 'Menu', _open: false, permissions: [
+        { key: 'menu.view', label: 'View menu' },
+        { key: 'menu.edit', label: 'Edit menu', manager_only: true },
+        { key: 'menu.86', label: '86 items' },
+      ]},
+      { key: 'staff', label: 'Staff', _open: false, permissions: [
+        { key: 'staff.view', label: 'View staff' },
+        { key: 'staff.edit', label: 'Edit staff', manager_only: true },
+      ]},
+      { key: 'settings', label: 'Settings', _open: false, permissions: [
+        { key: 'settings.access', label: 'Access settings', manager_only: true },
+      ]},
+    ],
+
+    selectPreset,
+
+    roleBadge(role) {
+      const map = {
+        manager: 'bg-violet-100 text-violet-700',
+        server: 'bg-blue-100 text-blue-700',
+        bartender: 'bg-amber-100 text-amber-700',
+        host: 'bg-gray-100 text-gray-600',
+        cook: 'bg-orange-100 text-orange-700',
+        busser: 'bg-teal-100 text-teal-700',
+      };
+      return map[role?.toLowerCase()] || 'bg-gray-100 text-gray-600';
+    },
+
+    formatDateTime(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+             d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    },
+
+    async loadStaff() {
+      try {
+        const resp = await fetch('/api/v1/staff/');
+        const json = await resp.json();
+        if (json.status === 'success') {
+          this.staff = json.data || [];
+          this.filterStaff();
+        }
+      } catch (err) {
+        console.error('Failed to load staff', err);
+        Alpine.store('toasts').add('Failed to load staff', 'error');
+      }
+    },
+
+    filterStaff() {
+      let result = [...this.staff];
+      if (this.searchQuery) {
+        const q = this.searchQuery.toLowerCase();
+        result = result.filter(e => (e.display_name || e.first_name + ' ' + e.last_name).toLowerCase().includes(q));
+      }
+      if (this.roleFilter) {
+        result = result.filter(e => e.role === this.roleFilter);
+      }
+      this.filteredStaff = result;
+    },
+
+    openDetail(emp) {
+      this.detailPanel.staffId = emp.id;
+      this.detailPanel.open = true;
+      this.detailForm = {
+        first_name: emp.first_name || '',
+        last_name: emp.last_name || '',
+        role: emp.role || 'server',
+        pin: emp.pin || '',
+        phone: emp.phone || '',
+        email: emp.email || '',
+        pay_rate: emp.pay_rate || 0,
+        pay_rate_display: emp.pay_rate ? (emp.pay_rate / 100).toFixed(2) : '0.00',
+        pay_type: emp.pay_type || 'hourly',
+        location_ids: emp.location_ids || [],
+        permissions: emp.permissions || [],
+      };
+    },
+
+    addNewStaff() {
+      this.detailPanel.staffId = null;
+      this.detailPanel.open = true;
+      this.detailForm = {
+        first_name: '', last_name: '', role: 'server', pin: '',
+        phone: '', email: '', pay_rate: 0, pay_rate_display: '0.00',
+        pay_type: 'hourly', location_ids: [], permissions: [],
+      };
+    },
+
+    toggleLocation(locId) {
+      const idx = this.detailForm.location_ids.indexOf(locId);
+      if (idx > -1) this.detailForm.location_ids.splice(idx, 1);
+      else this.detailForm.location_ids.push(locId);
+    },
+
+    togglePermission(key) {
+      const idx = this.detailForm.permissions.indexOf(key);
+      if (idx > -1) this.detailForm.permissions.splice(idx, 1);
+      else this.detailForm.permissions.push(key);
+    },
+
+    async saveStaff() {
+      const f = this.detailForm;
+      if (!f.first_name.trim() || !f.last_name.trim()) {
+        Alpine.store('toasts').add('First and last name are required', 'error');
+        return;
+      }
+
+      const payload = {
+        first_name: f.first_name,
+        last_name: f.last_name,
+        display_name: f.first_name + ' ' + f.last_name,
+        role: f.role,
+        pin: f.pin || undefined,
+        phone: f.phone || undefined,
+        email: f.email || undefined,
+        pay_rate: f.pay_rate || undefined,
+        pay_type: f.pay_type,
+        location_ids: f.location_ids,
+        permissions: f.permissions,
+      };
+
+      try {
+        let resp;
+        if (this.detailPanel.staffId) {
+          resp = await fetch(`/api/v1/staff/${this.detailPanel.staffId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          resp = await fetch('/api/v1/staff/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Employee saved', 'success');
+          this.detailPanel.open = false;
+          this.loadStaff();
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to save employee', 'error');
+      }
+    },
+
+    async deactivateStaff() {
+      if (!confirm('Deactivate this employee? They will not be able to log in.')) return;
+      try {
+        const resp = await fetch(`/api/v1/staff/${this.detailPanel.staffId}`, { method: 'DELETE' });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Employee deactivated', 'success');
+          this.detailPanel.open = false;
+          this.loadStaff();
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to deactivate', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to deactivate employee', 'error');
+      }
+    },
+
+    async loadTimeEntries() {
+      const params = new URLSearchParams({
+        start_date: this.dateRange.startDate,
+        end_date: this.dateRange.endDate,
+      });
+      if (this.timeClockEmployee) params.set('user_id', this.timeClockEmployee);
+
+      try {
+        const resp = await fetch(`/api/v1/staff/time-entries?${params}`);
+        const json = await resp.json();
+        if (json.status === 'success') {
+          this.timeEntries = (json.data || []).map(e => ({
+            ...e,
+            employee_name: e.employee_name || e.display_name || '',
+            date: e.date || (e.clock_in ? new Date(e.clock_in).toLocaleDateString() : ''),
+            clock_in_time: e.clock_in ? new Date(e.clock_in).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '',
+            clock_out_time: e.clock_out ? new Date(e.clock_out).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null,
+            hours: e.hours || 0,
+            overtime: e.overtime || 0,
+            break_time: e.break_time || 0,
+            tips: e.tips || 0,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load time entries', err);
+        Alpine.store('toasts').add('Failed to load time entries', 'error');
+      }
+    },
+
+    get timeClockTotals() {
+      return {
+        hours: this.timeEntries.reduce((s, e) => s + (e.hours || 0), 0),
+        overtime: this.timeEntries.reduce((s, e) => s + (e.overtime || 0), 0),
+        breaks: this.timeEntries.reduce((s, e) => s + (e.break_time || 0), 0),
+        tips: this.timeEntries.reduce((s, e) => s + (e.tips || 0), 0),
+      };
+    },
+
+    async fetchReport() {
+      this.loadTimeEntries();
+    },
+
+    exportTimeClock() {
+      SearReports.exportCSV('/api/v1/reports/export', {
+        report_type: 'labor',
+        start_date: this.dateRange.startDate,
+        end_date: this.dateRange.endDate,
+        user_id: this.timeClockEmployee,
+      });
+    },
+  }));
+});
+</script>
+{% endblock %}

@@ -1,0 +1,734 @@
+{% extends "base.html" %}
+
+{% block title %}Table Management | Sear POS{% endblock %}
+
+{% block head %}
+<style>
+  /* Override base layout for collapsed sidebar mode */
+  #main-content {
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  /* Floor plan root */
+  .floor-root {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* Tab bar */
+  .floor-tabs {
+    height: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    background: white;
+    border-bottom: 1px solid #E5E7EB;
+  }
+
+  .floor-tab {
+    padding: 8px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #6B7280;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+  .floor-tab:hover { color: #374151; }
+  .floor-tab.active { color: #0F766E; border-bottom-color: #0F766E; }
+
+  .floor-tab-spacer { flex: 1; }
+
+  .floor-plan-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .floor-plan-selector:hover { background: #E5E7EB; }
+
+  .section-filter {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+  }
+  .section-chip {
+    padding: 4px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 9999px;
+    cursor: pointer;
+    border: 1px solid #E5E7EB;
+    background: white;
+    color: #374151;
+    transition: all 0.1s;
+  }
+  .section-chip:hover { background: #F3F4F6; }
+  .section-chip.active { background: #0F766E; color: white; border-color: #0F766E; }
+
+  .edit-mode-btn {
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6B7280;
+    background: white;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .edit-mode-btn:hover { background: #F3F4F6; }
+  .edit-mode-btn.active {
+    background: #F59E0B;
+    color: white;
+    border-color: #D97706;
+  }
+
+  /* Floor plan canvas */
+  .floor-canvas {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    background: #F9FAFB;
+  }
+
+  .floor-canvas.edit-mode {
+    background: #FEFCE8;
+    background-image:
+      radial-gradient(circle, #D1D5DB 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Table shapes */
+  .table-icon {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+    z-index: 5;
+  }
+  .table-icon:hover {
+    transform: scale(1.05);
+    z-index: 10;
+  }
+  .table-icon:active {
+    transform: scale(0.97);
+  }
+
+  .table-icon.dragging {
+    opacity: 0.8;
+    z-index: 20;
+    cursor: grabbing;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
+  }
+
+  /* Shape variants */
+  .table-shape-square {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+  }
+  .table-shape-rectangle {
+    width: 120px;
+    height: 80px;
+    border-radius: 8px;
+  }
+  .table-shape-round {
+    width: 80px;
+    height: 80px;
+    border-radius: 9999px;
+  }
+  .table-shape-booth {
+    width: 100px;
+    height: 60px;
+    border-radius: 16px 4px 4px 16px;
+  }
+  .table-shape-bar_seat {
+    width: 36px;
+    height: 36px;
+    border-radius: 9999px;
+  }
+
+  /* Table status colors */
+  .table-status-available {
+    background: white;
+    border: 2px solid #E5E7EB;
+  }
+  .table-status-seated {
+    background: #DBEAFE;
+    border: 2px solid #3B82F6;
+  }
+  .table-status-ordered {
+    background: #EDE9FE;
+    border: 2px solid #8B5CF6;
+  }
+  .table-status-served {
+    background: #DCFCE7;
+    border: 2px solid #22C55E;
+  }
+  .table-status-check_presented {
+    background: #FFF7ED;
+    border: 2px solid #F97316;
+  }
+  .table-status-needs_attention {
+    background: #FEE2E2;
+    border: 2px solid #EF4444;
+    animation: tablePulse 2s ease-in-out infinite;
+  }
+  .table-status-reserved {
+    background: #F3F4F6;
+    border: 2px dashed #6B7280;
+  }
+  .table-status-dirty {
+    background: #FEE2E2;
+    border: 2px solid #EF4444;
+  }
+
+  @keyframes tablePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+  }
+
+  /* Table content */
+  .table-number {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1;
+  }
+  .table-guests {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .table-time {
+    font-size: 12px;
+    color: #6B7280;
+    line-height: 1;
+    margin-top: 1px;
+  }
+
+  /* Bar seat smaller text */
+  .table-shape-bar_seat .table-number { font-size: 11px; }
+  .table-shape-bar_seat .table-guests { display: none; }
+  .table-shape-bar_seat .table-time { display: none; }
+
+  /* Server section tints */
+  .section-tint {
+    position: absolute;
+    border-radius: 12px;
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .section-label {
+    position: absolute;
+    font-size: 12px;
+    font-weight: 600;
+    color: #9CA3AF;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* Table detail popover */
+  .table-popover {
+    position: fixed;
+    width: 320px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+    border: 1px solid #E5E7EB;
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .popover-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .popover-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .popover-table-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .popover-close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #9CA3AF;
+    background: transparent;
+    border: none;
+    transition: background 0.1s;
+  }
+  .popover-close:hover { background: #F3F4F6; color: #374151; }
+
+  .popover-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 14px;
+    color: #6B7280;
+  }
+  .popover-meta .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .popover-body { padding: 12px 16px; }
+
+  .popover-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+  .popover-info-row .label {
+    color: #9CA3AF;
+    font-size: 13px;
+    min-width: 60px;
+  }
+
+  .popover-check-summary {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #F3F4F6;
+  }
+  .popover-check-item {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.5;
+  }
+  .popover-check-total {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-top: 4px;
+  }
+  .popover-check-activity {
+    font-size: 13px;
+    color: #9CA3AF;
+    margin-top: 2px;
+  }
+
+  .popover-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #F3F4F6;
+  }
+  .popover-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.1s;
+    border: 1px solid #E5E7EB;
+    background: white;
+    color: #374151;
+  }
+  .popover-action-btn:hover { background: #F9FAFB; border-color: #D1D5DB; }
+  .popover-action-btn:active { background: #F3F4F6; transform: scale(0.97); }
+  .popover-action-btn.primary {
+    background: #0F766E;
+    color: white;
+    border-color: #0F766E;
+  }
+  .popover-action-btn.primary:hover { background: #115E59; }
+
+  /* List view */
+  .floor-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .floor-list-header {
+    display: grid;
+    grid-template-columns: 70px 100px 80px 120px 120px 70px 80px 100px;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #F9FAFB;
+    border-bottom: 1px solid #E5E7EB;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .floor-list-header > div {
+    cursor: pointer;
+  }
+  .floor-list-header > div:hover { color: #374151; }
+
+  .floor-list-row {
+    display: grid;
+    grid-template-columns: 70px 100px 80px 120px 120px 70px 80px 100px;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #F3F4F6;
+    font-size: 15px;
+    color: #374151;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .floor-list-row:hover { background: #F9FAFB; }
+  .floor-list-row:active { background: #F3F4F6; }
+
+  .list-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  /* Bottom status bar */
+  .floor-statusbar {
+    height: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: #F9FAFB;
+    border-top: 1px solid #E5E7EB;
+    font-size: 14px;
+    color: #6B7280;
+  }
+  .floor-statusbar .stat {
+    font-weight: 600;
+    color: #374151;
+  }
+  .floor-statusbar .clickable {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.1s;
+  }
+  .floor-statusbar .clickable:hover { background: #E5E7EB; }
+
+  /* Popover overlay */
+  .popover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+</style>
+{% endblock %}
+
+{% block main_class %}p-0{% endblock %}
+
+{% block content %}
+<div class="floor-root"
+     x-data="floorPlan()"
+     x-init="init()">
+
+  <!-- Tab Bar -->
+  <div class="floor-tabs">
+    <div class="floor-tab"
+         :class="{ 'active': viewMode === 'floor' }"
+         @click="viewMode = 'floor'">
+      Floor Plan
+    </div>
+    <div class="floor-tab"
+         :class="{ 'active': viewMode === 'list' }"
+         @click="viewMode = 'list'">
+      List View
+    </div>
+
+    <!-- Floor plan selector -->
+    <template x-if="floorPlans.length > 1">
+      <div class="floor-plan-selector" @click="cycleFloorPlan()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span x-text="activeFloorPlan?.name || 'Main Floor'"></span>
+      </div>
+    </template>
+
+    <!-- Section filters -->
+    <div class="section-filter">
+      <div class="section-chip"
+           :class="{ 'active': !activeSection }"
+           @click="activeSection = null">
+        All
+      </div>
+      <template x-for="section in sections" :key="section.id">
+        <div class="section-chip"
+             :class="{ 'active': activeSection === section.id }"
+             @click="activeSection = activeSection === section.id ? null : section.id"
+             x-text="section.name">
+        </div>
+      </template>
+    </div>
+
+    <div class="floor-tab-spacer"></div>
+
+    <button class="edit-mode-btn"
+            :class="{ 'active': editMode }"
+            @click="editMode = !editMode">
+      <template x-if="!editMode">
+        <span>Edit Mode</span>
+      </template>
+      <template x-if="editMode">
+        <span>Done Editing</span>
+      </template>
+    </button>
+  </div>
+
+  <!-- Floor Plan View -->
+  <template x-if="viewMode === 'floor'">
+    <div class="floor-canvas"
+         :class="{ 'edit-mode': editMode }"
+         @click="selectedTable = null">
+
+      <!-- Section tints -->
+      <template x-for="section in sections" :key="'tint-' + section.id">
+        <div class="section-tint"
+             :style="{
+               left: section.x + 'px',
+               top: section.y + 'px',
+               width: section.width + 'px',
+               height: section.height + 'px',
+               background: section.color
+             }">
+        </div>
+      </template>
+
+      <!-- Tables -->
+      <template x-for="table in filteredTables" :key="table.id">
+        <div class="table-icon"
+             :class="[
+               'table-shape-' + table.shape,
+               'table-status-' + table.status,
+               table._dragging ? 'dragging' : ''
+             ]"
+             :style="{ left: table.x + 'px', top: table.y + 'px' }"
+             @click.stop="selectTable(table, $event)"
+             @touchstart.passive="editMode && startDrag(table, $event)"
+             @mousedown="editMode && startDrag(table, $event)">
+
+          <span class="table-number" x-text="table.number"></span>
+
+          <span class="table-guests"
+                x-show="table.shape !== 'bar_seat'"
+                x-text="(table.guest_count || 0) + '/' + table.capacity">
+          </span>
+
+          <span class="table-time"
+                x-show="table.status === 'seated' || table.status === 'ordered' || table.status === 'served' || table.status === 'check_presented'"
+                x-text="tableTime(table)">
+          </span>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- List View -->
+  <template x-if="viewMode === 'list'">
+    <div class="floor-list">
+      <div class="floor-list-header">
+        <div @click="sortBy('number')">Table</div>
+        <div @click="sortBy('section_name')">Section</div>
+        <div @click="sortBy('capacity')">Capacity</div>
+        <div @click="sortBy('status')">Status</div>
+        <div @click="sortBy('server_name')">Server</div>
+        <div @click="sortBy('guest_count')">Guests</div>
+        <div @click="sortBy('seated_at')">Time</div>
+        <div @click="sortBy('check_amount')">Amount</div>
+      </div>
+      <template x-for="table in sortedListTables" :key="table.id">
+        <div class="floor-list-row" @click="selectTable(table, $event)">
+          <div style="font-weight:700;" x-text="table.number"></div>
+          <div x-text="table.section_name || '--'"></div>
+          <div x-text="table.capacity"></div>
+          <div>
+            <span class="list-status-badge"
+                  :style="{ background: statusBgColor(table.status), color: statusTextColor(table.status) }"
+                  x-text="statusLabel(table.status)">
+            </span>
+          </div>
+          <div x-text="table.server_name || '--'"></div>
+          <div x-text="table.guest_count || '--'"></div>
+          <div x-text="tableTime(table) || '--'"></div>
+          <div x-text="table.check_amount ? '$' + (table.check_amount / 100).toFixed(2) : '--'"></div>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- Table Detail Popover -->
+  <template x-if="selectedTable && !editMode">
+    <div>
+      <div class="popover-backdrop" @click="selectedTable = null"></div>
+      <div class="table-popover"
+           :style="popoverPosition()">
+
+        <div class="popover-header">
+          <div class="popover-header-row">
+            <span class="popover-table-name" x-text="'Table ' + selectedTable.number"></span>
+            <button class="popover-close" @click="selectedTable = null">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="popover-meta">
+            <span class="status-badge"
+                  :style="{ background: statusBgColor(selectedTable.status), color: statusTextColor(selectedTable.status) }"
+                  x-text="statusLabel(selectedTable.status)">
+            </span>
+            <span x-show="selectedTable.seated_at"
+                  x-text="'Seated ' + tableTime(selectedTable) + ' ago'"></span>
+          </div>
+        </div>
+
+        <div class="popover-body">
+          <div class="popover-info-row" x-show="selectedTable.server_name">
+            <span class="label">Server</span>
+            <span x-text="selectedTable.server_name"></span>
+          </div>
+          <div class="popover-info-row">
+            <span class="label">Guests</span>
+            <span x-text="(selectedTable.guest_count || 0) + ' / ' + selectedTable.capacity + ' seats'"></span>
+          </div>
+
+          <!-- Check summary -->
+          <template x-if="selectedTable.check_items && selectedTable.check_items.length > 0">
+            <div class="popover-check-summary">
+              <template x-for="item in selectedTable.check_items.slice(0, 3)" :key="item.name">
+                <div class="popover-check-item" x-text="item.quantity + 'x ' + item.name"></div>
+              </template>
+              <template x-if="selectedTable.check_items.length > 3">
+                <div class="popover-check-item" style="color:#9CA3AF;"
+                     x-text="'+' + (selectedTable.check_items.length - 3) + ' more'"></div>
+              </template>
+              <div class="popover-check-total"
+                   x-show="selectedTable.check_amount"
+                   x-text="'$' + (selectedTable.check_amount / 100).toFixed(2)"></div>
+              <div class="popover-check-activity"
+                   x-show="selectedTable.last_activity"
+                   x-text="selectedTable.last_activity"></div>
+            </div>
+          </template>
+        </div>
+
+        <div class="popover-actions">
+          <button class="popover-action-btn primary"
+                  @click="tableAction('seat')"
+                  x-show="selectedTable.status === 'available' || selectedTable.status === 'reserved'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            Seat
+          </button>
+          <button class="popover-action-btn primary"
+                  @click="tableAction('view_order')"
+                  x-show="selectedTable.status !== 'available' && selectedTable.status !== 'reserved' && selectedTable.status !== 'dirty'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            View Order
+          </button>
+          <button class="popover-action-btn"
+                  @click="tableAction('transfer')"
+                  x-show="selectedTable.status !== 'available' && selectedTable.status !== 'dirty'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><path d="M21 3l-7 7"></path><polyline points="9 21 3 21 3 15"></polyline><path d="M3 21l7-7"></path></svg>
+            Transfer
+          </button>
+          <button class="popover-action-btn"
+                  @click="tableAction('move')"
+                  x-show="selectedTable.status !== 'available' && selectedTable.status !== 'dirty'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+            Move
+          </button>
+          <button class="popover-action-btn"
+                  @click="tableAction('clear')"
+                  x-show="selectedTable.status === 'dirty' || selectedTable.status === 'check_presented'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Clear
+          </button>
+          <button class="popover-action-btn"
+                  @click="tableAction('reserve')"
+                  x-show="selectedTable.status === 'available'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Reserve
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Bottom Status Bar -->
+  <div class="floor-statusbar">
+    <div class="clickable">
+      Waitlist: <span class="stat" x-text="waitlistCount + ' parties'"></span>
+    </div>
+    <div x-show="nextReservation">
+      Next Reservation: <span class="stat" x-text="nextReservation"></span>
+    </div>
+    <div>
+      <span class="stat" x-text="occupiedCount"></span> / <span x-text="totalSeats + ' seats occupied'"></span>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tables.js') }}"></script>
+{% endblock %}

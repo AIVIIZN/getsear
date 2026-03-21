@@ -1,0 +1,698 @@
+{% extends "base_fullscreen.html" %}
+
+{% block title %}KDS — {{ station_name|default('Kitchen') }} | Sear POS{% endblock %}
+{% block body_class %}bg-gray-900{% endblock %}
+
+{% block head %}
+<style>
+  /* KDS-specific base styles */
+  .kds-root {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
+  .kds-root.theme-light { background: #F3F4F6; }
+  .kds-root.theme-dark { background: #111827; }
+
+  /* Header bar */
+  .kds-header {
+    height: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 12px;
+    background: #111827;
+    border-bottom: 1px solid #374151;
+    z-index: 20;
+  }
+
+  .kds-header .station-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+  }
+
+  .kds-header .allday-summary {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0 8px;
+  }
+  .kds-header .allday-summary::-webkit-scrollbar { display: none; }
+
+  .kds-header .allday-item {
+    font-size: 15px;
+    font-weight: 500;
+    color: #D1D5DB;
+    white-space: nowrap;
+  }
+  .kds-header .allday-item .qty {
+    font-weight: 700;
+    color: white;
+  }
+
+  .kds-header-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #D1D5DB;
+    background: #374151;
+    border: 1px solid #4B5563;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s;
+  }
+  .kds-header-btn:hover { background: #4B5563; }
+  .kds-header-btn.active { background: #0F766E; border-color: #14B8A6; color: white; }
+
+  /* Ticket area */
+  .kds-tickets-area {
+    flex: 1;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 8px;
+    padding: 8px;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+  .kds-tickets-area::-webkit-scrollbar { display: none; }
+
+  /* Responsive ticket widths */
+  .kds-ticket {
+    flex: 0 0 calc((100vw - 56px) / 6);
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: background-color 0.5s ease, border-color 0.5s ease, transform 0.3s ease, opacity 0.3s ease;
+    border: 2px solid #E5E7EB;
+  }
+
+  /* Responsive: 5 tickets on 10" */
+  @media (max-width: 1180px) {
+    .kds-ticket { flex: 0 0 calc((100vw - 48px) / 5); }
+  }
+  /* 4 tickets on mini */
+  @media (max-width: 900px) {
+    .kds-ticket { flex: 0 0 calc((100vw - 40px) / 4); }
+  }
+
+  /* Ticket aging backgrounds */
+  .kds-ticket.age-fresh { background: #FFFFFF; border-color: #E5E7EB; }
+  .kds-ticket.age-warning { background: #FFFBEB; border-color: #FCD34D; }
+  .kds-ticket.age-late { background: #FEF2F2; border-color: #FCA5A5; }
+  .kds-ticket.age-critical {
+    background: #FEE2E2;
+    border-color: #EF4444;
+  }
+  .kds-ticket.age-critical .ticket-header { background: #EF4444 !important; }
+  .kds-ticket.age-critical .ticket-header * { color: white !important; }
+
+  @keyframes ticketPulse {
+    0%, 100% { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    50% { box-shadow: 0 4px 20px rgba(239,68,68,0.4); }
+  }
+  .kds-ticket.age-critical { animation: ticketPulse 2s ease-in-out infinite; }
+
+  /* Bump-out animation */
+  .kds-ticket.bumping {
+    transform: translateY(-100%);
+    opacity: 0;
+    transition: transform 0.3s ease-in, opacity 0.3s ease-in;
+  }
+
+  /* Ticket header */
+  .ticket-header {
+    padding: 8px 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    border-bottom: 1px solid #E5E7EB;
+    min-height: 48px;
+    background: #F9FAFB;
+  }
+
+  .ticket-order-num {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .ticket-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .ticket-type-badge.dine-in { background: #DBEAFE; color: #1D4ED8; }
+  .ticket-type-badge.takeout { background: #FEF3C7; color: #B45309; }
+  .ticket-type-badge.delivery { background: #EDE9FE; color: #6D28D9; }
+
+  .ticket-server {
+    font-size: 13px;
+    color: #6B7280;
+    flex-basis: 100%;
+  }
+
+  .ticket-timer {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    margin-left: auto;
+    position: absolute;
+    right: 10px;
+    top: 8px;
+  }
+  .ticket-timer.timer-late { color: #EF4444; }
+
+  .ticket-header { position: relative; }
+
+  /* Rush banner */
+  .rush-banner {
+    background: #EF4444;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 0;
+    letter-spacing: 0.1em;
+  }
+
+  /* Items area */
+  .ticket-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px;
+    scrollbar-width: thin;
+  }
+  .ticket-items::-webkit-scrollbar { width: 3px; }
+  .ticket-items::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+
+  .ticket-item-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.3;
+  }
+
+  .ticket-item-modifier {
+    font-size: 16px;
+    font-weight: 400;
+    color: #374151;
+    padding-left: 16px;
+    line-height: 1.3;
+  }
+
+  .ticket-item-removal {
+    font-size: 16px;
+    font-weight: 700;
+    color: #DC2626;
+    padding-left: 16px;
+    line-height: 1.3;
+  }
+
+  .ticket-item-instruction {
+    font-size: 16px;
+    font-weight: 500;
+    color: #B45309;
+    background: #FFFBEB;
+    padding: 4px 10px;
+    margin: 4px -10px;
+    line-height: 1.3;
+  }
+
+  .ticket-allergen {
+    background: #EF4444;
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 8px 12px;
+    margin: 6px -10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ticket-course-divider {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6B7280;
+    text-align: center;
+    padding: 6px 0;
+    border-top: 2px solid #D1D5DB;
+    border-bottom: 2px solid #D1D5DB;
+    margin: 8px 0;
+    letter-spacing: 0.05em;
+  }
+
+  .ticket-course-fire-btn {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    margin: 4px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    background: #0F766E;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.1s;
+  }
+  .ticket-course-fire-btn:hover { background: #115E59; }
+
+  .course-hold-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #6B7280;
+    color: white;
+    margin-left: 6px;
+  }
+  .course-fire-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #EF4444;
+    color: white;
+    margin-left: 6px;
+  }
+
+  /* Bump button */
+  .ticket-bump-btn {
+    height: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    background: #22C55E;
+    border: none;
+    cursor: pointer;
+    transition: background 0.1s;
+    letter-spacing: 0.05em;
+  }
+  .ticket-bump-btn:hover { background: #16A34A; }
+  .ticket-bump-btn:active { background: #15803D; }
+  .ticket-bump-btn:disabled {
+    background: #9CA3AF;
+    cursor: not-allowed;
+  }
+
+  /* All-Day panel (right overlay) */
+  .allday-panel {
+    position: fixed;
+    top: 48px;
+    right: 0;
+    bottom: 0;
+    width: 360px;
+    background: white;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.2);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s ease-out;
+  }
+  .allday-panel.open { transform: translateX(0); }
+
+  .allday-panel-header {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid #E5E7EB;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .allday-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .allday-row {
+    display: grid;
+    grid-template-columns: 1fr 48px 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid #F3F4F6;
+    font-size: 16px;
+  }
+  .allday-row .item-name { font-weight: 600; color: #111827; }
+  .allday-row .item-count {
+    font-weight: 700;
+    color: #0F766E;
+    text-align: center;
+    font-size: 20px;
+  }
+  .allday-row .item-mods { font-size: 14px; color: #6B7280; }
+
+  /* Recall panel (bottom sheet) */
+  .recall-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 40vh;
+    background: white;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+    border-radius: 16px 16px 0 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.25s ease-out;
+  }
+  .recall-panel.open { transform: translateY(0); }
+
+  .recall-panel-header {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid #E5E7EB;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .recall-panel-body {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    scrollbar-width: none;
+  }
+  .recall-panel-body::-webkit-scrollbar { display: none; }
+
+  .recall-ticket-card {
+    flex: 0 0 180px;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  .recall-ticket-card:hover {
+    background: #EFF6FF;
+    border-color: #3B82F6;
+  }
+  .recall-ticket-card .recall-order {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .recall-ticket-card .recall-time {
+    font-size: 13px;
+    color: #6B7280;
+    margin-top: 2px;
+  }
+  .recall-ticket-card .recall-items {
+    font-size: 13px;
+    color: #374151;
+    margin-top: 4px;
+    line-height: 1.3;
+    max-height: 60px;
+    overflow: hidden;
+  }
+
+  /* Backdrop overlay */
+  .kds-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 25;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="kds-root theme-dark"
+     x-data="kdsDisplay()"
+     x-init="init()"
+     @keydown.space.window.prevent="bumpOldestTicket()"
+     @keydown.r.window="showRecall = !showRecall"
+     @keydown.a.window="showAllDay = !showAllDay">
+
+  <!-- Header Bar -->
+  <div class="kds-header">
+    <div class="station-name">
+      KDS &mdash; <span x-text="stationName"></span>
+    </div>
+
+    <div class="allday-summary">
+      <template x-for="item in allDaySorted" :key="item.name">
+        <div class="allday-item">
+          <span class="qty" x-text="item.count"></span>
+          <span x-text="item.name"></span>
+        </div>
+      </template>
+    </div>
+
+    <button class="kds-header-btn"
+            :class="{ 'active': soundEnabled }"
+            @click="soundEnabled = !soundEnabled">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <template x-if="soundEnabled">
+          <g>
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </g>
+        </template>
+        <template x-if="!soundEnabled">
+          <g>
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </g>
+        </template>
+      </svg>
+      <span x-text="soundEnabled ? 'Sound On' : 'Sound Off'"></span>
+    </button>
+
+    <button class="kds-header-btn"
+            :class="{ 'active': showAllDay }"
+            @click="showAllDay = !showAllDay">
+      All Day
+    </button>
+
+    <button class="kds-header-btn"
+            @click="showRecall = !showRecall">
+      Recall
+    </button>
+  </div>
+
+  <!-- Ticket Area -->
+  <div class="kds-tickets-area" id="kds-ticket-scroll">
+    <template x-for="ticket in tickets" :key="ticket.id">
+      <div class="kds-ticket"
+           :class="[agingClass(ticket), ticket._bumping ? 'bumping' : '']"
+           :id="'ticket-' + ticket.id">
+
+        <!-- Rush Banner -->
+        <template x-if="ticket.is_rush">
+          <div class="rush-banner">&#x1F525; RUSH</div>
+        </template>
+
+        <!-- Ticket Header -->
+        <div class="ticket-header">
+          <span class="ticket-order-num" x-text="'#' + ticket.order_number"></span>
+
+          <span class="ticket-type-badge"
+                :class="{
+                  'dine-in': ticket.order_type === 'dine_in',
+                  'takeout': ticket.order_type === 'takeout',
+                  'delivery': ticket.order_type === 'delivery'
+                }"
+                x-text="orderTypeBadge(ticket)"></span>
+
+          <span class="ticket-timer"
+                :class="{ 'timer-late': ticketAge(ticket) >= 600 }"
+                x-text="formatTimer(ticket)"></span>
+
+          <span class="ticket-server" x-text="ticket.server_name"></span>
+        </div>
+
+        <!-- Items -->
+        <div class="ticket-items">
+          <template x-for="(item, idx) in ticket.items" :key="item.id || idx">
+            <div>
+              <!-- Course divider -->
+              <template x-if="item.type === 'course_divider'">
+                <div class="ticket-course-divider">
+                  &#9552;&#9552;&#9552; COURSE <span x-text="item.course_number"></span> &#9552;&#9552;&#9552;
+                  <template x-if="item.status === 'hold'">
+                    <span class="course-hold-badge">HOLD</span>
+                  </template>
+                  <template x-if="item.status === 'fire'">
+                    <span class="course-fire-badge">FIRE</span>
+                  </template>
+                </div>
+              </template>
+
+              <!-- Fire course button -->
+              <template x-if="item.type === 'fire_button'">
+                <button class="ticket-course-fire-btn"
+                        @click="fireCourse(ticket.id, item.course_number)"
+                        x-text="'FIRE COURSE ' + item.course_number">
+                </button>
+              </template>
+
+              <!-- Regular item -->
+              <template x-if="!item.type || item.type === 'item'">
+                <div>
+                  <div class="ticket-item-name">
+                    <span x-text="(item.quantity > 1 ? item.quantity + ' ' : '') + item.name"></span>
+                  </div>
+
+                  <!-- Modifiers -->
+                  <template x-for="mod in (item.modifiers || [])" :key="mod">
+                    <div class="ticket-item-modifier" x-text="mod"></div>
+                  </template>
+
+                  <!-- Removals -->
+                  <template x-for="rem in (item.removals || [])" :key="rem">
+                    <div class="ticket-item-removal" x-text="'NO ' + rem"></div>
+                  </template>
+
+                  <!-- Special instructions -->
+                  <template x-if="item.special_instructions">
+                    <div class="ticket-item-instruction" x-text="item.special_instructions"></div>
+                  </template>
+
+                  <!-- Allergen alert -->
+                  <template x-if="item.allergens && item.allergens.length > 0">
+                    <div class="ticket-allergen">
+                      &#9888;
+                      <span x-text="item.allergens.map(a => a.toUpperCase()).join(', ') + ' ALLERGY'"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Bump Button -->
+        <button class="ticket-bump-btn"
+                @click="bumpTicket(ticket)"
+                :disabled="ticket._bumpCooldown">
+          BUMP
+        </button>
+      </div>
+    </template>
+
+    <!-- Empty state -->
+    <template x-if="tickets.length === 0">
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; color:#6B7280; font-size:24px; font-weight:600;">
+        All clear &#x2014; no active tickets
+      </div>
+    </template>
+  </div>
+
+  <!-- All-Day Panel -->
+  <template x-if="showAllDay">
+    <div class="kds-overlay" @click="showAllDay = false"></div>
+  </template>
+  <div class="allday-panel" :class="{ 'open': showAllDay }">
+    <div class="allday-panel-header">
+      All Day Counts
+      <button class="kds-header-btn" @click="showAllDay = false"
+              style="padding:4px 10px; font-size:13px;">
+        Close
+      </button>
+    </div>
+    <div class="allday-panel-body">
+      <template x-for="item in allDaySorted" :key="item.name">
+        <div class="allday-row">
+          <div class="item-name" x-text="item.name"></div>
+          <div class="item-count" x-text="item.count"></div>
+          <div class="item-mods" x-text="item.modBreakdown"></div>
+        </div>
+      </template>
+      <template x-if="allDaySorted.length === 0">
+        <div style="padding:24px; text-align:center; color:#9CA3AF; font-size:15px;">No items on active tickets</div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Recall Panel -->
+  <template x-if="showRecall">
+    <div class="kds-overlay" @click="showRecall = false"></div>
+  </template>
+  <div class="recall-panel" :class="{ 'open': showRecall }">
+    <div class="recall-panel-header">
+      Recently Bumped
+      <button class="kds-header-btn" @click="showRecall = false"
+              style="padding:4px 10px; font-size:13px;">
+        Close
+      </button>
+    </div>
+    <div class="recall-panel-body">
+      <template x-for="ticket in recalledTickets" :key="ticket.id">
+        <div class="recall-ticket-card" @click="recallTicket(ticket)">
+          <div class="recall-order" x-text="'#' + ticket.order_number"></div>
+          <div class="recall-time" x-text="'Bumped ' + timeSince(ticket.bumped_at) + ' ago'"></div>
+          <div class="recall-items">
+            <template x-for="item in (ticket.items || []).slice(0, 3)" :key="item.id || item.name">
+              <div x-text="(item.quantity > 1 ? item.quantity + ' ' : '') + item.name"></div>
+            </template>
+            <template x-if="(ticket.items || []).length > 3">
+              <div style="color:#9CA3AF;">+<span x-text="ticket.items.length - 3"></span> more</div>
+            </template>
+          </div>
+        </div>
+      </template>
+      <template x-if="recalledTickets.length === 0">
+        <div style="padding:24px; color:#9CA3AF; font-size:15px;">No recently bumped tickets</div>
+      </template>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/kds.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,43 @@
+/* POS-specific CSS overrides for touch-optimized order entry */
+
+/* Prevent text selection on POS touch screens */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Disable overscroll / pull-to-refresh on POS panels */
+.no-overscroll {
+  overscroll-behavior: none;
+}
+
+/* Ensure all interactive elements meet 48px touch target */
+.pos-touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Scrollbar hiding for horizontal scroll areas */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* POS item highlight animation */
+@keyframes pos-item-flash {
+  0% { background-color: transparent; }
+  25% { background-color: rgba(59, 130, 246, 0.1); }
+  100% { background-color: transparent; }
+}
+.pos-item-added {
+  animation: pos-item-flash 0.5s ease-out;
+}
+
+/* Menu grid item active press state */
+.menu-item-card:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease-out;
+}

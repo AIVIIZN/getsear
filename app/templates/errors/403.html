@@ -1,0 +1,21 @@
+{% extends "base_fullscreen.html" %}
+
+{% block title %}403 - Forbidden{% endblock %}
+{% block body_class %}bg-gray-50{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center h-full p-6">
+  <div class="text-center max-w-md">
+    <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-error-50 flex items-center justify-center">
+      <svg class="w-12 h-12 text-error-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/>
+      </svg>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">Access Denied</h1>
+    <p class="text-gray-500 mb-8">You don't have permission to access this page. Ask a manager to grant access.</p>
+    <a href="{{ url_for('pages.pos') }}" class="btn-primary btn-md">
+      Back to POS
+    </a>
+  </div>
+</div>
+{% endblock %}

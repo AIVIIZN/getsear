@@ -1,0 +1,227 @@
+{% extends "base_fullscreen.html" %}
+
+{% block title %}Clock In - Sear POS{% endblock %}
+{% block body_class %}bg-gray-950{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center h-full p-6"
+     x-data="{
+       clockedIn: false,
+       clockedInSince: null,
+       onBreak: false,
+       breakStarted: null,
+       loading: false,
+       currentTime: '',
+       init() {
+         // Update time display every second
+         this.updateTime();
+         setInterval(() => this.updateTime(), 1000);
+         // Check current clock status
+         this.checkStatus();
+       },
+       updateTime() {
+         this.currentTime = new Date().toLocaleTimeString('en-US', {
+           hour: 'numeric',
+           minute: '2-digit',
+           second: '2-digit',
+           hour12: true
+         });
+       },
+       checkStatus() {
+         const token = localStorage.getItem('sear_token');
+         if (!token) return;
+         fetch('/api/v1/staff/clock-status', {
+           headers: { 'Authorization': 'Bearer ' + token }
+         })
+         .then(r => r.json())
+         .then(data => {
+           if (data.clocked_in) {
+             this.clockedIn = true;
+             this.clockedInSince = data.clocked_in_since;
+           }
+           if (data.on_break) {
+             this.onBreak = true;
+             this.breakStarted = data.break_started;
+           }
+         })
+         .catch(() => {});
+       },
+       clockIn() {
+         this.loading = true;
+         const token = localStorage.getItem('sear_token');
+         fetch('/api/v1/staff/clock-in', {
+           method: 'POST',
+           headers: {
+             'Authorization': 'Bearer ' + token,
+             'Content-Type': 'application/json'
+           }
+         })
+         .then(r => r.json())
+         .then(data => {
+           this.loading = false;
+           if (data.success !== false) {
+             this.clockedIn = true;
+             this.clockedInSince = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+             $store.auth.clockedIn = true;
+             window.showToast('success', 'Clocked in successfully');
+           }
+         })
+         .catch(() => { this.loading = false; });
+       },
+       clockOut() {
+         this.loading = true;
+         const token = localStorage.getItem('sear_token');
+         fetch('/api/v1/staff/clock-out', {
+           method: 'POST',
+           headers: {
+             'Authorization': 'Bearer ' + token,
+             'Content-Type': 'application/json'
+           }
+         })
+         .then(r => r.json())
+         .then(data => {
+           this.loading = false;
+           if (data.success !== false) {
+             this.clockedIn = false;
+             this.clockedInSince = null;
+             $store.auth.clockedIn = false;
+             window.showToast('info', 'Clocked out. Have a good one.');
+           }
+         })
+         .catch(() => { this.loading = false; });
+       },
+       startBreak() {
+         this.loading = true;
+         const token = localStorage.getItem('sear_token');
+         fetch('/api/v1/staff/break/start', {
+           method: 'POST',
+           headers: {
+             'Authorization': 'Bearer ' + token,
+             'Content-Type': 'application/json'
+           }
+         })
+         .then(r => r.json())
+         .then(data => {
+           this.loading = false;
+           if (data.success !== false) {
+             this.onBreak = true;
+             this.breakStarted = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+             window.showToast('info', 'Break started');
+           }
+         })
+         .catch(() => { this.loading = false; });
+       },
+       endBreak() {
+         this.loading = true;
+         const token = localStorage.getItem('sear_token');
+         fetch('/api/v1/staff/break/end', {
+           method: 'POST',
+           headers: {
+             'Authorization': 'Bearer ' + token,
+             'Content-Type': 'application/json'
+           }
+         })
+         .then(r => r.json())
+         .then(data => {
+           this.loading = false;
+           if (data.success !== false) {
+             this.onBreak = false;
+             this.breakStarted = null;
+             window.showToast('success', 'Break ended, back on the clock');
+           }
+         })
+         .catch(() => { this.loading = false; });
+       },
+     }">
+
+  <div class="text-center">
+    <!-- Current Time -->
+    <p class="text-5xl font-bold text-white tabular-nums mb-2" x-text="currentTime"></p>
+
+    <!-- Status -->
+    <div class="mb-10">
+      <template x-if="clockedIn && !onBreak">
+        <p class="text-lg text-success-500 font-medium">
+          Clocked In since <span x-text="clockedInSince" class="font-semibold"></span>
+        </p>
+      </template>
+      <template x-if="clockedIn && onBreak">
+        <p class="text-lg text-warning-500 font-medium">
+          On Break since <span x-text="breakStarted" class="font-semibold"></span>
+        </p>
+      </template>
+      <template x-if="!clockedIn">
+        <p class="text-lg text-gray-400">Not Clocked In</p>
+      </template>
+    </div>
+
+    <!-- Primary Action -->
+    <div class="mb-6">
+      <template x-if="!clockedIn">
+        <button @click="clockIn()"
+                :disabled="loading"
+                class="w-[200px] h-[80px] rounded-xl bg-success-500 text-white text-xl font-bold
+                       hover:bg-success-600 active:bg-success-700 active:scale-[0.98]
+                       transition-all shadow-lg disabled:opacity-50">
+          <span x-show="!loading">Clock In</span>
+          <span x-show="loading" class="flex items-center justify-center gap-2">
+            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </button>
+      </template>
+      <template x-if="clockedIn">
+        <button @click="clockOut()"
+                :disabled="loading || onBreak"
+                class="w-[200px] h-[80px] rounded-xl bg-error-500 text-white text-xl font-bold
+                       hover:bg-error-600 active:bg-error-700 active:scale-[0.98]
+                       transition-all shadow-lg disabled:opacity-50">
+          <span x-show="!loading">Clock Out</span>
+          <span x-show="loading" class="flex items-center justify-center gap-2">
+            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </button>
+      </template>
+    </div>
+
+    <!-- Break Buttons -->
+    <div x-show="clockedIn" class="flex items-center justify-center gap-4 mb-10">
+      <template x-if="!onBreak">
+        <button @click="startBreak()"
+                :disabled="loading"
+                class="btn-secondary btn-md">
+          Start Break
+        </button>
+      </template>
+      <template x-if="onBreak">
+        <button @click="endBreak()"
+                :disabled="loading"
+                class="btn-primary btn-md">
+          End Break
+        </button>
+      </template>
+    </div>
+
+    <!-- Go to POS -->
+    <div x-show="clockedIn && !onBreak">
+      <a href="{{ url_for('pages.pos') }}"
+         class="btn-primary btn-lg inline-flex items-center gap-2">
+        Go to POS
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Back link -->
+    <a href="{{ url_for('pages.pin_login') }}"
+       class="inline-block mt-8 text-sm text-gray-500 hover:text-gray-400 font-medium">
+      Switch User
+    </a>
+  </div>
+
+</div>
+{% endblock %}

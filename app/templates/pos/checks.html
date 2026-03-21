@@ -1,0 +1,306 @@
+{% extends "base_pos.html" %}
+{% block title %}Checks — Sear POS{% endblock %}
+
+{% block pos_content %}
+<div x-data="checkManager()" x-init="init()" class="flex flex-col h-full overflow-hidden bg-gray-50">
+
+  {# ── Header ─────────────────────────────────────────────────── #}
+  <header class="h-14 flex items-center justify-between px-4 bg-white border-b border-gray-200 shrink-0 select-none">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('pages.pos') }}"
+         class="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600"
+         style="touch-action:manipulation">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </a>
+      <span class="text-lg font-semibold text-gray-800">Checks</span>
+    </div>
+    <div class="relative w-64">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input type="text" x-model="searchQuery" @input.debounce.200ms="filterChecks()"
+             placeholder="Search checks..."
+             class="w-full h-10 pl-9 pr-4 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+             style="font-size:16px;">
+    </div>
+  </header>
+
+  {# ── Tab bar ────────────────────────────────────────────────── #}
+  <div class="h-11 flex items-center gap-1 px-4 bg-white border-b border-gray-200 shrink-0">
+    <template x-for="tab in tabs" :key="tab.id">
+      <button @click="activeTab = tab.id"
+              class="h-8 px-4 rounded-full text-sm font-medium transition-colors"
+              :class="activeTab === tab.id ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'"
+              style="touch-action:manipulation">
+        <span x-text="tab.label"></span>
+        <span x-show="tab.count > 0" class="ml-1 text-xs" :class="activeTab === tab.id ? 'text-gray-300' : 'text-gray-400'"
+              x-text="'(' + tab.count + ')'"></span>
+      </button>
+    </template>
+  </div>
+
+  <div class="flex flex-1 overflow-hidden">
+    {# ── LEFT: Check list ───────────────────────────────────── #}
+    <div class="w-full flex flex-col overflow-hidden" :class="selectedCheck ? 'lg:w-[400px] lg:border-r lg:border-gray-200' : ''">
+      <div class="flex-1 overflow-y-auto overscroll-contain" style="-webkit-overflow-scrolling: touch;">
+        <template x-for="check in filteredChecks" :key="check.id">
+          <button @click="selectCheck(check)"
+                  class="w-full flex items-center px-4 py-3.5 border-b border-gray-100 text-left transition-colors"
+                  :class="selectedCheck?.id === check.id ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'"
+                  style="touch-action:manipulation">
+            {# Table / order info #}
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-sm font-semibold text-gray-800" x-text="check.table_name || 'TO #' + check.display_number"></span>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+                      :class="{
+                        'bg-blue-100 text-blue-700': check.order_type === 'dine_in',
+                        'bg-amber-100 text-amber-700': check.order_type === 'takeout',
+                        'bg-violet-100 text-violet-700': check.order_type === 'delivery',
+                        'bg-emerald-100 text-emerald-700': check.order_type === 'bar'
+                      }"
+                      x-text="check.order_type_label"></span>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-gray-500">
+                <span x-text="check.server_name"></span>
+                <span x-text="check.guest_count + ' guest' + (check.guest_count !== 1 ? 's' : '')"></span>
+                <span x-text="check.elapsed_time"></span>
+              </div>
+            </div>
+            {# Amount #}
+            <span class="text-base font-semibold text-gray-800 shrink-0" x-text="formatMoney(check.total)"></span>
+          </button>
+        </template>
+
+        {# Empty state #}
+        <div x-show="filteredChecks.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-400">
+          <svg class="w-10 h-10 mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <p class="text-sm font-medium">No open checks</p>
+        </div>
+      </div>
+    </div>
+
+    {# ── RIGHT: Check detail ────────────────────────────────── #}
+    <div x-show="selectedCheck" class="hidden lg:flex flex-1 flex-col overflow-hidden bg-white">
+
+      {# Detail header #}
+      <div class="h-14 flex items-center justify-between px-4 border-b border-gray-200 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-base font-semibold text-gray-800" x-text="selectedCheck?.table_name || 'Takeout'"></span>
+          <span class="text-sm text-gray-500" x-text="selectedCheck ? '— Check #' + selectedCheck.display_number : ''"></span>
+        </div>
+        {# Actions dropdown #}
+        <div class="relative" x-data="{ open: false }">
+          <button @click="open = !open"
+                  class="h-9 px-3 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-1"
+                  style="touch-action:manipulation">
+            Actions
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div x-show="open" @click.away="open = false" x-transition
+               class="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+            <button @click="applyDiscount(); open = false"
+                    class="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    style="touch-action:manipulation">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              Apply Discount
+            </button>
+            <button @click="transferCheck(); open = false"
+                    class="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    style="touch-action:manipulation">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+              Transfer Check
+            </button>
+            <button @click="voidCheck(); open = false"
+                    class="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    style="touch-action:manipulation">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+              Void Check
+            </button>
+            <button @click="compCheck(); open = false"
+                    class="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    style="touch-action:manipulation">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg>
+              Comp Check
+            </button>
+            <button @click="addGratuity(); open = false"
+                    class="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    style="touch-action:manipulation">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Add Gratuity
+            </button>
+            <button @click="reprintCheck(); open = false"
+                    class="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    style="touch-action:manipulation">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              Reprint
+            </button>
+            <button @click="reopenCheck(); open = false"
+                    class="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    style="touch-action:manipulation">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Reopen
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {# Seat filter (left strip) + items #}
+      <div class="flex flex-1 overflow-hidden">
+        {# Seat filter #}
+        <div class="w-16 bg-gray-50 border-r border-gray-100 flex flex-col items-center py-3 gap-2 shrink-0">
+          <button @click="detailSeatFilter = null"
+                  class="w-11 h-11 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors"
+                  :class="detailSeatFilter === null ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-200 border border-gray-200'"
+                  style="touch-action:manipulation">All</button>
+          <template x-for="s in selectedCheck?.seat_count || 0" :key="s">
+            <button @click="detailSeatFilter = s"
+                    class="w-11 h-11 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors"
+                    :class="detailSeatFilter === s ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-200 border border-gray-200'"
+                    style="touch-action:manipulation">
+              <span>Seat</span><br><span x-text="s"></span>
+            </button>
+          </template>
+        </div>
+
+        {# Items grouped by seat #}
+        <div class="flex-1 overflow-y-auto overscroll-contain p-4" style="-webkit-overflow-scrolling: touch;">
+          <template x-for="seat in detailSeats" :key="seat.number">
+            <div class="mb-6">
+              <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-100"
+                  x-text="'Seat ' + seat.number"></h4>
+              <template x-for="item in seat.items" :key="item.id">
+                <div class="flex items-start py-2">
+                  <span class="text-sm text-gray-600 w-6 shrink-0" x-text="item.quantity + 'x'"></span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-sm font-medium" :class="item.is_voided ? 'line-through text-gray-400' : 'text-gray-800'" x-text="item.name"></span>
+                      <span x-show="item.is_voided" class="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">VOID</span>
+                    </div>
+                    <template x-for="mod in item.modifiers || []" :key="mod.id">
+                      <div class="text-xs text-gray-500 pl-1" x-text="'+ ' + mod.name"></div>
+                    </template>
+                  </div>
+                  <span class="text-sm font-medium tabular-nums shrink-0" :class="item.is_voided ? 'line-through text-gray-400' : 'text-gray-600'"
+                        x-text="formatMoney(item.total_price)"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      {# Totals + action buttons #}
+      <div class="border-t border-gray-200 px-4 py-3 shrink-0">
+        <div class="flex justify-between text-sm text-gray-600 mb-1">
+          <span>Subtotal</span>
+          <span x-text="formatMoney(selectedCheck?.subtotal)"></span>
+        </div>
+        <div x-show="selectedCheck?.discount > 0" class="flex justify-between text-sm text-emerald-600 mb-1">
+          <span x-text="selectedCheck?.discount_label || 'Discount'"></span>
+          <span x-text="'-' + formatMoney(selectedCheck?.discount)"></span>
+        </div>
+        <div class="flex justify-between text-sm text-gray-600 mb-2">
+          <span>Tax</span>
+          <span x-text="formatMoney(selectedCheck?.tax)"></span>
+        </div>
+        <div class="flex justify-between text-xl font-bold text-gray-900 pb-3 border-b border-gray-200 mb-3">
+          <span>Total</span>
+          <span x-text="formatMoney(selectedCheck?.total)"></span>
+        </div>
+        <div class="flex gap-3">
+          <button @click="addItems()"
+                  class="flex-1 h-12 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700 transition-colors"
+                  style="touch-action:manipulation">Add Items</button>
+          <button @click="openSplitCheck()"
+                  class="flex-1 h-12 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700 transition-colors"
+                  style="touch-action:manipulation">Split Check</button>
+          <button @click="payNow()"
+                  class="flex-1 h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors"
+                  style="touch-action:manipulation">Pay Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Split Check Modal ──────────────────────────────────────── #}
+  <div x-show="showSplitModal"
+       @click.self="showSplitModal = false"
+       x-transition
+       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col" @click.stop>
+
+      {# Split header #}
+      <div class="h-14 flex items-center justify-between px-6 border-b border-gray-200 shrink-0">
+        <h2 class="text-lg font-semibold text-gray-800">
+          Split Check — <span x-text="selectedCheck?.table_name"></span>
+        </h2>
+        <button @click="showSplitModal = false"
+                class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500"
+                style="touch-action:manipulation">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      {# Split method tabs #}
+      <div class="flex items-center gap-2 px-6 py-3 border-b border-gray-100 shrink-0">
+        <span class="text-sm font-medium text-gray-500 mr-2">Split Method:</span>
+        <template x-for="method in splitMethods" :key="method.id">
+          <button @click="selectSplitMethod(method.id)"
+                  class="h-8 px-4 rounded-full text-sm font-medium transition-colors"
+                  :class="activeSplitMethod === method.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                  style="touch-action:manipulation"
+                  x-text="method.label"></button>
+        </template>
+      </div>
+
+      {# Split columns #}
+      <div class="flex-1 overflow-x-auto overscroll-contain flex gap-4 p-4" style="-webkit-overflow-scrolling: touch;">
+        <template x-for="(check, idx) in splitChecks" :key="idx">
+          <div class="w-56 shrink-0 bg-gray-50 rounded-xl border border-gray-200 flex flex-col">
+            <div class="px-3 py-2 border-b border-gray-200">
+              <h3 class="text-base font-semibold text-gray-800" x-text="'Check ' + String.fromCharCode(65 + idx)"></h3>
+              <p class="text-xs text-gray-500" x-text="check.seat_label || ''"></p>
+              <p class="text-lg font-bold text-blue-700 mt-1" x-text="formatMoney(check.total)"></p>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2 space-y-1" :id="'split-column-' + idx">
+              <template x-for="item in check.items" :key="item.id">
+                <div class="bg-white rounded-lg px-2 py-1.5 text-xs flex items-center gap-1 cursor-grab active:cursor-grabbing shadow-sm border border-gray-100"
+                     draggable="true"
+                     @dragstart="onDragStart($event, item, idx)"
+                     @dragend="onDragEnd($event)">
+                  <svg class="w-3 h-3 text-gray-300 shrink-0" fill="currentColor" viewBox="0 0 20 20"><circle cx="7" cy="4" r="1.5"/><circle cx="13" cy="4" r="1.5"/><circle cx="7" cy="10" r="1.5"/><circle cx="13" cy="10" r="1.5"/><circle cx="7" cy="16" r="1.5"/><circle cx="13" cy="16" r="1.5"/></svg>
+                  <span class="truncate" x-text="item.name"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        {# Add check column #}
+        <button @click="addSplitCheck()"
+                class="w-56 shrink-0 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors"
+                style="touch-action:manipulation">
+          <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span class="text-sm font-medium">Add Check</span>
+        </button>
+      </div>
+
+      {# Split footer #}
+      <div class="flex items-center justify-between px-6 py-3 border-t border-gray-200 shrink-0">
+        <button @click="showSplitModal = false"
+                class="h-11 px-6 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-600 transition-colors"
+                style="touch-action:manipulation">Cancel</button>
+        <button @click="confirmSplit()"
+                class="h-12 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors"
+                style="touch-action:manipulation">Confirm Split & Pay All</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block pos_scripts %}
+<script src="{{ url_for('static', filename='js/pos.js') }}"></script>
+{% endblock %}

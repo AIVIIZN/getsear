@@ -1,0 +1,877 @@
+{% extends "base_backoffice.html" %}
+
+{% block title %}Menu Manager — Sear POS{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+{% endblock %}
+
+{% block breadcrumb_items %}
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<span class="text-gray-700 font-medium">Menu</span>
+{% endblock %}
+
+{% block page_body %}
+<div class="flex -mx-6 -mb-6 h-[calc(100vh-var(--topbar-height)-100px)]"
+     x-data="menuManager()" x-init="loadMenu()">
+
+  <!-- Left Panel: Menu Tree (280px) -->
+  <aside class="w-[280px] flex-shrink-0 bg-gray-50 border-r border-gray-200 flex flex-col">
+    <!-- Search -->
+    <div class="p-3 border-b border-gray-200">
+      <input type="text" placeholder="Search items..."
+             class="input-field h-9 px-3 text-sm"
+             x-model="searchQuery"
+             @input.debounce.300ms="filterTree()">
+    </div>
+
+    <!-- Tree -->
+    <div class="flex-1 overflow-y-auto py-2" id="menu-tree-container">
+      <template x-for="menu in filteredMenus" :key="menu.id">
+        <div>
+          <!-- Menu Level -->
+          <button class="flex items-center gap-2 w-full px-4 py-2 text-[15px] font-semibold text-gray-700 hover:bg-gray-100"
+                  @click="menu._collapsed = !menu._collapsed">
+            <svg class="w-4 h-4 text-gray-400 transition-transform" :class="!menu._collapsed && 'rotate-90'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+            <span x-text="menu.name"></span>
+          </button>
+
+          <!-- Categories -->
+          <div x-show="!menu._collapsed" x-cloak
+               :id="'cat-list-' + menu.id"
+               class="sortable-categories">
+            <template x-for="cat in menu.categories" :key="cat.id">
+              <div :data-id="cat.id">
+                <!-- Category Level -->
+                <button class="flex items-center gap-2 w-full pl-8 pr-4 py-1.5 text-[14px] font-medium text-gray-600 hover:bg-gray-100 group"
+                        @click="cat._collapsed = !cat._collapsed">
+                  <svg class="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 cursor-grab drag-handle" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
+                    <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
+                    <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                  </svg>
+                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="!cat._collapsed && 'rotate-90'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                  <span x-text="cat.name"></span>
+                  <span class="text-xs text-gray-400 ml-auto" x-text="(cat.items || []).length"></span>
+                </button>
+
+                <!-- Items -->
+                <div x-show="!cat._collapsed" x-cloak
+                     :id="'item-list-' + cat.id"
+                     class="sortable-items">
+                  <template x-for="item in (cat.items || [])" :key="item.id">
+                    <button class="flex items-center gap-2 w-full pl-12 pr-4 py-1.5 text-[14px] text-gray-700 hover:bg-gray-100 group transition-colors"
+                            :class="selectedItem?.id === item.id ? 'bg-primary-50 text-primary-700' : ''"
+                            :data-id="item.id"
+                            @click="selectItem(item, cat)">
+                      <svg class="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 cursor-grab drag-handle" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
+                        <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
+                        <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                      </svg>
+                      <span x-text="item.name" class="truncate"></span>
+                      <template x-if="item.is_86d">
+                        <span class="badge bg-red-100 text-red-700 ml-auto text-[10px]">86'd</span>
+                      </template>
+                      <svg class="w-4 h-4 text-gray-300 ml-auto" :class="selectedItem?.id === item.id ? 'text-primary-500' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="p-3 border-t border-gray-200 space-y-2">
+      <button class="btn-secondary btn-sm w-full" @click="showNewCategoryModal()">+ New Category</button>
+      <button class="btn-primary btn-sm w-full" @click="createNewItem()">+ New Item</button>
+    </div>
+  </aside>
+
+  <!-- Center: Item Editor -->
+  <div class="flex-1 overflow-y-auto bg-white">
+    <template x-if="selectedItem">
+      <div class="max-w-[640px] mx-auto p-6">
+        <!-- 86 Toggle (top right) -->
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold text-gray-900" x-text="editForm.name || 'New Item'"></h2>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <span class="text-sm font-medium" :class="editForm.is_86d ? 'text-red-600' : 'text-gray-500'"
+                  x-text="editForm.is_86d ? '86\'d (Out of Stock)' : 'Available'"></span>
+            <button type="button"
+                    class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2"
+                    :class="editForm.is_86d ? 'bg-red-500 focus:ring-red-500' : 'bg-green-500 focus:ring-green-500'"
+                    @click="editForm.is_86d = !editForm.is_86d">
+              <span class="pointer-events-none relative inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    :class="editForm.is_86d ? 'translate-x-5' : 'translate-x-0'"></span>
+            </button>
+          </label>
+        </div>
+
+        <div class="space-y-5">
+          <!-- Name -->
+          <div>
+            <label class="input-label">Item Name</label>
+            <input type="text" class="input-field" x-model="editForm.name" placeholder="e.g. Ribeye Steak">
+          </div>
+
+          <!-- Short Name (KDS) -->
+          <div>
+            <label class="input-label">Short Name (KDS Display)</label>
+            <input type="text" class="input-field" x-model="editForm.short_name" placeholder="e.g. RIBEYE" maxlength="20">
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label class="input-label">Description</label>
+            <textarea class="input-field h-auto py-3" rows="3" x-model="editForm.description" placeholder="Menu description..."></textarea>
+          </div>
+
+          <!-- Prices Row -->
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="input-label">Price</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                <input type="text" class="input-field pl-7" x-model="editForm.priceDisplay"
+                       @blur="editForm.price = Math.round(parseFloat(editForm.priceDisplay || 0) * 100); editForm.priceDisplay = (editForm.price / 100).toFixed(2)"
+                       placeholder="0.00">
+              </div>
+            </div>
+            <div>
+              <label class="input-label">Happy Hour Price</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                <input type="text" class="input-field pl-7" x-model="editForm.happyHourPriceDisplay"
+                       @blur="editForm.happy_hour_price = Math.round(parseFloat(editForm.happyHourPriceDisplay || 0) * 100); editForm.happyHourPriceDisplay = editForm.happy_hour_price ? (editForm.happy_hour_price / 100).toFixed(2) : ''"
+                       placeholder="0.00">
+              </div>
+            </div>
+            <div>
+              <label class="input-label">Cost Price</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                <input type="text" class="input-field pl-7" x-model="editForm.costDisplay"
+                       @blur="editForm.cost = Math.round(parseFloat(editForm.costDisplay || 0) * 100); editForm.costDisplay = editForm.cost ? (editForm.cost / 100).toFixed(2) : ''"
+                       placeholder="0.00">
+              </div>
+            </div>
+          </div>
+
+          <!-- Category + Tax Class -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="input-label">Category</label>
+              <select class="input-field" x-model="editForm.category_id">
+                <option value="">Select category...</option>
+                <template x-for="cat in allCategories" :key="cat.id">
+                  <option :value="cat.id" x-text="cat.name"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="input-label">Tax Class</label>
+              <select class="input-field" x-model="editForm.tax_rate_id">
+                <option value="">Select tax class...</option>
+                <template x-for="rate in taxRates" :key="rate.id">
+                  <option :value="rate.id" x-text="rate.name + ' (' + rate.rate + '%)'"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <!-- Modifier Groups -->
+          <div>
+            <label class="input-label">Modifier Groups</label>
+            <div class="space-y-2 mt-1">
+              <template x-for="group in modifierGroups" :key="group.id">
+                <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                       :class="editForm.modifier_group_ids.includes(group.id) ? 'border-primary-300 bg-primary-50' : 'border-gray-200 hover:border-gray-300'">
+                  <input type="checkbox"
+                         class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                         :value="group.id"
+                         :checked="editForm.modifier_group_ids.includes(group.id)"
+                         @change="toggleModifierGroup(group.id)">
+                  <div class="flex-1">
+                    <span class="text-sm font-medium text-gray-700" x-text="group.name"></span>
+                    <span class="text-xs text-gray-500 ml-2"
+                          x-text="group.min_selections === group.max_selections
+                            ? '(choose exactly ' + group.min_selections + ')'
+                            : '(choose ' + group.min_selections + '-' + group.max_selections + ')'"></span>
+                  </div>
+                </label>
+              </template>
+            </div>
+            <button class="text-sm text-primary-600 hover:text-primary-700 font-medium mt-2"
+                    @click="showModifierGroupEditor()">
+              Manage Modifier Groups &rarr;
+            </button>
+          </div>
+
+          <!-- Dietary Tags -->
+          <div>
+            <label class="input-label">Dietary Tags</label>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <template x-for="tag in dietaryTags" :key="tag">
+                <button type="button"
+                        class="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors"
+                        :class="editForm.dietary_tags.includes(tag)
+                          ? 'bg-primary-100 border-primary-300 text-primary-700'
+                          : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'"
+                        @click="toggleTag('dietary_tags', tag)"
+                        x-text="tag">
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Allergen Tags -->
+          <div>
+            <label class="input-label">Allergen Tags</label>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <template x-for="tag in allergenTags" :key="tag">
+                <button type="button"
+                        class="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors"
+                        :class="editForm.allergen_tags.includes(tag)
+                          ? 'bg-amber-100 border-amber-300 text-amber-700'
+                          : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'"
+                        @click="toggleTag('allergen_tags', tag)"
+                        x-text="tag">
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Image Upload -->
+          <div>
+            <label class="input-label">Image</label>
+            <div class="mt-1 flex items-start gap-4">
+              <div class="w-[120px] h-[120px] rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 overflow-hidden"
+                   :class="isDragOver && 'border-primary-400 bg-primary-50'"
+                   @dragover.prevent="isDragOver = true"
+                   @dragleave.prevent="isDragOver = false"
+                   @drop.prevent="handleImageDrop($event)"
+                   @click="$refs.imageInput.click()">
+                <template x-if="editForm.image_url">
+                  <img :src="editForm.image_url" class="w-full h-full object-cover" alt="Item image">
+                </template>
+                <template x-if="!editForm.image_url">
+                  <div class="text-center p-2">
+                    <svg class="w-8 h-8 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <p class="text-xs text-gray-400 mt-1">Drop or click</p>
+                  </div>
+                </template>
+              </div>
+              <input type="file" accept="image/*" class="hidden" x-ref="imageInput" @change="handleImageSelect($event)">
+              <template x-if="editForm.image_url">
+                <button type="button" class="text-sm text-red-600 hover:text-red-700" @click="editForm.image_url = ''">Remove</button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Availability: Dayparts -->
+          <div>
+            <label class="input-label">Availability — Dayparts</label>
+            <div class="flex flex-wrap gap-3 mt-1">
+              <template x-for="dp in dayparts" :key="dp">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox"
+                         class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                         :checked="editForm.available_dayparts.includes(dp)"
+                         @change="toggleTag('available_dayparts', dp)">
+                  <span class="text-sm text-gray-700" x-text="dp"></span>
+                </label>
+              </template>
+            </div>
+          </div>
+
+          <!-- Availability: Days of Week -->
+          <div>
+            <label class="input-label">Availability — Days</label>
+            <div class="flex flex-wrap gap-3 mt-1">
+              <template x-for="day in daysOfWeek" :key="day">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox"
+                         class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                         :checked="editForm.available_days.includes(day)"
+                         @change="toggleTag('available_days', day)">
+                  <span class="text-sm text-gray-700" x-text="day"></span>
+                </label>
+              </template>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-3 pt-4 border-t border-gray-200">
+            <button class="btn-primary btn-md" @click="saveItem()">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Save Changes
+            </button>
+            <button class="btn-secondary btn-md" @click="cancelEdit()">Cancel</button>
+            <template x-if="selectedItem.id">
+              <button class="btn-ghost text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto btn-md"
+                      @click="confirmDeleteItem()">Delete Item</button>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Empty state -->
+    <template x-if="!selectedItem">
+      <div class="flex flex-col items-center justify-center h-full text-center">
+        <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <p class="text-gray-500 text-lg font-medium">Select an item to edit</p>
+        <p class="text-gray-400 text-sm mt-1">Click any item in the menu tree, or create a new one.</p>
+      </div>
+    </template>
+  </div>
+
+  <!-- Right Panel: Live Preview -->
+  <template x-if="selectedItem">
+    <aside class="w-[240px] flex-shrink-0 border-l border-gray-200 bg-gray-50 p-4">
+      <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Live Preview</h3>
+      <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <template x-if="editForm.image_url">
+          <div class="h-32 bg-gray-200">
+            <img :src="editForm.image_url" class="w-full h-full object-cover" alt="">
+          </div>
+        </template>
+        <div class="p-3">
+          <p class="font-semibold text-gray-900 text-sm" x-text="editForm.name || 'Item Name'"></p>
+          <p class="text-xs text-gray-500 mt-0.5 line-clamp-2" x-text="editForm.description || ''"></p>
+          <div class="flex items-center justify-between mt-2">
+            <span class="text-primary-700 font-bold text-sm" x-text="'$' + (editForm.price / 100).toFixed(2)"></span>
+            <div class="flex gap-1">
+              <template x-for="tag in editForm.dietary_tags" :key="tag">
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-primary-100 text-primary-700 font-medium" x-text="tag"></span>
+              </template>
+            </div>
+          </div>
+          <template x-if="editForm.is_86d">
+            <div class="mt-2 text-center py-1 bg-red-100 text-red-700 text-xs font-semibold rounded">86'd — Out of Stock</div>
+          </template>
+        </div>
+      </div>
+    </aside>
+  </template>
+
+  <!-- Modifier Group Editor Modal -->
+  <div x-show="modifierModal.open" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+       @click.self="modifierModal.open = false">
+    <div class="bg-white rounded-xl shadow-xl w-[640px] max-h-[80vh] flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900" x-text="modifierModal.editing ? 'Edit Modifier Group' : 'New Modifier Group'"></h3>
+        <button class="btn-icon btn-icon-sm" @click="modifierModal.open = false">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-6 space-y-5">
+        <!-- Group Name -->
+        <div>
+          <label class="input-label">Group Name</label>
+          <input type="text" class="input-field" x-model="modifierModal.form.name" placeholder="e.g. Temperature">
+        </div>
+
+        <!-- Selection Type -->
+        <div>
+          <label class="input-label">Selection Type</label>
+          <div class="space-y-2 mt-1">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="radio" name="sel_type" value="exact" x-model="modifierModal.form.selectionType"
+                     class="w-4 h-4 text-primary-600 focus:ring-primary-500">
+              <span class="text-sm">Choose Exactly 1</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="radio" name="sel_type" value="up_to" x-model="modifierModal.form.selectionType"
+                     class="w-4 h-4 text-primary-600 focus:ring-primary-500">
+              <span class="text-sm">Choose Up To N</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="radio" name="sel_type" value="at_least" x-model="modifierModal.form.selectionType"
+                     class="w-4 h-4 text-primary-600 focus:ring-primary-500">
+              <span class="text-sm">Choose At Least N</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Min / Max Steppers -->
+        <div class="grid grid-cols-2 gap-4" x-show="modifierModal.form.selectionType !== 'exact'">
+          <div>
+            <label class="input-label">Min Selections</label>
+            <div class="flex items-center gap-2">
+              <button class="btn-icon btn-icon-sm border border-gray-300" @click="modifierModal.form.min = Math.max(0, modifierModal.form.min - 1)">-</button>
+              <span class="w-10 text-center font-medium" x-text="modifierModal.form.min"></span>
+              <button class="btn-icon btn-icon-sm border border-gray-300" @click="modifierModal.form.min++">+</button>
+            </div>
+          </div>
+          <div>
+            <label class="input-label">Max Selections</label>
+            <div class="flex items-center gap-2">
+              <button class="btn-icon btn-icon-sm border border-gray-300" @click="modifierModal.form.max = Math.max(1, modifierModal.form.max - 1)">-</button>
+              <span class="w-10 text-center font-medium" x-text="modifierModal.form.max"></span>
+              <button class="btn-icon btn-icon-sm border border-gray-300" @click="modifierModal.form.max++">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modifier Options List -->
+        <div>
+          <label class="input-label">Options</label>
+          <div class="space-y-2 mt-1" id="modifier-options-list">
+            <template x-for="(mod, idx) in modifierModal.form.modifiers" :key="idx">
+              <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg" :data-idx="idx">
+                <svg class="w-4 h-4 text-gray-400 cursor-grab flex-shrink-0 mod-drag-handle" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
+                  <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
+                  <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                </svg>
+                <input type="text" class="input-field h-9 px-3 text-sm flex-1" x-model="mod.name" placeholder="Option name">
+                <div class="relative w-24">
+                  <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input type="text" class="input-field h-9 pl-6 pr-2 text-sm w-full" x-model="mod.priceDisplay"
+                         @blur="mod.price_adjustment = Math.round(parseFloat(mod.priceDisplay || 0) * 100); mod.priceDisplay = (mod.price_adjustment / 100).toFixed(2)"
+                         placeholder="0.00">
+                </div>
+                <label class="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+                  <input type="checkbox" class="w-3.5 h-3.5 rounded" x-model="mod.is_default">
+                  Default
+                </label>
+                <button class="text-red-400 hover:text-red-600" @click="modifierModal.form.modifiers.splice(idx, 1)">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </template>
+          </div>
+          <button class="text-sm text-primary-600 hover:text-primary-700 font-medium mt-2"
+                  @click="modifierModal.form.modifiers.push({ name: '', price_adjustment: 0, priceDisplay: '0.00', is_default: false })">
+            + Add Option
+          </button>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+        <button class="btn-secondary btn-sm" @click="modifierModal.open = false">Cancel</button>
+        <button class="btn-primary btn-sm" @click="saveModifierGroup()">Save Group</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Category Modal -->
+  <div x-show="categoryModal.open" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+       @click.self="categoryModal.open = false">
+    <div class="bg-white rounded-xl shadow-xl w-[400px] p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">New Category</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="input-label">Category Name</label>
+          <input type="text" class="input-field" x-model="categoryModal.name" placeholder="e.g. Appetizers"
+                 @keydown.enter="saveCategory()">
+        </div>
+        <div>
+          <label class="input-label">Menu Type</label>
+          <select class="input-field" x-model="categoryModal.menuType">
+            <option value="food">Food</option>
+            <option value="drink">Drink</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button class="btn-secondary btn-sm" @click="categoryModal.open = false">Cancel</button>
+        <button class="btn-primary btn-sm" @click="saveCategory()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/backoffice.js') }}"></script>
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('menuManager', () => ({
+    menus: [],
+    filteredMenus: [],
+    allCategories: [],
+    taxRates: [],
+    modifierGroups: [],
+    selectedItem: null,
+    selectedCategory: null,
+    searchQuery: '',
+    isDragOver: false,
+
+    editForm: {},
+    dietaryTags: ['GF', 'DF', 'V', 'VG', 'Spicy', 'Nuts', 'Shellfish'],
+    allergenTags: ['Celery', 'Cereals', 'Crustaceans', 'Eggs', 'Fish', 'Lupin', 'Milk', 'Molluscs', 'Mustard', 'Nuts', 'Peanuts', 'Sesame', 'Soybeans', 'Sulphites'],
+    dayparts: ['Breakfast', 'Lunch', 'Dinner', 'Late Night', 'Happy Hour'],
+    daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+
+    modifierModal: {
+      open: false,
+      editing: null,
+      form: { name: '', selectionType: 'exact', min: 1, max: 1, modifiers: [] }
+    },
+
+    categoryModal: { open: false, name: '', menuType: 'food' },
+
+    async loadMenu() {
+      try {
+        const [menuResp, taxResp, modResp] = await Promise.all([
+          fetch('/api/v1/menu/full'),
+          fetch('/api/v1/settings/tax-rates'),
+          fetch('/api/v1/menu/modifier-groups'),
+        ]);
+        const menuJson = await menuResp.json();
+        const taxJson = await taxResp.json();
+        const modJson = await modResp.json();
+
+        if (menuJson.status === 'success') {
+          const data = menuJson.data;
+          this.menus = Array.isArray(data) ? data.map(m => ({ ...m, _collapsed: false, categories: (m.categories || []).map(c => ({ ...c, _collapsed: false })) })) : [];
+          if (this.menus.length === 0 && data && data.categories) {
+            this.menus = [{ id: 'main', name: 'Menu', _collapsed: false, categories: (data.categories || []).map(c => ({ ...c, _collapsed: false })) }];
+          }
+          this.allCategories = this.menus.flatMap(m => m.categories || []);
+        }
+        if (taxJson.status === 'success') {
+          this.taxRates = taxJson.data || [];
+        }
+        if (modJson.status === 'success') {
+          this.modifierGroups = modJson.data || [];
+        }
+        this.filterTree();
+        this.$nextTick(() => this.initSortable());
+      } catch (err) {
+        console.error('Failed to load menu', err);
+        Alpine.store('toasts').add('Failed to load menu data', 'error');
+      }
+    },
+
+    filterTree() {
+      const q = this.searchQuery.toLowerCase();
+      if (!q) {
+        this.filteredMenus = this.menus;
+        return;
+      }
+      this.filteredMenus = this.menus.map(menu => ({
+        ...menu,
+        _collapsed: false,
+        categories: menu.categories.map(cat => ({
+          ...cat,
+          _collapsed: false,
+          items: (cat.items || []).filter(item => item.name.toLowerCase().includes(q)),
+        })).filter(cat => cat.items.length > 0 || cat.name.toLowerCase().includes(q)),
+      })).filter(m => m.categories.length > 0);
+    },
+
+    selectItem(item, category) {
+      this.selectedItem = item;
+      this.selectedCategory = category;
+      this.editForm = {
+        name: item.name || '',
+        short_name: item.short_name || '',
+        description: item.description || '',
+        price: item.price || 0,
+        priceDisplay: ((item.price || 0) / 100).toFixed(2),
+        happy_hour_price: item.happy_hour_price || 0,
+        happyHourPriceDisplay: item.happy_hour_price ? (item.happy_hour_price / 100).toFixed(2) : '',
+        cost: item.cost || 0,
+        costDisplay: item.cost ? (item.cost / 100).toFixed(2) : '',
+        category_id: item.category_id || (category ? category.id : ''),
+        tax_rate_id: item.tax_rate_id || '',
+        modifier_group_ids: item.modifier_group_ids || [],
+        dietary_tags: item.dietary_tags || [],
+        allergen_tags: item.allergen_tags || [],
+        image_url: item.image_url || '',
+        available_dayparts: item.available_dayparts || [...this.dayparts],
+        available_days: item.available_days || [...this.daysOfWeek],
+        is_86d: item.is_86d || false,
+      };
+    },
+
+    createNewItem() {
+      const newItem = { id: null, name: '', price: 0 };
+      this.selectItem(newItem, this.allCategories[0] || null);
+    },
+
+    cancelEdit() {
+      this.selectedItem = null;
+      this.editForm = {};
+    },
+
+    toggleModifierGroup(groupId) {
+      const idx = this.editForm.modifier_group_ids.indexOf(groupId);
+      if (idx > -1) {
+        this.editForm.modifier_group_ids.splice(idx, 1);
+      } else {
+        this.editForm.modifier_group_ids.push(groupId);
+      }
+    },
+
+    toggleTag(field, tag) {
+      const arr = this.editForm[field];
+      const idx = arr.indexOf(tag);
+      if (idx > -1) {
+        arr.splice(idx, 1);
+      } else {
+        arr.push(tag);
+      }
+    },
+
+    handleImageDrop(event) {
+      this.isDragOver = false;
+      const file = event.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        this.previewImage(file);
+      }
+    },
+
+    handleImageSelect(event) {
+      const file = event.target.files[0];
+      if (file) this.previewImage(file);
+    },
+
+    previewImage(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => { this.editForm.image_url = e.target.result; };
+      reader.readAsDataURL(file);
+    },
+
+    async saveItem() {
+      const form = this.editForm;
+      if (!form.name.trim()) {
+        Alpine.store('toasts').add('Item name is required', 'error');
+        return;
+      }
+      if (!form.category_id) {
+        Alpine.store('toasts').add('Category is required', 'error');
+        return;
+      }
+      if (form.price <= 0) {
+        Alpine.store('toasts').add('Price must be greater than $0', 'error');
+        return;
+      }
+
+      const payload = {
+        name: form.name,
+        short_name: form.short_name,
+        description: form.description,
+        price: form.price,
+        happy_hour_price: form.happy_hour_price || null,
+        cost: form.cost || null,
+        category_id: form.category_id,
+        tax_rate_id: form.tax_rate_id || null,
+        modifier_group_ids: form.modifier_group_ids,
+        dietary_tags: form.dietary_tags,
+        allergen_tags: form.allergen_tags,
+        image_url: form.image_url,
+        available_dayparts: form.available_dayparts,
+        available_days: form.available_days,
+        is_available: !form.is_86d,
+      };
+
+      try {
+        let resp;
+        if (this.selectedItem.id) {
+          resp = await fetch(`/api/v1/menu/items/${this.selectedItem.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          resp = await fetch('/api/v1/menu/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Item saved', 'success');
+          if (form.is_86d !== (this.selectedItem.is_86d || false)) {
+            await fetch(`/api/v1/menu/items/${json.data.id || this.selectedItem.id}/86`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ is_available: !form.is_86d }),
+            });
+          }
+          this.loadMenu();
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save item', 'error');
+        }
+      } catch (err) {
+        console.error('Save item failed', err);
+        Alpine.store('toasts').add('Failed to save item', 'error');
+      }
+    },
+
+    async confirmDeleteItem() {
+      if (!confirm('Are you sure you want to delete this item? This cannot be undone.')) return;
+      try {
+        const resp = await fetch(`/api/v1/menu/items/${this.selectedItem.id}`, { method: 'DELETE' });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Item deleted', 'success');
+          this.selectedItem = null;
+          this.loadMenu();
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to delete item', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to delete item', 'error');
+      }
+    },
+
+    showNewCategoryModal() {
+      this.categoryModal = { open: true, name: '', menuType: 'food' };
+    },
+
+    async saveCategory() {
+      if (!this.categoryModal.name.trim()) {
+        Alpine.store('toasts').add('Category name is required', 'error');
+        return;
+      }
+      try {
+        const resp = await fetch('/api/v1/menu/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: this.categoryModal.name, menu_type: this.categoryModal.menuType }),
+        });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Category created', 'success');
+          this.categoryModal.open = false;
+          this.loadMenu();
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to create category', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to create category', 'error');
+      }
+    },
+
+    showModifierGroupEditor(group) {
+      if (group) {
+        this.modifierModal.editing = group.id;
+        this.modifierModal.form = {
+          name: group.name,
+          selectionType: group.min_selections === group.max_selections ? 'exact' : (group.min_selections > 0 ? 'at_least' : 'up_to'),
+          min: group.min_selections || 0,
+          max: group.max_selections || 1,
+          modifiers: (group.modifiers || []).map(m => ({ ...m, priceDisplay: ((m.price_adjustment || 0) / 100).toFixed(2) })),
+        };
+      } else {
+        this.modifierModal.editing = null;
+        this.modifierModal.form = {
+          name: '', selectionType: 'exact', min: 1, max: 1,
+          modifiers: [{ name: '', price_adjustment: 0, priceDisplay: '0.00', is_default: false }],
+        };
+      }
+      this.modifierModal.open = true;
+      this.$nextTick(() => SearBackoffice.initModifierSortable());
+    },
+
+    async saveModifierGroup() {
+      const f = this.modifierModal.form;
+      if (!f.name.trim()) {
+        Alpine.store('toasts').add('Group name is required', 'error');
+        return;
+      }
+
+      let minSel, maxSel;
+      if (f.selectionType === 'exact') { minSel = 1; maxSel = 1; }
+      else if (f.selectionType === 'up_to') { minSel = 0; maxSel = f.max; }
+      else { minSel = f.min; maxSel = f.max; }
+
+      const payload = {
+        name: f.name,
+        min_selections: minSel,
+        max_selections: maxSel,
+        modifiers: f.modifiers.map((m, i) => ({
+          name: m.name,
+          price_adjustment: m.price_adjustment || 0,
+          is_default: m.is_default || false,
+          sort_order: i,
+        })),
+      };
+
+      try {
+        let resp;
+        if (this.modifierModal.editing) {
+          resp = await fetch(`/api/v1/menu/modifier-groups/${this.modifierModal.editing}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          resp = await fetch('/api/v1/menu/modifier-groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Modifier group saved', 'success');
+          this.modifierModal.open = false;
+          this.loadMenu();
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save modifier group', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to save modifier group', 'error');
+      }
+    },
+
+    initSortable() {
+      document.querySelectorAll('.sortable-items').forEach(el => {
+        if (el._sortable) el._sortable.destroy();
+        el._sortable = new Sortable(el, {
+          group: 'items',
+          handle: '.drag-handle',
+          animation: 150,
+          ghostClass: 'opacity-50',
+          onEnd: (evt) => this.handleItemReorder(evt),
+        });
+      });
+    },
+
+    async handleItemReorder(evt) {
+      const container = evt.to;
+      const itemEls = container.querySelectorAll('[data-id]');
+      const items = Array.from(itemEls).map((el, idx) => ({
+        id: el.getAttribute('data-id'),
+        sort_order: idx,
+      }));
+      try {
+        await fetch('/api/v1/menu/items/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items }),
+        });
+      } catch (err) {
+        console.error('Reorder failed', err);
+      }
+    },
+  }));
+});
+</script>
+{% endblock %}

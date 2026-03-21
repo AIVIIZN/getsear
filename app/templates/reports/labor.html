@@ -1,0 +1,300 @@
+{% extends "base_backoffice.html" %}
+
+{% block title %}Labor Report — Sear POS{% endblock %}
+
+{% block breadcrumb_items %}
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<a href="/reports" class="hover:text-gray-700 transition-colors">Reports</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<span class="text-gray-700 font-medium">Labor</span>
+{% endblock %}
+
+{% block page_body %}
+<div class="flex -m-6 h-[calc(100vh-var(--topbar-height)-48px)]"
+     x-data="laborReport()"
+     x-init="fetchReport()">
+
+  {% include "reports/_reports_nav.html" %}
+
+  <div class="flex-1 overflow-y-auto p-6">
+  <!-- Top Bar -->
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+    <div class="flex-1 min-w-[400px]">
+      {% include "partials/_date_range_picker.html" %}
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="btn-secondary btn-sm gap-2" @click="exportCSV()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        Export CSV
+      </button>
+      <button class="btn-secondary btn-sm gap-2" @click="SearReports.printReport()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        Print
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-4 gap-3 mb-6">
+    <div class="card-padded">
+      <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Total Hours</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1" x-text="summary.totalHours.toFixed(1)">0.0</p>
+    </div>
+    <div class="card-padded">
+      <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Total Labor Cost</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1" x-text="formatMoney(summary.totalCost)">$0.00</p>
+    </div>
+    <div class="card-padded">
+      <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Labor %</p>
+      <p class="text-2xl font-bold mt-1" :class="summary.laborPct > 30 ? 'text-red-600' : 'text-gray-900'"
+         x-text="summary.laborPct.toFixed(1) + '%'">0.0%</p>
+    </div>
+    <div class="card-padded">
+      <p class="text-[13px] font-medium text-gray-500 uppercase tracking-wide">Overtime Hours</p>
+      <p class="text-2xl font-bold mt-1" :class="summary.overtimeHours > 0 ? 'text-amber-600' : 'text-gray-900'"
+         x-text="summary.overtimeHours.toFixed(1)">0.0</p>
+    </div>
+  </div>
+
+  <!-- Labor % Gauge Chart + Employee Table -->
+  <div class="grid grid-cols-[280px_1fr] gap-6 mb-6">
+    <!-- Gauge -->
+    <div class="card-padded flex flex-col items-center justify-center">
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">Labor % of Sales</h3>
+      <div class="relative w-[200px] h-[200px]">
+        <canvas id="labor-gauge-chart"></canvas>
+      </div>
+      <p class="mt-3 text-sm text-gray-500">Target: &le; 30%</p>
+    </div>
+
+    <!-- Employee Table -->
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="cursor-pointer" @click="sortBy('name')">
+                <span class="flex items-center gap-1">Employee <span x-show="sortCol === 'name'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer" @click="sortBy('role')">
+                <span class="flex items-center gap-1">Role <span x-show="sortCol === 'role'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer text-right" @click="sortBy('hours')">
+                <span class="flex items-center justify-end gap-1">Hours <span x-show="sortCol === 'hours'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer text-right" @click="sortBy('overtime')">
+                <span class="flex items-center justify-end gap-1">OT <span x-show="sortCol === 'overtime'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer text-right" @click="sortBy('breaks')">
+                <span class="flex items-center justify-end gap-1">Breaks <span x-show="sortCol === 'breaks'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer text-right" @click="sortBy('tips')">
+                <span class="flex items-center justify-end gap-1">Tips <span x-show="sortCol === 'tips'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="cursor-pointer text-right" @click="sortBy('total_cost')">
+                <span class="flex items-center justify-end gap-1">Total Cost <span x-show="sortCol === 'total_cost'" x-text="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span></span>
+              </th>
+              <th class="w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="emp in sortedEmployees" :key="emp.id">
+                <tr class="cursor-pointer" @click="emp._expanded = !emp._expanded"
+                    :class="emp.overtime > 0 ? 'bg-amber-50' : ''">
+                  <td class="font-medium" x-text="emp.name"></td>
+                  <td>
+                    <span class="badge" :class="roleBadge(emp.role)" x-text="emp.role"></span>
+                  </td>
+                  <td class="text-right" x-text="emp.hours.toFixed(1)"></td>
+                  <td class="text-right" :class="emp.overtime > 0 ? 'text-amber-600 font-semibold' : ''"
+                      x-text="emp.overtime.toFixed(1)"></td>
+                  <td class="text-right" x-text="emp.breaks.toFixed(1) + 'h'"></td>
+                  <td class="text-right" x-text="formatMoney(emp.tips)"></td>
+                  <td class="text-right font-medium" x-text="formatMoney(emp.total_cost)"></td>
+                  <td class="text-center">
+                    <svg class="w-4 h-4 text-gray-400 transition-transform" :class="emp._expanded && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                  </td>
+                </tr>
+            </template>
+            <template x-for="emp in sortedEmployees" :key="'detail-' + emp.id">
+                <tr x-show="emp._expanded" x-cloak>
+                  <td colspan="8" class="bg-gray-50 p-0">
+                    <div class="px-6 py-3">
+                      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Clock-In / Clock-Out Detail</p>
+                      <table class="w-full text-sm">
+                        <thead>
+                          <tr class="text-xs text-gray-500 uppercase">
+                            <th class="text-left pb-1">Date</th>
+                            <th class="text-left pb-1">Clock In</th>
+                            <th class="text-left pb-1">Clock Out</th>
+                            <th class="text-right pb-1">Hours</th>
+                            <th class="text-right pb-1">Break</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="entry in (emp.entries || [])" :key="entry.id">
+                            <tr class="border-t border-gray-200">
+                              <td class="py-1" x-text="entry.date"></td>
+                              <td class="py-1" x-text="entry.clock_in"></td>
+                              <td class="py-1" :class="!entry.clock_out ? 'text-red-500 font-medium' : ''"
+                                  x-text="entry.clock_out || 'Missing punch'"></td>
+                              <td class="py-1 text-right" x-text="entry.hours ? entry.hours.toFixed(1) : '-'"></td>
+                              <td class="py-1 text-right" x-text="entry.break_time ? entry.break_time.toFixed(1) + 'h' : '-'"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('laborReport', () => ({
+    activeReport: 'labor',
+    dateRange: initDateRange(),
+    sortCol: 'name',
+    sortDir: 'asc',
+    summary: { totalHours: 0, totalCost: 0, laborPct: 0, overtimeHours: 0 },
+    employees: [],
+    gaugeChart: null,
+
+    selectPreset,
+
+    formatMoney(cents) {
+      return '$' + ((cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+
+    roleBadge(role) {
+      const map = {
+        manager: 'bg-violet-100 text-violet-700',
+        server: 'bg-blue-100 text-blue-700',
+        bartender: 'bg-amber-100 text-amber-700',
+        host: 'bg-gray-100 text-gray-600',
+        cook: 'bg-orange-100 text-orange-700',
+        busser: 'bg-teal-100 text-teal-700',
+      };
+      return map[role?.toLowerCase()] || 'bg-gray-100 text-gray-600';
+    },
+
+    sortBy(col) {
+      if (this.sortCol === col) {
+        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortCol = col;
+        this.sortDir = 'asc';
+      }
+    },
+
+    get sortedEmployees() {
+      const arr = [...this.employees];
+      if (!this.sortCol) return arr;
+      return arr.sort((a, b) => {
+        let va = a[this.sortCol], vb = b[this.sortCol];
+        if (typeof va === 'string') va = va.toLowerCase();
+        if (typeof vb === 'string') vb = vb.toLowerCase();
+        if (va < vb) return this.sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return this.sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    },
+
+    async fetchReport() {
+      const params = new URLSearchParams({
+        start_date: this.dateRange.startDate,
+        end_date: this.dateRange.endDate,
+      });
+
+      try {
+        const resp = await fetch(`/api/v1/reports/labor?${params}`);
+        const json = await resp.json();
+        if (json.status === 'success' && json.data) {
+          const d = json.data;
+          this.summary.totalHours = d.total_hours || 0;
+          this.summary.totalCost = d.total_labor_cost || 0;
+          this.summary.laborPct = d.labor_pct || 0;
+          this.summary.overtimeHours = d.overtime_hours || 0;
+          this.employees = (d.employees || []).map(e => ({ ...e, _expanded: false }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch labor report', err);
+        Alpine.store('toasts').add('Failed to load labor report', 'error');
+      }
+
+      this.$nextTick(() => this.renderGauge());
+    },
+
+    renderGauge() {
+      const ctx = document.getElementById('labor-gauge-chart');
+      if (!ctx) return;
+      if (this.gaugeChart) this.gaugeChart.destroy();
+
+      const pct = this.summary.laborPct;
+      const remaining = Math.max(0, 100 - pct);
+      const color = pct > 30 ? '#EF4444' : pct > 25 ? '#F59E0B' : '#22C55E';
+
+      this.gaugeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Labor', 'Remaining'],
+          datasets: [{
+            data: [pct, remaining],
+            backgroundColor: [color, '#f3f4f6'],
+            borderWidth: 0,
+            cutout: '75%',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false },
+          },
+          rotation: -90,
+          circumference: 180,
+        },
+        plugins: [{
+          id: 'gaugeLabel',
+          afterDraw(chart) {
+            const { ctx: c, chartArea } = chart;
+            const centerX = (chartArea.left + chartArea.right) / 2;
+            const centerY = (chartArea.top + chartArea.bottom) / 2 + 10;
+            c.save();
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.font = 'bold 28px Inter, sans-serif';
+            c.fillStyle = color;
+            c.fillText(pct.toFixed(1) + '%', centerX, centerY);
+            c.restore();
+          }
+        }]
+      });
+    },
+
+    exportCSV() {
+      SearReports.exportCSV('/api/v1/reports/export', {
+        report_type: 'labor',
+        start_date: this.dateRange.startDate,
+        end_date: this.dateRange.endDate,
+      });
+    },
+  }));
+});
+</script>
+{% endblock %}

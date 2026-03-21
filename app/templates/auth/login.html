@@ -1,0 +1,133 @@
+{% extends "base_fullscreen.html" %}
+
+{% block title %}Login - Sear POS{% endblock %}
+{% block body_class %}bg-gray-950{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center h-full p-4"
+     x-data="{
+       email: '',
+       password: '',
+       error: '',
+       loading: false,
+       shake: false,
+     }">
+
+  <div class="w-full max-w-sm">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 mx-auto bg-primary-700 rounded-2xl flex items-center justify-center mb-4">
+        <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-white">Sear POS</h1>
+      <p class="text-gray-400 text-sm mt-1">Sign in to your account</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="card-padded" :class="shake && 'animate-shake'">
+      <form @submit.prevent="
+              loading = true;
+              error = '';
+              htmx.ajax('POST', '/api/v1/auth/login', {
+                target: '#login-response',
+                swap: 'innerHTML',
+                values: { email: email, password: password },
+              }).then(() => {
+                loading = false;
+              }).catch(() => {
+                loading = false;
+              });
+            "
+            hx-post="/api/v1/auth/login"
+            hx-target="#login-response"
+            hx-swap="innerHTML"
+            hx-indicator=".login-spinner"
+            @htmx:after-request.window="
+              if ($event.detail.xhr.status === 200) {
+                let data = JSON.parse($event.detail.xhr.responseText);
+                if (data.access_token) {
+                  localStorage.setItem('sear_token', data.access_token);
+                  document.cookie = 'sear_token=' + data.access_token + '; path=/; SameSite=Strict';
+                  $store.auth.token = data.access_token;
+                  $store.auth.user = data.user || {};
+                  window.location.href = '/pos';
+                }
+              } else if ($event.detail.xhr.status >= 400) {
+                error = 'Invalid email or password';
+                shake = true;
+                setTimeout(() => shake = false, 300);
+              }
+            ">
+
+        <!-- Email -->
+        <div class="mb-4">
+          <label for="email" class="input-label">Email</label>
+          <input id="email"
+                 type="email"
+                 name="email"
+                 x-model="email"
+                 class="input-field"
+                 placeholder="you@restaurant.com"
+                 required
+                 autocomplete="email"
+                 autofocus>
+        </div>
+
+        <!-- Password -->
+        <div class="mb-6">
+          <label for="password" class="input-label">Password</label>
+          <input id="password"
+                 type="password"
+                 name="password"
+                 x-model="password"
+                 class="input-field"
+                 placeholder="Enter your password"
+                 required
+                 autocomplete="current-password">
+        </div>
+
+        <!-- Error message -->
+        <div x-show="error"
+             x-transition
+             class="mb-4 p-3 bg-error-50 border border-error-200 rounded-md text-error-700 text-sm">
+          <span x-text="error"></span>
+        </div>
+
+        <!-- Hidden response target -->
+        <div id="login-response" class="hidden"></div>
+
+        <!-- Submit -->
+        <button type="submit"
+                class="btn-primary btn-md w-full"
+                :disabled="!email || !password || loading">
+          <span x-show="!loading">Sign In</span>
+          <span x-show="loading" class="flex items-center gap-2">
+            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+            </svg>
+            Signing in...
+          </span>
+        </button>
+
+      </form>
+
+      <!-- Forgot Password -->
+      <div class="text-center mt-4">
+        <a href="#" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+          Forgot Password?
+        </a>
+      </div>
+    </div>
+
+    <!-- PIN Login Link -->
+    <div class="text-center mt-6">
+      <a href="{{ url_for('pages.pin_login') }}" class="text-sm text-gray-400 hover:text-gray-300 font-medium">
+        Staff PIN Login
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

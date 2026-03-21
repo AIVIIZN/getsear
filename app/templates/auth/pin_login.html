@@ -1,0 +1,184 @@
+{% extends "base_fullscreen.html" %}
+
+{% block title %}PIN Login - Sear POS{% endblock %}
+{% block body_class %}bg-gray-950{% endblock %}
+
+{% block content %}
+<div class="flex h-full"
+     x-data="{
+       selectedStaff: null,
+       pin: '',
+       error: false,
+       loading: false,
+       showClockIn: false,
+       staff: [],
+       init() {
+         // Load staff list for this location
+         htmx.ajax('GET', '/api/v1/staff/active', {
+           handler: (resp, info) => {
+             try {
+               const data = JSON.parse(info.xhr.responseText);
+               this.staff = data.data || data.staff || [];
+             } catch(e) {
+               // Fallback: empty staff list until API returns
+               this.staff = [];
+             }
+           }
+         });
+       },
+       addDigit(d) {
+         if (this.pin.length < 6) {
+           this.pin += d;
+           this.error = false;
+           if (this.pin.length >= 4) {
+             this.submitPin();
+           }
+         }
+       },
+       backspace() {
+         this.pin = this.pin.slice(0, -1);
+         this.error = false;
+       },
+       clearPin() {
+         this.pin = '';
+         this.error = false;
+       },
+       submitPin() {
+         if (this.pin.length < 4) return;
+         this.loading = true;
+         const body = this.selectedStaff
+           ? { staff_id: this.selectedStaff.id, pin: this.pin }
+           : { pin: this.pin };
+         fetch('/api/v1/auth/pin-login', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(body),
+         })
+         .then(r => r.json())
+         .then(data => {
+           this.loading = false;
+           if (data.token) {
+             localStorage.setItem('sear_token', data.token);
+             $store.auth.token = data.token;
+             $store.auth.user = data.user || {};
+             if (data.clocked_in) {
+               window.location.href = '/pos';
+             } else {
+               window.location.href = '/clock-in';
+             }
+           } else {
+             this.error = true;
+             this.pin = '';
+           }
+         })
+         .catch(() => {
+           this.loading = false;
+           this.error = true;
+           this.pin = '';
+         });
+       },
+       getInitials(member) {
+         const f = (member.first_name || '').charAt(0);
+         const l = (member.last_name || '').charAt(0);
+         return (f + l).toUpperCase() || '?';
+       },
+       getColor(index) {
+         const colors = ['#0F766E', '#1E3A5F', '#7C3AED', '#DB2777', '#EA580C', '#CA8A04', '#16A34A', '#6366F1'];
+         return colors[index % colors.length];
+       },
+     }">
+
+  <!-- Left: Staff Grid -->
+  <div class="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
+    <h2 class="text-xl font-semibold text-white mb-6">Select Your Profile</h2>
+
+    <div class="grid grid-cols-3 gap-4 max-w-md">
+      <template x-for="(member, idx) in staff" :key="member.id">
+        <button @click="selectedStaff = member; pin = ''; error = false;"
+                :class="selectedStaff && selectedStaff.id === member.id ? 'ring-2 ring-primary-400 bg-gray-800' : 'bg-gray-900 hover:bg-gray-800'"
+                class="flex flex-col items-center gap-2 p-4 rounded-xl transition-all touch-active">
+          <!-- Avatar -->
+          <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-semibold"
+               :style="'background-color: ' + getColor(idx)">
+            <span x-text="getInitials(member)"></span>
+          </div>
+          <!-- Name -->
+          <span class="text-sm text-gray-300 font-medium text-center leading-tight"
+                x-text="member.first_name + ' ' + (member.last_name || '').charAt(0) + '.'"></span>
+          <!-- Role badge -->
+          <span class="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full"
+                :class="member.role === 'manager' ? 'bg-accent-light text-warning-700' : 'bg-gray-800 text-gray-400'"
+                x-text="member.role"></span>
+        </button>
+      </template>
+    </div>
+
+    <!-- Empty state if no staff loaded -->
+    <div x-show="staff.length === 0" class="text-center text-gray-500 py-12">
+      <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
+      </svg>
+      <p>Loading staff...</p>
+    </div>
+  </div>
+
+  <!-- Right: PIN Pad -->
+  <div class="w-[340px] bg-gray-900 border-l border-gray-800 flex flex-col items-center justify-center p-6">
+
+    <!-- PIN Display -->
+    <div class="mb-8 flex items-center gap-3" :class="error && 'animate-shake'">
+      <template x-for="i in 6" :key="i">
+        <div class="w-4 h-4 rounded-full transition-all duration-100"
+             :class="pin.length >= i ? (error ? 'bg-error-500' : 'bg-primary-500') : 'bg-gray-700 border border-gray-600'">
+        </div>
+      </template>
+    </div>
+
+    <!-- Error text -->
+    <p x-show="error"
+       x-transition
+       class="text-error-500 text-sm font-medium mb-4 -mt-4">
+      Wrong PIN. Try again.
+    </p>
+
+    <!-- Numpad -->
+    <div class="grid grid-cols-3 gap-2 mb-6">
+      <template x-for="digit in ['1','2','3','4','5','6','7','8','9','','0','']" :key="'key-'+digit+Math.random()">
+        <div>
+          <button x-show="digit !== ''"
+                  @click="addDigit(digit)"
+                  class="w-[72px] h-[72px] rounded-xl bg-gray-800 text-white text-2xl font-semibold
+                         hover:bg-gray-700 active:bg-gray-600 active:scale-95
+                         transition-all duration-75 select-none"
+                  x-text="digit">
+          </button>
+          <div x-show="digit === ''" class="w-[72px] h-[72px]"></div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Action row -->
+    <div class="flex items-center gap-3 w-full max-w-[232px]">
+      <button @click="clearPin()"
+              class="flex-1 h-12 rounded-xl bg-gray-800 text-gray-400 text-sm font-semibold
+                     hover:bg-gray-700 active:bg-gray-600 transition-all">
+        Clear
+      </button>
+      <button @click="backspace()"
+              class="flex-1 h-12 rounded-xl bg-gray-800 text-gray-400 flex items-center justify-center
+                     hover:bg-gray-700 active:bg-gray-600 transition-all">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Manager login link -->
+    <a href="{{ url_for('pages.login_page') }}"
+       class="mt-8 text-sm text-gray-500 hover:text-gray-400 font-medium">
+      Manager Login
+    </a>
+
+  </div>
+</div>
+{% endblock %}

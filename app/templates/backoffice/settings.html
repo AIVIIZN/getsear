@@ -1,0 +1,678 @@
+{% extends "base_backoffice.html" %}
+
+{% block title %}Settings — Sear POS{% endblock %}
+
+{% block breadcrumb_items %}
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<span class="text-gray-700 font-medium">Settings</span>
+{% endblock %}
+
+{% block page_body %}
+<div class="flex -mx-6 -mb-6 h-[calc(100vh-var(--topbar-height)-100px)]"
+     x-data="settingsManager()" x-init="loadSettings()">
+
+  <!-- Left: Settings Nav (300px) -->
+  <aside class="w-[300px] flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
+    <div class="py-4">
+      <h2 class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Settings</h2>
+      <nav class="space-y-0.5">
+        <template x-for="item in sections" :key="item.key">
+          <button class="flex items-center gap-3 w-full h-12 px-4 text-[15px] font-medium transition-colors"
+                  :class="activeSection === item.key
+                    ? 'bg-primary-50 text-primary-700 border-l-[3px] border-primary-700 pl-[13px]'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+                  @click="activeSection = item.key; loadSectionData(item.key)">
+            <svg class="w-5 h-5 flex-shrink-0" :class="activeSection === item.key ? 'text-primary-700' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" :d="item.icon"/>
+            </svg>
+            <span x-text="item.label"></span>
+          </button>
+        </template>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Right: Settings Form -->
+  <div class="flex-1 overflow-y-auto p-6">
+
+    <!-- ===== LOCATION ===== -->
+    <div x-show="activeSection === 'location'">
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Location Settings</h2>
+      <div class="max-w-[640px] space-y-5">
+        <div>
+          <label class="input-label">Restaurant Name</label>
+          <input type="text" class="input-field" x-model="location.name">
+        </div>
+        <div>
+          <label class="input-label">Address</label>
+          <textarea class="input-field h-auto py-3" rows="2" x-model="location.address"></textarea>
+        </div>
+        <div>
+          <label class="input-label">Timezone</label>
+          <select class="input-field" x-model="location.timezone">
+            <option value="America/New_York">Eastern</option>
+            <option value="America/Chicago">Central</option>
+            <option value="America/Denver">Mountain</option>
+            <option value="America/Los_Angeles">Pacific</option>
+            <option value="America/Anchorage">Alaska</option>
+            <option value="Pacific/Honolulu">Hawaii</option>
+          </select>
+        </div>
+
+        <!-- Business Hours -->
+        <div>
+          <label class="input-label">Business Hours</label>
+          <div class="mt-2 space-y-2">
+            <template x-for="day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']" :key="day">
+              <div class="flex items-center gap-3">
+                <span class="w-24 text-sm font-medium text-gray-700" x-text="day"></span>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-primary-600"
+                         :checked="!location.hours?.[day]?.closed"
+                         @change="location.hours = location.hours || {}; location.hours[day] = location.hours[day] || {}; location.hours[day].closed = !$event.target.checked">
+                  <span class="text-sm text-gray-500">Open</span>
+                </label>
+                <input type="time" class="input-field h-9 px-2 text-sm w-[120px]"
+                       :value="location.hours?.[day]?.open || '11:00'"
+                       @change="location.hours = location.hours || {}; location.hours[day] = location.hours[day] || {}; location.hours[day].open = $event.target.value"
+                       :disabled="location.hours?.[day]?.closed">
+                <span class="text-gray-400">to</span>
+                <input type="time" class="input-field h-9 px-2 text-sm w-[120px]"
+                       :value="location.hours?.[day]?.close || '22:00'"
+                       @change="location.hours = location.hours || {}; location.hours[day] = location.hours[day] || {}; location.hours[day].close = $event.target.value"
+                       :disabled="location.hours?.[day]?.closed">
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Logo Upload -->
+        <div>
+          <label class="input-label">Logo</label>
+          <div class="mt-1 flex items-center gap-4">
+            <div class="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 overflow-hidden cursor-pointer"
+                 @click="$refs.logoInput.click()">
+              <template x-if="location.logo_url">
+                <img :src="location.logo_url" class="w-full h-full object-contain" alt="Logo">
+              </template>
+              <template x-if="!location.logo_url">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </template>
+            </div>
+            <input type="file" accept="image/*" class="hidden" x-ref="logoInput"
+                   @change="handleLogoUpload($event)">
+          </div>
+        </div>
+
+        <!-- Receipt Header/Footer -->
+        <div>
+          <label class="input-label">Receipt Header</label>
+          <textarea class="input-field h-auto py-3 font-mono text-sm" rows="4" x-model="location.receipt_header"
+                    placeholder="Line 1&#10;Line 2&#10;Line 3&#10;Line 4"></textarea>
+        </div>
+        <div>
+          <label class="input-label">Receipt Footer</label>
+          <textarea class="input-field h-auto py-3 font-mono text-sm" rows="2" x-model="location.receipt_footer"
+                    placeholder="Thank you for dining with us!"></textarea>
+        </div>
+
+        <button class="btn-primary btn-md" @click="saveLocation()"
+                hx-put="" hx-swap="none">Save Location Settings</button>
+      </div>
+    </div>
+
+    <!-- ===== TAX RATES ===== -->
+    <div x-show="activeSection === 'tax'" x-cloak>
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-lg font-bold text-gray-900">Tax Rates</h2>
+        <button class="btn-primary btn-sm gap-2" @click="addTaxRate()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Add Tax Rate
+        </button>
+      </div>
+      <div class="card overflow-hidden max-w-[640px]">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th class="text-right">Rate</th>
+              <th class="text-center">Inclusive</th>
+              <th>Applies To</th>
+              <th class="w-24">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="rate in taxRates" :key="rate.id">
+              <tr>
+                <td>
+                  <template x-if="rate._editing">
+                    <input type="text" class="input-field h-8 px-2 text-sm" x-model="rate.name">
+                  </template>
+                  <template x-if="!rate._editing">
+                    <span class="font-medium" x-text="rate.name"></span>
+                  </template>
+                </td>
+                <td class="text-right">
+                  <template x-if="rate._editing">
+                    <div class="flex items-center justify-end gap-1">
+                      <input type="number" step="0.01" class="input-field h-8 px-2 text-sm w-20 text-right" x-model.number="rate.rate">
+                      <span class="text-gray-400">%</span>
+                    </div>
+                  </template>
+                  <template x-if="!rate._editing">
+                    <span x-text="rate.rate + '%'"></span>
+                  </template>
+                </td>
+                <td class="text-center">
+                  <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-primary-600"
+                         :checked="rate.is_inclusive"
+                         :disabled="!rate._editing"
+                         @change="rate.is_inclusive = $event.target.checked">
+                </td>
+                <td>
+                  <template x-if="rate._editing">
+                    <select class="input-field h-8 px-2 text-sm" x-model="rate.applies_to">
+                      <option value="all">All Items</option>
+                      <option value="food">Food Only</option>
+                      <option value="beverage">Beverage Only</option>
+                      <option value="alcohol">Alcohol Only</option>
+                    </select>
+                  </template>
+                  <template x-if="!rate._editing">
+                    <span class="text-gray-500 capitalize" x-text="rate.applies_to || 'All'"></span>
+                  </template>
+                </td>
+                <td>
+                  <div class="flex items-center gap-1">
+                    <template x-if="rate._editing">
+                      <button class="btn-icon btn-icon-sm text-green-600" @click="saveTaxRate(rate)">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                      </button>
+                    </template>
+                    <template x-if="!rate._editing">
+                      <button class="btn-icon btn-icon-sm" @click="rate._editing = true">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                      </button>
+                    </template>
+                    <button class="btn-icon btn-icon-sm text-red-500" @click="deleteTaxRate(rate.id)">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== TERMINALS ===== -->
+    <div x-show="activeSection === 'terminals'" x-cloak>
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Terminals</h2>
+      <div class="space-y-4 max-w-[640px]">
+        <template x-for="terminal in terminals" :key="terminal.id">
+          <div class="card-padded">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-gray-900" x-text="terminal.name"></h3>
+              <span class="badge badge-success" x-show="terminal.is_online">Online</span>
+              <span class="badge badge-neutral" x-show="!terminal.is_online">Offline</span>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="input-label">Terminal Name</label>
+                <input type="text" class="input-field" x-model="terminal.name">
+              </div>
+              <div>
+                <label class="input-label">Type</label>
+                <select class="input-field" x-model="terminal.type">
+                  <option value="ipad">iPad</option>
+                  <option value="kds">KDS Station</option>
+                  <option value="kiosk">Kiosk</option>
+                </select>
+              </div>
+              <div>
+                <label class="input-label">Payment Reader</label>
+                <select class="input-field" x-model="terminal.payment_reader">
+                  <option value="">None</option>
+                  <option value="vp800">Valor VP800</option>
+                  <option value="vp550">Valor VP550</option>
+                  <option value="vp300">Valor VP300 Pro</option>
+                  <option value="rckt">Valor RCKT</option>
+                </select>
+              </div>
+              <div>
+                <label class="input-label">Default Order Type</label>
+                <select class="input-field" x-model="terminal.default_order_type">
+                  <option value="dine_in">Dine In</option>
+                  <option value="takeout">Takeout</option>
+                  <option value="bar">Bar</option>
+                  <option value="delivery">Delivery</option>
+                </select>
+              </div>
+              <div>
+                <label class="input-label">Auto-Lock Timeout (minutes)</label>
+                <input type="number" class="input-field" x-model.number="terminal.auto_lock_minutes" min="0" max="60">
+              </div>
+              <div>
+                <label class="input-label">Assigned Printer</label>
+                <select class="input-field" x-model="terminal.printer_id">
+                  <option value="">None</option>
+                  <template x-for="p in printers" :key="p.id">
+                    <option :value="p.id" x-text="p.name"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+            <button class="btn-primary btn-sm mt-4" @click="saveTerminal(terminal)">Save</button>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ===== ORDER SETTINGS ===== -->
+    <div x-show="activeSection === 'orders'" x-cloak>
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Order Settings</h2>
+      <div class="max-w-[640px] space-y-6">
+        <!-- Order Types -->
+        <div>
+          <label class="input-label">Enabled Order Types</label>
+          <div class="flex flex-wrap gap-3 mt-1">
+            <template x-for="type in ['dine_in', 'takeout', 'delivery', 'bar']" :key="type">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-primary-600"
+                       :checked="orderSettings.enabled_types?.includes(type)"
+                       @change="toggleOrderType(type)">
+                <span class="text-sm text-gray-700 capitalize" x-text="type.replace('_', ' ')"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <!-- Auto-Gratuity -->
+        <div class="card-padded">
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-sm font-semibold text-gray-700">Auto-Gratuity</label>
+            <button type="button"
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors"
+                    :class="orderSettings.auto_gratuity_enabled ? 'bg-primary-600' : 'bg-gray-200'"
+                    @click="orderSettings.auto_gratuity_enabled = !orderSettings.auto_gratuity_enabled">
+              <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
+                    :class="orderSettings.auto_gratuity_enabled ? 'translate-x-5' : 'translate-x-0'"></span>
+            </button>
+          </div>
+          <div x-show="orderSettings.auto_gratuity_enabled" class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="input-label">Party Size Threshold</label>
+              <input type="number" class="input-field" x-model.number="orderSettings.auto_gratuity_party_size" min="1" max="50">
+            </div>
+            <div>
+              <label class="input-label">Percentage</label>
+              <div class="relative">
+                <input type="number" step="0.5" class="input-field pr-8" x-model.number="orderSettings.auto_gratuity_pct">
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip Suggestions -->
+        <div>
+          <label class="input-label">Tip Suggestions</label>
+          <div class="flex items-center gap-4 mt-1">
+            <template x-for="(_, idx) in orderSettings.tip_suggestions || [18, 20, 25]" :key="idx">
+              <div class="relative w-24">
+                <input type="number" step="1" class="input-field pr-8 text-center"
+                       x-model.number="orderSettings.tip_suggestions[idx]">
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Toggles -->
+        <div class="space-y-4">
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-sm font-medium text-gray-700">Require Seat Numbers</span>
+            <button type="button"
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors"
+                    :class="orderSettings.seat_numbers ? 'bg-primary-600' : 'bg-gray-200'"
+                    @click="orderSettings.seat_numbers = !orderSettings.seat_numbers">
+              <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
+                    :class="orderSettings.seat_numbers ? 'translate-x-5' : 'translate-x-0'"></span>
+            </button>
+          </label>
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-sm font-medium text-gray-700">Coursing Enabled</span>
+            <button type="button"
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors"
+                    :class="orderSettings.coursing_enabled ? 'bg-primary-600' : 'bg-gray-200'"
+                    @click="orderSettings.coursing_enabled = !orderSettings.coursing_enabled">
+              <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
+                    :class="orderSettings.coursing_enabled ? 'translate-x-5' : 'translate-x-0'"></span>
+            </button>
+          </label>
+        </div>
+
+        <button class="btn-primary btn-md" @click="saveOrderSettings()">Save Order Settings</button>
+      </div>
+    </div>
+
+    <!-- ===== NOTIFICATIONS ===== -->
+    <div x-show="activeSection === 'notifications'" x-cloak>
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Notification Settings</h2>
+      <div class="max-w-[640px] space-y-6">
+        <label class="flex items-center justify-between cursor-pointer">
+          <div>
+            <span class="text-sm font-medium text-gray-700">KDS New Order Sound</span>
+            <p class="text-xs text-gray-500">Play a sound when new orders arrive at KDS stations</p>
+          </div>
+          <button type="button"
+                  class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors"
+                  :class="notifications.kds_sound ? 'bg-primary-600' : 'bg-gray-200'"
+                  @click="notifications.kds_sound = !notifications.kds_sound">
+            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
+                  :class="notifications.kds_sound ? 'translate-x-5' : 'translate-x-0'"></span>
+          </button>
+        </label>
+
+        <div>
+          <label class="input-label">KDS Aging Alert Threshold (minutes)</label>
+          <input type="number" class="input-field w-24" x-model.number="notifications.aging_alert_minutes" min="1" max="60">
+          <p class="text-xs text-gray-500 mt-1">Alert when a ticket has been open for this many minutes</p>
+        </div>
+
+        <label class="flex items-center justify-between cursor-pointer">
+          <div>
+            <span class="text-sm font-medium text-gray-700">Push Notifications</span>
+            <p class="text-xs text-gray-500">Send push notifications for order updates</p>
+          </div>
+          <button type="button"
+                  class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors"
+                  :class="notifications.push_enabled ? 'bg-primary-600' : 'bg-gray-200'"
+                  @click="notifications.push_enabled = !notifications.push_enabled">
+            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
+                  :class="notifications.push_enabled ? 'translate-x-5' : 'translate-x-0'"></span>
+          </button>
+        </label>
+
+        <button class="btn-primary btn-md" @click="saveNotifications()">Save Notifications</button>
+      </div>
+    </div>
+
+    <!-- ===== INTEGRATIONS ===== -->
+    <div x-show="activeSection === 'integrations'" x-cloak>
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Integrations</h2>
+      <div class="grid grid-cols-2 gap-4 max-w-[720px]">
+        <template x-for="intg in integrations" :key="intg.key">
+          <div class="card-padded">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="intg.icon"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-900" x-text="intg.name"></h3>
+                  <p class="text-xs text-gray-500" x-text="intg.description"></p>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="badge" :class="intg.connected ? 'badge-success' : 'badge-neutral'"
+                    x-text="intg.connected ? 'Connected' : 'Not Connected'"></span>
+              <button class="btn-ghost btn-sm text-primary-600" @click="configureIntegration(intg.key)">Configure</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ===== MODULES ===== -->
+    <div x-show="activeSection === 'modules'" x-cloak>
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Modules</h2>
+      <div class="space-y-3 max-w-[640px]">
+        <template x-for="mod in modules" :key="mod.id">
+          <div class="card-padded flex items-center justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-3">
+                <h3 class="text-sm font-semibold text-gray-900" x-text="mod.name"></h3>
+                <span class="text-xs text-gray-400" x-text="mod.price_label"></span>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5" x-text="mod.description"></p>
+            </div>
+            <div class="flex items-center gap-3 ml-4">
+              <template x-if="mod.enabled">
+                <a :href="'/admin/modules/' + mod.id" class="text-sm text-primary-600 hover:text-primary-700 font-medium">Configure</a>
+              </template>
+              <button type="button"
+                      class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors"
+                      :class="mod.enabled ? 'bg-primary-600' : 'bg-gray-200'"
+                      @click="toggleModule(mod)">
+                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
+                      :class="mod.enabled ? 'translate-x-5' : 'translate-x-0'"></span>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/backoffice.js') }}"></script>
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('settingsManager', () => ({
+    activeSection: 'location',
+    location: {},
+    taxRates: [],
+    terminals: [],
+    printers: [],
+    orderSettings: { enabled_types: [], auto_gratuity_enabled: false, auto_gratuity_party_size: 6, auto_gratuity_pct: 18, tip_suggestions: [18, 20, 25], seat_numbers: false, coursing_enabled: false },
+    notifications: { kds_sound: true, aging_alert_minutes: 10, push_enabled: false },
+    integrations: [
+      { key: 'online_ordering', name: 'Online Ordering', description: 'Accept orders from your website', connected: false, icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
+      { key: 'payment_processor', name: 'Payment Processor', description: 'Valor PayTech integration', connected: true, icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
+      { key: 'quickbooks', name: 'QuickBooks', description: 'Accounting sync', connected: false, icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
+      { key: 'doordash', name: 'DoorDash', description: 'Delivery marketplace', connected: false, icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+    ],
+    modules: [],
+
+    sections: [
+      { key: 'location', label: 'Location', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z' },
+      { key: 'tax', label: 'Tax Rates', icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z' },
+      { key: 'terminals', label: 'Terminals', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+      { key: 'orders', label: 'Order Settings', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+      { key: 'notifications', label: 'Notifications', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
+      { key: 'integrations', label: 'Integrations', icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' },
+      { key: 'modules', label: 'Modules', icon: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' },
+    ],
+
+    async loadSettings() {
+      this.loadSectionData('location');
+    },
+
+    async loadSectionData(section) {
+      try {
+        if (section === 'location') {
+          const resp = await fetch('/api/v1/settings/organization');
+          const json = await resp.json();
+          if (json.status === 'success') this.location = json.data || {};
+        } else if (section === 'tax') {
+          const resp = await fetch('/api/v1/settings/tax-rates');
+          const json = await resp.json();
+          if (json.status === 'success') this.taxRates = (json.data || []).map(r => ({ ...r, _editing: false }));
+        } else if (section === 'terminals') {
+          const [tResp, pResp] = await Promise.all([
+            fetch('/api/v1/settings/terminals'),
+            fetch('/api/v1/settings/printers'),
+          ]);
+          const tJson = await tResp.json();
+          const pJson = await pResp.json();
+          if (tJson.status === 'success') this.terminals = tJson.data || [];
+          if (pJson.status === 'success') this.printers = pJson.data || [];
+        } else if (section === 'modules') {
+          const resp = await fetch('/api/v1/settings/modules');
+          const json = await resp.json();
+          if (json.status === 'success') this.modules = json.data || [];
+        }
+      } catch (err) {
+        console.error('Failed to load settings', err);
+      }
+    },
+
+    handleLogoUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => { this.location.logo_url = e.target.result; };
+      reader.readAsDataURL(file);
+    },
+
+    async saveLocation() {
+      try {
+        const resp = await fetch('/api/v1/settings/organization', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.location),
+        });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Location settings saved', 'success');
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to save location settings', 'error');
+      }
+    },
+
+    addTaxRate() {
+      this.taxRates.push({ id: null, name: '', rate: 0, is_inclusive: false, applies_to: 'all', _editing: true });
+    },
+
+    async saveTaxRate(rate) {
+      const payload = { name: rate.name, rate: rate.rate, is_inclusive: rate.is_inclusive, applies_to: rate.applies_to };
+      try {
+        let resp;
+        if (rate.id) {
+          resp = await fetch(`/api/v1/settings/tax-rates/${rate.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+          });
+        } else {
+          resp = await fetch('/api/v1/settings/tax-rates', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+          });
+        }
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Tax rate saved', 'success');
+          rate._editing = false;
+          if (!rate.id && json.data?.id) rate.id = json.data.id;
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to save tax rate', 'error');
+      }
+    },
+
+    async deleteTaxRate(rateId) {
+      if (!rateId || !confirm('Delete this tax rate?')) return;
+      try {
+        const resp = await fetch(`/api/v1/settings/tax-rates/${rateId}`, { method: 'DELETE' });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          this.taxRates = this.taxRates.filter(r => r.id !== rateId);
+          Alpine.store('toasts').add('Tax rate deleted', 'success');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to delete tax rate', 'error');
+      }
+    },
+
+    async saveTerminal(terminal) {
+      try {
+        const resp = await fetch(`/api/v1/settings/terminals/${terminal.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(terminal),
+        });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Terminal saved', 'success');
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to save terminal', 'error');
+      }
+    },
+
+    toggleOrderType(type) {
+      if (!this.orderSettings.enabled_types) this.orderSettings.enabled_types = [];
+      const idx = this.orderSettings.enabled_types.indexOf(type);
+      if (idx > -1) this.orderSettings.enabled_types.splice(idx, 1);
+      else this.orderSettings.enabled_types.push(type);
+    },
+
+    async saveOrderSettings() {
+      try {
+        const resp = await fetch('/api/v1/settings/organization', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_settings: this.orderSettings }),
+        });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Order settings saved', 'success');
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to save order settings', 'error');
+      }
+    },
+
+    async saveNotifications() {
+      try {
+        const resp = await fetch('/api/v1/settings/organization', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notification_settings: this.notifications }),
+        });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Notification settings saved', 'success');
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to save', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to save notification settings', 'error');
+      }
+    },
+
+    configureIntegration(key) {
+      Alpine.store('toasts').add('Integration configuration for ' + key + ' — coming soon', 'info');
+    },
+
+    async toggleModule(mod) {
+      const action = mod.enabled ? 'disable' : 'enable';
+      try {
+        const resp = await fetch(`/api/v1/settings/modules/${mod.id}/${action}`, { method: 'POST' });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          mod.enabled = !mod.enabled;
+          Alpine.store('toasts').add(`Module ${mod.enabled ? 'enabled' : 'disabled'}`, 'success');
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to toggle module', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to toggle module', 'error');
+      }
+    },
+  }));
+});
+</script>
+{% endblock %}

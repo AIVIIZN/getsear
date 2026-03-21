@@ -1,0 +1,143 @@
+{# Reusable date range picker partial — include with {% include "partials/_date_range_picker.html" %} #}
+{# Expects Alpine.js parent with dateRange object: { preset, startDate, endDate, compareMode, compareEnabled } #}
+
+<div class="flex flex-wrap items-center gap-3" x-data>
+  <!-- Preset Buttons -->
+  <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+    <template x-for="p in [
+      {key: 'today', label: 'Today'},
+      {key: 'yesterday', label: 'Yesterday'},
+      {key: 'this_week', label: 'This Week'},
+      {key: 'last_week', label: 'Last Week'},
+      {key: 'this_month', label: 'This Month'},
+      {key: 'last_month', label: 'Last Month'},
+      {key: 'custom', label: 'Custom'}
+    ]" :key="p.key">
+      <button type="button"
+              class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap"
+              :class="dateRange.preset === p.key
+                ? 'bg-white text-primary-700 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'"
+              @click="selectPreset(p.key);"
+              x-text="p.label">
+      </button>
+    </template>
+  </div>
+
+  <!-- Custom Date Inputs (shown when preset === 'custom') -->
+  <div class="flex items-center gap-2" x-show="dateRange.preset === 'custom'" x-cloak>
+    <input type="date"
+           class="input-field h-9 px-3 text-sm w-[140px]"
+           :value="dateRange.startDate"
+           @change="dateRange.startDate = $event.target.value; fetchReport();">
+    <span class="text-gray-400 text-sm">to</span>
+    <input type="date"
+           class="input-field h-9 px-3 text-sm w-[140px]"
+           :value="dateRange.endDate"
+           @change="dateRange.endDate = $event.target.value; fetchReport();">
+  </div>
+
+  <!-- Comparison Toggle -->
+  <div class="flex items-center gap-3 ml-auto">
+    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+      <input type="checkbox"
+             class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+             :checked="dateRange.compareEnabled"
+             @change="dateRange.compareEnabled = $event.target.checked; fetchReport();">
+      <span>Compare</span>
+    </label>
+    <select x-show="dateRange.compareEnabled"
+            class="input-field h-9 px-3 text-sm w-auto"
+            :value="dateRange.compareMode"
+            @change="dateRange.compareMode = $event.target.value; fetchReport();">
+      <option value="previous_period">vs Previous Period</option>
+      <option value="last_year">vs Same Period Last Year</option>
+    </select>
+  </div>
+</div>
+
+<script>
+  function initDateRange() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    return {
+      preset: 'today',
+      startDate: todayStr,
+      endDate: todayStr,
+      compareEnabled: false,
+      compareMode: 'previous_period'
+    };
+  }
+
+  function selectPreset(key) {
+    const today = new Date();
+    const todayStr = formatDate(today);
+    let start, end;
+
+    switch (key) {
+      case 'today':
+        start = end = todayStr;
+        break;
+      case 'yesterday': {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 1);
+        start = end = formatDate(d);
+        break;
+      }
+      case 'this_week': {
+        const d = new Date(today);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        start = formatDate(d);
+        end = todayStr;
+        break;
+      }
+      case 'last_week': {
+        const d = new Date(today);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1) - 7;
+        d.setDate(diff);
+        start = formatDate(d);
+        const endD = new Date(d);
+        endD.setDate(endD.getDate() + 6);
+        end = formatDate(endD);
+        break;
+      }
+      case 'this_month': {
+        start = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+        end = todayStr;
+        break;
+      }
+      case 'last_month': {
+        const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        start = formatDate(d);
+        const endD = new Date(today.getFullYear(), today.getMonth(), 0);
+        end = formatDate(endD);
+        break;
+      }
+      case 'custom':
+        break;
+    }
+
+    if (key !== 'custom') {
+      this.dateRange.startDate = start;
+      this.dateRange.endDate = end;
+    }
+    this.dateRange.preset = key;
+    if (key !== 'custom') {
+      this.fetchReport();
+    }
+  }
+
+  function formatDate(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+</script>

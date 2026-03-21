@@ -1,0 +1,267 @@
+{% extends "base_pos.html" %}
+
+{% block title %}Cash Drawer Count — Sear POS{% endblock %}
+
+{% block content %}
+<div class="h-full flex items-center justify-center bg-gray-100 p-4"
+     x-data="cashDrawerCount()" x-init="loadExpected()">
+
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-[600px] overflow-hidden">
+    <!-- Header -->
+    <div class="bg-gray-900 text-white px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-bold">Cash Drawer Count</h1>
+        <p class="text-sm text-gray-400" x-text="new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })"></p>
+      </div>
+      <button class="btn-icon text-gray-400 hover:text-white" @click="window.history.back()">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <!-- Denomination Table -->
+      <div class="space-y-1">
+        <!-- Bills Header -->
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Bills</p>
+
+        <template x-for="denom in bills" :key="denom.value">
+          <div class="flex items-center gap-4 py-2 border-b border-gray-100">
+            <span class="w-16 text-sm font-semibold text-gray-700" x-text="denom.label"></span>
+            <span class="text-gray-400 text-sm">&times;</span>
+            <div class="flex items-center gap-1">
+              <button class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                      @click="denom.qty = Math.max(0, denom.qty - 1)">-</button>
+              <input type="number" min="0"
+                     class="w-16 h-9 text-center text-sm font-semibold border border-gray-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                     x-model.number="denom.qty"
+                     @focus="$event.target.select()">
+              <button class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                      @click="denom.qty++">+</button>
+            </div>
+            <span class="ml-auto text-sm font-medium text-gray-900 w-20 text-right"
+                  x-text="formatMoney(denom.value * denom.qty * 100)"></span>
+          </div>
+        </template>
+
+        <!-- Coins Header -->
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4 mb-2">Coins</p>
+
+        <template x-for="denom in coins" :key="denom.value">
+          <div class="flex items-center gap-4 py-2 border-b border-gray-100">
+            <span class="w-16 text-sm font-semibold text-gray-700" x-text="denom.label"></span>
+            <span class="text-gray-400 text-sm">&times;</span>
+            <div class="flex items-center gap-1">
+              <button class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                      @click="denom.qty = Math.max(0, denom.qty - 1)">-</button>
+              <input type="number" min="0"
+                     class="w-16 h-9 text-center text-sm font-semibold border border-gray-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                     x-model.number="denom.qty"
+                     @focus="$event.target.select()">
+              <button class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                      @click="denom.qty++">+</button>
+            </div>
+            <span class="ml-auto text-sm font-medium text-gray-900 w-20 text-right"
+                  x-text="formatMoney(Math.round(denom.value * denom.qty * 100))"></span>
+          </div>
+        </template>
+      </div>
+
+      <!-- Totals Section -->
+      <div class="mt-6 pt-4 border-t-2 border-gray-200 space-y-3">
+        <!-- Running Total -->
+        <div class="flex items-center justify-between">
+          <span class="text-base font-semibold text-gray-700">Counted Total</span>
+          <span class="text-3xl font-bold text-gray-900" x-text="formatMoney(totalCents)"></span>
+        </div>
+
+        <!-- Expected -->
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-gray-500">Expected (System)</span>
+          <span class="text-lg font-semibold text-gray-600" x-text="formatMoney(expectedCents)"></span>
+        </div>
+
+        <!-- Discrepancy -->
+        <div class="flex items-center justify-between p-3 rounded-lg transition-colors"
+             :class="{
+               'bg-green-50': Math.abs(discrepancyCents) <= 500,
+               'bg-red-50': Math.abs(discrepancyCents) > 500,
+             }">
+          <span class="text-sm font-semibold"
+                :class="Math.abs(discrepancyCents) > 500 ? 'text-red-700' : 'text-green-700'">
+            Discrepancy
+          </span>
+          <div class="text-right">
+            <span class="text-lg font-bold"
+                  :class="Math.abs(discrepancyCents) > 500 ? 'text-red-700' : 'text-green-700'"
+                  x-text="(discrepancyCents >= 0 ? '+' : '-') + formatMoney(Math.abs(discrepancyCents))"></span>
+            <template x-if="Math.abs(discrepancyCents) > 500">
+              <p class="text-xs text-red-600 font-semibold mt-0.5 flex items-center gap-1 justify-end">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                Manager Approval Required
+              </p>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="mt-6">
+        <button class="btn-primary btn-lg w-full text-lg"
+                :disabled="submitting"
+                @click="submitCount()"
+                x-text="submitting ? 'Submitting...' : (Math.abs(discrepancyCents) > 500 ? 'Submit (Requires Manager PIN)' : 'Submit Count')">
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manager PIN Modal -->
+  <div x-show="showManagerPin" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+       @click.self="showManagerPin = false">
+    <div class="bg-white rounded-xl shadow-xl w-[320px] p-6 text-center">
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Manager Approval</h3>
+      <p class="text-sm text-gray-500 mb-4">
+        Discrepancy exceeds $5.00. Enter manager PIN to approve.
+      </p>
+      <input type="password"
+             class="input-field text-center text-2xl tracking-[0.5em] mb-4"
+             maxlength="6"
+             x-model="managerPin"
+             placeholder="****"
+             @keydown.enter="verifyManagerPin()"
+             x-ref="managerPinInput">
+      <div class="flex gap-3">
+        <button class="btn-secondary btn-sm flex-1" @click="showManagerPin = false; managerPin = ''">Cancel</button>
+        <button class="btn-primary btn-sm flex-1" @click="verifyManagerPin()">Approve</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('cashDrawerCount', () => ({
+    bills: [
+      { label: '$100', value: 100, qty: 0 },
+      { label: '$50', value: 50, qty: 0 },
+      { label: '$20', value: 20, qty: 0 },
+      { label: '$10', value: 10, qty: 0 },
+      { label: '$5', value: 5, qty: 0 },
+      { label: '$1', value: 1, qty: 0 },
+    ],
+    coins: [
+      { label: '$0.25', value: 0.25, qty: 0 },
+      { label: '$0.10', value: 0.10, qty: 0 },
+      { label: '$0.05', value: 0.05, qty: 0 },
+      { label: '$0.01', value: 0.01, qty: 0 },
+    ],
+    expectedCents: 0,
+    submitting: false,
+    showManagerPin: false,
+    managerPin: '',
+
+    get totalCents() {
+      let total = 0;
+      for (const b of this.bills) total += b.value * b.qty * 100;
+      for (const c of this.coins) total += Math.round(c.value * c.qty * 100);
+      return total;
+    },
+
+    get discrepancyCents() {
+      return this.totalCents - this.expectedCents;
+    },
+
+    formatMoney(cents) {
+      return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+
+    async loadExpected() {
+      try {
+        const resp = await fetch('/api/v1/pos/reconciliation/expected-cash');
+        const json = await resp.json();
+        if (json.status === 'success' && json.data) {
+          this.expectedCents = json.data.expected_cash || 0;
+        }
+      } catch (err) {
+        console.error('Failed to load expected cash', err);
+      }
+    },
+
+    async submitCount() {
+      if (Math.abs(this.discrepancyCents) > 500) {
+        this.showManagerPin = true;
+        this.$nextTick(() => this.$refs.managerPinInput?.focus());
+        return;
+      }
+      await this.doSubmit();
+    },
+
+    async verifyManagerPin() {
+      if (!this.managerPin) return;
+      try {
+        const resp = await fetch('/api/v1/auth/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: this.managerPin, require_role: 'manager' }),
+        });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          this.showManagerPin = false;
+          this.managerPin = '';
+          await this.doSubmit(json.data?.user_id);
+        } else {
+          Alpine.store('toasts').add('Invalid manager PIN', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('PIN verification failed', 'error');
+      }
+    },
+
+    async doSubmit(approvedBy) {
+      this.submitting = true;
+
+      const denominations = {};
+      for (const b of this.bills) {
+        if (b.qty > 0) denominations[b.label] = { qty: b.qty, subtotal: b.value * b.qty * 100 };
+      }
+      for (const c of this.coins) {
+        if (c.qty > 0) denominations[c.label] = { qty: c.qty, subtotal: Math.round(c.value * c.qty * 100) };
+      }
+
+      const payload = {
+        counted_total: this.totalCents,
+        expected_total: this.expectedCents,
+        discrepancy: this.discrepancyCents,
+        denominations,
+        approved_by: approvedBy || null,
+      };
+
+      try {
+        const resp = await fetch('/api/v1/pos/reconciliation/cash-count', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const json = await resp.json();
+        if (json.status === 'success') {
+          Alpine.store('toasts').add('Cash count submitted', 'success');
+          setTimeout(() => window.history.back(), 1500);
+        } else {
+          Alpine.store('toasts').add(json.message || 'Failed to submit count', 'error');
+        }
+      } catch (err) {
+        Alpine.store('toasts').add('Failed to submit cash count', 'error');
+      } finally {
+        this.submitting = false;
+      }
+    },
+  }));
+});
+</script>
+{% endblock %}
