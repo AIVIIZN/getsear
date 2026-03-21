@@ -23,12 +23,8 @@ session_redis: redis.Redis | None = None          # DB 2 — session storage
 # --- Celery ---
 celery_app: Celery = Celery("sear-pos")
 
-# --- Flask-Limiter (storage set during init) ---
-limiter: Limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["200/minute", "5000/hour"],
-    storage_uri="memory://",  # overridden in init_extensions
-)
+# --- Flask-Limiter (initialized in init_extensions, not here) ---
+limiter: Limiter | None = None
 
 # --- CSRF ---
 csrf: CSRFProtect = CSRFProtect()
@@ -100,12 +96,18 @@ def _init_celery(app: Flask) -> None:
 
 def _init_limiter(app: Flask) -> None:
     """Attach Flask-Limiter to the app with Redis storage."""
+    global limiter
+
     base_url = app.config.get("REDIS_URL", "redis://localhost:6379")
     db_rate = app.config.get("REDIS_DB_RATE_LIMIT", 1)
-    storage_uri = f"{base_url}/{db_rate}"
+    storage_uri = f"redis://localhost:6379/{db_rate}"
 
-    limiter._storage_uri = storage_uri
-    limiter.init_app(app)
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["200/minute", "5000/hour"],
+        storage_uri=storage_uri,
+        app=app,
+    )
 
     logger.info("limiter.initialized", storage=storage_uri)
 
