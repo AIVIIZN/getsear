@@ -115,11 +115,27 @@ Full system architecture is in `SEAR_POS_ARCHITECTURE.md` (782KB, 17,935 lines).
 - All critical, medium, and low issues fixed
 - Key fixes: payments blueprint registration, PIN hash standardization (bcrypt), CSRF exemption, auth decorator (local JWT), SSE bridge wiring, template inheritance, page route rewiring, column name alignment, Celery tasks created, cookie-based page auth, PIN brute-force lockout, password complexity, order number race condition fix
 
-### Remaining (not code)
-- Run migrations against real Supabase (24 SQL files)
-- Deploy to GCP VM (getsear, 34.132.111.219)
-- Set up Valor ISV credentials for real payment processing
-- Native iOS wrapper for Bluetooth RCKT terminal (separate Xcode project)
+### Deployment — COMPLETE (2026-03-21)
+- 24 SQL migrations applied to Supabase (72 tables, RLS policies, indexes, triggers)
+- SSL certificate via certbot (https://getsear.com + www)
+- Gunicorn gthread workers (gevent had SSL conflicts with Supabase SDK)
+- Supabase anon key for auth, service_role key for data operations
+- Seed data: 6 categories, 30 menu items, 3 modifier groups, 15 modifiers, 10 tables, 1 floor plan, tax rate
+
+### iOS Native Wrapper — COMPLETE (2026-03-21)
+- SwiftUI app at ios/SearPOS/ — WKWebView wrapping getsear.com
+- CoreBluetooth: Valor RCKT terminal + Star Micronics printers
+- ESC/POS builder for receipt printing + cash drawer kick
+- JS bridge: native_bridge.js with postMessage/evaluateJavaScript
+- iPad landscape, iOS 17+, Swift 6, all files parse clean
+- Valor BLE UUIDs are placeholders pending ISV credentials
+
+### Remaining
+- Valor ISV credentials (only thing blocking real payment processing)
+
+### Credentials
+- `demo@getsear.com` / `demo1234` (PIN: 0000) — owner role
+- `ian@cyberactiveconsulting.com` / `SearAdmin2026!` (PIN: 1234) — owner role
 
 ## Project Structure
 ```
