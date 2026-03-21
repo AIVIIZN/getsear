@@ -324,7 +324,7 @@ def me() -> Response:
     try:
         user_resp = (
             supabase_client.table("users")
-            .select("id, org_id, auth_id, email, display_name, role, is_active, created_at")
+            .select("id, org_id, email, first_name, last_name, display_name, role, phone, avatar_url, is_active, created_at")
             .eq("id", ctx.user_id)
             .single()
             .execute()
