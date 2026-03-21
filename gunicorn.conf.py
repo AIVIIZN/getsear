@@ -3,8 +3,8 @@ bind = "0.0.0.0:8000"
 
 # Worker processes
 workers = 4
-worker_class = "gevent"
-worker_connections = 1000
+worker_class = "gthread"
+threads = 4
 
 # Timeouts
 timeout = 120
