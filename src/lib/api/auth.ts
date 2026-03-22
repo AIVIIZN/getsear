@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 export interface AuthUser {
@@ -11,6 +12,7 @@ export interface AuthUser {
 
 /**
  * Get the authenticated user from the Supabase session.
+ * Uses server client for auth check, admin client for profile lookup (bypasses RLS).
  * Returns the user or a NextResponse error.
  */
 export async function getAuthUser(): Promise<AuthUser | NextResponse> {
@@ -21,8 +23,9 @@ export async function getAuthUser(): Promise<AuthUser | NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Fetch user profile from our users table
-  const { data: profile, error: profileError } = await supabase
+  // Use admin client to bypass RLS for profile lookup
+  const admin = createAdminClient()
+  const { data: profile, error: profileError } = await admin
     .from('users')
     .select('id, email, org_id, role, location_ids')
     .eq('id', user.id)
