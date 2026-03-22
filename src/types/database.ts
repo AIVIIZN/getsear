@@ -511,6 +511,59 @@ export interface GiftCard {
 }
 
 // ---------------------------------------------------------------------------
+// Tax Rates
+// ---------------------------------------------------------------------------
+
+export interface TaxRate {
+  id: UUID
+  org_id: UUID
+  location_id: UUID
+  name: string
+  rate: string // numeric(6,4) as string
+  is_inclusive: boolean
+  is_default: boolean
+  applies_to: string[] // e.g. ['food', 'alcohol', 'merchandise']
+  is_active: boolean
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
+// ---------------------------------------------------------------------------
+// Org Modules
+// ---------------------------------------------------------------------------
+
+export interface OrgModule {
+  id: UUID
+  org_id: UUID
+  module_name: string
+  is_enabled: boolean
+  config: Record<string, unknown>
+  location_ids: UUID[] | null
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
+// ---------------------------------------------------------------------------
+// Roles & Permissions
+// ---------------------------------------------------------------------------
+
+export interface Permission {
+  id: UUID
+  name: string
+  description: string | null
+  category: string
+  created_at: Timestamp
+}
+
+export interface RolePermission {
+  id: UUID
+  org_id: UUID
+  role: UserRole
+  permission_id: UUID
+  created_at: Timestamp
+}
+
+// ---------------------------------------------------------------------------
 // Audit Log
 // ---------------------------------------------------------------------------
 
@@ -654,6 +707,26 @@ export interface Database {
         Row: AuditLog
         Insert: Partial<AuditLog> & Pick<AuditLog, 'org_id' | 'action' | 'entity_type' | 'description'>
         Update: Partial<AuditLog>
+      }
+      tax_rates: {
+        Row: TaxRate
+        Insert: Partial<TaxRate> & Pick<TaxRate, 'org_id' | 'location_id' | 'name' | 'rate'>
+        Update: Partial<TaxRate>
+      }
+      org_modules: {
+        Row: OrgModule
+        Insert: Partial<OrgModule> & Pick<OrgModule, 'org_id' | 'module_name'>
+        Update: Partial<OrgModule>
+      }
+      permissions: {
+        Row: Permission
+        Insert: Partial<Permission> & Pick<Permission, 'name' | 'category'>
+        Update: Partial<Permission>
+      }
+      role_permissions: {
+        Row: RolePermission
+        Insert: Partial<RolePermission> & Pick<RolePermission, 'org_id' | 'role' | 'permission_id'>
+        Update: Partial<RolePermission>
       }
     }
     Views: Record<string, never>
