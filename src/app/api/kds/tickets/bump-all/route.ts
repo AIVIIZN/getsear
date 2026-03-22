@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Station not found' }, { status: 404 })
   }
 
-  const prepStationsFilter: string[] = station.settings?.prep_stations ?? []
-  const isExpo = station.type === 'expo'
+  const prepStationsFilter: string[] = station.prep_stations ?? []
+  const isExpo = station.station_type === 'expo'
 
   // Get active orders
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

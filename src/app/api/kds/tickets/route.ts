@@ -107,8 +107,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Station not found' }, { status: 404 })
   }
 
-  const stationType = station.type as string
-  const prepStationsFilter: string[] = station.settings?.prep_stations ?? []
+  const stationType = station.station_type as string
+  const prepStationsFilter: string[] = station.prep_stations ?? []
 
   // 2. Get active orders (status = 'fired' or 'ready') for this location
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

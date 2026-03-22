@@ -3,7 +3,7 @@
 interface KdsStation {
   id: string
   name: string
-  type: string
+  station_type: string
   sort_order: number
   is_active: boolean
 }
@@ -40,7 +40,7 @@ export function KdsStationTabs({ stations, activeStationId, onSelect }: KdsStati
             }`}
           >
             {station.name}
-            {station.type === 'expo' && (
+            {station.station_type === 'expo' && (
               <span className="ml-1.5 text-xs opacity-70">EXPO</span>
             )}
           </button>

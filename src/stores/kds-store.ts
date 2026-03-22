@@ -33,7 +33,7 @@ interface KdsTicket {
 interface KdsStation {
   id: string
   name: string
-  type: string
+  station_type: string
   sort_order: number
   is_active: boolean
 }

@@ -92,7 +92,7 @@ export async function POST(
   }
 
   // If this was an expo station, reset is_ready on the items
-  if (station.type === 'expo') {
+  if (station.station_type === 'expo') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('order_items') as any)
       .update({ is_ready: false, ready_at: null })
