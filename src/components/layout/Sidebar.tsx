@@ -12,7 +12,18 @@ import {
   Contact,
   BarChart3,
   Settings,
-  Building2,
+  Globe,
+  Heart,
+  CalendarDays,
+  Wallet,
+  Package,
+  CalendarClock,
+  Truck,
+  Megaphone,
+  ChefHat,
+  Car,
+  Building,
+  CreditCard,
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +43,7 @@ const posItems: NavItem[] = [
   { label: "Orders", href: "/orders", icon: ShoppingCart },
   { label: "Tables", href: "/tables", icon: Grid3x3 },
   { label: "Checks", href: "/checks", icon: Receipt },
+  { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "KDS", href: "/kds", icon: MonitorPlay },
 ];
 
@@ -42,9 +54,22 @@ const managementItems: NavItem[] = [
   { label: "Reports", href: "/reports", icon: BarChart3 },
 ];
 
+const moduleItems: NavItem[] = [
+  { label: "Online Ordering", href: "/online-ordering", icon: Globe },
+  { label: "Reservations", href: "/reservations", icon: CalendarDays },
+  { label: "Loyalty", href: "/loyalty", icon: Heart },
+  { label: "Inventory", href: "/inventory", icon: Package },
+  { label: "Scheduling", href: "/scheduling", icon: CalendarClock },
+  { label: "Marketing", href: "/marketing", icon: Megaphone },
+  { label: "Delivery", href: "/delivery", icon: Truck },
+  { label: "Catering", href: "/catering", icon: ChefHat },
+  { label: "House Accounts", href: "/house-accounts", icon: Wallet },
+  { label: "Drive-Thru", href: "/drive-thru", icon: Car },
+  { label: "Franchise", href: "/franchise", icon: Building },
+];
+
 const adminItems: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings },
-  { label: "Back Office", href: "/backoffice", icon: Building2 },
 ];
 
 function NavSection({
@@ -144,6 +169,13 @@ export function Sidebar({ collapsed }: SidebarProps) {
         <NavSection
           items={managementItems}
           label="Management"
+          collapsed={collapsed}
+          pathname={pathname}
+        />
+        <Separator className="my-1.5 bg-[var(--sidebar-border)]" />
+        <NavSection
+          items={moduleItems}
+          label="Modules"
           collapsed={collapsed}
           pathname={pathname}
         />
