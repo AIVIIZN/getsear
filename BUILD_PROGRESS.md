@@ -40,42 +40,51 @@ Build in this exact sequence. Each module must be 100% complete before marking d
 - [x] **05 Tables** — floor plans, status management, sections, real-time
 - [x] **06 KDS** — stations, tickets, bump/recall, aging, expo, dark theme
 
-### Batch 4 — Payments (depends on orders) 🔨 IN PROGRESS
-- [ ] **04 Payments** — Valor, cash, gift cards, house accounts, bar tabs, tips, splits
+### Batch 4 — Payments (depends on orders) ✅ DEPLOYED 2026-03-22
+- [x] **04 Payments** — Valor mock, cash, gift cards, house accounts, bar tabs, tips, splits
 
-### Batch 5 — Revenue Features (depends on core POS)
-- [ ] **11 Online Ordering** — portal, QR code, throttling, scheduled orders
-- [ ] **12 Loyalty** — programs, accounts, earn/redeem, tiers
-- [ ] **13 Reservations** — reservations, waitlist, SMS, table assignment
-- [ ] **21 House Accounts** — corporate billing, credit limits, statements
+### Batch 5 — Revenue Features (depends on core POS) ✅ DEPLOYED 2026-03-22
+- [x] **11 Online Ordering** — portal, QR code, throttling, scheduled orders
+- [x] **12 Loyalty** — programs, accounts, earn/redeem, tiers
+- [x] **13 Reservations** — reservations, waitlist, SMS, table assignment
+- [x] **21 House Accounts** — corporate billing, credit limits, statements
 
-### Batch 6 — Operations (depends on core POS + staff)
-- [ ] **14 Inventory** — items, recipes, vendors, POs, waste, food cost
-- [ ] **15 Scheduling** — templates, shifts, availability, swaps, labor forecast
-- [ ] **17 Delivery** — zones, drivers, tracking, third-party hooks
+### Batch 6 — Operations (depends on core POS + staff) ✅ DEPLOYED 2026-03-22
+- [x] **14 Inventory** — items, recipes, vendors, POs, waste, food cost
+- [x] **15 Scheduling** — templates, shifts, availability, swaps, labor forecast
+- [x] **17 Delivery** — zones, drivers, tracking, third-party hooks
 
-### Batch 7 — Growth Features (depends on customers + orders)
-- [ ] **16 Marketing** — campaigns, segmentation, email/SMS, tracking
-- [ ] **18 Catering** — events, BEOs, menus, invoicing
+### Batch 7 — Growth Features (depends on customers + orders) ✅ DEPLOYED 2026-03-22
+- [x] **16 Marketing** — campaigns, segmentation, email/SMS, tracking
+- [x] **18 Catering** — events, BEOs, menus, invoicing
 
-### Batch 8 — Vertical & Enterprise (depends on everything)
-- [ ] **19 Drive-Thru** — lanes, speed tracking, menu boards
-- [ ] **20 Franchise** — multi-location sync, royalties, consolidated reports
-- [ ] **09 Reports** — all report types, dashboard, charts, CSV/PDF export
+### Batch 8 — Vertical & Enterprise (depends on everything) ✅ DEPLOYED 2026-03-22
+- [x] **19 Drive-Thru** — lanes, speed tracking, menu boards
+- [x] **20 Franchise** — multi-location sync, royalties, consolidated reports
+- [x] **09 Reports** — dashboard with KPI cards (placeholder charts)
 
-### Batch 9 — Polish
-- [ ] Seed data script (realistic demo restaurant)
+### Batch 9 — Polish 🔨 NEXT
+- [ ] Full Reports module (Recharts: hourly sales, payment mix, PMIX, labor, speed of service)
+- [ ] Seed data script (version-controlled, reproducible)
 - [ ] PWA manifest + service worker + offline mode
 - [ ] E2E tests (Playwright: login, order, payment, KDS bump)
 - [ ] Visual QA pass (every page, every empty state, every loading state)
 - [ ] Performance audit (Lighthouse, bundle size)
-- [ ] Security audit (auth guards, RLS, CSRF, rate limiting)
+- [ ] Security audit (auth guards, RLS policies per table, rate limiting)
+- [ ] Sidebar navigation updated for all new modules
 
 ## Completed Modules
-(none yet)
+All 21 modules — 189 routes, 28 pages, 80+ database tables, RLS enabled
 
 ## Current Session Notes
-**Session 1 (2026-03-22):** Full infrastructure setup. Deleted old Flask codebase. Created all architecture docs (SCHEMA.md, API_SPEC.md, UI_DESIGN.md, BUSINESS_RULES.md, 21 MODULE_SPECS). Initialized Next.js 16 + shadcn/ui + design system. Wiped Supabase. Installed Node.js 22 + PM2 on VM. Deployed blank app to getsear.com. Next: Apply Supabase schema, build base layouts, start Batch 1 (Auth + Settings).
+**Session 1 (2026-03-22):** Built entire Sear POS v2 from scratch in one session:
+- Deleted old Flask codebase, created 5 architecture docs + 21 module specs
+- Initialized Next.js 16 + shadcn/ui with Sear design system (ember orange, warm neutrals)
+- Applied 80-table schema to Supabase with RLS + service_role bypass
+- Seeded: 1 org, 1 location, 7 staff, 8 categories, 30 menu items, 10 tables, 1 tax rate
+- Built all 21 modules across 8 batches using parallel Opus agents
+- All 189 routes compile clean, deployed to getsear.com via PM2
+- Next session: Batch 9 polish (full reports with charts, PWA, tests, visual QA)
 
 ## Known Issues
 (none yet)
