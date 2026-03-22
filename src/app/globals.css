@@ -2,129 +2,376 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ============================================================
+   SEAR POS DESIGN SYSTEM
+   Enterprise restaurant POS — light mode, warm, professional
+   Brand: Ember Orange (#F06B18)
+   ============================================================ */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Core mappings */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
+
+  /* shadcn/ui mappings */
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Chart colors — Sear palette */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Sear-specific semantic colors */
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  /* Radius scale */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
 }
 
+/* ============================================================
+   LIGHT MODE (primary — the only production mode)
+   Warm off-white backgrounds, ember orange brand, warm shadows
+   ============================================================ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Backgrounds — warm, not sterile */
+  --background: #FAFAF8;
+  --foreground: #1A1A17;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A17;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A17;
+
+  /* Brand — Ember Orange */
+  --primary: #F06B18;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #E05A0A;
+  --primary-active: #CC4F08;
+
+  /* Secondary — warm neutral */
+  --secondary: #F5F3F0;
+  --secondary-foreground: #3D3D37;
+
+  /* Muted — for labels, captions, disabled */
+  --muted: #F0EDE8;
+  --muted-foreground: #78756D;
+
+  /* Accent — subtle warm highlight */
+  --accent: #FFF4EC;
+  --accent-foreground: #9A4A12;
+
+  /* Destructive — void, delete, critical */
+  --destructive: #DC2626;
+
+  /* Borders — warm, subtle */
+  --border: #E8E5DF;
+  --border-hover: #D4D0C8;
+  --input: #E8E5DF;
+  --ring: #F06B18;
+
+  /* Radius */
+  --radius: 0.75rem;
+
+  /* Semantic status colors */
+  --success: #16A34A;
+  --success-bg: #F0FDF4;
+  --warning: #D97706;
+  --warning-bg: #FFFBEB;
+  --error: #DC2626;
+  --error-bg: #FEF2F2;
+  --info: #2563EB;
+  --info-bg: #EFF6FF;
+
+  /* Table status colors */
+  --table-available: #16A34A;
+  --table-seated: #2563EB;
+  --table-ordered: #7C3AED;
+  --table-served: #0891B2;
+  --table-check-presented: #D97706;
+  --table-dirty: #9CA3AF;
+  --table-reserved: #6366F1;
+  --table-needs-attention: #DC2626;
+
+  /* KDS aging colors */
+  --kds-fresh: #FFFFFF;
+  --kds-aging: #FEF3C7;
+  --kds-late: #FED7AA;
+  --kds-critical: #FECACA;
+
+  /* Order type colors */
+  --order-dinein: #2563EB;
+  --order-takeout: #16A34A;
+  --order-delivery: #7C3AED;
+  --order-bar: #D97706;
+  --order-catering: #0891B2;
+  --order-online: #6366F1;
+  --order-drivethru: #EC4899;
+
+  /* Shadows — warm tinted, not blue-gray */
+  --shadow-sm: 0 1px 2px 0 rgba(28, 25, 18, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(28, 25, 18, 0.07), 0 2px 4px -2px rgba(28, 25, 18, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(28, 25, 18, 0.08), 0 4px 6px -4px rgba(28, 25, 18, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(28, 25, 18, 0.1), 0 8px 10px -6px rgba(28, 25, 18, 0.06);
+
+  /* Chart palette */
+  --chart-1: #F06B18;
+  --chart-2: #2563EB;
+  --chart-3: #16A34A;
+  --chart-4: #7C3AED;
+  --chart-5: #D97706;
+
+  /* Sidebar */
+  --sidebar: #F5F3F0;
+  --sidebar-foreground: #3D3D37;
+  --sidebar-primary: #F06B18;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EBE7E0;
+  --sidebar-accent-foreground: #3D3D37;
+  --sidebar-border: #E8E5DF;
+  --sidebar-ring: #F06B18;
+
+  /* Animation timing */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Layout constants */
+  --topbar-height: 56px;
+  --sidebar-collapsed: 64px;
+  --sidebar-expanded: 240px;
+  --order-panel-width: 360px;
 }
 
+/* ============================================================
+   KDS Dark Theme (ONLY for kitchen display)
+   ============================================================ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0F1117;
+  --foreground: #F5F3F0;
+  --card: #1A1C23;
+  --card-foreground: #F5F3F0;
+  --popover: #1A1C23;
+  --popover-foreground: #F5F3F0;
+  --primary: #F59E0B;
+  --primary-foreground: #0F1117;
+  --secondary: #262830;
+  --secondary-foreground: #F5F3F0;
+  --muted: #262830;
+  --muted-foreground: #9CA3AF;
+  --accent: #262830;
+  --accent-foreground: #F5F3F0;
+  --destructive: #EF4444;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #F59E0B;
+  --chart-1: #F59E0B;
+  --chart-2: #3B82F6;
+  --chart-3: #22C55E;
+  --chart-4: #A78BFA;
+  --chart-5: #FB923C;
+  --sidebar: #1A1C23;
+  --sidebar-foreground: #F5F3F0;
+  --sidebar-primary: #F59E0B;
+  --sidebar-primary-foreground: #0F1117;
+  --sidebar-accent: #262830;
+  --sidebar-accent-foreground: #F5F3F0;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #F59E0B;
 }
 
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    @apply font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
-  html {
-    @apply font-sans;
+
+  /* Tabular numbers for prices and data */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
+}
+
+/* ============================================================
+   POS-SPECIFIC UTILITIES
+   Touch optimization for iPad
+   ============================================================ */
+@layer utilities {
+  /* Prevent text selection on POS screens */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Prevent overscroll/pull-to-refresh */
+  .no-overscroll {
+    overscroll-behavior: none;
+  }
+
+  /* Touch-optimized — minimum 44px targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  .touch-target-lg {
+    min-height: 48px;
+    min-width: 48px;
+    touch-action: manipulation;
+  }
+
+  /* Hide scrollbar but keep scroll */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Warm shadows as utilities */
+  .shadow-warm-sm { box-shadow: var(--shadow-sm); }
+  .shadow-warm-md { box-shadow: var(--shadow-md); }
+  .shadow-warm-lg { box-shadow: var(--shadow-lg); }
+  .shadow-warm-xl { box-shadow: var(--shadow-xl); }
+}
+
+/* ============================================================
+   ANIMATIONS
+   Purposeful micro-interactions
+   ============================================================ */
+@layer base {
+  @keyframes item-flash {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: var(--accent); }
+  }
+
+  @keyframes skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes pulse-attention {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes slide-out-left {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(-100%); opacity: 0; }
+  }
+
+  @keyframes counter-roll {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-item-flash {
+    animation: item-flash 500ms ease-out;
+  }
+
+  .animate-skeleton {
+    background: linear-gradient(90deg, var(--muted) 25%, var(--secondary) 50%, var(--muted) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+  }
+
+  .animate-pulse-attention {
+    animation: pulse-attention 1s infinite;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right var(--duration-normal) var(--ease-out);
+  }
+
+  .animate-slide-out-left {
+    animation: slide-out-left var(--duration-normal) var(--ease-in);
+  }
+
+  .animate-counter-roll {
+    animation: counter-roll var(--duration-fast) var(--ease-out);
+  }
+}
+
+/* ============================================================
+   BUTTON PRESS FEEDBACK
+   Scale down slightly on touch for tactile feel
+   ============================================================ */
+@layer components {
+  .btn-press:active {
+    transform: scale(0.97);
+    transition: transform 80ms ease-out;
+  }
+}
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  * { box-shadow: none !important; }
 }
