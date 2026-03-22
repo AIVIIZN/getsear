@@ -30,12 +30,12 @@ export async function GET(request: NextRequest) {
   let query = (supabase.from('drive_thru_orders') as any)
     .select('*', { count: 'exact' })
     .eq('org_id', user.org_id)
-    .order('order_taken_at', { ascending: false })
+    .order('ordered_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
   if (locationId) query = query.eq('location_id', locationId)
-  if (dateFrom) query = query.gte('order_taken_at', dateFrom)
-  if (dateTo) query = query.lte('order_taken_at', dateTo)
+  if (dateFrom) query = query.gte('ordered_at', dateFrom)
+  if (dateTo) query = query.lte('ordered_at', dateTo)
 
   const { data, error, count } = await query
 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       location_id: parsed.data.location_id,
       order_id: parsed.data.order_id ?? null,
       lane: parsed.data.lane,
-      order_taken_at: now,
+      ordered_at: now,
     })
     .select()
     .single()

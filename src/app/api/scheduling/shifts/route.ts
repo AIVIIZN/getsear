@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   let query = (supabase.from('scheduled_shifts') as any)
     .select('*')
     .eq('org_id', user.org_id)
-    .order('date', { ascending: true })
+    .order('shift_date', { ascending: true })
     .order('start_time', { ascending: true })
 
   if (userId) {
@@ -41,11 +41,11 @@ export async function GET(request: NextRequest) {
   }
 
   if (dateFrom) {
-    query = query.gte('date', dateFrom)
+    query = query.gte('shift_date', dateFrom)
   }
 
   if (dateTo) {
-    query = query.lte('date', dateTo)
+    query = query.lte('shift_date', dateTo)
   }
 
   if (status) {
