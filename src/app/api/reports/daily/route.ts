@@ -65,10 +65,22 @@ export async function GET(request: NextRequest) {
 
   if (locationId) query = query.eq('location_id', locationId)
 
-  const { data, error } = await query.single()
+  const { data, error } = await query.maybeSingle()
 
   if (error) {
     return NextResponse.json({ is_mock: false, data: null, error: error.message }, { status: 500 })
+  }
+
+  if (!data) {
+    // Return mock data when no metrics exist
+    return NextResponse.json({
+      is_mock: true,
+      data: {
+        total_sales: 8247.50, orders: 312, avg_check: 26.43, labor_pct: 28.5,
+        total_revenue: 8247.50, order_count: 312, average_check: 26.43, labor_percentage: 28.5,
+        prev_period: { total_sales: 7580, orders: 289, avg_check: 26.23, labor_pct: 29.2 }
+      }
+    })
   }
 
   return NextResponse.json({ is_mock: false, data })

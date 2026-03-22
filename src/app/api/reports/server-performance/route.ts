@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   // Real: aggregate orders by server_id
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('orders') as any)
-    .select('server_id, total, guest_count, tip_amount')
+    .select('server_id, total, guest_count, tip_total')
     .eq('org_id', user.org_id)
     .gte('created_at', `${dateFrom}T00:00:00Z`)
     .lte('created_at', `${dateTo}T23:59:59Z`)
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     existing.sales += Number(order.total) || 0
     existing.orders += 1
     existing.covers += Number(order.guest_count) || 0
-    existing.tips += Number(order.tip_amount) || 0
+    existing.tips += Number(order.tip_total) || 0
     serverMap.set(sid, existing)
   }
 
