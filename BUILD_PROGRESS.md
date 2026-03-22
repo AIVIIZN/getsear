@@ -2,26 +2,26 @@
 
 This file is the single source of truth for what's been built, what's in progress, and what's next. Updated after every coding session.
 
-## Current Status: PRE-BUILD (Infrastructure Setup)
+## Current Status: INFRASTRUCTURE COMPLETE — Ready to build Batch 1
 
 ## Infrastructure Checklist
-- [ ] Supabase wiped (drop all tables, enums, policies)
+- [x] Supabase wiped (drop all tables, enums, policies) — 2026-03-22
 - [ ] Supabase schema applied (SCHEMA.md → SQL migrations)
 - [ ] Supabase seed data loaded
-- [ ] VM cleaned (remove old Flask app, Python, Gunicorn, Supervisor)
-- [ ] VM: Node.js 22 LTS installed
-- [ ] VM: PM2 installed globally
-- [ ] VM: Nginx reconfigured for Next.js (port 3000)
-- [ ] VM: Redis verified working (5 DBs)
-- [ ] VM: SSL certificate renewed/verified
-- [ ] Next.js project initialized (create-next-app with TypeScript + Tailwind + App Router)
-- [ ] shadcn/ui initialized (components installed)
-- [ ] Zustand, BullMQ, Supabase SDK, zod, react-hook-form installed
-- [ ] Design system implemented (globals.css with tokens from UI_DESIGN.md)
+- [x] VM cleaned (remove old Flask app, Supervisor configs) — 2026-03-22
+- [x] VM: Node.js 22.22.1 LTS installed — 2026-03-22
+- [x] VM: PM2 6.0.14 installed globally — 2026-03-22
+- [x] VM: Nginx reconfigured for Next.js (port 3000) — 2026-03-22
+- [x] VM: Redis verified working (PONG) — 2026-03-22
+- [x] VM: SSL certificate verified (certbot, getsear.com + www) — 2026-03-22
+- [x] Next.js 16.2.1 project initialized (App Router + TypeScript + Tailwind v4) — 2026-03-22
+- [x] shadcn/ui initialized (24 components installed) — 2026-03-22
+- [x] All deps installed (Zustand, BullMQ, Supabase SDK, zod, react-hook-form, Recharts, dnd-kit, etc.) — 2026-03-22
+- [x] Design system implemented (globals.css with Sear tokens: ember orange, warm neutrals, animations) — 2026-03-22
 - [ ] Base layouts created (POS, back-office, fullscreen, auth)
 - [ ] shadcn/ui components customized to match UI_DESIGN.md
-- [ ] First deploy to VM (blank app, proves pipeline works)
-- [ ] Git pushed with clean initial commit
+- [x] First deploy to VM (https://getsear.com returns 200) — 2026-03-22
+- [x] Git pushed (commit ce1a073) — 2026-03-22
 
 ## Module Build Order (dependency-resolved)
 Build in this exact sequence. Each module must be 100% complete before marking done.
@@ -75,7 +75,7 @@ Build in this exact sequence. Each module must be 100% complete before marking d
 (none yet)
 
 ## Current Session Notes
-(updated each session with what was accomplished and any blockers)
+**Session 1 (2026-03-22):** Full infrastructure setup. Deleted old Flask codebase. Created all architecture docs (SCHEMA.md, API_SPEC.md, UI_DESIGN.md, BUSINESS_RULES.md, 21 MODULE_SPECS). Initialized Next.js 16 + shadcn/ui + design system. Wiped Supabase. Installed Node.js 22 + PM2 on VM. Deployed blank app to getsear.com. Next: Apply Supabase schema, build base layouts, start Batch 1 (Auth + Settings).
 
 ## Known Issues
 (none yet)
@@ -83,4 +83,18 @@ Build in this exact sequence. Each module must be 100% complete before marking d
 ## Deploy Log
 | Date | What | Commit | Notes |
 |------|------|--------|-------|
-| | | | |
+| 2026-03-22 | v2 foundation: Next.js + shadcn/ui + design system | ce1a073 | Blank app, proves full pipeline works |
+
+## Deploy Commands (for reference)
+```bash
+# SSH
+ssh -i ~/.ssh/google_compute_engine ianrakow@34.132.111.219
+
+# Deploy sequence on VM
+cd /opt/sear/app && git pull origin main && npm ci && npm run build && \
+cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && \
+pm2 reload sear-pos
+
+# Supabase
+supabase db execute --project-ref lbekiyxqemxozmghgmtp "SQL HERE"
+```
