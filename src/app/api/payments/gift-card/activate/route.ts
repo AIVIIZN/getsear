@@ -52,10 +52,12 @@ export async function POST(request: NextRequest) {
   const { data: card, error: cardErr } = await (supabase.from('gift_cards') as any)
     .insert({
       org_id: user.org_id,
+      card_number: card_number,
       card_number_hash: cardHash,
-      balance: balanceDollars,
+      initial_balance: balanceDollars,
+      current_balance: balanceDollars,
       is_active: true,
-      activated_at: new Date().toISOString(),
+      purchased_at: new Date().toISOString(),
     })
     .select()
     .single()
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
       gift_card_id: card.id,
       order_id: order_id ?? null,
       amount: balanceDollars,
-      type: 'activate',
+      transaction_type: 'activate',
       balance_after: balanceDollars,
     })
 
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
       id: card.id,
       balance_cents: initial_balance_cents,
       is_active: true,
-      activated_at: card.activated_at,
+      purchased_at: card.purchased_at,
     },
   }, { status: 201 })
 }

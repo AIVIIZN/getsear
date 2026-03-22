@@ -82,6 +82,7 @@ export async function POST(
   // Audit trail
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('order_modifications') as any).insert({
+    org_id: user.org_id,
     order_id: orderId,
     modification_type: 'change_table',
     description: 'Order moved to different table',

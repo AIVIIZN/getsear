@@ -90,10 +90,21 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { name, location_id, sort_order, is_active, settings } = parsed.data
+  const stationType = parsed.data.type
+  const { prep_stations, ...displaySettings } = settings
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('kds_stations') as any)
     .insert({
       org_id: user.org_id,
-      ...parsed.data,
+      name,
+      station_type: stationType,
+      location_id,
+      sort_order,
+      is_active,
+      prep_stations: prep_stations ?? [],
+      display_settings: displaySettings,
     })
     .select()
     .single()

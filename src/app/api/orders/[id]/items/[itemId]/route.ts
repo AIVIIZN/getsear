@@ -11,7 +11,10 @@ const updateItemSchema = z.object({
 })
 
 const voidItemSchema = z.object({
-  void_reason: z.string().min(1).max(500),
+  void_reason: z.enum([
+    'customer_request', 'kitchen_error', 'server_error', 'wrong_item',
+    'quality_issue', '86d', 'duplicate', 'other',
+  ]),
 })
 
 type RouteParams = { params: Promise<{ id: string; itemId: string }> }
@@ -175,13 +178,22 @@ async function recalcOrderTotals(supabase: any, orderId: string) {
   const taxTotal = Math.round(subtotal * 0.085 * 100) / 100
   const total = subtotal + taxTotal
 
+  // Fetch current amount_paid to correctly compute balance_due
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: currentOrder } = await (supabase.from('orders') as any)
+    .select('amount_paid')
+    .eq('id', orderId)
+    .single()
+  const amountPaid = parseFloat(currentOrder?.amount_paid ?? '0')
+  const balanceDue = Math.max(0, total - amountPaid)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('orders') as any)
     .update({
       subtotal: subtotal.toFixed(2),
       tax_total: taxTotal.toFixed(2),
       total: total.toFixed(2),
-      balance_due: total.toFixed(2),
+      balance_due: balanceDue.toFixed(2),
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)

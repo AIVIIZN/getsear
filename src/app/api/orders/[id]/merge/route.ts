@@ -114,6 +114,7 @@ export async function POST(
   // Audit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('order_modifications') as any).insert({
+    org_id: user.org_id,
     order_id: targetOrderId,
     modification_type: 'merge_order',
     description: `Merged order ${source_order_id} into this order`,

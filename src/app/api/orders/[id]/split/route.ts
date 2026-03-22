@@ -158,13 +158,20 @@ export async function POST(
       if (newOrder) newOrders.push(newOrder.id)
     }
 
-    // Update original order with its share
-    const share = (parseFloat(order.total) / (parsed.data.split_count ?? 2)).toFixed(2)
+    // Update original order with its share (all financial fields)
+    const splitCount = parsed.data.split_count ?? 2
+    const shareSubtotal = (parseFloat(order.subtotal) / splitCount).toFixed(2)
+    const shareDiscount = (parseFloat(order.discount_total) / splitCount).toFixed(2)
+    const shareTax = (parseFloat(order.tax_total) / splitCount).toFixed(2)
+    const shareTotal = (parseFloat(order.total) / splitCount).toFixed(2)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('orders') as any)
       .update({
-        total: share,
-        balance_due: share,
+        subtotal: shareSubtotal,
+        discount_total: shareDiscount,
+        tax_total: shareTax,
+        total: shareTotal,
+        balance_due: shareTotal,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
@@ -173,6 +180,7 @@ export async function POST(
   // Audit trail
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('order_modifications') as any).insert({
+    org_id: user.org_id,
     order_id: orderId,
     modification_type: 'split_order',
     description: `Order split (${mode})`,

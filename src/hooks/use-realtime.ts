@@ -147,6 +147,9 @@ export function useRealtimeTables(
   floorPlanId: string,
   onTableChange: (table: Record<string, unknown>) => void
 ) {
+  const callbackRef = useRef(onTableChange)
+  callbackRef.current = onTableChange
+
   useEffect(() => {
     const supabase = getSupabase()
 
@@ -161,7 +164,7 @@ export function useRealtimeTables(
           filter: `floor_plan_id=eq.${floorPlanId}`,
         },
         (payload: PostgresChange) => {
-          onTableChange(payload.new)
+          callbackRef.current(payload.new)
         }
       )
       .subscribe()
@@ -169,5 +172,5 @@ export function useRealtimeTables(
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [floorPlanId, onTableChange])
+  }, [floorPlanId])
 }

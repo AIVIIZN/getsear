@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   const { data: card, error: cardErr } = await (supabase.from('gift_cards') as any)
-    .select('id, balance, is_active')
+    .select('id, current_balance, is_active')
     .eq('card_number_hash', cardHash)
     .eq('org_id', user.org_id)
     .single()
@@ -50,13 +50,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Gift card is inactive' }, { status: 400 })
   }
 
-  const currentCents = Math.round(parseFloat(card.balance) * 100)
+  const currentCents = Math.round(parseFloat(card.current_balance) * 100)
   const newCents = currentCents + amount_cents
   const newBalance = (newCents / 100).toFixed(2)
 
   // Update balance
   const { error: updateErr } = await (supabase.from('gift_cards') as any)
-    .update({ balance: newBalance })
+    .update({ current_balance: newBalance })
     .eq('id', card.id)
 
   if (updateErr) {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       gift_card_id: card.id,
       order_id: order_id ?? null,
       amount: (amount_cents / 100).toFixed(2),
-      type: 'reload',
+      transaction_type: 'reload',
       balance_after: newBalance,
     })
 

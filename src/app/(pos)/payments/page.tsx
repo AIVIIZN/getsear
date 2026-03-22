@@ -29,6 +29,7 @@ interface PaymentResult {
   authCode?: string
   cardBrand?: string
   changeDueCents?: number
+  paymentId?: string
 }
 
 export default function PaymentsPageWrapper() {
@@ -116,12 +117,13 @@ function PaymentsPage() {
   )
 
   const handleCardApproved = useCallback(
-    (result: { cardLastFour: string; authCode: string; cardBrand: string }) => {
+    (result: { cardLastFour: string; authCode: string; cardBrand: string; paymentId: string }) => {
       setPaymentResult((prev) => ({
         ...prev,
         cardLastFour: result.cardLastFour,
         authCode: result.authCode,
         cardBrand: result.cardBrand,
+        paymentId: result.paymentId,
       }))
       if (shouldShowTip) {
         setFlowState('tip_prompt')
@@ -173,14 +175,14 @@ function PaymentsPage() {
     async (tipCents: number) => {
       setPaymentResult((prev) => ({ ...prev, tipCents }))
 
-      // If card payment, adjust the tip via API
-      if (tipCents > 0 && orderId) {
+      // If card payment, adjust the tip via API using the actual payment_id
+      if (tipCents > 0 && paymentResult.paymentId) {
         try {
           await fetch('/api/payments/tip-adjust', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              payment_id: orderId, // In real flow, use actual payment_id
+              payment_id: paymentResult.paymentId,
               new_tip_cents: tipCents,
             }),
           })
@@ -191,7 +193,7 @@ function PaymentsPage() {
 
       setFlowState('receipt_prompt')
     },
-    [orderId]
+    [paymentResult.paymentId]
   )
 
   const handleReceiptChoice = useCallback((_choice: ReceiptChoice) => {

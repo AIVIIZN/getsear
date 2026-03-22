@@ -81,6 +81,7 @@ export async function POST(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: item, error: itemError } = await (supabase.from('order_items') as any)
     .insert({
+      org_id: user.org_id,
       order_id: orderId,
       menu_item_id,
       name,
@@ -176,6 +177,15 @@ async function recalculateOrderTotals(supabase: any, orderId: string) {
 
   const total = subtotal - discountTotal + taxTotal
 
+  // Fetch current amount_paid to correctly compute balance_due
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: currentOrder } = await (supabase.from('orders') as any)
+    .select('amount_paid')
+    .eq('id', orderId)
+    .single()
+  const amountPaid = parseFloat(currentOrder?.amount_paid ?? '0')
+  const balanceDue = Math.max(0, total - amountPaid)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('orders') as any)
     .update({
@@ -183,7 +193,7 @@ async function recalculateOrderTotals(supabase: any, orderId: string) {
       discount_total: discountTotal.toFixed(2),
       tax_total: taxTotal.toFixed(2),
       total: total.toFixed(2),
-      balance_due: total.toFixed(2),
+      balance_due: balanceDue.toFixed(2),
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)

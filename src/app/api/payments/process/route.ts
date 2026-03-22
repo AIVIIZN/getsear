@@ -79,10 +79,16 @@ export async function POST(request: NextRequest) {
     paymentRecord.processor_response = authResult
     paymentRecord.card_last_four = authResult.card_last_four
     paymentRecord.card_brand = authResult.card_brand
-    paymentRecord.reference_number = authResult.auth_code
+    paymentRecord.auth_code = authResult.auth_code
 
     if (authResult.success) {
-      paymentRecord.status = 'captured'
+      // Authorize then capture in one step (Valor mock mode)
+      const captureResult = await valorMock.capture({
+        transaction_id: authResult.transaction_id,
+        amount_cents: amount_cents,
+        tip_cents: tip_cents,
+      })
+      paymentRecord.status = captureResult.success ? 'captured' : 'authorized'
       paymentRecord.processor_transaction_id = authResult.transaction_id
     } else {
       paymentRecord.status = 'declined'
@@ -114,7 +120,7 @@ export async function POST(request: NextRequest) {
     const cardHash = crypto.createHash('sha256').update(gift_card_number).digest('hex')
 
     const { data: card, error: cardErr } = await (supabase.from('gift_cards') as any)
-      .select('id, balance, is_active')
+      .select('id, current_balance, is_active')
       .eq('card_number_hash', cardHash)
       .eq('org_id', user.org_id)
       .single()
@@ -127,7 +133,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gift card is inactive' }, { status: 400 })
     }
 
-    const balanceCents = Math.round(parseFloat(card.balance) * 100)
+    const balanceCents = Math.round(parseFloat(card.current_balance) * 100)
     if (balanceCents < total_cents) {
       return NextResponse.json(
         { error: 'Insufficient gift card balance', balance_cents: balanceCents },
@@ -138,7 +144,7 @@ export async function POST(request: NextRequest) {
     // Deduct from gift card
     const newBalance = ((balanceCents - total_cents) / 100).toFixed(2)
     await (supabase.from('gift_cards') as any)
-      .update({ balance: newBalance })
+      .update({ current_balance: newBalance })
       .eq('id', card.id)
 
     // Record gift card transaction
@@ -147,7 +153,7 @@ export async function POST(request: NextRequest) {
         gift_card_id: card.id,
         order_id,
         amount: (total_cents / 100).toFixed(2),
-        type: 'redeem',
+        transaction_type: 'redeem',
         balance_after: newBalance,
       })
 

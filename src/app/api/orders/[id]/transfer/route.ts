@@ -67,6 +67,7 @@ export async function POST(
   // Create modification record
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('order_modifications') as any).insert({
+    org_id: user.org_id,
     order_id: orderId,
     modification_type: 'change_server',
     description: 'Order transferred to different server',

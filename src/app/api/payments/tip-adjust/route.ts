@@ -57,9 +57,12 @@ export async function POST(request: NextRequest) {
   // Create tip adjustment record
   await (supabase.from('tip_adjustments') as any)
     .insert({
+      org_id: user.org_id,
       payment_id,
+      order_id: payment.order_id,
+      server_id: payment.processed_by,
       original_tip: (originalTipCents / 100).toFixed(2),
-      new_tip: (new_tip_cents / 100).toFixed(2),
+      adjusted_tip: (new_tip_cents / 100).toFixed(2),
       adjusted_by: user.id,
     })
 

@@ -87,18 +87,12 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
   const { order_type, location_id, table_id, guest_count, guest_name, guest_phone, notes, source } = parsed.data
 
-  // Generate next order number for this location today
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: maxRow } = await (supabase.from('orders') as any)
-    .select('order_number')
-    .eq('org_id', user.org_id)
-    .eq('location_id', location_id)
-    .gte('created_at', new Date().toISOString().split('T')[0])
-    .order('order_number', { ascending: false })
-    .limit(1)
-    .single()
+  // Generate next order number using DB function with advisory lock to prevent race conditions
+  const { data: numberResult } = await supabase.rpc('next_order_number', {
+    p_location_id: location_id,
+  })
 
-  const nextNumber = ((maxRow?.order_number as number) ?? 0) + 1
+  const nextNumber = (numberResult as number) ?? 1
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('orders') as any)

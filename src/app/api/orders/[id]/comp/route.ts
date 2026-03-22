@@ -85,7 +85,6 @@ export async function POST(
         comp_reason,
         comp_amount: amount,
         comped_by: user.id,
-        comped_at: new Date().toISOString(),
       })
       .eq('id', order_item_id)
   } else {
@@ -124,13 +123,22 @@ export async function POST(
   const taxTotal = Math.round(subtotal * 0.085 * 100) / 100
   const total = subtotal + taxTotal
 
+  // Fetch current amount_paid to correctly compute balance_due
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: currentOrder } = await (supabase.from('orders') as any)
+    .select('amount_paid')
+    .eq('id', orderId)
+    .single()
+  const amountPaid = parseFloat(currentOrder?.amount_paid ?? '0')
+  const balanceDue = Math.max(0, total - amountPaid)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('orders') as any)
     .update({
       subtotal: subtotal.toFixed(2),
       tax_total: taxTotal.toFixed(2),
       total: total.toFixed(2),
-      balance_due: total.toFixed(2),
+      balance_due: balanceDue.toFixed(2),
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)
@@ -138,6 +146,7 @@ export async function POST(
   // Audit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('order_modifications') as any).insert({
+    org_id: user.org_id,
     order_id: orderId,
     modification_type: 'comp_item',
     description: order_item_id ? `Item comped: ${comp_reason}` : `Order comped: ${comp_reason}`,

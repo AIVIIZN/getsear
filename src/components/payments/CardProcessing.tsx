@@ -9,7 +9,7 @@ type CardState = 'waiting' | 'processing' | 'approved' | 'declined'
 
 interface CardProcessingProps {
   totalCents: number
-  onApproved: (result: { cardLastFour: string; authCode: string; cardBrand: string }) => void
+  onApproved: (result: { cardLastFour: string; authCode: string; cardBrand: string; paymentId: string }) => void
   onDeclined: (reason: string) => void
 }
 
@@ -50,15 +50,16 @@ export function CardProcessing({ totalCents, onApproved, onDeclined }: CardProce
           setState('approved')
           setResult({
             cardLastFour: json.data?.card_last_four ?? '4242',
-            authCode: json.data?.reference_number ?? 'A1B2C3',
+            authCode: json.data?.auth_code ?? 'A1B2C3',
             cardBrand: json.data?.card_brand ?? 'visa',
           })
           // Wait a moment for the user to see "Approved" then proceed
           setTimeout(() => {
             onApproved({
               cardLastFour: json.data?.card_last_four ?? '4242',
-              authCode: json.data?.reference_number ?? 'A1B2C3',
+              authCode: json.data?.auth_code ?? 'A1B2C3',
               cardBrand: json.data?.card_brand ?? 'visa',
+              paymentId: json.data?.id ?? '',
             })
           }, 1500)
         } else if (res.status === 402) {

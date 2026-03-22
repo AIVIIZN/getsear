@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   const { data: card, error } = await (supabase.from('gift_cards') as any)
-    .select('id, balance, is_active, expires_at')
+    .select('id, current_balance, is_active, expires_at')
     .eq('card_number_hash', cardHash)
     .eq('org_id', user.org_id)
     .single()
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Gift card not found' }, { status: 404 })
   }
 
-  const balanceCents = Math.round(parseFloat(card.balance) * 100)
+  const balanceCents = Math.round(parseFloat(card.current_balance) * 100)
 
   return NextResponse.json({
     data: {
