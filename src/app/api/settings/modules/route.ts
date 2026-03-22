@@ -10,6 +10,13 @@ const updateModuleSchema = z.object({
   location_ids: z.array(z.string().uuid()).nullable().optional(),
 })
 
+interface OrgModuleRow {
+  id: string
+  module_name: string
+  is_enabled: boolean
+  config: Record<string, unknown>
+}
+
 export async function GET() {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
@@ -18,8 +25,8 @@ export async function GET() {
   if (roleErr) return roleErr
 
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('org_modules')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('org_modules') as any)
     .select('*')
     .eq('org_id', user.org_id)
     .order('module_name', { ascending: true })
@@ -56,17 +63,17 @@ export async function PATCH(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Check if module record exists
-  const { data: existing } = await supabase
-    .from('org_modules')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (supabase.from('org_modules') as any)
     .select('id')
     .eq('org_id', user.org_id)
     .eq('module_name', parsed.data.module_name)
-    .single()
+    .single() as { data: OrgModuleRow | null }
 
   if (existing) {
     // Update
-    const { data, error } = await supabase
-      .from('org_modules')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('org_modules') as any)
       .update({
         is_enabled: parsed.data.enabled,
         config: parsed.data.config ?? {},
@@ -84,8 +91,8 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ data })
   } else {
     // Insert
-    const { data, error } = await supabase
-      .from('org_modules')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('org_modules') as any)
       .insert({
         org_id: user.org_id,
         module_name: parsed.data.module_name,

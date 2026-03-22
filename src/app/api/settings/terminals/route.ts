@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('terminals')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('terminals') as any)
     .insert({
       org_id: user.org_id,
       ...parsed.data,

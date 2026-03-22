@@ -36,8 +36,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const supabase = createAdminClient()
 
   // Remove existing permissions for this role
-  await supabase
-    .from('role_permissions')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('role_permissions') as any)
     .delete()
     .eq('org_id', user.org_id)
     .eq('role', role)
@@ -50,8 +50,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       permission_id: pid,
     }))
 
-    const { error } = await supabase
-      .from('role_permissions')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('role_permissions') as any)
       .insert(inserts)
 
     if (error) {
@@ -78,8 +78,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Cannot delete built-in roles' }, { status: 400 })
   }
 
-  const { error } = await supabase
-    .from('role_permissions')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('role_permissions') as any)
     .delete()
     .eq('org_id', user.org_id)
     .eq('role', role)

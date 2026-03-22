@@ -42,16 +42,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   // If setting as default, unset other defaults first
   if (parsed.data.is_default) {
     // Get the tax rate to find its location_id
-    const { data: existing } = await supabase
-      .from('tax_rates')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (supabase.from('tax_rates') as any)
       .select('location_id')
       .eq('id', id)
       .eq('org_id', user.org_id)
       .single()
 
     if (existing) {
-      await supabase
-        .from('tax_rates')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('tax_rates') as any)
         .update({ is_default: false })
         .eq('org_id', user.org_id)
         .eq('location_id', existing.location_id)
@@ -59,8 +59,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  const { data, error } = await supabase
-    .from('tax_rates')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('tax_rates') as any)
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -84,8 +84,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const { id } = await params
   const supabase = createAdminClient()
 
-  const { error } = await supabase
-    .from('tax_rates')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('tax_rates') as any)
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)

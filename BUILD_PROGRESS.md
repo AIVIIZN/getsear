@@ -26,11 +26,11 @@ This file is the single source of truth for what's been built, what's in progres
 ## Module Build Order (dependency-resolved)
 Build in this exact sequence. Each module must be 100% complete before marking done.
 
-### Batch 1 — Foundation (no dependencies)
-- [ ] **01 Auth** — login, PIN login, JWT, middleware, terminal registration
-- [ ] **10 Settings** — org, location, tax rates, terminals, printers, roles, permissions
+### Batch 1 — Foundation (no dependencies) ✅ DEPLOYED 2026-03-22
+- [x] **01 Auth** — login, PIN login, JWT, middleware, terminal registration
+- [x] **10 Settings** — org, location, tax rates, terminals, printers, roles, permissions
 
-### Batch 2 — Core Data (depends on auth + settings)
+### Batch 2 — Core Data (depends on auth + settings) 🔨 IN PROGRESS
 - [ ] **02 Menu** — categories, items, modifiers, 86, price levels, allergens
 - [ ] **07 Staff** — CRUD, clock in/out, breaks, time entries, tips
 - [ ] **08 Customers** — profiles, lookup, merge, tags, VIP

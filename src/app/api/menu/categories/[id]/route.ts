@@ -3,10 +3,16 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 
-const updateTerminalSchema = z.object({
+const updateCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  color: z.string().max(20).optional(),
+  image_url: z.string().url().optional().nullable(),
   is_active: z.boolean().optional(),
-  settings: z.record(z.string(), z.unknown()).optional(),
+  location_id: z.string().uuid().optional().nullable(),
+  available_start_time: z.string().optional().nullable(),
+  available_end_time: z.string().optional().nullable(),
+  available_days: z.array(z.number().int().min(0).max(6)).optional().nullable(),
 })
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -15,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
-  const roleErr = requireRole(user, ['owner', 'admin'])
+  const roleErr = requireRole(user, ['owner', 'admin', 'manager'])
   if (roleErr) return roleErr
 
   const { id } = await params
@@ -27,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const parsed = updateTerminalSchema.safeParse(body)
+  const parsed = updateCategorySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Validation failed', details: parsed.error.issues },
@@ -36,16 +42,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   const supabase = createAdminClient()
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('terminals') as any)
+  const { data, error } = await (supabase.from('menu_categories') as any)
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)
+    .is('deleted_at', null)
     .select()
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update terminal' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
   }
 
   return NextResponse.json({ data })
@@ -55,20 +63,20 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
-  const roleErr = requireRole(user, ['owner', 'admin'])
+  const roleErr = requireRole(user, ['owner', 'admin', 'manager'])
   if (roleErr) return roleErr
 
   const { id } = await params
   const supabase = createAdminClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('terminals') as any)
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+  const { error } = await (supabase.from('menu_categories') as any)
+    .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to deactivate terminal' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 })
   }
 
   return NextResponse.json({ data: { success: true } })

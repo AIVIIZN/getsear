@@ -9,6 +9,11 @@ const createRolePermissionsSchema = z.object({
   permission_ids: z.array(z.string().uuid()),
 })
 
+interface RolePermissionRow {
+  role: string
+  permission_id: string
+}
+
 export async function GET() {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
@@ -30,10 +35,10 @@ export async function GET() {
   }
 
   // Fetch role_permissions for this org
-  const { data: rolePermissions, error: rpError } = await supabase
-    .from('role_permissions')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rolePermissions, error: rpError } = await (supabase.from('role_permissions') as any)
     .select('*')
-    .eq('org_id', user.org_id)
+    .eq('org_id', user.org_id) as { data: RolePermissionRow[] | null; error: unknown }
 
   if (rpError) {
     return NextResponse.json({ error: 'Failed to fetch role permissions' }, { status: 500 })
@@ -88,8 +93,8 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Remove existing permissions for this role
-  await supabase
-    .from('role_permissions')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('role_permissions') as any)
     .delete()
     .eq('org_id', user.org_id)
     .eq('role', parsed.data.role)
@@ -102,8 +107,8 @@ export async function POST(request: NextRequest) {
       permission_id: pid,
     }))
 
-    const { error } = await supabase
-      .from('role_permissions')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('role_permissions') as any)
       .insert(inserts)
 
     if (error) {
