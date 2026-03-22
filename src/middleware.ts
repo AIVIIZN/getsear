@@ -4,11 +4,14 @@ import { updateSession } from '@/lib/supabase/middleware'
 const PUBLIC_ROUTES = [
   '/login',
   '/pin-login',
+  '/register',
   '/_next/static',
   '/_next/image',
   '/favicon.ico',
   '/api/auth',
   '/api/webhooks',
+  '/api/terminals/activate',
+  '/api/terminals/heartbeat',
 ]
 
 export async function middleware(request: NextRequest) {

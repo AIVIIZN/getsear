@@ -9,6 +9,7 @@ import {
   Monitor,
   Shield,
   Puzzle,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const settingsNav = [
   { href: "/settings/terminals", label: "Terminals", icon: Monitor },
   { href: "/settings/roles", label: "Roles & Permissions", icon: Shield },
   { href: "/settings/modules", label: "Modules", icon: Puzzle },
+  { href: "/settings/accounting", label: "Accounting", icon: BookOpen },
 ];
 
 export default function SettingsLayout({

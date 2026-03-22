@@ -102,6 +102,17 @@ export interface Terminal {
   name: string
   terminal_type: TerminalType
   device_id: string | null
+  registration_code: string | null
+  registration_code_expires_at: Timestamp | null
+  device_fingerprint: {
+    user_agent: string
+    screen_width: number
+    screen_height: number
+    platform: string
+    standalone: boolean
+  } | null
+  assigned_printer_id: UUID | null
+  default_view: 'pos' | 'kds' | 'customer_display' | 'kiosk'
   is_online: boolean
   last_heartbeat_at: Timestamp | null
   current_user_id: UUID | null
