@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('tables') as any)
-    .select('id, org_id, location_id, floor_plan_id, name, capacity, shape, pos_x, pos_y, width, height, rotation, status, current_order_id, current_server_id, seated_at, is_active, sort_order, section, guest_count')
+    .select('id, org_id, location_id, floor_plan_id, name, capacity, shape, pos_x, pos_y, width, height, rotation, status, current_order_id, current_server_id, seated_at, is_active, sort_order, section')
     .eq('org_id', user.org_id)
     .eq('location_id', locationId)
     .eq('is_active', true)
