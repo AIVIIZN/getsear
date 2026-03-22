@@ -1,8 +1,8 @@
-# Agent Build Framework v2
+# Agent Build Framework v3
 
 One document. Fill in the blanks. Let the AI build the entire application autonomously.
 
-This framework has been battle-tested on a 169-route, 72-table production POS system. Version 2 adds design system generation, visual quality assurance, module completeness verification, and guardrails against the most common autonomous build failures.
+This framework has been battle-tested across two full production builds. Version 3 adds depth-before-breadth enforcement, mandatory design skill usage, workflow-level testing, and stricter anti-stub rules — all learned from a build that produced 219 routes of scaffolding instead of 5 working modules.
 
 ---
 
@@ -215,6 +215,16 @@ These rules are non-negotiable. They apply to every phase, every agent, every fi
 
 16. **ALL SECRETS IN ENVIRONMENT VARIABLES.** Never hardcode API keys, database URLs, passwords, or tokens in source code. Use .env files (gitignored) with a .env.example documenting every required variable.
 
+17. **DEPTH BEFORE BREADTH.** Build 3-5 core modules to 100% functional completion before starting any additional modules. "100% complete" means: every button performs its stated action through the full stack to the database, every workflow can be completed end-to-end by a real user, and a Playwright test verifies the complete user journey. Do NOT build 20 modules at 20% depth. A restaurant with 5 perfect modules can open for business. A restaurant with 20 scaffolded modules cannot.
+
+18. **A TOAST MESSAGE IS NOT AN IMPLEMENTATION.** `toast.info('Coming soon')` is a bug, not a feature. `toast.error('Not implemented')` is a lie, not an error handler. If a button exists in the UI, clicking it must perform the stated action through the full stack — API call, database write, UI feedback, state update. If the feature isn't ready to build, the button must not exist. There is no middle ground.
+
+19. **EVERY FEATURE REQUIRES A WORKFLOW TEST.** After building a module, define 3-5 complete user workflows and verify each one works end-to-end. Example for an Order module: "Server creates dine-in order → adds 3 items with modifiers → adds special instructions → assigns to table → sends to kitchen → KDS shows tickets at correct station → expeditor bumps → server processes card payment → tip is added → receipt prints → order closes." A Playwright test or manual trace through the code must confirm every step. A module that passes TypeScript but fails its workflow test is NOT done.
+
+20. **DESIGN SKILLS ARE MANDATORY, NOT OPTIONAL.** Phase 3 must INVOKE the frontend-design and/or ui-ux-pro-max skills to produce actual styled component implementations — not just a specification document. Writing a design token file and applying default component library styles is NOT a design system. The output of Phase 3 must include production-quality component code that looks like a native iPad/mobile app, with custom button styles, card layouts, grid patterns, and interaction animations that a real user would pay for.
+
+21. **EACH AGENT MUST READ ITS FULL MODULE SPEC.** When a module spec exists (e.g., MODULE_SPECS/03_orders.md), the implementing agent must read the ENTIRE document — not sample it, not skim it, not reference "see above." If the spec is over 5,000 lines (e.g., SEAR_POS_ARCHITECTURE.md), the relevant section for that module must be extracted and included in the agent's task packet verbatim. An agent that builds from a sampled spec will miss critical workflows, edge cases, and business rules every time.
+
 
 ### ARCHITECTURE RULES — HOW TO STRUCTURE THE SPEC
 
@@ -310,12 +320,14 @@ Output the full plan. Wait for user approval. Revise if needed. **This plan is n
 
 ---
 
-#### PHASE 3: Design System (use frontend-design and ui-ux-pro-max skills if available)
+#### PHASE 3: Design System (MUST use frontend-design and ui-ux-pro-max skills)
 **Input:** Approved technical plan + section 1.5 (Look and Feel)
-**Output:** Complete design system document and files
-**Gate:** User approves the visual direction
+**Output:** Complete design system with PRODUCTION-QUALITY component code (not just a spec doc)
+**Gate:** User approves the visual direction after seeing rendered component examples
 
-This phase produces the visual foundation for the entire application. Do NOT skip it. Do NOT fold it into implementation.
+This phase produces the visual foundation for the entire application. Do NOT skip it. Do NOT fold it into implementation. Do NOT just write a markdown spec — you must produce actual working component code that looks like a native app.
+
+**MANDATORY:** Invoke the `frontend-design` skill and/or `ui-ux-pro-max` skill during this phase. These skills produce distinctive, production-grade UI — not generic component library defaults. A design system that uses default shadcn/ui with only a color change is NOT acceptable. The output must include custom component styling that makes the app visually distinctive and premium.
 
 Generate:
 
@@ -422,8 +434,32 @@ Execution rules:
 
 ---
 
-#### PHASE 7: Integration Verification (single Opus agent)
+#### PHASE 6.5: Workflow Verification (MANDATORY — do not skip)
 **Input:** Complete codebase from Phase 6
+**Output:** Workflow test results
+**Gate:** Every core module passes its complete user workflow test
+
+For each module built in Phase 6, define 3-5 complete user workflows and verify each one works end-to-end. This is NOT a TypeScript compilation check. This is NOT an HTTP status code check. This is a full user journey trace.
+
+Example workflows to verify:
+- **Order:** Create order → add items with modifiers → special instructions → assign seat → send to kitchen → verify items appear in database with correct status
+- **Payment:** Select order → choose card → process payment → add tip → select receipt → verify payment record in database
+- **KDS:** Send order → verify ticket appears on correct KDS station → bump ticket → verify item status updates
+- **Table:** Seat guests → create order for table → verify table status changes → clear table → verify status resets
+- **Menu:** Create category → create item → set price → add allergens → link modifiers → toggle 86 → verify all changes persist
+
+For each workflow, the verifying agent must:
+1. Read the frontend code to trace the user action (button click → API call)
+2. Read the API route to trace the server action (request → database write)
+3. Confirm the database columns match what the code writes
+4. Confirm the UI shows the result (success toast, state update, navigation)
+
+If ANY workflow fails at ANY step, the module is NOT done. Fix it before proceeding.
+
+---
+
+#### PHASE 7: Integration Verification (single Opus agent)
+**Input:** Complete codebase from Phase 6.5
 **Output:** List of integration issues (or clean bill)
 **Gate:** App starts, all pages render, no import errors
 
@@ -588,7 +624,23 @@ These are specific failure modes observed in production autonomous builds. Each 
 
 ### Failure: "Architecture doc too large for effective reasoning"
 **What happened:** A 17,935-line architecture document was provided. The AI read it but couldn't reason about all of it simultaneously. It optimized for the most concrete parts (schemas, routes) and underweighted visual design and UX.
-**Prevention:** The Architecture Rules section now instructs agents to break large specs into focused, per-concern reference documents. Each agent reads only what it needs.
+**Prevention:** The Architecture Rules section now instructs agents to break large specs into focused, per-concern reference documents. Each agent reads only what it needs. Rule 21 requires each agent to read its full module spec.
+
+### Failure: "219 routes of scaffolding, zero working workflows" (v2, 2026-03-22)
+**What happened:** The build pipeline produced 219 routes across 23 modules, all compiling clean with 74 E2E tests passing. But no module was deep enough to run a real business operation. Check splitting buttons had no onClick handlers. Payment flows used simulated card processing. KDS had no station-based routing. Discount, void, and comp buttons showed `toast('Coming soon')`. The system passed every automated check (TypeScript, HTTP 200, page loads) while being completely unusable.
+**Prevention:** Rule 17 (Depth Before Breadth) now requires 3-5 core modules at 100% before any others. Rule 18 explicitly bans toast messages as implementations. Rule 19 requires workflow-level testing (not just page-load testing). Phase 6.5 (Workflow Verification) is now mandatory before proceeding to integration.
+
+### Failure: "Design skills specified but not used"
+**What happened:** The MASTER_TEMPLATE v2 said Phase 3 should use frontend-design and ui-ux-pro-max skills. The agent wrote a UI_DESIGN.md spec (1,684 lines of design tokens and component descriptions) and applied default shadcn/ui with a color theme override. No design skill was ever invoked. The result looked like a generic admin dashboard with ember orange buttons — not a premium iPad POS.
+**Prevention:** Rule 20 makes design skill invocation mandatory, not optional. Phase 3 now requires production-quality component code output, not a specification document. The gate condition requires rendered component examples before approval.
+
+### Failure: "Zero stubs rule gamed with toast messages"
+**What happened:** The "zero stubs" rule (Rule 3) says every function must have a real implementation. Agents complied literally: every button had an onClick handler. But the handler was `toast.info('Feature coming soon')` or a navigation to a generic CRUD page. The letter of the rule was followed while the spirit was violated. 18 features were "implemented" this way.
+**Prevention:** Rule 18 now explicitly defines what IS and IS NOT an implementation. A toast message is a bug. A navigation to a CRUD form is not a configuration. Every button must perform its stated action through the full stack to the database.
+
+### Failure: "Module specs sampled, not read in full"
+**What happened:** Module specs (200-300 lines each) and the architecture doc (17,935 lines) contained detailed operational workflows, edge cases, and business rules. Agents sampled these documents (reading first 50-100 lines) instead of reading them completely. The detailed KDS routing logic (architecture doc pages 3800-4400), payment state machines (pages 9400-10400), and 14 operational scenarios (pages 2000-3400) were missed entirely.
+**Prevention:** Rule 21 requires each implementing agent to read its full module spec. For large docs, the relevant section must be extracted verbatim into the agent's task packet. "See above" and "refer to the spec" are not acceptable — the content must be included.
 
 
 ---
@@ -655,6 +707,17 @@ smaller, focused documents than over one massive file.
 ---
 
 ## CHANGELOG
+
+### v3.0 (2026-03-22)
+- Added Rule 17: Depth Before Breadth — build 3-5 core modules to 100% before expanding
+- Added Rule 18: Toast Messages Are Bugs — explicit ban on "coming soon" as implementation
+- Added Rule 19: Workflow Tests Required — full user journey verification, not just page loads
+- Added Rule 20: Design Skills Mandatory — must invoke frontend-design / ui-ux-pro-max, not just write specs
+- Added Rule 21: Full Module Spec Reading — agents must read entire spec, not sample it
+- Added Phase 6.5: Workflow Verification — mandatory user journey testing before integration
+- Updated Phase 3: Design skills are MUST use, not "if available." Output must be production component code.
+- Added 5 new failure modes to Part 3 (scaffolding, toast stubs, unread specs, unused design skills, gamed rules)
+- All changes driven by v2 build failure: 219 routes of scaffolding, zero working workflows
 
 ### v2.0 (2026-03-22)
 - Added Phase 3: Design System (visual design before implementation)
