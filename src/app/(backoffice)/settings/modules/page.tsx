@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Puzzle,
@@ -90,7 +91,33 @@ interface OrgModule {
   config: Record<string, unknown>;
 }
 
+// Map module names to their management page paths
+const MODULE_PAGES: Record<string, string> = {
+  pos: "/orders",
+  menu: "/menu",
+  tables: "/tables",
+  payments: "/payments",
+  kds: "/kds",
+  staff: "/staff",
+  time_clock: "/staff",
+  tips: "/staff",
+  customers: "/customers",
+  loyalty: "/loyalty",
+  marketing: "/marketing",
+  reservations: "/reservations",
+  online_ordering: "/online-ordering",
+  kiosk: "/orders",
+  delivery: "/delivery",
+  qr_ordering: "/online-ordering",
+  reports: "/reports",
+  inventory: "/inventory",
+  franchise: "/franchise",
+  catering: "/catering",
+  integrations: "/settings",
+};
+
 export default function ModulesPage() {
+  const router = useRouter();
   const [enabledModules, setEnabledModules] = useState<OrgModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingModule, setTogglingModule] = useState<string | null>(null);
@@ -253,10 +280,15 @@ export default function ModulesPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-3 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() =>
-                            toast.info("Module configuration coming soon")
-                          }
+                          className="mt-3 gap-1.5 text-xs text-muted-foreground hover:text-foreground btn-press"
+                          onClick={() => {
+                            const page = MODULE_PAGES[mod.name];
+                            if (page) {
+                              router.push(page);
+                            } else {
+                              toast.info(`No configuration page for ${mod.label}`);
+                            }
+                          }}
                         >
                           <Settings className="h-3.5 w-3.5" />
                           Configure
