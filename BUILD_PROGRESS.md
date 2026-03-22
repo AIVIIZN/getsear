@@ -30,17 +30,17 @@ Build in this exact sequence. Each module must be 100% complete before marking d
 - [x] **01 Auth** — login, PIN login, JWT, middleware, terminal registration
 - [x] **10 Settings** — org, location, tax rates, terminals, printers, roles, permissions
 
-### Batch 2 — Core Data (depends on auth + settings) 🔨 IN PROGRESS
-- [ ] **02 Menu** — categories, items, modifiers, 86, price levels, allergens
-- [ ] **07 Staff** — CRUD, clock in/out, breaks, time entries, tips
-- [ ] **08 Customers** — profiles, lookup, merge, tags, VIP
+### Batch 2 — Core Data (depends on auth + settings) ✅ DEPLOYED 2026-03-22
+- [x] **02 Menu** — categories, items, modifiers, 86, price levels, allergens
+- [x] **07 Staff** — CRUD, clock in/out, breaks, time entries, tips
+- [x] **08 Customers** — profiles, lookup, merge, tags, VIP
 
-### Batch 3 — Core POS (depends on menu + staff + customers)
-- [ ] **03 Orders** — full order lifecycle, all 9 types, coursing, split/merge
-- [ ] **05 Tables** — floor plans, status management, sections, real-time
-- [ ] **06 KDS** — stations, tickets, bump/recall, aging, expo, dark theme
+### Batch 3 — Core POS (depends on menu + staff + customers) ✅ DEPLOYED 2026-03-22
+- [x] **03 Orders** — full order lifecycle, all 9 types, coursing, split/merge
+- [x] **05 Tables** — floor plans, status management, sections, real-time
+- [x] **06 KDS** — stations, tickets, bump/recall, aging, expo, dark theme
 
-### Batch 4 — Payments (depends on orders)
+### Batch 4 — Payments (depends on orders) 🔨 IN PROGRESS
 - [ ] **04 Payments** — Valor, cash, gift cards, house accounts, bar tabs, tips, splits
 
 ### Batch 5 — Revenue Features (depends on core POS)
