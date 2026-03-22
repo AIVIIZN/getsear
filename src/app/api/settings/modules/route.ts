@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 
 const updateModuleSchema = z.object({
-  module_name: z.string().min(1),
+  module_id: z.string().min(1),
   enabled: z.boolean(),
   config: z.record(z.string(), z.unknown()).optional(),
   location_ids: z.array(z.string().uuid()).nullable().optional(),
@@ -12,7 +12,7 @@ const updateModuleSchema = z.object({
 
 interface OrgModuleRow {
   id: string
-  module_name: string
+  module_id: string
   is_enabled: boolean
   config: Record<string, unknown>
 }
@@ -29,7 +29,7 @@ export async function GET() {
   const { data, error } = await (supabase.from('org_modules') as any)
     .select('*')
     .eq('org_id', user.org_id)
-    .order('module_name', { ascending: true })
+    .order('module_id', { ascending: true })
 
   if (error) {
     return NextResponse.json({ error: 'Failed to fetch modules' }, { status: 500 })
@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest) {
   const { data: existing } = await (supabase.from('org_modules') as any)
     .select('id')
     .eq('org_id', user.org_id)
-    .eq('module_name', parsed.data.module_name)
+    .eq('module_id', parsed.data.module_id)
     .single() as { data: OrgModuleRow | null }
 
   if (existing) {
@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest) {
     const { data, error } = await (supabase.from('org_modules') as any)
       .insert({
         org_id: user.org_id,
-        module_name: parsed.data.module_name,
+        module_id: parsed.data.module_id,
         is_enabled: parsed.data.enabled,
         config: parsed.data.config ?? {},
         location_ids: parsed.data.location_ids ?? null,

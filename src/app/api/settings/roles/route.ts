@@ -28,17 +28,16 @@ export async function GET() {
     .from('permissions')
     .select('*')
     .order('category', { ascending: true })
-    .order('name', { ascending: true })
+    .order('code', { ascending: true })
 
   if (permError) {
     return NextResponse.json({ error: 'Failed to fetch permissions' }, { status: 500 })
   }
 
-  // Fetch role_permissions for this org
+  // Fetch role_permissions (no org_id - global mapping)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rolePermissions, error: rpError } = await (supabase.from('role_permissions') as any)
-    .select('*')
-    .eq('org_id', user.org_id) as { data: RolePermissionRow[] | null; error: unknown }
+    .select('*') as { data: RolePermissionRow[] | null; error: unknown }
 
   if (rpError) {
     return NextResponse.json({ error: 'Failed to fetch role permissions' }, { status: 500 })
