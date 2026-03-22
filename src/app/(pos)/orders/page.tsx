@@ -7,6 +7,7 @@ import { QuickActions } from '@/components/pos/QuickActions'
 import { ModifierSheet } from '@/components/pos/ModifierSheet'
 import { useOrderStore } from '@/stores/order-store'
 import { useMenuStore } from '@/stores/menu-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { toast } from 'sonner'
 
 interface MenuItemWithModifiers {
@@ -229,13 +230,20 @@ export default function OrdersPage() {
       let orderId = currentOrder.id
 
       if (currentOrder.status === 'draft' && !currentOrder.order_number) {
+        // Get location from auth store
+        const locationId = useAuthStore.getState().activeLocationId
+        if (!locationId) {
+          toast.error('No active location set')
+          return
+        }
+
         // Create order on server
         const createRes = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             order_type: currentOrder.order_type,
-            location_id: currentOrder.table_id ? undefined : undefined, // Location from context
+            location_id: locationId,
             table_id: currentOrder.table_id,
             guest_count: currentOrder.guest_count,
             notes: currentOrder.notes,
