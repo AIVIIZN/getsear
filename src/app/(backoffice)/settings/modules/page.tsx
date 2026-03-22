@@ -85,7 +85,7 @@ const CATEGORIES = [...new Set(ALL_MODULES.map((m) => m.category))];
 
 interface OrgModule {
   id: string;
-  module_name: string;
+  module_id: string;
   is_enabled: boolean;
   config: Record<string, unknown>;
 }
@@ -113,7 +113,7 @@ export default function ModulesPage() {
   }, [fetchModules]);
 
   function isModuleEnabled(moduleName: string): boolean {
-    return enabledModules.some((m) => m.module_name === moduleName && m.is_enabled);
+    return enabledModules.some((m) => m.module_id === moduleName && m.is_enabled);
   }
 
   async function toggleModule(moduleName: string, enabled: boolean) {
@@ -150,7 +150,7 @@ export default function ModulesPage() {
       const res = await fetch("/api/settings/modules", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ module_name: moduleName, enabled }),
+        body: JSON.stringify({ module_id: moduleName, enabled }),
       });
       if (!res.ok) throw new Error("Failed to update");
       toast.success(
