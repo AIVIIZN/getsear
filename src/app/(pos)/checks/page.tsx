@@ -54,6 +54,68 @@ interface OrderSummary {
 
 type SplitMode = 'equal' | 'seat' | 'custom'
 
+function CustomAmountSplit({ totalCents, orderId, onComplete }: { totalCents: number; orderId: string; onComplete: () => void }) {
+  const [amountStr, setAmountStr] = useState('')
+  const [splitting, setSplitting] = useState(false)
+
+  const amountCents = Math.round(parseFloat(amountStr || '0') * 100)
+  const remainderCents = totalCents - amountCents
+  const isValid = amountCents > 0 && amountCents < totalCents
+
+  const handleSplit = async () => {
+    if (!isValid) return
+    setSplitting(true)
+    try {
+      const res = await fetch(`/api/orders/${orderId}/split`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'custom_amount', amount_cents: amountCents }),
+      })
+      if (res.ok) {
+        toast.success(`Split $${(amountCents / 100).toFixed(2)} to new check`)
+        onComplete()
+      } else {
+        toast.error('Failed to split')
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setSplitting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-headline font-semibold text-muted-foreground">$</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+          value={amountStr}
+          onChange={(e) => setAmountStr(e.target.value)}
+          className="h-14 w-full rounded-xl border-0 bg-[var(--secondary)] pl-8 pr-4 text-title-2 font-bold text-foreground tabular-nums focus:ring-2 focus:ring-[var(--ring)]/20"
+        />
+      </div>
+      {isValid && (
+        <p className="text-footnote text-muted-foreground">
+          Remainder: <MoneyDisplay cents={remainderCents} className="text-footnote font-semibold" />
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={handleSplit}
+        disabled={!isValid || splitting}
+        className="btn-press touch-target-xl w-full rounded-xl bg-[var(--primary)] text-headline font-semibold text-white transition-all hover:bg-[var(--primary-hover)] disabled:opacity-40"
+        style={{ height: 56 }}
+      >
+        {splitting ? 'Splitting...' : 'Split Amount'}
+      </button>
+    </div>
+  )
+}
+
 export default function ChecksPage() {
   const router = useRouter()
   const [orders, setOrders] = useState<OrderSummary[]>([])
@@ -190,10 +252,39 @@ export default function ChecksPage() {
   }, [selectedOrder, router])
 
   // Merge orders
+  const [mergeMode, setMergeMode] = useState(false)
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null)
+
   const handleMerge = useCallback(async () => {
-    toast.info('Select a second order to merge into this one')
-    // TODO: implement merge flow — need a second selection then call /api/orders/{id}/merge
-  }, [])
+    if (!selectedOrderId) return
+    setMergeMode(true)
+    toast.info('Tap a second check to merge into this one')
+  }, [selectedOrderId])
+
+  const handleMergeTarget = useCallback(async (targetId: string) => {
+    if (!selectedOrderId || targetId === selectedOrderId) return
+    setMergeTargetId(targetId)
+    try {
+      const res = await fetch(`/api/orders/${selectedOrderId}/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_order_id: targetId }),
+      })
+      if (res.ok) {
+        toast.success('Checks merged successfully')
+        fetchOrders()
+        setSelectedOrderId(null)
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Merge failed' }))
+        toast.error(err.error ?? 'Failed to merge checks')
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setMergeMode(false)
+      setMergeTargetId(null)
+    }
+  }, [selectedOrderId, fetchOrders])
 
   const totalCents = selectedOrder ? Math.round(parseFloat(selectedOrder.total) * 100) : 0
   const balanceDueCents = selectedOrder ? Math.round(parseFloat(selectedOrder.balance_due || selectedOrder.total) * 100) : 0
@@ -210,11 +301,15 @@ export default function ChecksPage() {
   return (
     <div className="flex h-full gap-0 no-select">
       {/* Left: Order list */}
-      <div className="w-80 flex flex-col border-r border-border bg-white">
-        <div className="shrink-0 px-3 py-3 border-b border-border">
-          <h2 className="text-base font-bold text-foreground">Open Checks</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {orders.length} active order{orders.length !== 1 ? 's' : ''}
+      <div className="w-80 flex flex-col bg-white" style={{ borderRight: '0.5px solid var(--separator)' }}>
+        <div className="shrink-0 px-4 py-3" style={{ borderBottom: '0.5px solid var(--separator)' }}>
+          <h2 className="text-headline text-foreground">
+            {mergeMode ? 'Select Check to Merge' : 'Open Checks'}
+          </h2>
+          <p className="text-footnote text-muted-foreground mt-0.5">
+            {mergeMode
+              ? 'Tap a check to merge into the selected one'
+              : `${orders.length} active order${orders.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -233,7 +328,13 @@ export default function ChecksPage() {
                 <button
                   key={order.id}
                   type="button"
-                  onClick={() => setSelectedOrderId(isSelected ? null : order.id)}
+                  onClick={() => {
+                    if (mergeMode && selectedOrderId && order.id !== selectedOrderId) {
+                      handleMergeTarget(order.id)
+                    } else {
+                      setSelectedOrderId(isSelected ? null : order.id)
+                    }
+                  }}
                   className={cn(
                     'btn-press w-full rounded-xl border p-3 text-left transition-all duration-150',
                     isSelected
@@ -444,36 +545,52 @@ export default function ChecksPage() {
                 </div>
               )}
 
-              {/* Custom split */}
+              {/* Custom split — equal with custom amount */}
               {splitMode === 'custom' && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Drag items between checks to create custom splits.
+                  <p className="text-footnote text-muted-foreground mb-3">
+                    Split a specific dollar amount to a new check. The remainder stays on this check.
                   </p>
-                  <p className="text-xs text-[var(--warning)] font-medium">
-                    Custom item-drag split coming in next update. Use equal or seat split for now.
-                  </p>
+                  <CustomAmountSplit
+                    totalCents={totalCents}
+                    orderId={selectedOrderId ?? ''}
+                    onComplete={() => {
+                      fetchOrders()
+                      setSelectedOrderId(null)
+                    }}
+                  />
                 </div>
               )}
             </div>
 
             {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={handlePrintCheck}
-                className="btn-press touch-target-lg flex h-14 items-center justify-center gap-2 rounded-xl border border-border bg-white text-sm font-semibold text-foreground shadow-warm-sm transition-all hover:shadow-warm-md"
+                className="btn-press touch-target-xl flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-white text-footnote font-semibold text-foreground shadow-warm-sm transition-all hover:shadow-warm-md"
+                style={{ height: 72 }}
               >
                 <Printer className="h-5 w-5 text-muted-foreground" />
-                Print Check
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={handleMerge}
+                className="btn-press touch-target-xl flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-white text-footnote font-semibold text-foreground shadow-warm-sm transition-all hover:shadow-warm-md"
+                style={{ height: 72 }}
+              >
+                <Merge className="h-5 w-5 text-muted-foreground" />
+                Merge
               </button>
               <button
                 type="button"
                 onClick={handleProcessPayment}
-                className="btn-press touch-target-lg flex h-14 items-center justify-center gap-2 rounded-xl bg-[var(--success)] text-white text-sm font-semibold shadow-warm-md transition-all hover:bg-green-600"
+                className="btn-press touch-target-xl flex flex-col items-center justify-center gap-1.5 rounded-xl bg-[var(--success)] text-white text-footnote font-semibold shadow-warm-md transition-all hover:bg-green-600"
+                style={{ height: 72 }}
               >
                 <CreditCard className="h-5 w-5" />
-                Process Payment
+                Pay
               </button>
             </div>
           </div>

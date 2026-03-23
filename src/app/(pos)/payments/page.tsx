@@ -241,18 +241,21 @@ function PaymentsPage() {
     <div className="flex h-full flex-col overflow-hidden bg-background">
       {/* Header */}
       {flowState !== 'complete' && (
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <div
+          className="flex items-center gap-3 px-4"
+          style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--separator)' }}
+        >
           <button
             onClick={handleBack}
-            className="btn-press touch-target flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="btn-press touch-target flex items-center gap-2 rounded-xl px-3 py-2 text-subhead font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <ArrowLeft className="size-4" />
+            <ArrowLeft className="size-5" />
             {flowState === 'method_select' ? 'Back to Order' : 'Back'}
           </button>
 
           <div className="ml-auto text-right">
-            <p className="text-xs text-muted-foreground">Order Total</p>
-            <MoneyDisplay cents={orderTotalCents} className="text-xl font-bold text-foreground" />
+            <p className="text-footnote text-muted-foreground">Order Total</p>
+            <MoneyDisplay cents={orderTotalCents} className="text-title-2 font-bold text-foreground tabular-nums" />
           </div>
         </div>
       )}
@@ -262,13 +265,13 @@ function PaymentsPage() {
         <div className="mx-auto max-w-md">
           {/* METHOD SELECT */}
           {flowState === 'method_select' && (
-            <div className="flex flex-col gap-6 animate-fade-in">
+            <div className="flex flex-col gap-8 animate-fade-in">
               <div className="text-center">
                 <MoneyDisplay
                   cents={orderTotalCents}
-                  className="text-4xl font-bold text-foreground"
+                  className="text-large-title font-bold text-foreground tabular-nums"
                 />
-                <p className="mt-1 text-sm text-muted-foreground">Select Payment Method</p>
+                <p className="mt-2 text-callout text-muted-foreground">Select Payment Method</p>
               </div>
               <PaymentMethodGrid onSelect={handleMethodSelect} />
             </div>
