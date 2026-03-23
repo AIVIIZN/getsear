@@ -23,7 +23,10 @@
 - **Phase 6:** Staff & Labor — 7-tab management hub (roster, time clock, permissions, tips with 4 pool models, cash drawers with denomination counter, DnD schedule with shift marketplace, payroll export ADP/Gusto/Paychex), overtime engine (Federal/CA/CO), break compliance, POS clock-in overlay
 - **Phase 7:** Reports — All reports live Supabase queries (no mocks), 6 new reports (cash, speed-of-service, food cost, void/comp, P&L waterfall, 13-week trends), owner mobile dashboard, reports hub, BullMQ daily aggregation + SendGrid email
 
-### Next Phase: 8 (Integrations)
+- **Phase 8:** Integrations — Twilio SMS (order-ready, reservation reminders, waitlist, opt-out), SendGrid email (receipts, daily reports, marketing, CAN-SPAM), QuickBooks Online (OAuth 2.0, daily journal entry sync), webhook system (14 events, HMAC-SHA256, 3x retry), 12 settings pages, integration hub
+- **Phase 9:** Offline Mode — Service Worker (Workbox), Dexie.js IndexedDB cache, sync queue engine, store-and-forward Valor card payments, offline orders/cash/clock-in, reconnection manager, conflict resolution, cache warming, 8-hour offline support
+
+### Next Phase: 10 (Tables & Reservations)
 
 ## The Problem
 
