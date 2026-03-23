@@ -37,19 +37,38 @@ export const useAuthStore = create<AuthState>()(
       terminalId: null,
       isAuthenticated: false,
       actions: {
-        setUser: (user) =>
+        setUser: (user) => {
           set({
             user,
             isAuthenticated: true,
             activeLocationId: user.location_ids[0] ?? null,
-          }),
-        clearUser: () =>
+          })
+          // Cache user in IndexedDB for offline session persistence
+          if (typeof window !== 'undefined') {
+            import('@/lib/offline/db').then(({ offlineDB }) => {
+              offlineDB.cache_meta.put({
+                id: 'cached_user',
+                key: 'cached_user',
+                value: JSON.stringify(user),
+                updated_at: new Date().toISOString(),
+              }).catch(() => {})
+            }).catch(() => {})
+          }
+        },
+        clearUser: () => {
           set({
             user: null,
             isAuthenticated: false,
             activeLocationId: null,
             terminalId: null,
-          }),
+          })
+          // Clear cached user
+          if (typeof window !== 'undefined') {
+            import('@/lib/offline/db').then(({ offlineDB }) => {
+              offlineDB.cache_meta.delete('cached_user').catch(() => {})
+            }).catch(() => {})
+          }
+        },
         setActiveLocation: (locationId) =>
           set({ activeLocationId: locationId }),
         setTerminal: (terminalId) =>

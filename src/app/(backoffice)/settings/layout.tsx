@@ -11,6 +11,7 @@ import {
   Shield,
   Puzzle,
   BookOpen,
+  Plug2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ const settingsNav = [
   { href: "/settings/roles", label: "Roles & Permissions", icon: Shield },
   { href: "/settings/modules", label: "Modules", icon: Puzzle },
   { href: "/settings/accounting", label: "Accounting", icon: BookOpen },
+  { href: "/settings/integrations", label: "Integrations", icon: Plug2 },
 ];
 
 export default function SettingsLayout({

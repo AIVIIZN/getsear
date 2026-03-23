@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { StaffClockButton } from "@/components/pos/StaffClockButton";
 import { useAuthStore } from "@/stores/auth-store";
 import { PrintQueueBadge, PrintQueueDropdown } from "@/components/printing/PrintQueueDropdown";
+import { SyncStatusIndicator } from "@/components/offline/SyncStatusIndicator";
+import { OfflineBanner } from "@/components/offline/OfflineBanner";
+import { SyncProgressBar } from "@/components/offline/SyncProgressBar";
 
 interface TopbarProps {
   showBreadcrumbs?: boolean;
@@ -40,23 +43,16 @@ function LiveClock() {
   );
 }
 
-function ConnectionDot() {
-  return (
-    <div className="flex items-center gap-1.5">
-      <div
-        className="h-[8px] w-[8px] rounded-full bg-[#34C759]"
-        style={{ boxShadow: "0 0 0 2px rgba(52, 199, 89, 0.2)" }}
-      />
-      <span className="text-[13px] text-[#8E8E93]">Online</span>
-    </div>
-  );
-}
+// ConnectionDot replaced by SyncStatusIndicator
 
 export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps) {
   const user = useAuthStore((s) => s.user);
   const displayName = user?.display_name ?? "Demo User";
 
   return (
+    <>
+    <SyncProgressBar />
+    <OfflineBanner />
     <header
       className="no-select flex shrink-0 items-center justify-between bg-white/80 px-4"
       style={{
@@ -105,7 +101,7 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
       <div className="flex items-center gap-5">
         <StaffClockButton />
         <LiveClock />
-        <ConnectionDot />
+        <SyncStatusIndicator />
         <div className="relative">
           <PrintQueueBadge />
           <PrintQueueDropdown />
@@ -126,5 +122,6 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
         </Link>
       </div>
     </header>
+    </>
   );
 }

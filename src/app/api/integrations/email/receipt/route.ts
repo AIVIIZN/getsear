@@ -1,0 +1,137 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendEmail } from '@/lib/integrations/sendgrid-client'
+import { renderReceiptEmail } from '@/lib/integrations/email-templates'
+
+const ReceiptSchema = z.object({
+  location_id: z.string().uuid(),
+  order_id: z.string().uuid(),
+  email: z.string().email(),
+})
+
+export async function POST(request: NextRequest) {
+  const auth = await getAuthUser()
+  if (auth instanceof NextResponse) return auth
+  const roleCheck = requireRole(auth, ['owner', 'manager', 'server', 'bartender', 'cashier'])
+  if (roleCheck) return roleCheck
+
+  const body = await request.json()
+  const parsed = ReceiptSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+  }
+
+  const supabase = createAdminClient()
+
+  // Fetch order with items
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: order, error: orderError } = await (supabase.from('orders') as any)
+    .select(`
+      id, order_number, order_type, subtotal, tax_total, tip_amount, total,
+      status, created_at, server_id, customer_id,
+      location:locations(name, address_line1, city, state, zip)
+    `)
+    .eq('id', parsed.data.order_id)
+    .single()
+
+  if (orderError || !order) {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  }
+
+  // Fetch order items
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: items } = await (supabase.from('order_items') as any)
+    .select('id, name, quantity, unit_price, modifiers')
+    .eq('order_id', parsed.data.order_id)
+
+  // Fetch payment method
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: payment } = await (supabase.from('payments') as any)
+    .select('payment_method, card_brand, last_four')
+    .eq('order_id', parsed.data.order_id)
+    .eq('type', 'payment')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  // Fetch server name
+  let serverName: string | undefined
+  if (order.server_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: server } = await (supabase.from('users') as any)
+      .select('first_name, last_name')
+      .eq('id', order.server_id)
+      .maybeSingle()
+    if (server) {
+      serverName = `${server.first_name} ${server.last_name?.[0] ?? ''}.`
+    }
+  }
+
+  // Fetch customer name
+  let customerName: string | undefined
+  if (order.customer_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: customer } = await (supabase.from('customers') as any)
+      .select('first_name, last_name')
+      .eq('id', order.customer_id)
+      .maybeSingle()
+    if (customer) {
+      customerName = `${customer.first_name} ${customer.last_name ?? ''}`.trim()
+    }
+  }
+
+  const location = order.location
+  const locationAddress = location
+    ? `${location.address_line1 ?? ''}, ${location.city ?? ''}, ${location.state ?? ''} ${location.zip ?? ''}`
+    : ''
+
+  const receiptData = {
+    locationName: location?.name ?? 'Restaurant',
+    locationAddress,
+    orderNumber: order.order_number?.toString() ?? order.id.slice(0, 8),
+    orderDate: new Date(order.created_at).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }),
+    items: (items ?? []).map((item: { name: string; quantity: number; modifiers?: string[]; unit_price: string | number }) => ({
+      name: item.name,
+      quantity: item.quantity,
+      modifiers: item.modifiers ?? undefined,
+      price: Math.round(Number(item.unit_price) * 100),
+    })),
+    subtotal: Math.round(Number(order.subtotal ?? 0) * 100),
+    tax: Math.round(Number(order.tax_total ?? 0) * 100),
+    tip: Math.round(Number(order.tip_amount ?? 0) * 100),
+    total: Math.round(Number(order.total ?? 0) * 100),
+    paymentMethod: payment?.card_brand ?? payment?.payment_method ?? 'Card',
+    lastFour: payment?.last_four ?? undefined,
+    customerName,
+    serverName,
+    feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/feedback/${order.id}`,
+  }
+
+  const { subject, html } = renderReceiptEmail(receiptData)
+
+  const result = await sendEmail({
+    locationId: parsed.data.location_id,
+    to: parsed.data.email,
+    subject,
+    html,
+    templateType: 'receipt',
+    idempotencyKey: `receipt:${parsed.data.order_id}:${parsed.data.email}`,
+  })
+
+  if (!result.success) {
+    return NextResponse.json({ data: { sent: false, error: result.error } })
+  }
+
+  return NextResponse.json({
+    data: { sent: true, messageId: result.messageId },
+  })
+}

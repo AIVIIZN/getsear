@@ -10,6 +10,7 @@ import {
   ToggleLeft,
   Calculator,
   ChefHat,
+  Plug2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -61,6 +62,12 @@ const settingsLinks = [
     icon: ChefHat,
     label: 'KDS Stations',
     description: 'Kitchen display, aging thresholds, printer failover',
+  },
+  {
+    href: '/settings/integrations',
+    icon: Plug2,
+    label: 'Integrations',
+    description: 'SMS, email, QuickBooks, and webhook integrations',
   },
 ]
 

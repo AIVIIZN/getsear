@@ -197,6 +197,8 @@ interface KdsState {
     setStationHealth: (stationId: string, health: StationHealthInfo) => void
     setStationOnline: (stationId: string) => void
     setStationOffline: (stationId: string, failoverActive: boolean) => void
+    /** Start listening for offline orders via BroadcastChannel */
+    startOfflineListener: () => void
   }
 }
 
@@ -493,5 +495,49 @@ export const useKdsStore = create<KdsState>()((set, get) => ({
           },
         },
       })),
+    /**
+     * Start listening for offline orders via BroadcastChannel.
+     * Offline orders from other tabs are pushed here for KDS display.
+     */
+    startOfflineListener: () => {
+      if (typeof BroadcastChannel === 'undefined') return
+      const channel = new BroadcastChannel('sear-kds-offline')
+      channel.addEventListener('message', (event: MessageEvent) => {
+        if (event.data?.type === 'offline_order') {
+          const order = event.data.order
+          if (!order) return
+          // Convert offline order to KDS ticket
+          const ticket: KdsTicket = {
+            id: `ofl-${order.id}`,
+            order_id: order.id,
+            order_number: order.offline_number ?? order.order_number ?? 'OFL',
+            order_type: order.order_type ?? 'dine_in',
+            server_name: order.server_name ?? '',
+            table_name: order.table_name ?? null,
+            items: (order.items ?? []).map((item: Record<string, unknown>) => ({
+              id: item.id as string,
+              name: item.name as string,
+              quantity: (item.quantity as number) ?? 1,
+              modifiers: ((item.modifiers as { name: string }[]) ?? []).map((m) => m.name),
+              special_instructions: (item.special_instructions as string) ?? '',
+              seat_number: (item.seat_number as number | null) ?? null,
+              course: (item.course as number) ?? 1,
+              status: 'pending' as ItemStatus,
+            })),
+            created_at: order.created_at ?? new Date().toISOString(),
+            age_seconds: 0,
+            age_category: 'fresh' as TicketAge,
+            is_rush: false,
+            station_id: get().activeStationId ?? '',
+            priority: 'normal' as TicketPriority,
+            allergens: null,
+            has_allergens: false,
+          }
+          get().actions.addTicket(ticket)
+        }
+      })
+      // Store channel reference for cleanup (attached to window for simplicity)
+      ;(window as unknown as Record<string, unknown>).__searKdsChannel = channel
+    },
   },
 }))

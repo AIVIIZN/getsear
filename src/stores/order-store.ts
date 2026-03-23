@@ -9,6 +9,10 @@ import {
   type TaxableItem,
 } from '@/lib/tax/tax-engine'
 import type { CourseState } from '@/lib/constants'
+import { createOfflineOrder, updateOrderInCache, generateOfflineOrderNumber } from '@/lib/offline/orders-cache'
+import { enqueueSync } from '@/lib/offline/sync-queue'
+import { useOfflineStore } from '@/stores/offline-store'
+import type { CachedOrder } from '@/lib/offline/db'
 
 type OrderType = 'dine_in' | 'takeout' | 'delivery' | 'bar' | 'catering' | 'online' | 'kiosk' | 'drive_thru' | 'qr'
 type OrderStatus = 'draft' | 'open' | 'fired' | 'ready' | 'served' | 'closed' | 'voided'
@@ -51,6 +55,8 @@ interface OrderItem {
   is_taxable: boolean
 }
 
+type SyncStatus = 'synced' | 'pending' | 'syncing' | 'failed' | 'conflict' | 'store_and_forward'
+
 interface Order {
   id: string
   order_number: string
@@ -70,6 +76,10 @@ interface Order {
   created_at: string
   /** Explicit for-here / to-go toggle. null = inferred from order_type. */
   for_here: boolean | null
+  /** Sync status for offline tracking */
+  sync_status?: SyncStatus
+  /** Offline order number (OFL-001 format) */
+  offline_number?: string | null
 }
 
 interface OrderState {
@@ -104,6 +114,10 @@ interface OrderState {
     loadActiveOrders: (orders: Order[]) => void
     updateActiveOrder: (order: Order) => void
     removeActiveOrder: (orderId: string) => void
+    /** Save current order to IndexedDB and enqueue for sync (offline mode) */
+    sendOrderOffline: (locationId: string) => Promise<void>
+    /** Dual-write: save order to IndexedDB cache alongside normal operations */
+    syncToCache: (locationId: string) => Promise<void>
   }
 }
 
@@ -464,6 +478,142 @@ export const useOrderStore = create<OrderState>()(
         set((state) => {
           delete state.activeOrders[orderId]
         }),
+
+      sendOrderOffline: async (locationId: string) => {
+        const state = useOrderStore.getState()
+        const order = state.currentOrder
+        if (!order) return
+
+        const offlineNumber = generateOfflineOrderNumber()
+
+        // Update the current order in Zustand
+        set((s) => {
+          if (s.currentOrder) {
+            s.currentOrder.sync_status = 'pending'
+            s.currentOrder.offline_number = offlineNumber
+            s.currentOrder.status = 'open'
+            s.currentOrder.order_number = offlineNumber
+          }
+        })
+
+        const updatedOrder = useOrderStore.getState().currentOrder
+        if (!updatedOrder) return
+
+        // Write to IndexedDB
+        const cachedOrder: CachedOrder = {
+          id: updatedOrder.id,
+          order_number: offlineNumber,
+          order_type: updatedOrder.order_type,
+          status: 'open',
+          table_id: updatedOrder.table_id,
+          table_name: updatedOrder.table_name,
+          server_id: updatedOrder.server_id,
+          server_name: updatedOrder.server_name,
+          guest_count: updatedOrder.guest_count,
+          items: updatedOrder.items.map((item) => ({
+            id: item.id,
+            menu_item_id: item.menu_item_id,
+            name: item.name,
+            price_cents: item.price_cents,
+            quantity: item.quantity,
+            seat_number: item.seat_number,
+            course: item.course,
+            status: item.status,
+            modifiers: item.modifiers,
+            special_instructions: item.special_instructions,
+            voided: item.voided,
+            void_reason: item.void_reason,
+            is_combo: item.is_combo,
+            combo_children: item.combo_children,
+            tax_class: item.tax_class,
+            is_taxable: item.is_taxable,
+          })),
+          subtotal_cents: updatedOrder.subtotal_cents,
+          discount_cents: updatedOrder.discount_cents,
+          tax_cents: updatedOrder.tax_cents,
+          total_cents: updatedOrder.total_cents,
+          notes: updatedOrder.notes,
+          created_at: updatedOrder.created_at,
+          for_here: updatedOrder.for_here,
+          location_id: locationId,
+          sync_status: 'pending',
+          offline_number: offlineNumber,
+          synced_at: new Date().toISOString(),
+        }
+
+        await createOfflineOrder(cachedOrder)
+
+        // Enqueue for sync
+        await enqueueSync({
+          operation: 'create_order',
+          entity_type: 'order',
+          entity_id: updatedOrder.id,
+          payload: cachedOrder as unknown as Record<string, unknown>,
+          location_id: locationId,
+        })
+
+        // Update pending count
+        const offlineStore = useOfflineStore.getState()
+        offlineStore.actions.updatePendingCount('order', 1)
+
+        // Add to active orders
+        set((s) => {
+          if (updatedOrder) {
+            s.activeOrders[updatedOrder.id] = { ...updatedOrder, sync_status: 'pending', offline_number: offlineNumber, status: 'open', order_number: offlineNumber }
+          }
+        })
+
+        // Broadcast to KDS via BroadcastChannel
+        try {
+          const kdsChannel = new BroadcastChannel('sear-kds-offline')
+          kdsChannel.postMessage({
+            type: 'offline_order',
+            order: cachedOrder,
+          })
+          kdsChannel.close()
+        } catch {
+          // BroadcastChannel not available
+        }
+      },
+
+      syncToCache: async (locationId: string) => {
+        const state = useOrderStore.getState()
+        const order = state.currentOrder
+        if (!order) return
+
+        // Dual-write to IndexedDB for offline resilience
+        try {
+          await updateOrderInCache(order.id, {
+            status: order.status,
+            items: order.items.map((item) => ({
+              id: item.id,
+              menu_item_id: item.menu_item_id,
+              name: item.name,
+              price_cents: item.price_cents,
+              quantity: item.quantity,
+              seat_number: item.seat_number,
+              course: item.course,
+              status: item.status,
+              modifiers: item.modifiers,
+              special_instructions: item.special_instructions,
+              voided: item.voided,
+              void_reason: item.void_reason,
+              is_combo: item.is_combo,
+              combo_children: item.combo_children,
+              tax_class: item.tax_class,
+              is_taxable: item.is_taxable,
+            })),
+            subtotal_cents: order.subtotal_cents,
+            tax_cents: order.tax_cents,
+            total_cents: order.total_cents,
+            notes: order.notes,
+            location_id: locationId,
+            sync_status: 'synced',
+          } as Partial<CachedOrder>)
+        } catch {
+          // IndexedDB write failed — not critical when online
+        }
+      },
     },
   }))
 )

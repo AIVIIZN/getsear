@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import { getCachedCategories, getCachedMenuItems } from '@/lib/offline/menu-cache'
 
 interface Modifier {
   id: string
@@ -82,6 +83,8 @@ interface MenuState {
     toggleItemAvailability: (itemId: string) => void
     update86Status: (itemId: string, is86d: boolean) => void
     getFilteredItems: () => MenuItem[]
+    /** Load menu from IndexedDB cache (offline mode) */
+    loadFromCache: (locationId: string) => Promise<void>
   }
 }
 
@@ -122,6 +125,47 @@ export const useMenuStore = create<MenuState>()((set, get) => ({
         )
       }
       return filtered.sort((a, b) => a.sort_order - b.sort_order)
+    },
+    loadFromCache: async (locationId: string) => {
+      try {
+        set({ isLoading: true })
+        const [cachedCategories, cachedItems] = await Promise.all([
+          getCachedCategories(locationId),
+          getCachedMenuItems(locationId),
+        ])
+        const categories: MenuCategory[] = cachedCategories.map((c) => ({
+          id: c.id,
+          name: c.name,
+          color: c.color,
+          sort_order: c.sort_order,
+          is_active: c.is_active,
+          item_count: c.item_count,
+        }))
+        const items: MenuItem[] = cachedItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          price_cents: item.price_cents,
+          category_id: item.category_id,
+          is_available: item.is_available,
+          is_taxable: item.is_taxable,
+          sort_order: item.sort_order,
+          image_url: item.image_url,
+          allergens: item.allergens,
+          modifier_groups: item.modifier_groups,
+          price_type: item.price_type as PriceType,
+          min_price_cents: item.min_price_cents,
+          max_price_cents: item.max_price_cents,
+          combo_group_id: item.combo_group_id,
+          combo_name: item.combo_name,
+          combo_price_cents: item.combo_price_cents,
+          combo_slots: item.combo_slots,
+        }))
+        set({ categories, items, isLoading: false })
+      } catch (error) {
+        console.error('[MenuStore] Failed to load from cache:', error)
+        set({ isLoading: false })
+      }
     },
   },
 }))
