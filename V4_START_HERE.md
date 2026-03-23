@@ -26,7 +26,10 @@
 - **Phase 8:** Integrations — Twilio SMS (order-ready, reservation reminders, waitlist, opt-out), SendGrid email (receipts, daily reports, marketing, CAN-SPAM), QuickBooks Online (OAuth 2.0, daily journal entry sync), webhook system (14 events, HMAC-SHA256, 3x retry), 12 settings pages, integration hub
 - **Phase 9:** Offline Mode — Service Worker (Workbox), Dexie.js IndexedDB cache, sync queue engine, store-and-forward Valor card payments, offline orders/cash/clock-in, reconnection manager, conflict resolution, cache warming, 8-hour offline support
 
-### Next Phase: 10 (Tables & Reservations)
+- **Phase 10:** Tables & Reservations — Three-tab tables page (Floor Plan/List/Capacity), server section assignments, turn time tracking, reservation seating flow, waitlist with SMS, capacity dashboard, public reservation widget at /reserve/[slug]
+- **Phase 11:** All 10 Optional Modules — Inventory (waste, food cost, prep list, auto-86), Loyalty (phone enrollment, tiers, cross-location), Online Ordering (public /order/[slug], QR, throttle), Marketing (campaign builder, segments, real sends), Delivery (GPS, proof of delivery), Catering (BEO/proposal/invoice PDF), Scheduling (weekly grid, labor forecast, marketplace), Drive-Thru (lanes, speed metrics), House Accounts (statements, auto-billing, credit limits), Franchise (menu push, consolidated P&L, royalties)
+
+### Next Phase: 12 (Security)
 
 ## The Problem
 
