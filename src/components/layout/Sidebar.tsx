@@ -25,7 +25,7 @@ import {
   ChefHat,
   Car,
   Building,
-  ChevronDown,
+  ChevronRight,
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,16 +37,17 @@ interface SidebarProps {
 
 interface NavItem {
   label: string;
+  shortLabel?: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }
 
-interface NavSection {
+interface NavSectionData {
   label: string;
   items: NavItem[];
 }
 
-const sections: NavSection[] = [
+const sections: NavSectionData[] = [
   {
     label: "POS",
     items: [
@@ -69,15 +70,15 @@ const sections: NavSection[] = [
   {
     label: "Modules",
     items: [
-      { label: "Online", href: "/online-ordering", icon: Globe },
-      { label: "Reserve", href: "/reservations", icon: CalendarDays },
+      { label: "Online Ordering", shortLabel: "Online", href: "/online-ordering", icon: Globe },
+      { label: "Reservations", shortLabel: "Reserve", href: "/reservations", icon: CalendarDays },
       { label: "Loyalty", href: "/loyalty", icon: Heart },
       { label: "Inventory", href: "/inventory", icon: Package },
-      { label: "Schedule", href: "/scheduling", icon: CalendarClock },
+      { label: "Scheduling", shortLabel: "Schedule", href: "/scheduling", icon: CalendarClock },
       { label: "Marketing", href: "/marketing", icon: Megaphone },
       { label: "Delivery", href: "/delivery", icon: Truck },
       { label: "Catering", href: "/catering", icon: ChefHat },
-      { label: "Accounts", href: "/house-accounts", icon: Wallet },
+      { label: "House Accounts", shortLabel: "Accounts", href: "/house-accounts", icon: Wallet },
       { label: "Drive-Thru", href: "/drive-thru", icon: Car },
       { label: "Franchise", href: "/franchise", icon: Building },
     ],
@@ -88,122 +89,117 @@ const sections: NavSection[] = [
   },
 ];
 
-function CollapsedNavItem({
-  item,
-  isActive,
-}: {
-  item: NavItem;
-  isActive: boolean;
-}) {
+/* ─── Apple-style sidebar row (expanded) ─── */
+function SidebarRow({ item, isActive }: { item: NavItem; isActive: boolean }) {
   const Icon = item.icon;
-
   return (
     <Link
       href={item.href}
       className={cn(
-        "btn-press flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 px-1",
-        "transition-colors",
+        "group flex items-center gap-3 rounded-[10px] px-3 py-[9px]",
+        "transition-colors duration-100",
         isActive
-          ? "bg-[var(--sidebar-primary)] text-white"
-          : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)]"
+          ? "bg-[var(--primary)]/[0.12] text-[var(--primary)]"
+          : "text-[#3C3C43] hover:bg-black/[0.04] active:bg-black/[0.06]"
       )}
-      style={{
-        minHeight: 56,
-        transitionDuration: "var(--duration-fast)",
-      }}
     >
-      <Icon className="h-[22px] w-[22px] shrink-0" />
-      <span className="text-caption-2 font-medium leading-tight">
-        {item.label.length > 7 ? item.label.slice(0, 6) + "…" : item.label}
+      <Icon
+        className={cn(
+          "h-[20px] w-[20px] shrink-0",
+          isActive ? "text-[var(--primary)]" : "text-[#8E8E93]"
+        )}
+        strokeWidth={isActive ? 2.2 : 1.8}
+      />
+      <span
+        className={cn(
+          "text-[15px] leading-[20px] truncate",
+          isActive ? "font-semibold" : "font-normal"
+        )}
+      >
+        {item.label}
+      </span>
+      {isActive && (
+        <ChevronRight className="ml-auto h-[14px] w-[14px] shrink-0 text-[var(--primary)]/60" />
+      )}
+    </Link>
+  );
+}
+
+/* ─── Apple-style sidebar icon (collapsed) ─── */
+function SidebarIcon({ item, isActive }: { item: NavItem; isActive: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex flex-col items-center justify-center gap-[2px] rounded-[10px] py-[6px] px-1",
+        "transition-colors duration-100",
+        isActive
+          ? "bg-[var(--primary)]/[0.12] text-[var(--primary)]"
+          : "text-[#8E8E93] hover:bg-black/[0.04] active:bg-black/[0.06]"
+      )}
+      style={{ minHeight: 48 }}
+      title={item.label}
+    >
+      <Icon
+        className="h-[22px] w-[22px] shrink-0"
+        strokeWidth={isActive ? 2.2 : 1.8}
+      />
+      <span
+        className={cn(
+          "text-[10px] leading-[12px] font-medium",
+          isActive ? "text-[var(--primary)]" : "text-[#8E8E93]"
+        )}
+      >
+        {(item.shortLabel ?? item.label).length > 8
+          ? (item.shortLabel ?? item.label).slice(0, 7) + "…"
+          : (item.shortLabel ?? item.label)}
       </span>
     </Link>
   );
 }
 
-function ExpandedNavItem({
-  item,
-  isActive,
-}: {
-  item: NavItem;
-  isActive: boolean;
-}) {
-  const Icon = item.icon;
-
-  return (
-    <Link
-      href={item.href}
-      className={cn(
-        "btn-press flex items-center gap-3 rounded-xl px-3 text-subhead font-medium",
-        "transition-colors",
-        isActive
-          ? "bg-[var(--sidebar-primary)] text-white"
-          : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)]"
-      )}
-      style={{
-        minHeight: 44,
-        transitionDuration: "var(--duration-fast)",
-      }}
-    >
-      <Icon className="h-5 w-5 shrink-0" />
-      <span>{item.label}</span>
-    </Link>
-  );
-}
-
-function SectionGroup({
+/* ─── Section (collapsible in expanded, flat in collapsed) ─── */
+function SidebarSection({
   section,
   collapsed,
   pathname,
   defaultOpen = true,
 }: {
-  section: NavSection;
+  section: NavSectionData;
   collapsed: boolean;
   pathname: string;
   defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(defaultOpen);
 
   if (collapsed) {
     return (
-      <div className="flex flex-col gap-1 px-1.5">
+      <div className="flex flex-col gap-[2px] px-[6px]">
         {section.items.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <CollapsedNavItem key={item.href} item={item} isActive={isActive} />
-          );
+          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          return <SidebarIcon key={item.href} item={item} isActive={active} />;
         })}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div>
+      {/* Section header — Apple style: small gray uppercase */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="btn-press flex items-center justify-between px-4 py-2 text-caption-1 font-semibold uppercase tracking-wider text-[var(--sidebar-muted)]"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-4 pb-1 pt-2"
       >
-        <span>{section.label}</span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 transition-transform",
-            !isOpen && "-rotate-90"
-          )}
-          style={{ transitionDuration: "var(--duration-normal)" }}
-        />
+        <span className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#8E8E93]">
+          {section.label}
+        </span>
       </button>
-      {isOpen && (
-        <div className="flex flex-col gap-0.5 px-2">
+      {open && (
+        <div className="flex flex-col gap-[1px] px-2">
           {section.items.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <ExpandedNavItem
-                key={item.href}
-                item={item}
-                isActive={isActive}
-              />
-            );
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            return <SidebarRow key={item.href} item={item} isActive={active} />;
           })}
         </div>
       )}
@@ -211,80 +207,74 @@ function SectionGroup({
   );
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+/* ─── Main Sidebar ─── */
+export function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside
-      className={cn(
-        "no-select flex h-full flex-col bg-[var(--sidebar)] overflow-hidden"
-      )}
+      className="no-select flex h-full flex-col overflow-hidden"
       style={{
-        width: collapsed
-          ? "var(--sidebar-collapsed)"
-          : "var(--sidebar-expanded)",
-        transition: "width var(--duration-slow) var(--ease-spring)",
+        width: collapsed ? "var(--sidebar-collapsed)" : "var(--sidebar-expanded)",
+        transition: "width 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
+        background: "#F2F2F7",
+        borderRight: "0.5px solid rgba(60, 60, 67, 0.12)",
       }}
     >
-      {/* Logo */}
+      {/* Logo area */}
       <div
-        className="flex shrink-0 items-center justify-center"
+        className="flex shrink-0 items-center px-4"
         style={{
           height: "var(--topbar-height)",
-          borderBottom: "0.5px solid var(--sidebar-border)",
+          borderBottom: "0.5px solid rgba(60, 60, 67, 0.12)",
         }}
       >
-        <span
-          className={cn(
-            "font-bold tracking-tight text-[var(--sidebar-primary)]",
-            collapsed ? "text-[20px]" : "text-[22px]"
-          )}
-        >
-          {collapsed ? "S" : "SEAR"}
-        </span>
+        {collapsed ? (
+          <div className="flex w-full justify-center">
+            <span className="text-[18px] font-bold tracking-tight text-[var(--primary)]">
+              S
+            </span>
+          </div>
+        ) : (
+          <span className="text-[18px] font-bold tracking-tight text-[var(--primary)]">
+            SEAR
+          </span>
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex flex-1 flex-col gap-3 overflow-y-auto py-3 scrollbar-hide scroll-container">
-        {sections.map((section, i) => (
-          <div key={section.label}>
-            {i > 0 && (
-              <div
-                className="mx-3 mb-3"
-                style={{
-                  borderBottom: "0.5px solid var(--sidebar-border)",
-                }}
-              />
-            )}
-            <SectionGroup
-              section={section}
-              collapsed={collapsed}
-              pathname={pathname}
-              defaultOpen={section.label === "POS" || section.label === "Management"}
-            />
-          </div>
+      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto py-2 scrollbar-hide">
+        {sections.map((section) => (
+          <SidebarSection
+            key={section.label}
+            section={section}
+            collapsed={collapsed}
+            pathname={pathname}
+            defaultOpen={true}
+          />
         ))}
       </nav>
 
-      {/* Clock in/out indicator */}
+      {/* Clock status — bottom */}
       <div
-        className="shrink-0 flex items-center justify-center px-2 py-3"
-        style={{
-          borderTop: "0.5px solid var(--sidebar-border)",
-        }}
+        className="shrink-0 px-3 py-3"
+        style={{ borderTop: "0.5px solid rgba(60, 60, 67, 0.12)" }}
       >
         <div
           className={cn(
-            "flex items-center gap-2 rounded-xl px-3 py-2",
-            collapsed ? "justify-center" : ""
+            "flex items-center gap-2",
+            collapsed ? "justify-center" : "px-1"
           )}
         >
           <div className="relative">
-            <Clock className="h-4 w-4 shrink-0 text-[var(--success)]" />
-            <div className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[var(--success)] animate-pulse-dot" />
+            <Clock className="h-4 w-4 shrink-0 text-[#34C759]" />
+            <div
+              className="absolute -right-0.5 -top-0.5 h-[7px] w-[7px] rounded-full bg-[#34C759]"
+              style={{ boxShadow: "0 0 0 2px #F2F2F7" }}
+            />
           </div>
           {!collapsed && (
-            <span className="text-caption-1 font-medium text-[var(--sidebar-muted)]">
+            <span className="text-[12px] font-medium text-[#8E8E93]">
               Clocked In
             </span>
           )}

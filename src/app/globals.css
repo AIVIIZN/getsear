@@ -82,9 +82,9 @@
    Warm off-white backgrounds, ember orange brand
    ============================================================ */
 :root {
-  /* Backgrounds — warm, not sterile */
-  --background: #FDFBF7;
-  --foreground: #1A1A17;
+  /* Backgrounds — Apple system background */
+  --background: #F2F2F7;
+  --foreground: #1C1C1E;
   --card: #FFFFFF;
   --card-foreground: #1A1A17;
   --popover: #FFFFFF;
@@ -171,16 +171,16 @@
   --chart-4: #AF52DE;
   --chart-5: #FF9500;
 
-  /* Sidebar — dark background */
-  --sidebar: #1C1C1E;
-  --sidebar-foreground: rgba(255, 255, 255, 0.85);
+  /* Sidebar — Apple iOS light style (#F2F2F7 grouped background) */
+  --sidebar: #F2F2F7;
+  --sidebar-foreground: #3C3C43;
   --sidebar-primary: #F06B18;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-accent: rgba(0, 0, 0, 0.04);
+  --sidebar-accent-foreground: #3C3C43;
+  --sidebar-border: rgba(60, 60, 67, 0.12);
   --sidebar-ring: #F06B18;
-  --sidebar-muted: rgba(255, 255, 255, 0.45);
+  --sidebar-muted: #8E8E93;
 
   /* Animation timing — iOS spring physics */
   --duration-fast: 100ms;

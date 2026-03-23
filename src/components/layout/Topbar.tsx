@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Menu, Settings, Wifi } from "lucide-react";
+import { Menu, Settings } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { StaffClockButton } from "@/components/pos/StaffClockButton";
@@ -33,22 +33,20 @@ function LiveClock() {
   if (!time) return null;
 
   return (
-    <span className="tabular-nums text-callout font-semibold text-[var(--foreground)]">
+    <span className="tabular-nums text-[15px] font-medium text-[#3C3C43]">
       {time}
     </span>
   );
 }
 
-function ConnectionStatus() {
+function ConnectionDot() {
   return (
-    <div className="flex items-center gap-2">
-      <div className="relative">
-        <div className="h-2.5 w-2.5 rounded-full bg-[var(--success)]" />
-        <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-[var(--success)] animate-pulse-dot" />
-      </div>
-      <span className="text-footnote text-[var(--muted-foreground)]">
-        Online
-      </span>
+    <div className="flex items-center gap-1.5">
+      <div
+        className="h-[8px] w-[8px] rounded-full bg-[#34C759]"
+        style={{ boxShadow: "0 0 0 2px rgba(52, 199, 89, 0.2)" }}
+      />
+      <span className="text-[13px] text-[#8E8E93]">Online</span>
     </div>
   );
 }
@@ -56,78 +54,70 @@ function ConnectionStatus() {
 export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps) {
   const user = useAuthStore((s) => s.user);
   const displayName = user?.display_name ?? "Demo User";
-  const role = user?.role ?? "owner";
 
   return (
     <header
-      className="no-select flex shrink-0 items-center justify-between bg-[var(--card)] px-4"
+      className="no-select flex shrink-0 items-center justify-between bg-white/80 px-4"
       style={{
         height: "var(--topbar-height)",
-        boxShadow: "var(--shadow-sm)",
-        borderBottom: "0.5px solid var(--separator)",
+        borderBottom: "0.5px solid rgba(60, 60, 67, 0.12)",
+        backdropFilter: "saturate(180%) blur(20px)",
+        WebkitBackdropFilter: "saturate(180%) blur(20px)",
       }}
     >
       {/* Left side */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            className="btn-press touch-target flex items-center justify-center rounded-xl text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-            style={{
-              width: 44,
-              height: 44,
-              transitionDuration: "var(--duration-fast)",
-            }}
+            className={cn(
+              "flex items-center justify-center rounded-[8px]",
+              "text-[#007AFF] hover:bg-black/[0.04] active:bg-black/[0.06]",
+              "transition-colors duration-100"
+            )}
+            style={{ width: 36, height: 36 }}
             aria-label="Toggle sidebar"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-[20px] w-[20px]" strokeWidth={2} />
           </button>
         )}
 
         {showBreadcrumbs ? (
-          <nav className="flex items-center gap-1.5 text-subhead">
+          <nav className="flex items-center gap-1.5 text-[15px]">
             <Link
               href="/"
-              className="text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
-              style={{ transitionDuration: "var(--duration-fast)" }}
+              className="text-[#007AFF] hover:text-[#0051D5]"
             >
               Home
             </Link>
-            <span className="text-[var(--muted-foreground)]">/</span>
-            <span className="font-medium text-[var(--foreground)]">
-              Dashboard
-            </span>
+            <span className="text-[#C7C7CC]">/</span>
+            <span className="font-medium text-[#1C1C1E]">Dashboard</span>
           </nav>
         ) : (
-          <span className="text-callout font-semibold text-[var(--foreground)]">
-            Main Location
-          </span>
+          <h1 className="text-[17px] font-semibold text-[#1C1C1E]">
+            Sear POS
+          </h1>
         )}
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         <StaffClockButton />
         <LiveClock />
-        <ConnectionStatus />
-        <div className="flex items-center gap-2">
-          <span className="text-subhead font-medium text-[var(--foreground)]">
-            {displayName}
-          </span>
-          <span className="text-caption-1 font-medium rounded-md bg-[var(--accent)] px-2 py-0.5 text-[var(--accent-foreground)]">
-            {role.charAt(0).toUpperCase() + role.slice(1)}
-          </span>
-        </div>
+        <ConnectionDot />
+        <span className="text-[15px] font-medium text-[#3C3C43]">
+          {displayName}
+        </span>
         <Link
           href="/settings"
-          className="btn-press touch-target flex items-center justify-center rounded-xl text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-          style={{
-            width: 44,
-            height: 44,
-            transitionDuration: "var(--duration-fast)",
-          }}
+          className={cn(
+            "flex items-center justify-center rounded-[8px]",
+            "text-[#8E8E93] hover:bg-black/[0.04] active:bg-black/[0.06]",
+            "transition-colors duration-100"
+          )}
+          style={{ width: 36, height: 36 }}
         >
-          <Settings className="h-5 w-5" />
+          <Settings className="h-[20px] w-[20px]" strokeWidth={1.8} />
         </Link>
       </div>
     </header>

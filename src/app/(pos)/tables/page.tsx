@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useTableStore } from '@/stores/table-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { useRealtimeTables } from '@/hooks/use-realtime'
 import { FloorPlanCanvas } from '@/components/tables/FloorPlanCanvas'
 import { SectionFilter } from '@/components/tables/SectionFilter'
@@ -70,6 +71,7 @@ export default function TablesPage() {
   const router = useRouter()
   const store = useTableStore()
   const { actions } = store
+  const activeLocationId = useAuthStore((s) => s.activeLocationId)
 
   const [floorPlans, setFloorPlans] = useState<FloorPlanData[]>([])
   const [tables, setTables] = useState<TableData[]>([])
@@ -491,7 +493,7 @@ export default function TablesPage() {
                 const res = await fetch('/api/tables/floor-plans', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name: 'Main Dining' }),
+                  body: JSON.stringify({ name: 'Main Dining', location_id: activeLocationId }),
                 })
                 if (res.ok) {
                   const json = await res.json()
