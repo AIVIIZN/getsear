@@ -55,6 +55,7 @@ interface MenuState {
     setSearchQuery: (query: string) => void
     setLoading: (loading: boolean) => void
     toggleItemAvailability: (itemId: string) => void
+    update86Status: (itemId: string, is86d: boolean) => void
     getFilteredItems: () => MenuItem[]
   }
 }
@@ -75,6 +76,12 @@ export const useMenuStore = create<MenuState>()((set, get) => ({
       set((state) => ({
         items: state.items.map((item) =>
           item.id === itemId ? { ...item, is_available: !item.is_available } : item
+        ),
+      })),
+    update86Status: (itemId, is86d) =>
+      set((state) => ({
+        items: state.items.map((item) =>
+          item.id === itemId ? { ...item, is_available: !is86d } : item
         ),
       })),
     getFilteredItems: () => {

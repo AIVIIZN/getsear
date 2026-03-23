@@ -13,6 +13,7 @@ import { TableMoveDialog } from '@/components/pos/TableMoveDialog'
 import { useOrderStore } from '@/stores/order-store'
 import { useMenuStore } from '@/stores/menu-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { useRealtime86 } from '@/hooks/use-realtime'
 import { toast } from 'sonner'
 
 interface MenuItemWithModifiers {
@@ -134,6 +135,16 @@ export default function OrdersPage() {
 
     loadMenu()
   }, [setCategories, setItems, setLoading])
+
+  // Real-time 86 propagation — grey out items when 86'd on any terminal
+  const orgId = useAuthStore((s) => s.user?.org_id) ?? ''
+  const { update86Status } = useMenuStore((s) => s.actions)
+  useRealtime86(orgId, useCallback((item: { id: string; is_86d: boolean; name: string }) => {
+    update86Status(item.id, item.is_86d)
+    if (item.is_86d) {
+      toast.warning(`${item.name} has been 86'd`, { duration: 3000 })
+    }
+  }, [update86Status]))
 
   // Auto-create a draft order if none exists
   useEffect(() => {

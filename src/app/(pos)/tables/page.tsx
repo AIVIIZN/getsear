@@ -382,18 +382,21 @@ export default function TablesPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       {/* Top bar */}
-      <div className="flex flex-shrink-0 items-center gap-3 border-b border-border px-4 py-2">
+      <div
+        className="flex flex-shrink-0 items-center gap-3 px-4"
+        style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--separator)' }}
+      >
         {/* Floor plan tabs */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {floorPlans.map((fp) => (
             <button
               key={fp.id}
               type="button"
               onClick={() => setActiveFloorPlanId(fp.id)}
               className={cn(
-                'touch-target rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+                'btn-press touch-target rounded-xl px-4 py-2 text-subhead font-semibold transition-colors',
                 activeFloorPlanId === fp.id
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-warm-sm'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
               )}
             >
@@ -517,9 +520,9 @@ export default function TablesPage() {
 
       {/* Seat guests dialog */}
       {seatDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-72 rounded-xl bg-card p-5 shadow-warm-xl">
-            <h3 className="mb-4 text-sm font-bold text-foreground">Seat Guests</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-backdrop">
+          <div className="w-80 rounded-2xl bg-card p-6 shadow-warm-xl animate-fade-in">
+            <h3 className="mb-4 text-headline text-foreground">Seat Guests</h3>
 
             <div className="mb-4">
               <label className="mb-1 block text-xs text-muted-foreground">Number of guests</label>
