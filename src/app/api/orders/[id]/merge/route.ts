@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const mergeSchema = z.object({
   source_order_id: z.string().uuid(),
 })
 
 /**
- * POST /api/orders/[id]/merge — merge another order into this one
+ * POST /api/orders/[id]/merge -- merge another order into this one
  */
 export async function POST(
   request: NextRequest,
@@ -84,31 +85,14 @@ export async function POST(
     })
     .eq('id', source_order_id)
 
-  // Recalculate target totals
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items } = await (supabase.from('order_items') as any)
-    .select('line_total, is_voided, comp_amount')
-    .eq('order_id', targetOrderId)
+  // Recalculate target totals using the tax engine (no more hardcoded 8.5%)
+  await recalculateOrderTotals(supabase, targetOrderId, user.org_id)
 
-  let subtotal = 0
-  for (const item of items ?? []) {
-    if (item.is_voided) continue
-    subtotal += parseFloat(item.line_total || '0') - parseFloat(item.comp_amount || '0')
-  }
-  const taxTotal = Math.round(subtotal * 0.085 * 100) / 100
-  const total = subtotal + taxTotal
-
+  // Fetch the updated order
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updatedOrder } = await (supabase.from('orders') as any)
-    .update({
-      subtotal: subtotal.toFixed(2),
-      tax_total: taxTotal.toFixed(2),
-      total: total.toFixed(2),
-      balance_due: total.toFixed(2),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', targetOrderId)
     .select('*, order_items(*, order_item_modifiers(*))')
+    .eq('id', targetOrderId)
     .single()
 
   // Audit

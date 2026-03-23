@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const updateOrderSchema = z.object({
   order_type: z.enum([
@@ -12,6 +13,8 @@ const updateOrderSchema = z.object({
   guest_name: z.string().max(200).nullable().optional(),
   guest_phone: z.string().max(30).nullable().optional(),
   notes: z.string().max(2000).optional(),
+  /** Explicit for-here / to-go toggle. Affects tax calculation. */
+  for_here: z.boolean().optional(),
 })
 
 const voidOrderSchema = z.object({
@@ -19,7 +22,7 @@ const voidOrderSchema = z.object({
 })
 
 /**
- * GET /api/orders/[id] — get single order with items and modifiers
+ * GET /api/orders/[id] -- get single order with items and modifiers
  */
 export async function GET(
   _request: NextRequest,
@@ -46,7 +49,8 @@ export async function GET(
 }
 
 /**
- * PATCH /api/orders/[id] — update order metadata
+ * PATCH /api/orders/[id] -- update order metadata
+ * Supports toggling for_here which triggers tax recalculation.
  */
 export async function PATCH(
   request: NextRequest,
@@ -74,9 +78,60 @@ export async function PATCH(
 
   const supabase = createAdminClient()
 
+  // Build update payload
+  // for_here is stored in the metadata jsonb field since the orders table
+  // doesn't have a dedicated column for it
+  const { for_here, ...directFields } = parsed.data
+
+  // If for_here is being toggled, merge it into the metadata field
+  if (for_here !== undefined) {
+    // Fetch current metadata
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: currentOrder } = await (supabase.from('orders') as any)
+      .select('metadata')
+      .eq('id', id)
+      .eq('org_id', user.org_id)
+      .single()
+
+    if (!currentOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    const metadata = { ...(currentOrder.metadata ?? {}), for_here }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('orders') as any)
+      .update({
+        ...directFields,
+        metadata,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('org_id', user.org_id)
+      .select()
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
+    }
+
+    // Recalculate tax when for_here or order_type changes
+    await recalculateOrderTotals(supabase, id, user.org_id)
+
+    // Fetch updated order with recalculated totals
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedOrder } = await (supabase.from('orders') as any)
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    return NextResponse.json({ data: updatedOrder })
+  }
+
+  // Standard update without for_here
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('orders') as any)
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .update({ ...directFields, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)
     .select()
@@ -86,11 +141,24 @@ export async function PATCH(
     return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
   }
 
+  // If order_type changed, recalculate tax (affects for-here/to-go logic)
+  if (directFields.order_type) {
+    await recalculateOrderTotals(supabase, id, user.org_id)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedOrder } = await (supabase.from('orders') as any)
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    return NextResponse.json({ data: updatedOrder })
+  }
+
   return NextResponse.json({ data })
 }
 
 /**
- * DELETE /api/orders/[id] — void order
+ * DELETE /api/orders/[id] -- void order
  */
 export async function DELETE(
   request: NextRequest,
@@ -118,7 +186,7 @@ export async function DELETE(
 
   const supabase = createAdminClient()
 
-  // Check if order has sent items — requires manager
+  // Check if order has sent items -- requires manager
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: order } = await (supabase.from('orders') as any)
     .select('status')

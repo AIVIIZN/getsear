@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const modifierSchema = z.object({
   modifier_id: z.string().uuid(),
@@ -24,7 +25,7 @@ const addItemSchema = z.object({
 })
 
 /**
- * POST /api/orders/[id]/items — add item to order
+ * POST /api/orders/[id]/items -- add item to order
  */
 export async function POST(
   request: NextRequest,
@@ -55,7 +56,7 @@ export async function POST(
   // Verify order exists and belongs to org
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, status')
+    .select('id, org_id, status, location_id')
     .eq('id', orderId)
     .eq('org_id', user.org_id)
     .single()
@@ -66,6 +67,28 @@ export async function POST(
 
   if (order.status === 'closed' || order.status === 'voided') {
     return NextResponse.json({ error: 'Cannot add items to a closed or voided order' }, { status: 400 })
+  }
+
+  // Check if kitchen is closed — only drink items allowed
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: location } = await (supabase.from('locations') as any)
+    .select('settings')
+    .eq('id', order.location_id)
+    .single()
+
+  if (location?.settings?.kitchen_closed) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: menuItem } = await (supabase.from('menu_items') as any)
+      .select('course')
+      .eq('id', parsed.data.menu_item_id)
+      .single()
+
+    if (menuItem && menuItem.course !== 'drink') {
+      return NextResponse.json(
+        { error: 'Kitchen is closed. Only drink items can be added.' },
+        { status: 400 }
+      )
+    }
   }
 
   const { menu_item_id, name, unit_price, quantity, seat_number, course, prep_station, notes, modifiers } = parsed.data
@@ -122,8 +145,8 @@ export async function POST(
     await (supabase.from('order_item_modifiers') as any).insert(modRows)
   }
 
-  // Recalculate order totals
-  await recalculateOrderTotals(supabase, orderId)
+  // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  await recalculateOrderTotals(supabase, orderId, user.org_id)
 
   // Fetch the complete item with modifiers
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,68 +156,4 @@ export async function POST(
     .single()
 
   return NextResponse.json({ data: completeItem }, { status: 201 })
-}
-
-/**
- * Recalculate order financial totals from line items
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recalculateOrderTotals(supabase: any, orderId: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items } = await (supabase.from('order_items') as any)
-    .select('line_total, is_voided, is_comped, comp_amount, tax_amount')
-    .eq('order_id', orderId)
-
-  if (!items) return
-
-  let subtotal = 0
-  let taxTotal = 0
-
-  for (const item of items) {
-    if (item.is_voided) continue
-    const lineAmount = parseFloat(item.line_total || '0')
-    const compAmount = parseFloat(item.comp_amount || '0')
-    subtotal += lineAmount - compAmount
-    taxTotal += parseFloat(item.tax_amount || '0')
-  }
-
-  // Get order-level discounts
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: discounts } = await (supabase.from('order_discounts') as any)
-    .select('applied_amount')
-    .eq('order_id', orderId)
-    .is('order_item_id', null)
-
-  const discountTotal = (discounts ?? []).reduce(
-    (sum: number, d: { applied_amount: string }) => sum + parseFloat(d.applied_amount || '0'),
-    0
-  )
-
-  // Default tax calculation if no per-item tax (8.5%)
-  if (taxTotal === 0) {
-    taxTotal = Math.round((subtotal - discountTotal) * 0.085 * 100) / 100
-  }
-
-  const total = subtotal - discountTotal + taxTotal
-
-  // Fetch current amount_paid to correctly compute balance_due
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: currentOrder } = await (supabase.from('orders') as any)
-    .select('amount_paid')
-    .eq('id', orderId)
-    .single()
-  const amountPaid = parseFloat(currentOrder?.amount_paid ?? '0')
-  const balanceDue = Math.max(0, total - amountPaid)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('orders') as any)
-    .update({
-      subtotal: subtotal.toFixed(2),
-      discount_total: discountTotal.toFixed(2),
-      tax_total: taxTotal.toFixed(2),
-      total: total.toFixed(2),
-      balance_due: balanceDue.toFixed(2),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', orderId)
 }

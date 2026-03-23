@@ -14,6 +14,8 @@ const createOrderSchema = z.object({
   guest_phone: z.string().max(30).optional().nullable(),
   notes: z.string().max(2000).optional().default(''),
   source: z.enum(['pos', 'online', 'kiosk', 'phone', 'catering']).optional().default('pos'),
+  /** Explicit for-here / to-go flag. Stored in metadata jsonb. */
+  for_here: z.boolean().optional(),
 })
 
 /**
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient()
-  const { order_type, location_id, table_id, guest_count, guest_name, guest_phone, notes, source } = parsed.data
+  const { order_type, location_id, table_id, guest_count, guest_name, guest_phone, notes, source, for_here } = parsed.data
 
   // Generate next order number using DB function with advisory lock to prevent race conditions
   const { data: numberResult } = await supabase.rpc('next_order_number', {
@@ -117,6 +119,7 @@ export async function POST(request: NextRequest) {
       balance_due: '0.00',
       notes,
       source,
+      metadata: for_here !== undefined ? { for_here } : {},
     })
     .select()
     .single()

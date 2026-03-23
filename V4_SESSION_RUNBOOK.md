@@ -960,7 +960,320 @@ BUILD:
 | 11 | 11.1, 11.2, 11.3, 11.4, 11.5 | Optional Modules |
 | 12 | 12.1, 12.2 | Security |
 | 13 | 13.1, 13.2 | Visual QA |
-| **TOTAL** | **40 sessions** | |
+| 14 | 14.1, 14.2, 14.3, 14.4 | AI Intelligence Layer |
+| 15 | 15.1, 15.2, 15.3 | Public Website & Pricing |
+| 16 | 16.1, 16.2 | Self-Service Onboarding |
+| **TOTAL** | **~49 sessions** | |
+
+---
+
+## PHASE 14: AI INTELLIGENCE LAYER (4 sessions)
+
+### Session 14.1 — Sear Ask: Claude API Integration & Query Tools
+**Read first:** V4_PHASE_14_AI.md, SCHEMA.md
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_14_AI.md — the build spec for this session
+2. MASTER_TEMPLATE.md — the build rules (especially Rules 17-21)
+3. SCHEMA.md — database tables for query tools
+
+BUILD these features (fully working, not stubs):
+1. Claude API client wrapper (src/lib/ai/claude-client.ts):
+   - Anthropic SDK integration with @anthropic-ai/sdk
+   - Error handling, retry with exponential backoff
+   - Token usage tracking (store each query's input/output tokens)
+   - Cost estimation per query
+2. Tool definitions (src/lib/ai/tools.ts):
+   - 10 query tools: query_sales, query_labor, query_menu_performance, query_food_cost,
+     query_speed_of_service, query_voids_comps, query_customer_data, query_inventory,
+     query_tips, compare_periods
+   - Each tool has proper JSON schema for parameters
+3. Tool handlers (src/lib/ai/tool-handlers.ts):
+   - Each tool maps to a real Supabase query
+   - All queries scoped by org_id and location_id
+   - No customer PII (names, emails, phones) in responses sent to Claude
+4. System prompt (src/lib/ai/system-prompts.ts):
+   - Restaurant context: "You are Sear, an AI assistant for restaurant operators..."
+   - Available tools documented
+   - Response format instructions (text + optional chart data)
+5. /api/ai/ask endpoint:
+   - POST with { question: string }
+   - Validates auth, checks rate limit (50/day/user)
+   - Calls Claude with tools, executes tool calls, returns formatted response
+   - Caches identical questions for 15 minutes (Redis)
+6. AI usage tracking:
+   - /api/ai/usage endpoint
+   - ai_usage table: tokens_in, tokens_out, estimated_cost, query_type
+
+Test: Ask "How did we do yesterday?" and get a real response with sales data from the database.
+No stubs. No mock responses. Real Claude API call with real database queries.
+```
+
+### Session 14.2 — Sear Ask: Chat UI & Dashboard Integration
+**Read first:** V4_PHASE_14_AI.md sections on chat UI and look-and-feel
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_14_AI.md — chat UI specs
+2. UI_DESIGN.md — design system tokens
+3. POS_UI_RESEARCH.md — for UI quality reference
+
+BUILD these features:
+1. SearAskButton.tsx — floating 48px ember orange circle, bottom-right corner
+   - Tap opens chat panel (drawer from right, 400px wide)
+   - Badge shows when new insights available
+2. SearAskChat.tsx — chat interface:
+   - User messages right-aligned (light gray bubble)
+   - AI messages left-aligned (white, full-width)
+   - Typing indicator (3 animated dots) while waiting
+   - Inline charts rendered with Recharts when AI includes chart data
+   - Inline tables for tabular data
+   - Conversation history (last 10 saved)
+3. ChatSuggestions.tsx — 6 contextual suggested questions when chat is empty
+   - Questions change based on time of day and current page
+4. Full-page /ask route for dedicated chat experience
+5. Zustand store (ai-store.ts) for chat state, messages, loading
+6. Add SearAskButton to back-office layout
+
+Use /frontend-design and /ui-ux-pro-max for the chat interface.
+Test: Open chat → see suggestions → tap one → AI responds with text + chart → ask follow-up → conversation flows naturally.
+```
+
+### Session 14.3 — Sear Insights: Proactive Daily Recommendations
+**Read first:** V4_PHASE_14_AI.md sections on Insights
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_14_AI.md — Insights specs
+2. V4_PHASE_07_REPORTS.md — report query patterns to reuse
+
+BUILD these features:
+1. Insight generator (src/lib/ai/insight-generator.ts):
+   - Queries yesterday's sales, labor, food cost, waste, voids, speed-of-service
+   - Compares to same day last week, same day last year, 13-week rolling average
+   - Sends structured data to Claude with insight-generation prompt
+   - Claude generates 3-5 prioritized actionable insights
+   - Stores in ai_insights table
+2. BullMQ worker (src/workers/ai-insights.worker.ts):
+   - Scheduled at 5 AM daily
+   - Deduplication: don't repeat same insight two days in a row
+3. /api/ai/insights endpoints:
+   - GET: fetch today's insights for dashboard
+   - POST dismiss: mark insight as dismissed
+   - POST feedback: thumbs up/down
+4. InsightCard.tsx — dashboard card component:
+   - Color-coded left bar (green=opportunity, amber=warning, red=alert)
+   - Icon, title, 2-line summary, expandable details
+   - Dismiss button, helpful thumbs up/down
+5. InsightsList.tsx — 3 cards on back-office dashboard
+6. Add to dashboard page
+
+Test: Trigger insight generation manually → dashboard shows 3 insight cards → dismiss one → it doesn't reappear → thumbs-down another → feedback saved.
+```
+
+### Session 14.4 — Sear Predict: Demand Forecasting & AI Settings
+**Read first:** V4_PHASE_14_AI.md sections on Predict and Settings
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_14_AI.md — Predict and Settings specs
+
+BUILD these features:
+1. Prediction engine (src/lib/ai/prediction-engine.ts):
+   - Weighted average of same-day-of-week over 13 weeks
+   - Adjusts for growth/decline trends
+   - Generates: predicted revenue, predicted covers, predicted labor hours
+   - Requires minimum 4 weeks of data to activate
+2. BullMQ worker for daily prediction updates (4 AM)
+3. /api/ai/predict endpoints:
+   - GET predictions for date range
+   - GET accuracy metrics (predicted vs actual for completed days)
+4. PredictionChart.tsx — forecast vs actual line chart with confidence band
+5. PredictionSummary.tsx — "Today's Forecast" KPI cards for dashboard
+6. Integration with scheduling page — suggested staff levels
+7. AI Settings page (/settings/ai):
+   - Toggle Sear Ask, Insights, Predict on/off
+   - API key configuration (encrypted storage)
+   - Insight delivery preferences
+   - Usage tracking display (queries, tokens, estimated cost)
+   - Data privacy notice
+8. /api/ai/settings endpoints (GET/PUT)
+
+Test: View predictions for next Saturday → see forecast revenue and covers → after Saturday passes → accuracy % updates → settings page shows monthly token usage and cost.
+```
+
+---
+
+## PHASE 15: PUBLIC WEBSITE & PRICING (3 sessions)
+
+### Session 15.1 — Landing Page & Marketing Layout
+**Read first:** V4_PHASE_15_PRICING.md
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_15_PRICING.md — the build spec
+2. UI_DESIGN.md — design system tokens
+3. MASTER_TEMPLATE.md — build rules
+
+BUILD these features:
+1. Marketing route group: src/app/(marketing)/layout.tsx
+   - Different nav/footer from the app (MarketingNav, MarketingFooter)
+   - Clean, spacious marketing design — NOT the app UI
+2. Landing page (src/app/(marketing)/page.tsx):
+   - Hero: "The Restaurant POS That Doesn't Lock You In" with CTAs
+   - Pain points section (3 cards)
+   - Feature highlights (6 cards with icons)
+   - Hardware flexibility callout
+   - Dual pricing savings callout with math
+   - Social proof section (placeholder testimonials)
+   - CTA footer
+3. MarketingNav.tsx — Logo, links (Features, Pricing, Compare, Demo), Login button
+4. MarketingFooter.tsx — Links, social, legal
+5. DeviceMockup.tsx — iPad frame for product screenshots
+6. Mobile responsive — must look great on iPhone viewport
+
+Use /frontend-design for premium marketing page quality.
+Lighthouse score must be 90+. No heavy unoptimized images.
+Test: Load getsear.com → see hero → scroll through all sections → CTAs link to /pricing and /demo.
+```
+
+### Session 15.2 — Pricing Page & ROI Calculator
+**Read first:** V4_PHASE_15_PRICING.md pricing and calculator sections
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_15_PRICING.md — pricing page specs
+
+BUILD these features:
+1. Pricing page (src/app/(marketing)/pricing/page.tsx):
+   - Core commitment: "We publish everything. No hidden fees."
+   - Plan cards (Starter, Growth, Enterprise) with feature lists
+   - Processing rates section with Valor dual pricing explanation
+   - Hardware comparison: iPad vs Toast terminal
+   - Month-to-month badge: "No contracts. Cancel anytime."
+   - Add-on pricing for optional modules
+   - FAQ section (8+ questions)
+2. ROICalculator.tsx — interactive savings calculator:
+   - Sliders: monthly card volume, current processing rate, current software cost
+   - Real-time calculation as sliders move
+   - Animated counter for savings amount
+   - Monthly and annual savings display
+   - Pre-filled defaults: $50K volume, 2.6% rate, $250/month software
+3. Demo request endpoint (/api/demo-request):
+   - POST stores lead in demo_requests table
+   - Sends confirmation email via SendGrid
+   - Captures UTM parameters
+
+Test: Open /pricing → see all plans with real prices → use ROI calculator → enter $60K volume at 2.75% → see savings amount update in real-time → scroll to FAQ.
+```
+
+### Session 15.3 — Compare Page & Demo Flow
+**Read first:** V4_PHASE_15_PRICING.md compare and demo sections
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_15_PRICING.md — compare and demo specs
+
+BUILD these features:
+1. Compare page (src/app/(marketing)/compare/page.tsx):
+   - Side-by-side table: Sear vs Toast vs Square vs SpotOn vs Clover
+   - 12+ comparison dimensions (monthly cost, processing, contracts, hardware, modules, etc.)
+   - Source links for every competitor claim
+   - Sear advantages highlighted but honestly
+   - ComparisonTable.tsx component with responsive layout
+2. Demo page (src/app/(marketing)/demo/page.tsx):
+   - Two paths: "Book a Demo" (Calendly embed) and "Start Free Trial" (signup form)
+   - DemoForm.tsx: restaurant name, contact name, email, phone, locations, current POS
+   - Form validation with zod
+   - Submission → stores in demo_requests → sends email → shows confirmation
+3. SEO: meta titles, descriptions, Open Graph tags on all marketing pages
+4. Mobile responsive pass on all 4 marketing pages
+
+Test: Open /compare → see accurate data for all 5 competitors → each claim has source link.
+Open /demo → fill form → submit → row appears in demo_requests table → email sent.
+```
+
+---
+
+## PHASE 16: SELF-SERVICE ONBOARDING (2 sessions)
+
+### Session 16.1 — Setup Wizard & Menu from Photo
+**Read first:** V4_PHASE_16_SELF_SERVICE.md
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_16_SELF_SERVICE.md — the build spec
+2. MASTER_TEMPLATE.md — build rules
+
+BUILD these features:
+1. Setup wizard (src/app/(setup)/setup/):
+   - Full-screen, 8-step wizard with progress bar
+   - Step 1: Restaurant details (name, address, phone, timezone, logo)
+   - Step 2: Location (name, dining sections)
+   - Step 3: Tax rates (auto-lookup by zip code)
+   - Step 4: Menu import (4 paths: photo, CSV, from scratch, load demo)
+   - Step 5: Floor plan (template selection or custom)
+   - Step 6: Staff (add first employees with PINs)
+   - Step 7: Hardware (skip or enter setup sub-wizard)
+   - Step 8: Done! ("Open POS" / "Explore Back-Office")
+   - Each step skippable, progress persists
+2. Menu from photo (MenuFromPhoto.tsx):
+   - Upload photo/image of paper menu
+   - Send to Claude Vision API for extraction
+   - Preview extracted items in editable table
+   - Confirm → items created in database
+3. Demo data seeding (/api/setup/seed-demo):
+   - Seeds 50 items, 8 categories, 12 modifier groups, 24 tables, 8 staff, 3 dayparts
+   - All seeded data flagged is_demo: true for bulk cleanup
+4. Setup progress API (/api/setup/progress):
+   - Save/resume wizard progress
+
+Use /frontend-design for the wizard UI — this is a first impression, it must be beautiful.
+Test: New org → redirected to /setup → complete all 8 steps → POS shows configured menu and tables.
+Upload menu photo → items extracted → review → confirm → items on POS in under 60 seconds.
+```
+
+### Session 16.2 — Interactive Tutorials & Help Center
+**Read first:** V4_PHASE_16_SELF_SERVICE.md tutorials and help sections
+**Prompt:**
+```
+Read these files COMPLETELY before doing anything:
+1. V4_PHASE_16_SELF_SERVICE.md — tutorials and help specs
+
+BUILD these features:
+1. Tutorial system (TutorialOverlay.tsx + TutorialTooltip.tsx):
+   - Semi-transparent backdrop with spotlight on target element
+   - Positioned tooltip with arrow, 280px max width
+   - "Next" and "Skip Tutorial" buttons
+   - Tutorial definitions per page in tutorials.ts
+   - Stores completion in localStorage (per-page, per-user)
+   - "Replay Tutorial" button in page headers
+2. Tutorial definitions for:
+   - POS orders page (4 steps: categories → items → order panel → send to kitchen)
+   - Menu builder (3 steps: nav tree → item grid → detail editor)
+   - Tables page (3 steps: floor plan → tap table → seat guests)
+   - Reports page (2 steps: report cards → date picker)
+3. Help center (/help):
+   - Search bar with fuzzy client-side search
+   - Categorized article grid (Getting Started, Orders, KDS, Menu, Payments, Staff, Reports, Hardware, Troubleshooting)
+   - Article pages with screenshots
+   - "Help" button on every major page linking to relevant category
+4. Write 10 priority help articles:
+   - How to take your first order
+   - How to process a payment
+   - How to add a menu item
+   - What to do when internet goes down
+   - How to clock in/out
+   - How to 86 an item
+   - How to run end-of-day reports
+   - How to add a new employee
+   - How to set up a printer
+   - How to use split checks
+
+Test: First visit to POS orders → tutorial starts → complete 4 steps → never auto-shows again → "Replay" works.
+Open /help → search "payment" → relevant articles appear.
+```
 
 ---
 

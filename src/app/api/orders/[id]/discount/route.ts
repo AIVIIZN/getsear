@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const discountSchema = z.object({
   name: z.string().min(1).max(200),
@@ -12,7 +13,7 @@ const discountSchema = z.object({
 })
 
 /**
- * POST /api/orders/[id]/discount — apply discount to order or item
+ * POST /api/orders/[id]/discount -- apply discount to order or item
  */
 export async function POST(
   request: NextRequest,
@@ -103,32 +104,8 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to apply discount' }, { status: 500 })
   }
 
-  // Recalculate order totals
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allDiscounts } = await (supabase.from('order_discounts') as any)
-    .select('applied_amount')
-    .eq('order_id', orderId)
-
-  const totalDiscount = (allDiscounts ?? []).reduce(
-    (sum: number, d: { applied_amount: string }) => sum + parseFloat(d.applied_amount),
-    0
-  )
-
-  const subtotal = parseFloat(order.subtotal)
-  const afterDiscount = subtotal - totalDiscount
-  const taxTotal = Math.round(afterDiscount * 0.085 * 100) / 100
-  const total = afterDiscount + taxTotal
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('orders') as any)
-    .update({
-      discount_total: totalDiscount.toFixed(2),
-      tax_total: taxTotal.toFixed(2),
-      total: total.toFixed(2),
-      balance_due: Math.max(0, total - parseFloat(order.amount_paid ?? '0')).toFixed(2),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', orderId)
+  // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  await recalculateOrderTotals(supabase, orderId, user.org_id)
 
   return NextResponse.json({ data: discount }, { status: 201 })
 }

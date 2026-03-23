@@ -5,8 +5,13 @@ import { useRouter } from 'next/navigation'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { SplitCheckView, type SplitItem } from '@/components/pos/SplitCheckView'
+import { MultiTenderPayment } from '@/components/pos/MultiTenderPayment'
+import { useOrderStore } from '@/stores/order-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import type { TaxRate } from '@/lib/tax/tax-engine'
 import {
   Receipt,
   SplitSquareHorizontal,
@@ -17,6 +22,10 @@ import {
   Merge,
   ChevronRight,
 } from 'lucide-react'
+
+// ---------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------
 
 interface OrderItem {
   id: string
@@ -29,6 +38,8 @@ interface OrderItem {
   is_voided: boolean
   is_comped: boolean
   modifiers: { name: string; price_adjustment: string }[]
+  tax_class?: string
+  is_taxable?: boolean
 }
 
 interface OrderSummary {
@@ -49,12 +60,33 @@ interface OrderSummary {
   balance_due: string
   amount_paid: string
   created_at: string
+  for_here?: boolean | null
   order_items?: OrderItem[]
 }
 
-type SplitMode = 'equal' | 'seat' | 'custom'
+type ViewMode = 'list' | 'split' | 'payment'
 
-function CustomAmountSplit({ totalCents, orderId, onComplete }: { totalCents: number; orderId: string; onComplete: () => void }) {
+interface CheckPaymentTarget {
+  orderId: string
+  totalCents: number
+  subtotalCents: number
+  taxCents: number
+  discountCents: number
+}
+
+// ---------------------------------------------------------------
+// Custom amount split (preserved from original)
+// ---------------------------------------------------------------
+
+function CustomAmountSplit({
+  totalCents,
+  orderId,
+  onComplete,
+}: {
+  totalCents: number
+  orderId: string
+  onComplete: () => void
+}) {
   const [amountStr, setAmountStr] = useState('')
   const [splitting, setSplitting] = useState(false)
 
@@ -87,7 +119,9 @@ function CustomAmountSplit({ totalCents, orderId, onComplete }: { totalCents: nu
   return (
     <div className="space-y-3">
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-headline font-semibold text-muted-foreground">$</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-headline font-semibold text-muted-foreground">
+          $
+        </span>
         <input
           type="number"
           step="0.01"
@@ -100,7 +134,11 @@ function CustomAmountSplit({ totalCents, orderId, onComplete }: { totalCents: nu
       </div>
       {isValid && (
         <p className="text-footnote text-muted-foreground">
-          Remainder: <MoneyDisplay cents={remainderCents} className="text-footnote font-semibold" />
+          Remainder:{' '}
+          <MoneyDisplay
+            cents={remainderCents}
+            className="text-footnote font-semibold"
+          />
         </p>
       )}
       <button
@@ -116,8 +154,17 @@ function CustomAmountSplit({ totalCents, orderId, onComplete }: { totalCents: nu
   )
 }
 
+// ---------------------------------------------------------------
+// Main Checks Page
+// ---------------------------------------------------------------
+
+type SplitMode = 'equal' | 'seat' | 'custom' | 'drag'
+
 export default function ChecksPage() {
   const router = useRouter()
+  const taxRates = useOrderStore((s) => s.taxRates)
+  const activeLocationId = useAuthStore((s) => s.activeLocationId)
+
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
@@ -125,6 +172,8 @@ export default function ChecksPage() {
   const [splitMode, setSplitMode] = useState<SplitMode>('equal')
   const [splitCount, setSplitCount] = useState<number | null>(null)
   const [isSplitting, setIsSplitting] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [paymentTarget, setPaymentTarget] = useState<CheckPaymentTarget | null>(null)
 
   // Fetch open orders
   const fetchOrders = useCallback(async () => {
@@ -183,7 +232,6 @@ export default function ChecksPage() {
           toast.success(`Split into ${count} checks`, {
             description: `Created ${newCount} new check${newCount > 1 ? 's' : ''}`,
           })
-          // Refresh orders list
           fetchOrders()
           setSelectedOrderId(null)
         } else {
@@ -239,7 +287,6 @@ export default function ChecksPage() {
       })
       toast.success('Check printed')
     } catch {
-      // Fallback to browser print
       window.print()
     }
   }, [selectedOrderId])
@@ -247,9 +294,92 @@ export default function ChecksPage() {
   // Navigate to payment for selected order
   const handleProcessPayment = useCallback(() => {
     if (!selectedOrder) return
-    const totalCents = Math.round(parseFloat(selectedOrder.balance_due || selectedOrder.total) * 100)
-    router.push(`/payments?order_id=${selectedOrder.id}&total_cents=${totalCents}`)
-  }, [selectedOrder, router])
+    const totalCents = Math.round(
+      parseFloat(selectedOrder.balance_due || selectedOrder.total) * 100
+    )
+    const subtotalCents = Math.round(parseFloat(selectedOrder.subtotal) * 100)
+    const taxCents = Math.round(parseFloat(selectedOrder.tax_total) * 100)
+    const discountCents = Math.round(parseFloat(selectedOrder.discount_total) * 100)
+
+    setPaymentTarget({
+      orderId: selectedOrder.id,
+      totalCents,
+      subtotalCents,
+      taxCents,
+      discountCents,
+    })
+    setViewMode('payment')
+  }, [selectedOrder])
+
+  // Open drag-and-drop split view
+  const handleDragSplit = useCallback(() => {
+    if (!selectedOrder?.order_items) {
+      toast.error('No items to split')
+      return
+    }
+    setViewMode('split')
+  }, [selectedOrder])
+
+  // Handle drag-and-drop split confirm
+  const handleSplitConfirm = useCallback(
+    async (checks: Array<{ id: string; label: string; items: SplitItem[]; is_paid: boolean }>) => {
+      if (!selectedOrderId) return
+
+      // Build item assignments for the API
+      const itemAssignments = checks.flatMap((check, i) =>
+        check.items.map((item) => ({
+          item_id: item.original_item_id,
+          target_check: i,
+        }))
+      )
+
+      try {
+        const res = await fetch(`/api/orders/${selectedOrderId}/split`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'custom',
+            item_assignments: itemAssignments,
+          }),
+        })
+        if (res.ok) {
+          toast.success(`Split into ${checks.length} checks`)
+          setViewMode('list')
+          fetchOrders()
+          setSelectedOrderId(null)
+        } else {
+          const err = await res.json().catch(() => ({ error: 'Split failed' }))
+          toast.error(err.error ?? 'Failed to split order')
+        }
+      } catch {
+        toast.error('Network error')
+      }
+    },
+    [selectedOrderId, fetchOrders]
+  )
+
+  // Handle paying a single check from split view
+  const handlePaySplitCheck = useCallback(
+    (_checkIndex: number, checkData: { id: string; items: SplitItem[] }) => {
+      const subtotalCents = checkData.items.reduce(
+        (sum, item) => sum + Math.round(item.line_total_cents * item.split_fraction),
+        0
+      )
+      // Rough tax estimate (will be properly calculated by payment flow)
+      const taxCents = Math.round(subtotalCents * 0.08)
+      const totalCents = subtotalCents + taxCents
+
+      setPaymentTarget({
+        orderId: selectedOrderId ?? '',
+        totalCents,
+        subtotalCents,
+        taxCents,
+        discountCents: 0,
+      })
+      setViewMode('payment')
+    },
+    [selectedOrderId]
+  )
 
   // Merge orders
   const [mergeMode, setMergeMode] = useState(false)
@@ -261,35 +391,122 @@ export default function ChecksPage() {
     toast.info('Tap a second check to merge into this one')
   }, [selectedOrderId])
 
-  const handleMergeTarget = useCallback(async (targetId: string) => {
-    if (!selectedOrderId || targetId === selectedOrderId) return
-    setMergeTargetId(targetId)
-    try {
-      const res = await fetch(`/api/orders/${selectedOrderId}/merge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_order_id: targetId }),
-      })
-      if (res.ok) {
-        toast.success('Checks merged successfully')
-        fetchOrders()
-        setSelectedOrderId(null)
-      } else {
-        const err = await res.json().catch(() => ({ error: 'Merge failed' }))
-        toast.error(err.error ?? 'Failed to merge checks')
+  const handleMergeTarget = useCallback(
+    async (targetId: string) => {
+      if (!selectedOrderId || targetId === selectedOrderId) return
+      setMergeTargetId(targetId)
+      try {
+        const res = await fetch(`/api/orders/${selectedOrderId}/merge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source_order_id: targetId }),
+        })
+        if (res.ok) {
+          toast.success('Checks merged successfully')
+          fetchOrders()
+          setSelectedOrderId(null)
+        } else {
+          const err = await res
+            .json()
+            .catch(() => ({ error: 'Merge failed' }))
+          toast.error(err.error ?? 'Failed to merge checks')
+        }
+      } catch {
+        toast.error('Network error')
+      } finally {
+        setMergeMode(false)
+        setMergeTargetId(null)
       }
-    } catch {
-      toast.error('Network error')
-    } finally {
-      setMergeMode(false)
-      setMergeTargetId(null)
-    }
-  }, [selectedOrderId, fetchOrders])
+    },
+    [selectedOrderId, fetchOrders]
+  )
 
-  const totalCents = selectedOrder ? Math.round(parseFloat(selectedOrder.total) * 100) : 0
-  const balanceDueCents = selectedOrder ? Math.round(parseFloat(selectedOrder.balance_due || selectedOrder.total) * 100) : 0
-  const amountPaidCents = selectedOrder ? Math.round(parseFloat(selectedOrder.amount_paid || '0') * 100) : 0
+  const totalCents = selectedOrder
+    ? Math.round(parseFloat(selectedOrder.total) * 100)
+    : 0
+  const balanceDueCents = selectedOrder
+    ? Math.round(
+        parseFloat(selectedOrder.balance_due || selectedOrder.total) * 100
+      )
+    : 0
+  const amountPaidCents = selectedOrder
+    ? Math.round(parseFloat(selectedOrder.amount_paid || '0') * 100)
+    : 0
 
+  // ---------------------------------------------------------------
+  // Render: Drag-and-Drop Split View
+  // ---------------------------------------------------------------
+  if (viewMode === 'split' && selectedOrder?.order_items) {
+    const splitItems: SplitItem[] = selectedOrder.order_items
+      .filter((i) => !i.is_voided)
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price_cents: Math.round(parseFloat(item.unit_price) * 100),
+        line_total_cents: Math.round(parseFloat(item.line_total) * 100),
+        seat_number: item.seat_number,
+        modifiers: item.modifiers.map((m) => ({
+          name: m.name,
+          price_adjustment_cents: Math.round(
+            parseFloat(m.price_adjustment) * 100
+          ),
+        })),
+        is_voided: item.is_voided,
+        is_comped: item.is_comped,
+        tax_class: item.tax_class ?? 'food',
+        is_taxable: item.is_taxable ?? true,
+        split_fraction: 1,
+        original_item_id: item.id,
+      }))
+
+    return (
+      <SplitCheckView
+        orderId={selectedOrder.id}
+        orderNumber={
+          selectedOrder.display_number || String(selectedOrder.order_number)
+        }
+        tableName={selectedOrder.table_name}
+        orderType={selectedOrder.order_type}
+        forHere={selectedOrder.for_here ?? null}
+        items={splitItems}
+        taxRates={taxRates}
+        onConfirm={handleSplitConfirm}
+        onCancel={() => setViewMode('list')}
+        onPayCheck={handlePaySplitCheck}
+      />
+    )
+  }
+
+  // ---------------------------------------------------------------
+  // Render: Multi-Tender Payment View
+  // ---------------------------------------------------------------
+  if (viewMode === 'payment' && paymentTarget) {
+    return (
+      <MultiTenderPayment
+        orderId={paymentTarget.orderId}
+        locationId={activeLocationId ?? ''}
+        totalCents={paymentTarget.totalCents}
+        subtotalCents={paymentTarget.subtotalCents}
+        taxCents={paymentTarget.taxCents}
+        discountCents={paymentTarget.discountCents}
+        onComplete={() => {
+          setViewMode('list')
+          setPaymentTarget(null)
+          fetchOrders()
+          setSelectedOrderId(null)
+        }}
+        onCancel={() => {
+          setViewMode('list')
+          setPaymentTarget(null)
+        }}
+      />
+    )
+  }
+
+  // ---------------------------------------------------------------
+  // Render: Loading
+  // ---------------------------------------------------------------
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -298,11 +515,20 @@ export default function ChecksPage() {
     )
   }
 
+  // ---------------------------------------------------------------
+  // Render: Standard List View
+  // ---------------------------------------------------------------
   return (
     <div className="flex h-full gap-0 no-select">
       {/* Left: Order list */}
-      <div className="w-80 flex flex-col bg-white" style={{ borderRight: '0.5px solid var(--separator)' }}>
-        <div className="shrink-0 px-4 py-3" style={{ borderBottom: '0.5px solid var(--separator)' }}>
+      <div
+        className="w-80 flex flex-col bg-white"
+        style={{ borderRight: '0.5px solid var(--separator)' }}
+      >
+        <div
+          className="shrink-0 px-4 py-3"
+          style={{ borderBottom: '0.5px solid var(--separator)' }}
+        >
           <h2 className="text-headline text-foreground">
             {mergeMode ? 'Select Check to Merge' : 'Open Checks'}
           </h2>
@@ -324,12 +550,20 @@ export default function ChecksPage() {
             orders.map((order) => {
               const orderTotal = Math.round(parseFloat(order.total) * 100)
               const isSelected = selectedOrderId === order.id
+              const orderPaid = Math.round(
+                parseFloat(order.amount_paid || '0') * 100
+              )
+              const isPartiallyPaid = orderPaid > 0 && orderPaid < orderTotal
               return (
                 <button
                   key={order.id}
                   type="button"
                   onClick={() => {
-                    if (mergeMode && selectedOrderId && order.id !== selectedOrderId) {
+                    if (
+                      mergeMode &&
+                      selectedOrderId &&
+                      order.id !== selectedOrderId
+                    ) {
                       handleMergeTarget(order.id)
                     } else {
                       setSelectedOrderId(isSelected ? null : order.id)
@@ -349,14 +583,27 @@ export default function ChecksPage() {
                     <StatusBadge status={order.status} />
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{order.table_name ?? order.order_type.replace('_', ' ')}</span>
+                    <span>
+                      {order.table_name ?? order.order_type.replace('_', ' ')}
+                    </span>
                     <span>{order.server_name ?? 'Unknown'}</span>
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-xs text-muted-foreground">
-                      {order.guest_count} guest{order.guest_count !== 1 ? 's' : ''}
+                      {order.guest_count} guest
+                      {order.guest_count !== 1 ? 's' : ''}
                     </span>
-                    <MoneyDisplay cents={orderTotal} className="font-bold text-sm" />
+                    <div className="flex items-center gap-2">
+                      {isPartiallyPaid && (
+                        <span className="text-[10px] font-bold text-[var(--warning)] bg-[var(--warning-bg)] px-1.5 py-0.5 rounded">
+                          PARTIAL
+                        </span>
+                      )}
+                      <MoneyDisplay
+                        cents={orderTotal}
+                        className="font-bold text-sm"
+                      />
+                    </div>
                   </div>
                 </button>
               )
@@ -382,11 +629,14 @@ export default function ChecksPage() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h3 className="text-lg font-bold text-foreground">
-                    #{selectedOrder.display_number || selectedOrder.order_number}
+                    #
+                    {selectedOrder.display_number ||
+                      selectedOrder.order_number}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedOrder.table_name ?? selectedOrder.order_type.replace('_', ' ')}
-                    {' · '}
+                    {selectedOrder.table_name ??
+                      selectedOrder.order_type.replace('_', ' ')}
+                    {' \u00B7 '}
                     {selectedOrder.server_name ?? 'Unknown'}
                   </p>
                 </div>
@@ -394,75 +644,117 @@ export default function ChecksPage() {
               </div>
 
               {/* Order items */}
-              {selectedOrder.order_items && selectedOrder.order_items.length > 0 && (
-                <div className="mb-3 divide-y divide-border/50">
-                  {selectedOrder.order_items
-                    .filter((i) => !i.is_voided)
-                    .map((item) => (
-                      <div key={item.id} className="flex items-start justify-between py-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm text-foreground">
-                              {item.quantity > 1 && (
-                                <span className="font-bold mr-1">{item.quantity}x</span>
+              {selectedOrder.order_items &&
+                selectedOrder.order_items.length > 0 && (
+                  <div className="mb-3 divide-y divide-border/50">
+                    {selectedOrder.order_items
+                      .filter((i) => !i.is_voided)
+                      .map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-start justify-between py-2"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm text-foreground">
+                                {item.quantity > 1 && (
+                                  <span className="font-bold mr-1">
+                                    {item.quantity}x
+                                  </span>
+                                )}
+                                {item.name}
+                              </span>
+                              {item.seat_number && (
+                                <span className="text-[10px] text-muted-foreground bg-[var(--muted)] px-1 rounded">
+                                  S{item.seat_number}
+                                </span>
                               )}
-                              {item.name}
-                            </span>
-                            {item.seat_number && (
-                              <span className="text-[10px] text-muted-foreground bg-[var(--muted)] px-1 rounded">
-                                S{item.seat_number}
-                              </span>
-                            )}
-                            {item.is_comped && (
-                              <span className="text-[10px] text-[var(--warning)] bg-[var(--warning-bg)] px-1 rounded font-bold">
-                                COMP
-                              </span>
+                              {item.is_comped && (
+                                <span className="text-[10px] text-[var(--warning)] bg-[var(--warning-bg)] px-1 rounded font-bold">
+                                  COMP
+                                </span>
+                              )}
+                            </div>
+                            {item.modifiers.length > 0 && (
+                              <p className="text-xs text-muted-foreground pl-2">
+                                {item.modifiers
+                                  .map((m) => m.name)
+                                  .join(', ')}
+                              </p>
                             )}
                           </div>
-                          {item.modifiers.length > 0 && (
-                            <p className="text-xs text-muted-foreground pl-2">
-                              {item.modifiers.map((m) => m.name).join(', ')}
-                            </p>
-                          )}
+                          <MoneyDisplay
+                            cents={Math.round(
+                              parseFloat(item.line_total) * 100
+                            )}
+                            className={cn(
+                              'text-sm shrink-0',
+                              item.is_comped &&
+                                'line-through text-muted-foreground'
+                            )}
+                          />
                         </div>
-                        <MoneyDisplay
-                          cents={Math.round(parseFloat(item.line_total) * 100)}
-                          className={cn('text-sm shrink-0', item.is_comped && 'line-through text-muted-foreground')}
-                        />
-                      </div>
-                    ))}
-                </div>
-              )}
+                      ))}
+                  </div>
+                )}
 
               {/* Totals */}
               <div className="border-t border-border pt-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <MoneyDisplay cents={Math.round(parseFloat(selectedOrder.subtotal) * 100)} className="font-medium" />
+                  <MoneyDisplay
+                    cents={Math.round(
+                      parseFloat(selectedOrder.subtotal) * 100
+                    )}
+                    className="font-medium"
+                  />
                 </div>
                 {parseFloat(selectedOrder.discount_total) > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-[var(--success)]">Discount</span>
-                    <MoneyDisplay cents={-Math.round(parseFloat(selectedOrder.discount_total) * 100)} className="text-[var(--success)] font-medium" />
+                    <MoneyDisplay
+                      cents={
+                        -Math.round(
+                          parseFloat(selectedOrder.discount_total) * 100
+                        )
+                      }
+                      className="text-[var(--success)] font-medium"
+                    />
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tax</span>
-                  <MoneyDisplay cents={Math.round(parseFloat(selectedOrder.tax_total) * 100)} className="font-medium" />
+                  <MoneyDisplay
+                    cents={Math.round(
+                      parseFloat(selectedOrder.tax_total) * 100
+                    )}
+                    className="font-medium"
+                  />
                 </div>
                 <div className="flex justify-between border-t border-border pt-2 mt-2">
                   <span className="text-base font-bold">Total</span>
-                  <MoneyDisplay cents={totalCents} className="text-lg font-bold" />
+                  <MoneyDisplay
+                    cents={totalCents}
+                    className="text-lg font-bold"
+                  />
                 </div>
                 {amountPaidCents > 0 && (
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-[var(--success)]">Paid</span>
-                      <MoneyDisplay cents={amountPaidCents} className="text-[var(--success)] font-medium" />
+                      <MoneyDisplay
+                        cents={amountPaidCents}
+                        className="text-[var(--success)] font-medium"
+                      />
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="font-semibold text-[var(--error)]">Balance Due</span>
-                      <MoneyDisplay cents={balanceDueCents} className="font-bold text-[var(--error)]" />
+                      <span className="font-semibold text-[var(--error)]">
+                        Balance Due
+                      </span>
+                      <MoneyDisplay
+                        cents={balanceDueCents}
+                        className="font-bold text-[var(--error)]"
+                      />
                     </div>
                   </>
                 )}
@@ -471,24 +763,53 @@ export default function ChecksPage() {
 
             {/* Split Options */}
             <div className="rounded-xl border border-border bg-white p-4 shadow-warm-sm">
-              <h4 className="text-sm font-bold text-foreground mb-3">Split Check</h4>
+              <h4 className="text-sm font-bold text-foreground mb-3">
+                Split Check
+              </h4>
 
               {/* Split mode tabs */}
               <div className="flex gap-1.5 mb-4">
-                {([
-                  { key: 'equal' as const, icon: Users, label: 'Equal Split' },
-                  { key: 'seat' as const, icon: SplitSquareHorizontal, label: 'By Seat' },
-                  { key: 'custom' as const, icon: ArrowRightLeft, label: 'Custom' },
-                ]).map(({ key, icon: Icon, label }) => (
+                {(
+                  [
+                    {
+                      key: 'drag' as const,
+                      icon: SplitSquareHorizontal,
+                      label: 'Drag & Drop',
+                    },
+                    {
+                      key: 'equal' as const,
+                      icon: Users,
+                      label: 'Equal Split',
+                    },
+                    {
+                      key: 'seat' as const,
+                      icon: Users,
+                      label: 'By Seat',
+                    },
+                    {
+                      key: 'custom' as const,
+                      icon: ArrowRightLeft,
+                      label: 'Custom',
+                    },
+                  ] as const
+                ).map(({ key, icon: Icon, label }) => (
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setSplitMode(key)}
+                    onClick={() => {
+                      if (key === 'drag') {
+                        handleDragSplit()
+                      } else {
+                        setSplitMode(key)
+                      }
+                    }}
                     className={cn(
                       'btn-press flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-xs font-semibold transition-all',
-                      splitMode === key
+                      splitMode === key && key !== 'drag'
                         ? 'border-[var(--primary)] bg-[var(--accent)] text-[var(--primary)]'
-                        : 'border-border bg-white text-muted-foreground hover:bg-[var(--secondary)]'
+                        : key === 'drag'
+                          ? 'border-[var(--primary)]/50 bg-[var(--primary-subtle)] text-[var(--primary)]'
+                          : 'border-border bg-white text-muted-foreground hover:bg-[var(--secondary)]'
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -515,12 +836,20 @@ export default function ChecksPage() {
                           splitCount === n && isSplitting
                             ? 'border-[var(--primary)] bg-[var(--accent)]'
                             : 'border-border bg-white hover:bg-[var(--secondary)]',
-                          isSplitting && splitCount !== n && 'opacity-40'
+                          isSplitting &&
+                            splitCount !== n &&
+                            'opacity-40'
                         )}
                       >
-                        <span className="text-lg font-bold text-foreground">{n}</span>
+                        <span className="text-lg font-bold text-foreground">
+                          {n}
+                        </span>
                         <span className="text-[10px] text-muted-foreground">
-                          <MoneyDisplay cents={Math.round(totalCents / n)} className="text-[10px]" /> ea
+                          <MoneyDisplay
+                            cents={Math.round(totalCents / n)}
+                            className="text-[10px]"
+                          />{' '}
+                          ea
                         </span>
                       </button>
                     ))}
@@ -532,7 +861,8 @@ export default function ChecksPage() {
               {splitMode === 'seat' && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Each seat becomes a separate check. Items assigned to a seat go on that check.
+                    Each seat becomes a separate check. Items assigned to a
+                    seat go on that check.
                   </p>
                   <button
                     type="button"
@@ -545,11 +875,12 @@ export default function ChecksPage() {
                 </div>
               )}
 
-              {/* Custom split — equal with custom amount */}
+              {/* Custom split -- equal with custom amount */}
               {splitMode === 'custom' && (
                 <div>
                   <p className="text-footnote text-muted-foreground mb-3">
-                    Split a specific dollar amount to a new check. The remainder stays on this check.
+                    Split a specific dollar amount to a new check. The
+                    remainder stays on this check.
                   </p>
                   <CustomAmountSplit
                     totalCents={totalCents}

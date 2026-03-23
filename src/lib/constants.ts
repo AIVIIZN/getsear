@@ -175,3 +175,47 @@ export const VOID_REASONS = [
 ] as const
 
 export type VoidReason = (typeof VOID_REASONS)[number]
+
+// ---------------------------------------------------------------------------
+// Seat Colors — iOS-inspired palette for color-coding seats in the order panel
+// ---------------------------------------------------------------------------
+export const SEAT_COLORS: readonly string[] = [
+  '#007AFF', // Seat 1 — blue
+  '#FF9500', // Seat 2 — orange
+  '#34C759', // Seat 3 — green
+  '#FF3B30', // Seat 4 — red
+  '#AF52DE', // Seat 5 — purple
+  '#5AC8FA', // Seat 6 — teal
+  '#FF2D55', // Seat 7 — pink
+  '#FFCC00', // Seat 8 — yellow
+  '#64D2FF', // Seat 9 — light blue
+  '#BF5AF2', // Seat 10 — violet
+] as const
+
+/**
+ * Get the color for a seat number (1-indexed).
+ * Returns undefined for null/invalid seat numbers.
+ */
+export function getSeatColor(seatNumber: number | null): string | undefined {
+  if (seatNumber == null || seatNumber < 1) return undefined
+  return SEAT_COLORS[(seatNumber - 1) % SEAT_COLORS.length]
+}
+
+// ---------------------------------------------------------------------------
+// Re-fire Reason Codes
+// ---------------------------------------------------------------------------
+export const REFIRE_REASONS = [
+  { value: 'wrong_temp', label: 'Wrong Temperature' },
+  { value: 'wrong_item', label: 'Wrong Item' },
+  { value: 'quality', label: 'Quality Issue' },
+  { value: 'dropped', label: 'Dropped' },
+  { value: 'customer_changed', label: 'Customer Changed Mind' },
+  { value: 'other', label: 'Other' },
+] as const
+
+export type RefireReason = (typeof REFIRE_REASONS)[number]['value']
+
+// ---------------------------------------------------------------------------
+// Course States
+// ---------------------------------------------------------------------------
+export type CourseState = 'fire' | 'hold'

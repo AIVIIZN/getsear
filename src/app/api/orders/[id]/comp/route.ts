@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const compSchema = z.object({
   order_item_id: z.string().uuid().optional(),
@@ -19,7 +20,7 @@ const compSchema = z.object({
 })
 
 /**
- * POST /api/orders/[id]/comp — comp an item or entire order
+ * POST /api/orders/[id]/comp -- comp an item or entire order
  */
 export async function POST(
   request: NextRequest,
@@ -88,7 +89,7 @@ export async function POST(
       })
       .eq('id', order_item_id)
   } else {
-    // Comp entire order — comp all non-voided items
+    // Comp entire order -- comp all non-voided items
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: items } = await (supabase.from('order_items') as any)
       .select('id, line_total')
@@ -109,39 +110,8 @@ export async function POST(
     }
   }
 
-  // Recalculate order totals
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allItems } = await (supabase.from('order_items') as any)
-    .select('line_total, is_voided, comp_amount')
-    .eq('order_id', orderId)
-
-  let subtotal = 0
-  for (const item of allItems ?? []) {
-    if (item.is_voided) continue
-    subtotal += parseFloat(item.line_total || '0') - parseFloat(item.comp_amount || '0')
-  }
-  const taxTotal = Math.round(subtotal * 0.085 * 100) / 100
-  const total = subtotal + taxTotal
-
-  // Fetch current amount_paid to correctly compute balance_due
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: currentOrder } = await (supabase.from('orders') as any)
-    .select('amount_paid')
-    .eq('id', orderId)
-    .single()
-  const amountPaid = parseFloat(currentOrder?.amount_paid ?? '0')
-  const balanceDue = Math.max(0, total - amountPaid)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('orders') as any)
-    .update({
-      subtotal: subtotal.toFixed(2),
-      tax_total: taxTotal.toFixed(2),
-      total: total.toFixed(2),
-      balance_due: balanceDue.toFixed(2),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', orderId)
+  // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  await recalculateOrderTotals(supabase, orderId, user.org_id)
 
   // Audit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

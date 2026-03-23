@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const updateItemSchema = z.object({
   quantity: z.number().int().min(1).max(999).optional(),
@@ -20,7 +21,7 @@ const voidItemSchema = z.object({
 type RouteParams = { params: Promise<{ id: string; itemId: string }> }
 
 /**
- * PATCH /api/orders/[id]/items/[itemId] — update item
+ * PATCH /api/orders/[id]/items/[itemId] -- update item
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const user = await getAuthUser()
@@ -90,14 +91,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to update item' }, { status: 500 })
   }
 
-  // Recalculate order totals
-  await recalcOrderTotals(supabase, orderId)
+  // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  await recalculateOrderTotals(supabase, orderId, user.org_id)
 
   return NextResponse.json({ data })
 }
 
 /**
- * DELETE /api/orders/[id]/items/[itemId] — void item
+ * DELETE /api/orders/[id]/items/[itemId] -- void item
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const user = await getAuthUser()
@@ -122,7 +123,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   const supabase = createAdminClient()
 
-  // Check if item has been sent — requires manager
+  // Check if item has been sent -- requires manager
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: item } = await (supabase.from('order_items') as any)
     .select('is_sent, order_id')
@@ -155,46 +156,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to void item' }, { status: 500 })
   }
 
-  await recalcOrderTotals(supabase, orderId)
+  // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  await recalculateOrderTotals(supabase, orderId, user.org_id)
 
   return NextResponse.json({ data })
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recalcOrderTotals(supabase: any, orderId: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items } = await (supabase.from('order_items') as any)
-    .select('line_total, is_voided, comp_amount')
-    .eq('order_id', orderId)
-
-  if (!items) return
-
-  let subtotal = 0
-  for (const item of items) {
-    if (item.is_voided) continue
-    subtotal += parseFloat(item.line_total || '0') - parseFloat(item.comp_amount || '0')
-  }
-
-  const taxTotal = Math.round(subtotal * 0.085 * 100) / 100
-  const total = subtotal + taxTotal
-
-  // Fetch current amount_paid to correctly compute balance_due
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: currentOrder } = await (supabase.from('orders') as any)
-    .select('amount_paid')
-    .eq('id', orderId)
-    .single()
-  const amountPaid = parseFloat(currentOrder?.amount_paid ?? '0')
-  const balanceDue = Math.max(0, total - amountPaid)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('orders') as any)
-    .update({
-      subtotal: subtotal.toFixed(2),
-      tax_total: taxTotal.toFixed(2),
-      total: total.toFixed(2),
-      balance_due: balanceDue.toFixed(2),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', orderId)
 }

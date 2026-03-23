@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useMenuStore } from '@/stores/menu-store'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
+import { QuickFavorites } from './QuickFavorites'
 import { Search, Ban } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -112,6 +113,9 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
+      {/* Quick Favorites speed bar */}
+      <QuickFavorites onItemTap={onItemTap} />
+
       {/* Category pills — horizontally scrollable, 36px tall */}
       <div
         className="shrink-0 bg-white"

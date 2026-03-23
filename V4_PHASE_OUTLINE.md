@@ -288,6 +288,66 @@ Phases are ordered by **restaurant operational priority** — what does a restau
 
 ---
 
+## PHASE 14: AI Intelligence Layer — Beat ToastIQ
+**File:** `V4_PHASE_14_AI.md`
+**Goal:** Holistic AI that connects sales + labor + food cost + waste — what Toast can't do
+
+### What Gets Built:
+- **Sear Ask** — Natural-language conversational interface ("How did we do last Saturday?", "Who's my best server on Fridays?", "Am I overstaffed on Tuesdays?")
+- Claude API with tool_use for structured database queries (10 query tools: sales, labor, menu performance, food cost, speed of service, voids/comps, customers, inventory, tips, period comparison)
+- Proactive AI insights pushed to dashboard daily (menu profitability, labor optimization, waste reduction, sales trend alerts, void/comp anomalies)
+- Demand forecasting for labor scheduling, inventory prep, and revenue projections
+- Inline Recharts visualizations in AI responses
+- Redis caching, rate limiting, cost tracking, privacy controls (no customer PII sent to LLM)
+
+### Acceptance Criteria (examples):
+- [ ] Owner types "How did we do last Saturday?" → AI responds with sales total, comparison to prior Saturday, covers, avg check — with chart
+- [ ] Dashboard shows 3 AI insight cards after daily job runs at 5 AM
+- [ ] Scheduling page shows predicted staff levels based on 13-week historical demand
+- [ ] GM at Location A cannot query Location B data — response scoped by role
+
+---
+
+## PHASE 15: Public Website & Transparent Pricing
+**File:** `V4_PHASE_15_PRICING.md`
+**Goal:** The pricing page that every competitor is afraid to publish
+
+### What Gets Built:
+- Public landing page — Hero, features, social proof, CTAs
+- **Transparent pricing page** — Every cost published. No hidden fees. No "call for quote." Toast comparison math.
+- Interactive ROI calculator — "How much will you save switching from Toast?" with real Valor rates
+- Feature comparison page — Side-by-side vs Toast, Square, SpotOn, Clover with source links
+- Demo request flow — Calendly booking + self-serve trial signup
+- Mobile responsive marketing pages (restaurant owners browse on mobile)
+
+### Acceptance Criteria (examples):
+- [ ] Pricing page publishes all plan costs, processing rates, and hardware costs — zero hidden fees
+- [ ] ROI calculator: owner enters $50K card volume → sees monthly and annual savings vs Toast
+- [ ] Compare page shows 12+ dimensions across 5 competitors with source citations
+- [ ] Demo request stores lead + sends confirmation email within 30 seconds
+
+---
+
+## PHASE 16: Self-Service Onboarding & Owner Empowerment
+**File:** `V4_PHASE_16_SELF_SERVICE.md`
+**Goal:** Restaurant goes from signup to first order without calling support
+
+### What Gets Built:
+- **Setup wizard** — 8-step guided setup (restaurant details, location, tax rates, menu, floor plan, staff, hardware, done) completable in under 15 minutes
+- **Menu from photo** — Upload a photo of a paper menu → Claude Vision extracts items/prices/categories → review/edit → save
+- Interactive first-time tutorials on every major page (spotlight tooltips, skip/replay)
+- Demo data seeding — one-click sample restaurant with 50 items, 24 tables, 8 staff
+- Hardware setup sub-wizard — printer auto-discovery, test print, terminal pairing
+- In-app help center with searchable articles
+
+### Acceptance Criteria (examples):
+- [ ] New owner completes full setup wizard in under 15 minutes
+- [ ] Photo of paper menu → Claude Vision extracts items → user reviews → items appear on POS
+- [ ] First visit to POS → tutorial highlights key elements → completes in 4 steps
+- [ ] "Load sample menu" seeds 50 items in under 5 seconds
+
+---
+
 ## Summary
 
 | Phase | Focus | Est. Sessions | Priority |
@@ -305,7 +365,10 @@ Phases are ordered by **restaurant operational priority** — what does a restau
 | 11 | Optional Modules depth | 4-6 | LOWER — weeks 3-4 |
 | 12 | Security & Performance | 2 | HIGH — before launch |
 | 13 | Visual QA & Polish | 2-3 | HIGH — before launch |
-| **TOTAL** | | **~30-40 sessions** | |
+| 14 | AI Intelligence Layer | 3-4 | HIGH — competitive differentiator |
+| 15 | Public Website & Pricing | 2-3 | HIGH — sales enablement |
+| 16 | Self-Service Onboarding | 2 | MEDIUM — reduces support cost |
+| **TOTAL** | | **~47-55 sessions** | |
 
 ---
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useEffect, useState } from 'react'
+import { useCallback, useRef, useEffect, useState, useMemo } from 'react'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -8,16 +8,16 @@ import { OrderTypeChips } from './OrderTypeChips'
 import { GuestCountPicker } from './GuestCountPicker'
 import { SeatSelector } from './SeatSelector'
 import { CourseSelector } from './CourseSelector'
+import { ForHereToGoToggle } from './ForHereToGoToggle'
+import { ItemEditPopover } from './ItemEditPopover'
 import { useOrderStore } from '@/stores/order-store'
+import { getSeatColor } from '@/lib/constants'
+import type { CourseState } from '@/lib/constants'
 import {
-  Minus,
-  Plus,
   ArrowRight,
   UtensilsCrossed,
   Send,
   CreditCard,
-  XCircle,
-  Gift,
   MoreHorizontal,
   PauseCircle,
   Flame,
@@ -26,8 +26,15 @@ import {
   Printer,
   ArrowRightLeft,
   MapPin,
+  XCircle,
+  Circle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface OrderPanelProps {
   onSendToKitchen: () => void
@@ -35,7 +42,6 @@ interface OrderPanelProps {
   onItemVoid?: (itemId: string, itemName: string, isSent: boolean) => void
   onItemComp?: (itemId: string, itemName: string, priceCents: number) => void
   onGoToPayment?: () => void
-  // Quick actions (moved from QuickActions strip)
   onHold?: () => void
   onFireCourse?: () => void
   onRush?: () => void
@@ -45,6 +51,82 @@ interface OrderPanelProps {
   onTransfer?: () => void
   onMoveTable?: () => void
 }
+
+interface OrderItemShape {
+  id: string
+  menu_item_id: string
+  name: string
+  price_cents: number
+  quantity: number
+  seat_number: number | null
+  course: number
+  status: 'pending' | 'sent' | 'fired' | 'ready' | 'served' | 'voided'
+  modifiers: { id: string; modifier_id: string; name: string; price_cents: number; quantity: number }[]
+  special_instructions: string
+  voided: boolean
+  void_reason: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Grouped item structure: Seat -> Course -> Items
+// ---------------------------------------------------------------------------
+
+interface CourseGroup {
+  course: number
+  items: OrderItemShape[]
+}
+
+interface SeatGroup {
+  seatNumber: number | null
+  courseGroups: CourseGroup[]
+}
+
+function buildSeatCourseGroups(items: OrderItemShape[]): SeatGroup[] {
+  // Group by seat
+  const seatMap = new Map<number | null, OrderItemShape[]>()
+  for (const item of items) {
+    const key = item.seat_number
+    const list = seatMap.get(key)
+    if (list) {
+      list.push(item)
+    } else {
+      seatMap.set(key, [item])
+    }
+  }
+
+  // Sort seats: null first, then ascending
+  const sortedSeats = [...seatMap.keys()].sort((a, b) => {
+    if (a === null) return -1
+    if (b === null) return 1
+    return a - b
+  })
+
+  return sortedSeats.map((seatNumber) => {
+    const seatItems = seatMap.get(seatNumber) ?? []
+    // Group by course within seat
+    const courseMap = new Map<number, OrderItemShape[]>()
+    for (const item of seatItems) {
+      const list = courseMap.get(item.course)
+      if (list) {
+        list.push(item)
+      } else {
+        courseMap.set(item.course, [item])
+      }
+    }
+    const sortedCourses = [...courseMap.keys()].sort((a, b) => a - b)
+    return {
+      seatNumber,
+      courseGroups: sortedCourses.map((course) => ({
+        course,
+        items: courseMap.get(course) ?? [],
+      })),
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// ActionMenu (overflow actions)
+// ---------------------------------------------------------------------------
 
 function ActionMenu({
   onHold,
@@ -133,6 +215,53 @@ function ActionMenu({
   )
 }
 
+// ---------------------------------------------------------------------------
+// Course Header with FIRE / HOLD toggle
+// ---------------------------------------------------------------------------
+
+function CourseHeader({
+  course,
+  courseState,
+  onToggle,
+}: {
+  course: number
+  courseState: CourseState
+  onToggle: (course: number) => void
+}) {
+  const isFired = courseState === 'fire'
+
+  return (
+    <div className="flex items-center justify-between px-4 py-1.5">
+      <span className="text-caption-1 font-bold text-muted-foreground uppercase tracking-wide">
+        Course {course}
+      </span>
+      <button
+        type="button"
+        onClick={() => onToggle(course)}
+        className={cn(
+          'btn-press flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-caption-1 font-bold transition-all duration-150',
+          isFired
+            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+            : 'bg-[var(--secondary)] text-muted-foreground hover:bg-[var(--muted)]'
+        )}
+      >
+        <Circle
+          className="h-2 w-2"
+          style={{
+            fill: isFired ? '#34C759' : '#8E8E93',
+            color: isFired ? '#34C759' : '#8E8E93',
+          }}
+        />
+        {isFired ? 'FIRE' : 'HOLD'}
+      </button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main OrderPanel
+// ---------------------------------------------------------------------------
+
 export function OrderPanel({
   onSendToKitchen,
   isSending,
@@ -150,15 +279,18 @@ export function OrderPanel({
 }: OrderPanelProps) {
   const currentOrder = useOrderStore((s) => s.currentOrder)
   const activeSeat = useOrderStore((s) => s.activeSeat)
+  const courseStates = useOrderStore((s) => s.courseStates)
   const {
     setOrderType,
     setGuestCount,
     setActiveSeat,
-    updateItemQuantity,
-    removeItem,
+    setForHere,
+    setCourseState,
   } = useOrderStore((s) => s.actions)
 
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  // Popover state
+  const [editItemId, setEditItemId] = useState<string | null>(null)
+  const [editAnchorRect, setEditAnchorRect] = useState<DOMRect | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
   const itemListRef = useRef<HTMLDivElement>(null)
 
@@ -177,28 +309,111 @@ export function OrderPanel({
     prevItemCount.current = count
   }, [currentOrder?.items.length, currentOrder?.items])
 
-  const filteredItems = currentOrder?.items.filter((item) => {
-    if (activeSeat === null) return true
-    return item.seat_number === activeSeat
-  }) ?? []
+  // Filter items by active seat
+  const filteredItems = useMemo(() => {
+    return currentOrder?.items.filter((item) => {
+      if (activeSeat === null) return true
+      return item.seat_number === activeSeat
+    }) ?? []
+  }, [currentOrder?.items, activeSeat])
 
-  const handleQuantityChange = useCallback(
-    (itemId: string, currentQty: number, delta: number) => {
-      const newQty = currentQty + delta
-      if (newQty <= 0) {
-        removeItem(itemId)
-      } else {
-        updateItemQuantity(itemId, newQty)
+  // Build grouped structure: Seat -> Course -> Items
+  const seatGroups = useMemo(() => buildSeatCourseGroups(filteredItems), [filteredItems])
+
+  // Determine if there are multiple seats to show seat headers
+  const hasMultipleSeats = useMemo(() => {
+    const seatSet = new Set(filteredItems.map((i) => i.seat_number))
+    return seatSet.size > 1
+  }, [filteredItems])
+
+  // Determine if there are multiple courses to show course headers
+  const hasMultipleCourses = useMemo(() => {
+    const courseSet = new Set(filteredItems.map((i) => i.course))
+    return courseSet.size > 1
+  }, [filteredItems])
+
+  // Handle item tap for popover
+  const handleItemTap = useCallback((itemId: string, e: React.MouseEvent) => {
+    const target = e.currentTarget as HTMLElement
+    const rect = target.getBoundingClientRect()
+    if (editItemId === itemId) {
+      setEditItemId(null)
+      setEditAnchorRect(null)
+    } else {
+      setEditItemId(itemId)
+      setEditAnchorRect(rect)
+    }
+  }, [editItemId])
+
+  const handleClosePopover = useCallback(() => {
+    setEditItemId(null)
+    setEditAnchorRect(null)
+  }, [])
+
+  // Course fire/hold toggle
+  const handleCourseToggle = useCallback(
+    async (course: number) => {
+      const currentState = courseStates[course] ?? (course === 1 ? 'fire' : 'hold')
+      const newState: CourseState = currentState === 'fire' ? 'hold' : 'fire'
+      // Optimistic update
+      setCourseState(course, newState)
+
+      if (!currentOrder) return
+
+      try {
+        if (newState === 'fire') {
+          const res = await fetch(`/api/orders/${currentOrder.id}/fire-course`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ course }),
+          })
+          if (res.ok) {
+            toast.success(`Course ${course} fired`)
+          } else {
+            // Revert
+            setCourseState(course, currentState)
+            toast.error('Failed to fire course')
+          }
+        } else {
+          const res = await fetch(`/api/orders/${currentOrder.id}/hold`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ course }),
+          })
+          if (res.ok) {
+            toast.info(`Course ${course} held`)
+          } else {
+            setCourseState(course, currentState)
+            toast.error('Failed to hold course')
+          }
+        }
+      } catch {
+        setCourseState(course, currentState)
+        toast.error('Network error')
       }
     },
-    [updateItemQuantity, removeItem]
+    [courseStates, setCourseState, currentOrder]
   )
+
+  // For-here / to-go derived state
+  const isForHere = useMemo(() => {
+    if (!currentOrder) return true
+    if (currentOrder.for_here !== null) return currentOrder.for_here
+    // Infer from order type
+    return currentOrder.order_type === 'dine_in' || currentOrder.order_type === 'bar'
+  }, [currentOrder])
 
   const hasUnsentItems = currentOrder?.items.some(
     (i) => !i.voided && i.status === 'pending'
   ) ?? false
 
   const hasItems = (currentOrder?.items.filter((i) => !i.voided).length ?? 0) > 0
+
+  // Find the item being edited for the popover
+  const editItem = useMemo(() => {
+    if (!editItemId || !currentOrder) return null
+    return currentOrder.items.find((i) => i.id === editItemId) ?? null
+  }, [editItemId, currentOrder])
 
   if (!currentOrder) {
     return (
@@ -258,11 +473,17 @@ export function OrderPanel({
           </div>
         </div>
 
-        {/* Order type chips */}
-        <div className="px-4 pb-2">
-          <OrderTypeChips
-            value={currentOrder.order_type}
-            onChange={(type) => setOrderType(type)}
+        {/* Order type chips + For Here/To Go */}
+        <div className="flex items-center gap-2 px-4 pb-2">
+          <div className="flex-1 min-w-0">
+            <OrderTypeChips
+              value={currentOrder.order_type}
+              onChange={(type) => setOrderType(type)}
+            />
+          </div>
+          <ForHereToGoToggle
+            forHere={isForHere}
+            onChange={setForHere}
           />
         </div>
 
@@ -286,7 +507,7 @@ export function OrderPanel({
         </div>
       </div>
 
-      {/* Item list — scrollable middle */}
+      {/* Item list -- scrollable middle, grouped by Seat then Course */}
       <div ref={itemListRef} className="flex-1 overflow-y-auto scrollbar-hide scroll-container">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-6 text-center">
@@ -297,153 +518,177 @@ export function OrderPanel({
           </div>
         ) : (
           <div className="py-1">
-            {filteredItems.map((item) => {
-              const itemTotal = item.price_cents * item.quantity + item.modifiers.reduce((s, m) => s + m.price_cents * m.quantity, 0)
-              const isSelected = selectedItemId === item.id
+            {seatGroups.map((seatGroup, seatIdx) => {
+              const seatColor = getSeatColor(seatGroup.seatNumber)
 
               return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    'relative mx-2 mb-1 rounded-xl transition-all duration-150',
-                    item.voided && 'opacity-40',
-                    isSelected && 'bg-[var(--info)]/[0.06] ring-1 ring-[var(--info)]/20',
-                    flashId === item.id && 'animate-item-flash',
-                    !isSelected && !item.voided && 'hover:bg-[var(--secondary)]'
+                <div key={seatGroup.seatNumber ?? '__noseat'}>
+                  {/* Seat divider (only when multiple seats exist) */}
+                  {hasMultipleSeats && seatIdx > 0 && (
+                    <div
+                      className="mx-4 my-2"
+                      style={{ borderTop: '1px solid var(--separator)' }}
+                    />
                   )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setSelectedItemId(isSelected ? null : item.id)}
-                    className="w-full text-left px-3 py-3"
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Quantity badge */}
-                      {!item.voided && (
-                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-footnote font-bold text-foreground">
-                          {item.quantity}
-                        </span>
-                      )}
 
-                      <div className="flex-1 min-w-0">
-                        {/* Item name + badges */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className={cn(
-                              'text-headline leading-tight text-foreground',
-                              item.voided && 'line-through text-muted-foreground'
-                            )}
-                          >
-                            {item.name}
-                          </span>
-                          {item.voided && (
-                            <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-caption-2 font-bold text-red-600">
-                              VOID
-                            </span>
-                          )}
-                          {item.seat_number != null && (
-                            <span className="rounded-md bg-[var(--muted)] px-1.5 py-0.5 text-caption-2 font-medium text-muted-foreground">
-                              S{item.seat_number}
-                            </span>
-                          )}
-                          {item.course > 1 && (
-                            <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-caption-2 font-medium text-blue-700">
-                              C{item.course}
-                            </span>
-                          )}
-                        </div>
+                  {/* Seat header (only when multiple seats) */}
+                  {hasMultipleSeats && seatGroup.seatNumber !== null && (
+                    <div className="flex items-center gap-2 px-4 py-1.5">
+                      <span
+                        className="flex h-5 w-5 items-center justify-center rounded-full text-caption-2 font-bold text-white"
+                        style={{ backgroundColor: seatColor ?? '#8E8E93' }}
+                      >
+                        {seatGroup.seatNumber}
+                      </span>
+                      <span className="text-caption-1 font-bold text-muted-foreground uppercase tracking-wide">
+                        Seat {seatGroup.seatNumber}
+                      </span>
+                    </div>
+                  )}
 
-                        {/* Modifiers — indented, readable */}
-                        {item.modifiers.length > 0 && (
-                          <div className="mt-1 pl-1">
-                            {item.modifiers.map((mod) => (
-                              <p
-                                key={mod.id}
-                                className="text-subhead text-muted-foreground leading-relaxed"
-                              >
-                                <span className="text-muted-foreground/40 mr-1.5">&bull;</span>
-                                {mod.name}
-                                {mod.price_cents !== 0 && (
-                                  <span className="text-muted-foreground/60">
-                                    {' '}(+<MoneyDisplay cents={mod.price_cents} className="text-subhead" />)
-                                  </span>
+                  {seatGroup.courseGroups.map((courseGroup) => {
+                    const cState = courseStates[courseGroup.course] ?? (courseGroup.course === 1 ? 'fire' : 'hold')
+                    const isHeld = cState === 'hold'
+
+                    return (
+                      <div key={courseGroup.course}>
+                        {/* Course header (only when multiple courses) */}
+                        {hasMultipleCourses && (
+                          <CourseHeader
+                            course={courseGroup.course}
+                            courseState={cState}
+                            onToggle={handleCourseToggle}
+                          />
+                        )}
+
+                        {/* Items in this course */}
+                        {courseGroup.items.map((item) => {
+                          const itemTotal =
+                            item.price_cents * item.quantity +
+                            item.modifiers.reduce(
+                              (s, m) => s + m.price_cents * m.quantity,
+                              0
+                            )
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                'relative mx-2 mb-1 rounded-xl transition-all duration-150',
+                                item.voided && 'opacity-40',
+                                editItemId === item.id && 'bg-[var(--info)]/[0.06] ring-1 ring-[var(--info)]/20',
+                                flashId === item.id && 'animate-item-flash',
+                                editItemId !== item.id && !item.voided && 'hover:bg-[var(--secondary)]',
+                                isHeld && !item.voided && 'opacity-60'
+                              )}
+                            >
+                              {/* Seat color left border */}
+                              {seatColor && !item.voided && (
+                                <div
+                                  className="absolute left-0 top-2 bottom-2 rounded-full"
+                                  style={{
+                                    width: 4,
+                                    backgroundColor: seatColor,
+                                  }}
+                                />
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={(e) => handleItemTap(item.id, e)}
+                                className={cn(
+                                  'w-full text-left py-3',
+                                  seatColor ? 'pl-4 pr-3' : 'px-3'
                                 )}
-                              </p>
-                            ))}
-                          </div>
-                        )}
+                              >
+                                <div className="flex items-start gap-3">
+                                  {/* Quantity badge */}
+                                  {!item.voided && (
+                                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-footnote font-bold text-foreground">
+                                      {item.quantity}
+                                    </span>
+                                  )}
 
-                        {/* Special instructions */}
-                        {item.special_instructions && (
-                          <p className="mt-1.5 text-footnote italic text-amber-700 bg-amber-50 rounded-lg px-2 py-1 inline-block">
-                            {item.special_instructions}
-                          </p>
-                        )}
+                                  <div className="flex-1 min-w-0">
+                                    {/* Item name + badges */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span
+                                        className={cn(
+                                          'text-headline leading-tight text-foreground',
+                                          item.voided && 'line-through text-muted-foreground'
+                                        )}
+                                      >
+                                        {item.name}
+                                      </span>
+                                      {item.voided && (
+                                        <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-caption-2 font-bold text-red-600">
+                                          VOID
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Modifiers */}
+                                    {item.modifiers.length > 0 && (
+                                      <div className="mt-1 pl-1">
+                                        {item.modifiers.map((mod) => (
+                                          <p
+                                            key={mod.id}
+                                            className="text-subhead text-muted-foreground leading-relaxed"
+                                          >
+                                            <span className="text-muted-foreground/40 mr-1.5">
+                                              &bull;
+                                            </span>
+                                            {mod.name}
+                                            {mod.price_cents !== 0 && (
+                                              <span className="text-muted-foreground/60">
+                                                {' '}(+
+                                                <MoneyDisplay
+                                                  cents={mod.price_cents}
+                                                  className="text-subhead"
+                                                />
+                                                )
+                                              </span>
+                                            )}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Special instructions */}
+                                    {item.special_instructions && (
+                                      <p className="mt-1.5 text-footnote italic text-amber-700 bg-amber-50 rounded-lg px-2 py-1 inline-block">
+                                        {item.special_instructions}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Price */}
+                                  <MoneyDisplay
+                                    cents={itemTotal}
+                                    className={cn(
+                                      'text-headline shrink-0 tabular-nums',
+                                      item.voided
+                                        ? 'line-through text-muted-foreground'
+                                        : 'text-foreground'
+                                    )}
+                                  />
+                                </div>
+                              </button>
+
+                              {/* Hairline separator */}
+                              <div
+                                className="absolute bottom-0 left-4 right-4"
+                                style={{
+                                  borderBottom: '0.5px solid var(--separator)',
+                                  opacity: 0.5,
+                                }}
+                              />
+                            </div>
+                          )
+                        })}
                       </div>
-
-                      {/* Price */}
-                      <MoneyDisplay
-                        cents={itemTotal}
-                        className={cn(
-                          'text-headline shrink-0 tabular-nums',
-                          item.voided ? 'line-through text-muted-foreground' : 'text-foreground'
-                        )}
-                      />
-                    </div>
-                  </button>
-
-                  {/* Expanded controls when selected */}
-                  {isSelected && !item.voided && (
-                    <div className="flex items-center gap-2 px-3 pb-3">
-                      {/* Quantity stepper */}
-                      <div className="flex items-center gap-1 rounded-xl border border-border bg-white p-0.5">
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(item.id, item.quantity, -1)}
-                          className="btn-press flex h-9 w-9 items-center justify-center rounded-lg hover:bg-[var(--muted)] transition-colors"
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <span className="tabular-nums text-subhead font-bold w-7 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(item.id, item.quantity, 1)}
-                          className="btn-press flex h-9 w-9 items-center justify-center rounded-lg hover:bg-[var(--muted)] transition-colors"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      <div className="flex-1" />
-
-                      {/* Void button */}
-                      <button
-                        type="button"
-                        onClick={() => onItemVoid?.(item.id, item.name, item.status !== 'pending')}
-                        className="btn-press flex h-9 items-center gap-1.5 rounded-xl bg-red-50 px-3 text-footnote font-bold text-red-600 hover:bg-red-100 transition-colors"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Void
-                      </button>
-                      {/* Comp button */}
-                      <button
-                        type="button"
-                        onClick={() => onItemComp?.(item.id, item.name, itemTotal)}
-                        className="btn-press flex h-9 items-center gap-1.5 rounded-xl bg-amber-50 px-3 text-footnote font-bold text-amber-600 hover:bg-amber-100 transition-colors"
-                      >
-                        <Gift className="h-4 w-4" />
-                        Comp
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Hairline separator */}
-                  <div
-                    className="absolute bottom-0 left-4 right-4"
-                    style={{ borderBottom: '0.5px solid var(--separator)', opacity: 0.5 }}
-                  />
+                    )
+                  })}
                 </div>
               )
             })}
@@ -452,27 +697,41 @@ export function OrderPanel({
       </div>
 
       {/* Totals footer */}
-      <div className="shrink-0 bg-white" style={{ borderTop: '0.5px solid var(--separator)' }}>
+      <div
+        className="shrink-0 bg-white"
+        style={{ borderTop: '0.5px solid var(--separator)' }}
+      >
         <div className="px-4 pt-3 pb-2 space-y-1.5">
           <div className="flex items-center justify-between text-subhead">
             <span className="text-muted-foreground">Subtotal</span>
-            <MoneyDisplay cents={currentOrder.subtotal_cents} className="font-medium tabular-nums" />
+            <MoneyDisplay
+              cents={currentOrder.subtotal_cents}
+              className="font-medium tabular-nums"
+            />
           </div>
           {currentOrder.discount_cents > 0 && (
             <div className="flex items-center justify-between text-subhead">
               <span className="text-[var(--success)]">Discount</span>
-              <MoneyDisplay cents={-currentOrder.discount_cents} className="font-medium text-[var(--success)] tabular-nums" />
+              <MoneyDisplay
+                cents={-currentOrder.discount_cents}
+                className="font-medium text-[var(--success)] tabular-nums"
+              />
             </div>
           )}
           <div className="flex items-center justify-between text-subhead">
             <span className="text-muted-foreground">Tax</span>
-            <MoneyDisplay cents={currentOrder.tax_cents} className="font-medium tabular-nums" />
+            <MoneyDisplay
+              cents={currentOrder.tax_cents}
+              className="font-medium tabular-nums"
+            />
           </div>
           <div
             className="flex items-center justify-between pt-2"
             style={{ borderTop: '0.5px solid var(--separator)' }}
           >
-            <span className="text-title-2 font-black text-foreground">Total</span>
+            <span className="text-title-2 font-black text-foreground">
+              Total
+            </span>
             <MoneyDisplay
               cents={currentOrder.total_cents}
               className="text-title-2 font-black text-foreground tabular-nums"
@@ -480,7 +739,7 @@ export function OrderPanel({
           </div>
         </div>
 
-        {/* Action buttons — 56px tall per spec */}
+        {/* Action buttons */}
         <div className="flex gap-2 px-4 pb-4">
           <button
             type="button"
@@ -511,6 +770,17 @@ export function OrderPanel({
           )}
         </div>
       </div>
+
+      {/* Item Edit Popover */}
+      {editItem && !editItem.voided && (
+        <ItemEditPopover
+          item={editItem}
+          anchorRect={editAnchorRect}
+          onClose={handleClosePopover}
+          onVoid={(id, name, isSent) => onItemVoid?.(id, name, isSent)}
+          onComp={(id, name, price) => onItemComp?.(id, name, price)}
+        />
+      )}
     </div>
   )
 }

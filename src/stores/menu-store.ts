@@ -19,6 +19,24 @@ interface ModifierGroup {
   modifiers: Modifier[]
 }
 
+type PriceType = 'fixed' | 'open' | 'market_price'
+
+interface ComboSlot {
+  id: string
+  name: string
+  sort_order: number
+  options: ComboSlotOption[]
+}
+
+interface ComboSlotOption {
+  id: string
+  menu_item_id: string
+  name: string
+  upcharge_cents: number
+  is_default: boolean
+  modifier_groups: ModifierGroup[]
+}
+
 interface MenuItem {
   id: string
   name: string
@@ -31,6 +49,13 @@ interface MenuItem {
   image_url: string | null
   allergens: string[]
   modifier_groups: ModifierGroup[]
+  price_type: PriceType
+  min_price_cents: number | null
+  max_price_cents: number | null
+  combo_group_id: string | null
+  combo_name: string | null
+  combo_price_cents: number | null
+  combo_slots: ComboSlot[]
 }
 
 interface MenuCategory {

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { OrderPanel } from '@/components/pos/OrderPanel'
 import { MenuGrid } from '@/components/pos/MenuGrid'
 import { ModifierSheet } from '@/components/pos/ModifierSheet'
+import { ComboBuilder } from '@/components/pos/ComboBuilder'
+import { OpenPriceDialog } from '@/components/pos/OpenPriceDialog'
 import { VoidReasonDialog } from '@/components/pos/VoidReasonDialog'
 import { CompDialog } from '@/components/pos/CompDialog'
 import { DiscountDialog } from '@/components/pos/DiscountDialog'
@@ -17,26 +19,29 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useRealtime86 } from '@/hooks/use-realtime'
 import { toast } from 'sonner'
 
+interface ModifierGroupData {
+  id: string
+  name: string
+  is_required: boolean
+  min_selections: number
+  max_selections: number
+  modifiers: {
+    id: string
+    name: string
+    price_cents: number
+    is_available: boolean
+    sort_order: number
+    is_default?: boolean
+  }[]
+}
+
 interface MenuItemWithModifiers {
   id: string
   name: string
   price_cents: number
   category_id: string
   is_available: boolean
-  modifier_groups: {
-    id: string
-    name: string
-    is_required: boolean
-    min_selections: number
-    max_selections: number
-    modifiers: {
-      id: string
-      name: string
-      price_cents: number
-      is_available: boolean
-      sort_order: number
-    }[]
-  }[]
+  modifier_groups: ModifierGroupData[]
 }
 
 interface SelectedModifier {
@@ -47,10 +52,58 @@ interface SelectedModifier {
   quantity: number
 }
 
+interface ComboSlotOption {
+  id: string
+  menu_item_id: string
+  name: string
+  upcharge_cents: number
+  is_default: boolean
+  modifier_groups: ModifierGroupData[]
+}
+
+interface ComboSlot {
+  id: string
+  name: string
+  sort_order: number
+  options: ComboSlotOption[]
+}
+
+interface ComboItemData {
+  id: string
+  name: string
+  price_cents: number
+  combo_name: string
+  combo_price_cents: number
+  combo_slots: ComboSlot[]
+}
+
+interface OpenPriceItemData {
+  id: string
+  name: string
+  price_type: 'open' | 'market_price'
+  min_price_cents: number | null
+  max_price_cents: number | null
+}
+
+interface ComboChildResult {
+  id: string
+  menu_item_id: string
+  name: string
+  slot_name: string
+  upcharge_cents: number
+  modifiers: {
+    id: string
+    modifier_id: string
+    name: string
+    price_cents: number
+    quantity: number
+  }[]
+}
+
 export default function OrdersPage() {
   const router = useRouter()
   const currentOrder = useOrderStore((s) => s.currentOrder)
-  const { addItem, newOrder, clearCurrentOrder, voidItem } = useOrderStore((s) => s.actions)
+  const { addItem, addComboToOrder, newOrder, clearCurrentOrder, voidItem } = useOrderStore((s) => s.actions)
   const { setCategories, setItems, setLoading } = useMenuStore((s) => s.actions)
   const user = useAuthStore((s) => s.user)
   const activeLocationId = useAuthStore((s) => s.activeLocationId)
@@ -58,6 +111,16 @@ export default function OrdersPage() {
   const [modifierItem, setModifierItem] = useState<MenuItemWithModifiers | null>(null)
   const [modifierSheetOpen, setModifierSheetOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
+
+  // Combo builder state
+  const [comboItem, setComboItem] = useState<ComboItemData | null>(null)
+  const [comboBuilderOpen, setComboBuilderOpen] = useState(false)
+
+  // Open price dialog state
+  const [openPriceItem, setOpenPriceItem] = useState<OpenPriceItemData | null>(null)
+  const [openPriceDialogOpen, setOpenPriceDialogOpen] = useState(false)
+  // Used to hold item data when open price is confirmed and modifiers still need to be checked
+  const [pendingOpenPriceItem, setPendingOpenPriceItem] = useState<{ id: string; name: string; price_cents: number; modifier_groups: { id: string; is_required: boolean }[] } | null>(null)
 
   // Dialog states
   const [voidDialogOpen, setVoidDialogOpen] = useState(false)
@@ -116,6 +179,13 @@ export default function OrdersPage() {
                 image_url?: string | null
                 allergens?: string[] | null
                 menu_item_modifier_groups?: { modifier_group_id: string }[]
+                price_type?: string
+                min_price?: string | null
+                max_price?: string | null
+                combo_group_id?: string | null
+                combo_name?: string | null
+                combo_price?: string | null
+                combo_slots?: ComboSlot[]
               }) => ({
                 id: i.id,
                 name: i.name,
@@ -128,6 +198,13 @@ export default function OrdersPage() {
                 image_url: i.image_url ?? null,
                 allergens: i.allergens ?? [],
                 modifier_groups: [],
+                price_type: (i.price_type as 'fixed' | 'open' | 'market_price') ?? 'fixed',
+                min_price_cents: i.min_price ? Math.round(parseFloat(i.min_price) * 100) : null,
+                max_price_cents: i.max_price ? Math.round(parseFloat(i.max_price) * 100) : null,
+                combo_group_id: i.combo_group_id ?? null,
+                combo_name: i.combo_name ?? null,
+                combo_price_cents: i.combo_price ? Math.round(parseFloat(i.combo_price) * 100) : null,
+                combo_slots: i.combo_slots ?? [],
               })
             )
           )
@@ -163,59 +240,100 @@ export default function OrdersPage() {
     }
   }, [currentOrder, newOrder, user])
 
-  // Handle item tap from menu grid
-  const handleItemTap = useCallback(
+  // Fetch modifier groups for an item and open modifier sheet
+  const openModifierSheet = useCallback(
     async (item: { id: string; name: string; price_cents: number; modifier_groups: { id: string; is_required: boolean }[] }) => {
-      const hasRequiredModifiers = item.modifier_groups.some((g) => g.is_required)
-
-      if (hasRequiredModifiers || item.modifier_groups.length > 0) {
-        try {
-          const res = await fetch(`/api/menu/items/${item.id}/modifier-groups`)
-          if (res.ok) {
-            const json = await res.json()
-            setModifierItem({
-              ...item,
-              category_id: '',
-              is_available: true,
-              modifier_groups: (json.data ?? []).map(
-                (g: {
-                  id: string
-                  name: string
-                  is_required: boolean
-                  min_selections: number
-                  max_selections: number
-                  modifiers: { id: string; name: string; price_adjustment: string; is_active: boolean; sort_order: number }[]
-                }) => ({
-                  id: g.id,
-                  name: g.name,
-                  is_required: g.is_required,
-                  min_selections: g.min_selections ?? 0,
-                  max_selections: g.max_selections ?? 10,
-                  modifiers: (g.modifiers ?? []).map(
-                    (m: { id: string; name: string; price_adjustment: string; is_active: boolean; sort_order: number }) => ({
-                      id: m.id,
-                      name: m.name,
-                      price_cents: Math.round(parseFloat(m.price_adjustment ?? '0') * 100),
-                      is_available: m.is_active ?? true,
-                      sort_order: m.sort_order ?? 0,
-                    })
-                  ),
-                })
-              ),
-            })
-            setModifierSheetOpen(true)
-          } else {
-            addItemWithAllergenCheck(item.id, item.name, item.price_cents)
-          }
-        } catch {
+      try {
+        const res = await fetch(`/api/menu/items/${item.id}/modifier-groups`)
+        if (res.ok) {
+          const json = await res.json()
+          setModifierItem({
+            ...item,
+            category_id: '',
+            is_available: true,
+            modifier_groups: (json.data ?? []).map(
+              (g: {
+                id: string
+                name: string
+                is_required: boolean
+                min_selections: number
+                max_selections: number
+                modifiers: { id: string; name: string; price_adjustment: string; is_active: boolean; sort_order: number; is_default?: boolean }[]
+              }) => ({
+                id: g.id,
+                name: g.name,
+                is_required: g.is_required,
+                min_selections: g.min_selections ?? 0,
+                max_selections: g.max_selections ?? 10,
+                modifiers: (g.modifiers ?? []).map(
+                  (m: { id: string; name: string; price_adjustment: string; is_active: boolean; sort_order: number; is_default?: boolean }) => ({
+                    id: m.id,
+                    name: m.name,
+                    price_cents: Math.round(parseFloat(m.price_adjustment ?? '0') * 100),
+                    is_available: m.is_active ?? true,
+                    sort_order: m.sort_order ?? 0,
+                    is_default: m.is_default ?? false,
+                  })
+                ),
+              })
+            ),
+          })
+          setModifierSheetOpen(true)
+        } else {
           addItemWithAllergenCheck(item.id, item.name, item.price_cents)
         }
-      } else {
+      } catch {
         addItemWithAllergenCheck(item.id, item.name, item.price_cents)
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [addItem]
+  )
+
+  // Handle item tap from menu grid
+  // Flow: check combo -> check open price -> check modifiers -> add to order
+  const handleItemTap = useCallback(
+    async (item: { id: string; name: string; price_cents: number; modifier_groups: { id: string; is_required: boolean }[] }) => {
+      // 1. Check if this is a combo item
+      const menuItem = useMenuStore.getState().items.find((i) => i.id === item.id)
+      if (menuItem?.combo_group_id && menuItem.combo_slots.length > 0) {
+        setComboItem({
+          id: menuItem.id,
+          name: menuItem.name,
+          price_cents: menuItem.price_cents,
+          combo_name: menuItem.combo_name ?? menuItem.name + ' Combo',
+          combo_price_cents: menuItem.combo_price_cents ?? menuItem.price_cents,
+          combo_slots: menuItem.combo_slots,
+        })
+        setComboBuilderOpen(true)
+        return
+      }
+
+      // 2. Check if this is an open/market price item
+      if (menuItem?.price_type === 'open' || menuItem?.price_type === 'market_price') {
+        setOpenPriceItem({
+          id: menuItem.id,
+          name: menuItem.name,
+          price_type: menuItem.price_type,
+          min_price_cents: menuItem.min_price_cents,
+          max_price_cents: menuItem.max_price_cents,
+        })
+        // Store item data for after price is confirmed
+        setPendingOpenPriceItem(item)
+        setOpenPriceDialogOpen(true)
+        return
+      }
+
+      // 3. Check if item has modifiers (forced or optional)
+      const hasModifiers = item.modifier_groups.length > 0
+      if (hasModifiers) {
+        await openModifierSheet(item)
+      } else {
+        addItemWithAllergenCheck(item.id, item.name, item.price_cents)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [addItem, openModifierSheet]
   )
 
   // Check allergens before adding
@@ -281,6 +399,58 @@ export default function OrdersPage() {
   const handleAllergenCancel = useCallback(() => {
     setPendingAllergenItem(null)
   }, [])
+
+  // Handle combo acceptance
+  const handleComboAccept = useCallback(
+    (comboName: string, comboPriceCents: number, children: ComboChildResult[]) => {
+      if (!comboItem) return
+      addComboToOrder({
+        menu_item_id: comboItem.id,
+        name: comboName,
+        combo_price_cents: comboPriceCents,
+        children: children.map((c) => ({
+          id: c.id,
+          menu_item_id: c.menu_item_id,
+          name: c.name,
+          slot_name: c.slot_name,
+          upcharge_cents: c.upcharge_cents,
+          modifiers: c.modifiers,
+        })),
+      })
+      setComboItem(null)
+    },
+    [comboItem, addComboToOrder]
+  )
+
+  // Handle combo decline — add item at regular price
+  const handleComboDecline = useCallback(() => {
+    if (!comboItem) return
+    addItemWithAllergenCheck(comboItem.id, comboItem.name, comboItem.price_cents)
+    setComboItem(null)
+  }, [comboItem, addItemWithAllergenCheck])
+
+  // Handle open price confirmation
+  const handleOpenPriceConfirm = useCallback(
+    async (priceCents: number) => {
+      if (!pendingOpenPriceItem) return
+      const item = pendingOpenPriceItem
+
+      // Check if item has modifiers after price entry
+      const hasModifiers = item.modifier_groups.length > 0
+      if (hasModifiers) {
+        // Override price and open modifier sheet
+        await openModifierSheet({
+          ...item,
+          price_cents: priceCents,
+        })
+      } else {
+        addItemWithAllergenCheck(item.id, item.name, priceCents)
+      }
+      setPendingOpenPriceItem(null)
+      setOpenPriceItem(null)
+    },
+    [pendingOpenPriceItem, openModifierSheet, addItemWithAllergenCheck]
+  )
 
   // Handle adding item with modifiers from sheet
   const handleAddWithModifiers = useCallback(
@@ -643,6 +813,23 @@ export default function OrdersPage() {
         open={modifierSheetOpen}
         onOpenChange={setModifierSheetOpen}
         onAddToOrder={handleAddWithModifiers}
+      />
+
+      {/* Combo Builder */}
+      <ComboBuilder
+        item={comboItem}
+        open={comboBuilderOpen}
+        onOpenChange={setComboBuilderOpen}
+        onAcceptCombo={handleComboAccept}
+        onDeclineCombo={handleComboDecline}
+      />
+
+      {/* Open Price Dialog */}
+      <OpenPriceDialog
+        item={openPriceItem}
+        open={openPriceDialogOpen}
+        onOpenChange={setOpenPriceDialogOpen}
+        onConfirmPrice={handleOpenPriceConfirm}
       />
 
       {/* Void Reason Dialog */}

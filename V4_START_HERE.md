@@ -20,7 +20,7 @@ Everything is scaffolding. API routes insert rows. Pages render tables. But noth
 
 ## The Plan
 
-**13 phases, 40 sessions.** Each session has a copy-paste prompt in V4_SESSION_RUNBOOK.md.
+**16 phases, ~49 sessions.** Each session has a copy-paste prompt in V4_SESSION_RUNBOOK.md.
 
 ## Files to Read (in order)
 
@@ -70,6 +70,9 @@ ssh -i ~/.ssh/google_compute_engine ianrakow@34.132.111.219 \
 | 11 | 11.1–11.5 | Optional Modules | All 10 modules to production depth |
 | 12 | 12.1–12.2 | Security | Production hardening |
 | 13 | 13.1–13.2 | Polish | Visual QA, accessibility |
+| 14 | 14.1–14.4 | AI Intelligence | Beat ToastIQ — holistic AI |
+| 15 | 15.1–15.3 | Website & Pricing | Transparent pricing, ROI calculator |
+| 16 | 16.1–16.2 | Self-Service Onboarding | Signup to first order, no support needed |
 
 ## Critical Rules (from MASTER_TEMPLATE.md)
 
