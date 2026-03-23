@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { getMockHourlySales } from '@/lib/reports/mock-data'
 
 /**
  * GET /api/reports/hourly — hourly breakdown for a given date
@@ -19,18 +18,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let countQuery = (supabase.from('orders') as any)
-    .select('id', { count: 'exact', head: true })
-    .eq('org_id', user.org_id)
-  if (locationId) countQuery = countQuery.eq('location_id', locationId)
-  const { count } = await countQuery
-
-  if (!count || count === 0) {
-    return NextResponse.json({ is_mock: true, data: getMockHourlySales() })
-  }
-
-  // Real: pull hourly_revenue jsonb from daily_metrics
+  // Try daily_metrics first
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('daily_metrics') as any)
     .select('hourly_revenue, hourly_covers')
@@ -38,46 +26,48 @@ export async function GET(request: NextRequest) {
     .eq('metric_date', date)
 
   if (locationId) query = query.eq('location_id', locationId)
+  const { data, error } = await query.maybeSingle()
 
-  const { data, error } = await query.single()
-
-  if (error || !data) {
-    // Fallback: query orders directly
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let ordersQuery = (supabase.from('orders') as any)
-      .select('created_at, total')
-      .eq('org_id', user.org_id)
-      .gte('created_at', `${date}T00:00:00Z`)
-      .lt('created_at', `${date}T23:59:59Z`)
-
-    if (locationId) ordersQuery = ordersQuery.eq('location_id', locationId)
-
-    const { data: orders, error: ordersError } = await ordersQuery
-
-    if (ordersError || !orders || orders.length === 0) {
-      return NextResponse.json({ is_mock: true, data: getMockHourlySales() })
-    }
-
-    // Aggregate by hour
-    const hourlyMap = new Map<number, { sales: number; orders: number }>()
-    for (const order of orders) {
-      const hour = new Date(order.created_at).getHours()
-      const existing = hourlyMap.get(hour) ?? { sales: 0, orders: 0 }
-      existing.sales += Number(order.total) || 0
-      existing.orders += 1
-      hourlyMap.set(hour, existing)
-    }
-
-    const hourlyData = Array.from(hourlyMap.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([hour, vals]) => ({
-        hour: `${hour % 12 || 12} ${hour < 12 ? 'AM' : 'PM'}`,
-        sales: Math.round(vals.sales * 100) / 100,
-        orders: vals.orders,
-      }))
-
-    return NextResponse.json({ is_mock: false, data: hourlyData })
+  if (!error && data?.hourly_revenue) {
+    return NextResponse.json({ is_mock: false, data: data.hourly_revenue })
   }
 
-  return NextResponse.json({ is_mock: false, data: data.hourly_revenue })
+  // Fallback: query orders directly
+  const nextDay = new Date(date)
+  nextDay.setDate(nextDay.getDate() + 1)
+  const nextDayStr = nextDay.toISOString().split('T')[0]
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ordersQuery = (supabase.from('orders') as any)
+    .select('created_at, total')
+    .eq('org_id', user.org_id)
+    .gte('created_at', `${date}T04:00:00Z`)
+    .lt('created_at', `${nextDayStr}T04:00:00Z`)
+    .not('status', 'eq', 'voided')
+
+  if (locationId) ordersQuery = ordersQuery.eq('location_id', locationId)
+  const { data: orders, error: ordersError } = await ordersQuery
+
+  if (ordersError || !orders || orders.length === 0) {
+    return NextResponse.json({ is_mock: true, data: [] })
+  }
+
+  const hourlyMap = new Map<number, { sales: number; orders: number }>()
+  for (const order of orders) {
+    const hour = new Date(order.created_at).getUTCHours()
+    const existing = hourlyMap.get(hour) ?? { sales: 0, orders: 0 }
+    existing.sales += Number(order.total) || 0
+    existing.orders += 1
+    hourlyMap.set(hour, existing)
+  }
+
+  const hourlyData = Array.from(hourlyMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([hour, vals]) => ({
+      hour: `${hour % 12 || 12} ${hour < 12 ? 'AM' : 'PM'}`,
+      sales: Math.round(vals.sales * 100) / 100,
+      orders: vals.orders,
+    }))
+
+  return NextResponse.json({ is_mock: false, data: hourlyData })
 }

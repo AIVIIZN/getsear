@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { getMockDailySales, getMockKPIs } from '@/lib/reports/mock-data'
+import { getDailySales } from '@/lib/reports/queries'
 
 /**
  * GET /api/reports/daily — daily sales summary
@@ -15,73 +14,60 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams
   const date = params.get('date') ?? new Date().toISOString().split('T')[0]
-  const locationId = params.get('location_id')
+  const locationId = params.get('location_id') ?? undefined
 
-  const supabase = createAdminClient()
+  const result = await getDailySales(user.org_id, date, locationId)
 
-  // Check if real data exists
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let countQuery = (supabase.from('orders') as any)
-    .select('id', { count: 'exact', head: true })
-    .eq('org_id', user.org_id)
-
-  if (locationId) countQuery = countQuery.eq('location_id', locationId)
-
-  const { count } = await countQuery
-
-  if (!count || count === 0) {
-    const kpis = getMockKPIs()
+  if (result.is_mock || !result.data) {
     return NextResponse.json({
       is_mock: true,
       data: {
         date,
-        total_sales: kpis.total_sales,
-        orders: kpis.orders,
-        avg_check: kpis.avg_check,
-        covers: 412,
-        net_sales: kpis.total_sales - 884,
-        discounts: 884,
-        tax: 1662.88,
-        tips: 2840,
-        labor_cost: 5486,
-        labor_pct: kpis.labor_pct,
-        hourly_revenue: getMockDailySales(1),
-        prev_period: {
-          total_sales: kpis.prev_total_sales,
-          orders: kpis.prev_orders,
-          avg_check: kpis.prev_avg_check,
-          labor_pct: kpis.prev_labor_pct,
-        },
+        total_sales: 0,
+        total_revenue: 0,
+        orders: 0,
+        order_count: 0,
+        avg_check: 0,
+        average_check: 0,
+        labor_pct: 0,
+        labor_percentage: 0,
+        prev_period: null,
       },
     })
   }
 
-  // Real data query
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('daily_metrics') as any)
-    .select('*')
-    .eq('org_id', user.org_id)
-    .eq('metric_date', date)
-
-  if (locationId) query = query.eq('location_id', locationId)
-
-  const { data, error } = await query.maybeSingle()
-
-  if (error) {
-    return NextResponse.json({ is_mock: false, data: null, error: error.message }, { status: 500 })
-  }
-
-  if (!data) {
-    // Return mock data when no metrics exist
-    return NextResponse.json({
-      is_mock: true,
-      data: {
-        total_sales: 8247.50, orders: 312, avg_check: 26.43, labor_pct: 28.5,
-        total_revenue: 8247.50, order_count: 312, average_check: 26.43, labor_percentage: 28.5,
-        prev_period: { total_sales: 7580, orders: 289, avg_check: 26.23, labor_pct: 29.2 }
-      }
-    })
-  }
-
-  return NextResponse.json({ is_mock: false, data })
+  // Map to response format (backward compatible)
+  const d = result.data
+  return NextResponse.json({
+    is_mock: false,
+    data: {
+      date: d.date,
+      total_sales: d.total_revenue,
+      total_revenue: d.total_revenue,
+      net_sales: d.net_revenue,
+      net_revenue: d.net_revenue,
+      orders: d.order_count,
+      order_count: d.order_count,
+      avg_check: d.average_check,
+      average_check: d.average_check,
+      covers: d.covers,
+      discounts: d.discount_total,
+      discount_total: d.discount_total,
+      tax: d.tax_total,
+      tax_total: d.tax_total,
+      tips: d.tip_total,
+      tip_total: d.tip_total,
+      labor_pct: 0,
+      labor_percentage: 0,
+      by_order_type: d.by_order_type,
+      by_hour: d.by_hour,
+      by_payment_method: d.by_payment_method,
+      prev_period: d.prev_period ? {
+        total_sales: d.prev_period.total_revenue,
+        orders: d.prev_period.order_count,
+        avg_check: d.prev_period.average_check,
+        labor_pct: 0,
+      } : null,
+    },
+  })
 }

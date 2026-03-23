@@ -13,11 +13,23 @@ import {
   Cell,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { PMIXItem } from '@/lib/reports/mock-data'
+interface PMIXItem {
+  name: string
+  category: string
+  quantity_sold: number
+  revenue: number
+  food_cost_pct: number
+  margin_pct: number
+  classification: string
+  popularity: number
+  profitability: number
+}
 
 interface PMIXScatterProps {
   data: PMIXItem[]
 }
+
+export type { PMIXItem }
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
   Star: '#F06B18',

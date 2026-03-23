@@ -2,14 +2,27 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, DollarSign, Users, ChefHat, UserCheck } from 'lucide-react'
+import {
+  BarChart3, DollarSign, Users, ChefHat, UserCheck,
+  CreditCard, Banknote, Receipt, Timer, AlertTriangle,
+  TrendingUp, LineChart, Salad, LayoutDashboard,
+} from 'lucide-react'
 
 const REPORT_TABS = [
-  { label: 'Dashboard', href: '/reports', icon: BarChart3 },
+  { label: 'Hub', href: '/reports', icon: BarChart3 },
   { label: 'Sales', href: '/reports/sales', icon: DollarSign },
+  { label: 'Payments', href: '/reports/payments', icon: CreditCard },
+  { label: 'Cash', href: '/reports/cash', icon: Banknote },
+  { label: 'Tax', href: '/reports/tax', icon: Receipt },
+  { label: 'Speed', href: '/reports/speed-of-service', icon: Timer },
+  { label: 'PMIX', href: '/reports/product-mix', icon: ChefHat },
+  { label: 'Food Cost', href: '/reports/food-cost', icon: Salad },
+  { label: 'P&L', href: '/reports/pnl', icon: TrendingUp },
+  { label: 'Voids', href: '/reports/voids-comps', icon: AlertTriangle },
   { label: 'Labor', href: '/reports/labor', icon: Users },
-  { label: 'Product Mix', href: '/reports/product-mix', icon: ChefHat },
-  { label: 'Server Performance', href: '/reports/server-performance', icon: UserCheck },
+  { label: 'Servers', href: '/reports/server-performance', icon: UserCheck },
+  { label: 'Trends', href: '/reports/trends', icon: LineChart },
+  { label: 'Dashboard', href: '/reports/dashboard', icon: LayoutDashboard },
 ]
 
 export default function ReportsLayout({ children }: { children: React.ReactNode }) {
@@ -17,10 +30,10 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab Navigation */}
+      {/* Tab Navigation — scrollable */}
       <div className="border-b border-[var(--border)] bg-white">
         <div className="max-w-7xl mx-auto px-6">
-          <nav className="flex gap-1 -mb-px">
+          <nav className="flex gap-0.5 -mb-px overflow-x-auto scrollbar-hide">
             {REPORT_TABS.map((tab) => {
               const isActive = tab.href === '/reports'
                 ? pathname === '/reports'
@@ -30,13 +43,13 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                     isActive
                       ? 'border-[var(--primary)] text-[var(--primary)]'
                       : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--border)]'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
                   {tab.label}
                 </Link>
               )

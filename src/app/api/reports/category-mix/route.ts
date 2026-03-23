@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { getMockCategoryMix } from '@/lib/reports/mock-data'
+// Mock data removed — live queries only
 
 /**
  * GET /api/reports/category-mix — sales by category
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const { count } = await countQuery
 
   if (!count || count === 0) {
-    return NextResponse.json({ is_mock: true, data: getMockCategoryMix() })
+    return NextResponse.json({ is_mock: true, data: [] })
   }
 
   // Real: join order_items → menu_items → menu_categories

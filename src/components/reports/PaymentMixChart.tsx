@@ -9,11 +9,18 @@ import {
   Legend,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { PaymentMixPoint } from '@/lib/reports/mock-data'
+interface PaymentMixPoint {
+  method: string
+  amount: number
+  percentage: number
+  color: string
+}
 
 interface PaymentMixChartProps {
   data: PaymentMixPoint[]
 }
+
+export type { PaymentMixPoint }
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: PaymentMixPoint }> }) {
   if (!active || !payload?.length) return null

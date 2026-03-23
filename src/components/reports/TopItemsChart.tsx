@@ -10,11 +10,17 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { TopItemPoint } from '@/lib/reports/mock-data'
+interface TopItemPoint {
+  name: string
+  quantity: number
+  revenue: number
+}
 
 interface TopItemsChartProps {
   data: TopItemPoint[]
 }
+
+export type { TopItemPoint }
 
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) {
   if (!active || !payload?.length) return null

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { getMockWeeklySales } from '@/lib/reports/mock-data'
+// Mock data removed — live queries only
 
 /**
  * GET /api/reports/weekly — weekly aggregated sales
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const { count } = await countQuery
 
   if (!count || count === 0) {
-    return NextResponse.json({ is_mock: true, data: getMockWeeklySales() })
+    return NextResponse.json({ is_mock: true, data: [] })
   }
 
   // Real: aggregate daily_metrics by week

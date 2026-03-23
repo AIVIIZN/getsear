@@ -10,11 +10,17 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { CategoryMixPoint } from '@/lib/reports/mock-data'
+interface CategoryMixPoint {
+  category: string
+  sales: number
+  percentage: number
+}
 
 interface CategoryMixChartProps {
   data: CategoryMixPoint[]
 }
+
+export type { CategoryMixPoint }
 
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
   if (!active || !payload?.length) return null

@@ -10,11 +10,17 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { HourlySalesPoint } from '@/lib/reports/mock-data'
+interface HourlySalesPoint {
+  hour: string
+  sales: number
+  orders: number
+}
 
 interface HourlySalesChartProps {
   data: HourlySalesPoint[]
 }
+
+export type { HourlySalesPoint }
 
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) {
   if (!active || !payload?.length) return null

@@ -1,35 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import {
-  getMockDailySales,
-  getMockLaborData,
-  getMockPMIX,
-  getMockServerPerformance,
-  getMockPaymentMix,
-  getMockDiscounts,
-  getMockTax,
-  getMockCategoryMix,
-} from '@/lib/reports/mock-data'
+import { getDailySales, getLaborData, getProductMix, getServerPerformance, getPaymentSummary, getTaxData, getCashDrawerReport, getVoidCompData } from '@/lib/reports/queries'
+import { buildDailySalesCSV, buildLaborCSV, buildGenericCSV } from '@/lib/reports/pdf-generator'
 
-type ReportType = 'daily' | 'weekly' | 'monthly' | 'labor' | 'pmix' | 'server-performance' | 'payments' | 'discounts' | 'tax' | 'category-mix'
-
-function toCsv(headers: string[], rows: string[][]): string {
-  const escape = (val: string) => {
-    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-      return `"${val.replace(/"/g, '""')}"`
-    }
-    return val
-  }
-  const lines = [headers.map(escape).join(',')]
-  for (const row of rows) {
-    lines.push(row.map(escape).join(','))
-  }
-  return lines.join('\n')
-}
+type ReportType = 'daily' | 'labor' | 'pmix' | 'server-performance' | 'payments' | 'tax' | 'cash' | 'voids-comps' | 'category-mix'
 
 /**
- * GET /api/reports/export — CSV export for any report type
- * Query params: type (report type)
+ * GET /api/reports/export — CSV/PDF export for any report type
+ * Query params: type, date, date_from, date_to, location_id, format (csv|pdf)
  */
 export async function GET(request: NextRequest) {
   const user = await getAuthUser()
@@ -39,78 +17,174 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams
   const reportType = params.get('type') as ReportType | null
+  const date = params.get('date') ?? new Date().toISOString().split('T')[0]
+  const dateFrom = params.get('date_from') ?? date
+  const dateTo = params.get('date_to') ?? date
+  const locationId = params.get('location_id') ?? undefined
 
   if (!reportType) {
     return NextResponse.json({ error: 'type parameter is required' }, { status: 400 })
   }
 
+  const locationName = 'Sear POS Location' // Would resolve from DB
   let csv = ''
 
   switch (reportType) {
-    case 'daily':
-    case 'weekly':
-    case 'monthly': {
-      const data = getMockDailySales(reportType === 'daily' ? 7 : reportType === 'weekly' ? 28 : 180)
-      csv = toCsv(
-        ['Date', 'Gross Sales', 'Net Sales', 'Orders', 'Discounts', 'Tax'],
-        data.map((d) => [d.date, d.gross_sales.toString(), d.net_sales.toString(), d.orders.toString(), d.discounts.toString(), d.tax.toString()])
-      )
+    case 'daily': {
+      const result = await getDailySales(user.org_id, date, locationId)
+      if (result.data) {
+        csv = buildDailySalesCSV(result.data, locationName)
+      } else {
+        csv = 'No data available for this date'
+      }
       break
     }
     case 'labor': {
-      const data = getMockLaborData()
-      csv = toCsv(
-        ['Name', 'Role', 'Hours', 'Rate', 'Total Pay', 'Tips', 'OT Hours'],
-        data.entries.map((e) => [e.name, e.role, e.hours.toString(), e.rate.toString(), e.total_pay.toString(), e.tips.toString(), e.overtime_hours.toString()])
-      )
+      const result = await getLaborData(user.org_id, dateFrom, dateTo, locationId)
+      if (result.data) {
+        csv = buildLaborCSV(result.data, `${dateFrom} to ${dateTo}`, locationName)
+      } else {
+        csv = 'No labor data available for this period'
+      }
       break
     }
     case 'pmix': {
-      const data = getMockPMIX()
-      csv = toCsv(
-        ['Item', 'Category', 'Qty Sold', 'Revenue', 'Food Cost %', 'Margin %', 'Classification'],
-        data.map((d) => [d.name, d.category, d.quantity_sold.toString(), d.revenue.toString(), d.food_cost_pct.toString(), d.margin_pct.toString(), d.classification])
-      )
+      const result = await getProductMix(user.org_id, dateFrom, dateTo, locationId)
+      if (result.data) {
+        csv = buildGenericCSV(
+          'Product Mix Report',
+          [
+            { header: 'Item', key: 'name' },
+            { header: 'Category', key: 'category' },
+            { header: 'Qty Sold', key: 'quantity_sold', format: 'number' },
+            { header: 'Revenue', key: 'revenue', format: 'currency' },
+            { header: 'Food Cost %', key: 'food_cost_pct', format: 'percent' },
+            { header: 'Margin %', key: 'margin_pct', format: 'percent' },
+            { header: 'Classification', key: 'classification' },
+          ],
+          result.data,
+          `${dateFrom} to ${dateTo}`,
+          locationName
+        )
+      } else {
+        csv = 'No PMIX data available for this period'
+      }
       break
     }
     case 'server-performance': {
-      const data = getMockServerPerformance()
-      csv = toCsv(
-        ['Server', 'Total Sales', 'Orders', 'Avg Check', 'Avg Tip %', 'Covers'],
-        data.map((d) => [d.name, d.total_sales.toString(), d.orders.toString(), d.avg_check.toString(), d.avg_tip_pct.toString(), d.covers.toString()])
-      )
+      const result = await getServerPerformance(user.org_id, dateFrom, dateTo, locationId)
+      if (result.data) {
+        csv = buildGenericCSV(
+          'Server Performance Report',
+          [
+            { header: 'Server', key: 'name' },
+            { header: 'Total Sales', key: 'total_sales', format: 'currency' },
+            { header: 'Orders', key: 'orders', format: 'number' },
+            { header: 'Avg Check', key: 'avg_check', format: 'currency' },
+            { header: 'Avg Tip %', key: 'avg_tip_pct', format: 'percent' },
+            { header: 'Covers', key: 'covers', format: 'number' },
+          ],
+          result.data,
+          `${dateFrom} to ${dateTo}`,
+          locationName
+        )
+      } else {
+        csv = 'No server performance data available'
+      }
       break
     }
     case 'payments': {
-      const data = getMockPaymentMix()
-      csv = toCsv(
-        ['Method', 'Amount', 'Percentage'],
-        data.map((d) => [d.method, d.amount.toString(), d.percentage.toString()])
-      )
-      break
-    }
-    case 'discounts': {
-      const data = getMockDiscounts()
-      csv = toCsv(
-        ['Discount', 'Count', 'Amount'],
-        data.discounts.map((d) => [d.name, d.count.toString(), d.amount.toString()])
-      )
+      const result = await getPaymentSummary(user.org_id, dateFrom, dateTo, locationId)
+      if (result.data) {
+        csv = buildGenericCSV(
+          'Payment Summary',
+          [
+            { header: 'Method', key: 'method' },
+            { header: 'Amount', key: 'amount', format: 'currency' },
+            { header: 'Percentage', key: 'percentage', format: 'percent' },
+            { header: 'Tips', key: 'tip_total', format: 'currency' },
+            { header: 'Refunds', key: 'refund_total', format: 'currency' },
+            { header: 'Count', key: 'count', format: 'number' },
+          ],
+          result.data,
+          `${dateFrom} to ${dateTo}`,
+          locationName
+        )
+      } else {
+        csv = 'No payment data available'
+      }
       break
     }
     case 'tax': {
-      const data = getMockTax()
-      csv = toCsv(
-        ['Rate Name', 'Rate %', 'Taxable Sales', 'Tax Collected'],
-        data.map((d) => [d.rate_name, d.rate_pct.toString(), d.taxable_sales.toString(), d.tax_collected.toString()])
-      )
+      const result = await getTaxData(user.org_id, dateFrom, dateTo, locationId)
+      if (result.data) {
+        csv = buildGenericCSV(
+          'Tax Report',
+          [
+            { header: 'Rate Name', key: 'rate_name' },
+            { header: 'Rate %', key: 'rate_pct', format: 'percent' },
+            { header: 'Taxable Sales', key: 'taxable_sales', format: 'currency' },
+            { header: 'Tax Collected', key: 'tax_collected', format: 'currency' },
+          ],
+          result.data,
+          `${dateFrom} to ${dateTo}`,
+          locationName
+        )
+      } else {
+        csv = 'No tax data available'
+      }
       break
     }
-    case 'category-mix': {
-      const data = getMockCategoryMix()
-      csv = toCsv(
-        ['Category', 'Sales', 'Percentage'],
-        data.map((d) => [d.category, d.sales.toString(), d.percentage.toString()])
-      )
+    case 'cash': {
+      const result = await getCashDrawerReport(user.org_id, date, locationId)
+      if (result.data) {
+        csv = buildGenericCSV(
+          'Cash Drawer Report',
+          [
+            { header: 'Employee', key: 'employee_name' },
+            { header: 'Starting Cash', key: 'starting_cash', format: 'currency' },
+            { header: 'Cash Sales', key: 'cash_sales', format: 'currency' },
+            { header: 'Payouts', key: 'cash_payouts', format: 'currency' },
+            { header: 'Expected', key: 'expected_cash', format: 'currency' },
+            { header: 'Actual', key: 'actual_cash', format: 'currency' },
+            { header: 'Over/Short', key: 'over_short', format: 'currency' },
+          ],
+          result.data,
+          date,
+          locationName
+        )
+      } else {
+        csv = 'No cash drawer data available'
+      }
+      break
+    }
+    case 'voids-comps': {
+      const result = await getVoidCompData(user.org_id, dateFrom, dateTo, locationId)
+      if (result.data) {
+        csv = buildGenericCSV(
+          'Voids & Comps Report',
+          [
+            { header: 'Employee', key: 'employee_name' },
+            { header: 'Voids', key: 'void_count', format: 'number' },
+            { header: 'Void Total', key: 'void_total', format: 'currency' },
+            { header: 'Comps', key: 'comp_count', format: 'number' },
+            { header: 'Comp Total', key: 'comp_total', format: 'currency' },
+            { header: 'Discounts', key: 'discount_count', format: 'number' },
+            { header: 'Discount Total', key: 'discount_total', format: 'currency' },
+            { header: 'Flagged', key: 'is_flagged' },
+          ],
+          result.data.by_employee,
+          `${dateFrom} to ${dateTo}`,
+          locationName,
+          [
+            { label: 'Total Voids', value: `$${result.data.total_void.toFixed(2)}` },
+            { label: 'Total Comps', value: `$${result.data.total_comp.toFixed(2)}` },
+            { label: 'Total Discounts', value: `$${result.data.total_discount.toFixed(2)}` },
+          ]
+        )
+      } else {
+        csv = 'No void/comp data available'
+      }
       break
     }
     default:
@@ -120,7 +194,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv',
-      'Content-Disposition': `attachment; filename="${reportType}-report-${new Date().toISOString().split('T')[0]}.csv"`,
+      'Content-Disposition': `attachment; filename="${reportType}-report-${date}.csv"`,
     },
   })
 }
