@@ -13,6 +13,7 @@ interface TicketItem {
   course: number
   status: 'pending' | 'in_progress' | 'completed'
   is_void?: boolean
+  is_fired?: boolean
 }
 
 interface KdsTicketData {
@@ -28,6 +29,7 @@ interface KdsTicketData {
   age_category: 'fresh' | 'aging' | 'late' | 'critical'
   is_rush: boolean
   station_id: string
+  is_add?: boolean
 }
 
 interface KdsTicketProps {
@@ -79,7 +81,6 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
 
   const handleBump = useCallback(() => {
     setIsSliding(true)
-    // Wait for animation before calling onBump
     setTimeout(() => {
       onBump(ticket.id)
     }, 250)
@@ -97,6 +98,11 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
   const courses = [...courseGroups.entries()].sort(([a], [b]) => a - b)
   const hasMultipleCourses = courses.length > 1
 
+  // Determine if a course is held (course > 1 and items not fired)
+  function isCourseHeld(courseItems: TicketItem[]): boolean {
+    return courseItems.every((item) => !item.is_fired && item.status === 'pending')
+  }
+
   return (
     <div
       className={`flex flex-col rounded-lg border transition-all duration-250 ${getAgingBackground(
@@ -108,8 +114,15 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
     >
       {/* Rush banner */}
       {ticket.is_rush && (
-        <div className="flex items-center justify-center rounded-t-lg bg-red-600 px-3 py-1.5 text-sm font-black tracking-wider text-white">
+        <div className="flex items-center justify-center rounded-t-lg bg-red-600 px-3 py-1.5 text-sm font-black tracking-wider text-white animate-pulse">
           RUSH
+        </div>
+      )}
+
+      {/* ADD badge for items added after initial send */}
+      {ticket.is_add && (
+        <div className="flex items-center justify-center bg-blue-600 px-3 py-1 text-xs font-black tracking-wider text-white">
+          ADD
         </div>
       )}
 
@@ -143,68 +156,81 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
 
       {/* Items */}
       <div className="flex-1 overflow-y-auto p-3">
-        {courses.map(([course, items], idx) => (
-          <div key={course}>
-            {hasMultipleCourses && (
-              <div className="mb-1.5 mt-1 flex items-center gap-2">
-                <div className="h-px flex-1 bg-[var(--border)]" />
-                <span className="text-xs font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
-                  Course {course}
-                </span>
-                <div className="h-px flex-1 bg-[var(--border)]" />
-              </div>
-            )}
-            {idx > 0 && !hasMultipleCourses && (
-              <div className="my-1 h-px bg-[var(--border)]" />
-            )}
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className={`mb-1.5 ${item.is_void ? 'opacity-40' : ''}`}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-[var(--secondary)] text-sm font-bold text-[var(--foreground)]">
-                    {item.quantity}
+        {courses.map(([course, items], idx) => {
+          const held = hasMultipleCourses && course > 1 && isCourseHeld(items)
+          return (
+            <div key={course}>
+              {hasMultipleCourses && (
+                <div className="mb-1.5 mt-1 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-[var(--border)]" />
+                  <span className="text-xs font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Course {course}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <span
-                      className={`text-base font-semibold text-[var(--foreground)] ${
-                        item.is_void ? 'line-through' : ''
-                      }`}
-                    >
-                      {item.name}
-                      {item.is_void && (
-                        <span className="ml-2 text-xs font-bold text-red-400">(VOIDED)</span>
-                      )}
-                    </span>
-                    {item.modifiers.length > 0 && (
-                      <div className="mt-0.5">
-                        {item.modifiers.map((mod, i) => (
-                          <div
-                            key={i}
-                            className="pl-2 text-sm text-[var(--muted-foreground)]"
-                          >
-                            &bull; {mod}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {item.special_instructions && (
-                      <div className="mt-0.5 rounded bg-yellow-900/30 px-2 py-0.5 text-sm italic text-yellow-300">
-                        {item.special_instructions}
-                      </div>
-                    )}
-                  </div>
-                  {item.seat_number != null && (
-                    <span className="mt-0.5 flex-shrink-0 text-xs text-[var(--muted-foreground)]">
-                      S{item.seat_number}
+                  {held && (
+                    <span className="rounded bg-gray-600 px-1.5 py-0.5 text-[10px] font-black uppercase text-gray-200">
+                      HOLD
                     </span>
                   )}
+                  <div className="h-px flex-1 bg-[var(--border)]" />
                 </div>
+              )}
+              {idx > 0 && !hasMultipleCourses && (
+                <div className="my-1 h-px bg-[var(--border)]" />
+              )}
+              <div className={held ? 'opacity-40' : ''}>
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`mb-1.5 ${item.is_void ? 'opacity-40' : ''}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-[var(--secondary)] text-sm font-bold text-[var(--foreground)]">
+                        {item.quantity}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span
+                          className={`text-base font-semibold text-[var(--foreground)] ${
+                            item.is_void ? 'line-through' : ''
+                          }`}
+                        >
+                          {item.name}
+                          {item.is_void && (
+                            <span className="ml-2 text-xs font-bold text-red-400">(VOIDED)</span>
+                          )}
+                          {item.status === 'completed' && (
+                            <span className="ml-2 text-xs font-bold text-green-400">&#10003;</span>
+                          )}
+                        </span>
+                        {item.modifiers.length > 0 && (
+                          <div className="mt-0.5">
+                            {item.modifiers.map((mod, i) => (
+                              <div
+                                key={i}
+                                className="pl-2 text-sm text-[var(--muted-foreground)]"
+                              >
+                                &bull; {mod}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {item.special_instructions && (
+                          <div className="mt-0.5 rounded bg-yellow-900/30 px-2 py-0.5 text-sm italic text-yellow-300">
+                            {item.special_instructions}
+                          </div>
+                        )}
+                      </div>
+                      {item.seat_number != null && (
+                        <span className="mt-0.5 flex-shrink-0 text-xs text-[var(--muted-foreground)]">
+                          S{item.seat_number}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ))}
+            </div>
+          )
+        })}
       </div>
 
       {/* Bump button */}

@@ -10,13 +10,19 @@ import { TipSelector } from '@/components/payments/TipSelector'
 import { ReceiptOptions, type ReceiptChoice } from '@/components/payments/ReceiptOptions'
 import { PaymentComplete } from '@/components/payments/PaymentComplete'
 import { CardProcessing } from '@/components/payments/CardProcessing'
+import { GiftCardFlow } from '@/components/payments/GiftCardFlow'
+import { HouseAccountFlow } from '@/components/payments/HouseAccountFlow'
 import { useOrderStore } from '@/stores/order-store'
+import { useAuthStore } from '@/stores/auth-store'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 type FlowState =
   | 'method_select'
   | 'processing_card'
   | 'processing_cash'
+  | 'processing_gift_card'
+  | 'processing_house_account'
   | 'tip_prompt'
   | 'receipt_prompt'
   | 'complete'
@@ -44,15 +50,17 @@ function PaymentsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentOrder = useOrderStore((s) => s.currentOrder)
+  const { clearCurrentOrder } = useOrderStore((s) => s.actions)
+  const activeLocationId = useAuthStore((s) => s.activeLocationId)
 
-  // Allow overriding total via query param for testing
+  // Allow overriding total via query param
   const paramTotal = searchParams.get('total_cents')
   const orderTotalCents = paramTotal
     ? parseInt(paramTotal, 10)
     : currentOrder?.total_cents ?? 0
 
   const orderId = searchParams.get('order_id') ?? currentOrder?.id ?? ''
-  const locationId = searchParams.get('location_id') ?? ''
+  const locationId = searchParams.get('location_id') ?? activeLocationId ?? ''
 
   const [flowState, setFlowState] = useState<FlowState>('method_select')
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodChoice | null>(null)
@@ -62,7 +70,6 @@ function PaymentsPage() {
     tipCents: 0,
   })
 
-  // Determine if tip prompt should be shown (card payments)
   const shouldShowTip = useMemo(() => {
     return selectedMethod === 'credit_card' || selectedMethod === 'digital_wallet'
   }, [selectedMethod])
@@ -79,41 +86,14 @@ function PaymentsPage() {
       } else if (method === 'cash') {
         setFlowState('processing_cash')
       } else if (method === 'gift_card') {
-        // For gift card, process directly then move to receipt
-        processGiftCard()
+        setFlowState('processing_gift_card')
+      } else if (method === 'house_account') {
+        setFlowState('processing_house_account')
       } else if (method === 'split') {
-        // Split payment is a more complex flow -- for now, go back
-        router.push('/checks')
-      } else {
-        // house_account — process and go to receipt
-        processGenericPayment(method)
+        router.push(`/checks`)
       }
     },
-    [orderTotalCents, orderId, locationId, router]
-  )
-
-  const processGiftCard = useCallback(async () => {
-    // Simplified: go straight to tip (no tip for gift card) then receipt
-    setPaymentResult((prev) => ({
-      ...prev,
-      method: 'gift_card',
-      amountCents: orderTotalCents,
-      tipCents: 0,
-    }))
-    setFlowState('receipt_prompt')
-  }, [orderTotalCents])
-
-  const processGenericPayment = useCallback(
-    async (method: string) => {
-      setPaymentResult((prev) => ({
-        ...prev,
-        method,
-        amountCents: orderTotalCents,
-        tipCents: 0,
-      }))
-      setFlowState('receipt_prompt')
-    },
-    [orderTotalCents]
+    [orderTotalCents, router]
   )
 
   const handleCardApproved = useCallback(
@@ -135,7 +115,6 @@ function PaymentsPage() {
   )
 
   const handleCardDeclined = useCallback(() => {
-    // Go back to method select on decline
     setFlowState('method_select')
     setSelectedMethod(null)
   }, [])
@@ -144,7 +123,6 @@ function PaymentsPage() {
     async (tenderedCents: number) => {
       const changeDue = Math.max(0, tenderedCents - orderTotalCents)
 
-      // Process cash payment via API
       try {
         await fetch('/api/payments/process', {
           method: 'POST',
@@ -171,11 +149,34 @@ function PaymentsPage() {
     [orderTotalCents, orderId, locationId]
   )
 
+  const handleGiftCardComplete = useCallback(
+    (result: { amountAppliedCents: number; remainingBalanceCents: number }) => {
+      setPaymentResult((prev) => ({
+        ...prev,
+        method: 'gift_card',
+        amountCents: result.amountAppliedCents,
+      }))
+      setFlowState('receipt_prompt')
+    },
+    []
+  )
+
+  const handleHouseAccountComplete = useCallback(
+    (result: { accountId: string; accountName: string }) => {
+      setPaymentResult((prev) => ({
+        ...prev,
+        method: 'house_account',
+      }))
+      toast.success(`Charged to ${result.accountName}`)
+      setFlowState('receipt_prompt')
+    },
+    []
+  )
+
   const handleTipSelected = useCallback(
     async (tipCents: number) => {
       setPaymentResult((prev) => ({ ...prev, tipCents }))
 
-      // If card payment, adjust the tip via API using the actual payment_id
       if (tipCents > 0 && paymentResult.paymentId) {
         try {
           await fetch('/api/payments/tip-adjust', {
@@ -187,7 +188,7 @@ function PaymentsPage() {
             }),
           })
         } catch {
-          // Continue even if API fails in dev
+          // Continue even if tip adjust fails
         }
       }
 
@@ -196,14 +197,36 @@ function PaymentsPage() {
     [paymentResult.paymentId]
   )
 
-  const handleReceiptChoice = useCallback((_choice: ReceiptChoice) => {
-    // In production: trigger print/email/SMS here
+  const handleReceiptChoice = useCallback(async (choice: ReceiptChoice) => {
+    // Call receipt API based on choice
+    if (choice === 'email' || choice === 'text') {
+      try {
+        await fetch(`/api/orders/${orderId}/receipt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: choice }),
+        })
+      } catch {
+        // Silent — receipt delivery is best-effort
+      }
+    } else if (choice === 'print') {
+      try {
+        await fetch(`/api/orders/${orderId}/print-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ format: 'receipt', include_tip: true }),
+        })
+      } catch {
+        window.print()
+      }
+    }
     setFlowState('complete')
-  }, [])
+  }, [orderId])
 
   const handleDone = useCallback(() => {
+    clearCurrentOrder()
     router.push('/orders')
-  }, [router])
+  }, [router, clearCurrentOrder])
 
   const handleBack = useCallback(() => {
     if (flowState === 'method_select') {
@@ -234,102 +257,84 @@ function PaymentsPage() {
         </div>
       )}
 
-      {/* Content area with smooth transitions */}
+      {/* Content area */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="mx-auto max-w-md">
           {/* METHOD SELECT */}
-          <div
-            className={cn(
-              'transition-all duration-300',
-              flowState === 'method_select'
-                ? 'translate-x-0 opacity-100'
-                : 'pointer-events-none absolute -translate-x-8 opacity-0'
-            )}
-          >
-            {flowState === 'method_select' && (
-              <div className="flex flex-col gap-6">
-                <div className="text-center">
-                  <MoneyDisplay
-                    cents={orderTotalCents}
-                    className="text-4xl font-bold text-foreground"
-                  />
-                  <p className="mt-1 text-sm text-muted-foreground">Select Payment Method</p>
-                </div>
-                <PaymentMethodGrid onSelect={handleMethodSelect} />
+          {flowState === 'method_select' && (
+            <div className="flex flex-col gap-6 animate-fade-in">
+              <div className="text-center">
+                <MoneyDisplay
+                  cents={orderTotalCents}
+                  className="text-4xl font-bold text-foreground"
+                />
+                <p className="mt-1 text-sm text-muted-foreground">Select Payment Method</p>
               </div>
-            )}
-          </div>
+              <PaymentMethodGrid onSelect={handleMethodSelect} />
+            </div>
+          )}
 
           {/* CARD PROCESSING */}
-          <div
-            className={cn(
-              'transition-all duration-300',
-              flowState === 'processing_card'
-                ? 'translate-x-0 opacity-100'
-                : 'pointer-events-none absolute translate-x-8 opacity-0'
-            )}
-          >
-            {flowState === 'processing_card' && (
+          {flowState === 'processing_card' && (
+            <div className="animate-slide-in-right">
               <CardProcessing
                 totalCents={orderTotalCents}
                 onApproved={handleCardApproved}
                 onDeclined={handleCardDeclined}
               />
-            )}
-          </div>
+            </div>
+          )}
 
           {/* CASH PROCESSING */}
-          <div
-            className={cn(
-              'transition-all duration-300',
-              flowState === 'processing_cash'
-                ? 'translate-x-0 opacity-100'
-                : 'pointer-events-none absolute translate-x-8 opacity-0'
-            )}
-          >
-            {flowState === 'processing_cash' && (
+          {flowState === 'processing_cash' && (
+            <div className="animate-slide-in-right">
               <CashTender totalCents={orderTotalCents} onComplete={handleCashComplete} />
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* GIFT CARD PROCESSING */}
+          {flowState === 'processing_gift_card' && (
+            <div className="animate-slide-in-right">
+              <GiftCardFlow
+                totalCents={orderTotalCents}
+                orderId={orderId}
+                locationId={locationId}
+                onComplete={handleGiftCardComplete}
+                onCancel={handleBack}
+              />
+            </div>
+          )}
+
+          {/* HOUSE ACCOUNT PROCESSING */}
+          {flowState === 'processing_house_account' && (
+            <div className="animate-slide-in-right">
+              <HouseAccountFlow
+                totalCents={orderTotalCents}
+                orderId={orderId}
+                locationId={locationId}
+                onComplete={handleHouseAccountComplete}
+                onCancel={handleBack}
+              />
+            </div>
+          )}
 
           {/* TIP PROMPT */}
-          <div
-            className={cn(
-              'transition-all duration-300',
-              flowState === 'tip_prompt'
-                ? 'translate-x-0 opacity-100'
-                : 'pointer-events-none absolute translate-x-8 opacity-0'
-            )}
-          >
-            {flowState === 'tip_prompt' && (
+          {flowState === 'tip_prompt' && (
+            <div className="animate-slide-in-right">
               <TipSelector subtotalCents={orderTotalCents} onSelect={handleTipSelected} />
-            )}
-          </div>
+            </div>
+          )}
 
           {/* RECEIPT PROMPT */}
-          <div
-            className={cn(
-              'transition-all duration-300',
-              flowState === 'receipt_prompt'
-                ? 'translate-x-0 opacity-100'
-                : 'pointer-events-none absolute translate-x-8 opacity-0'
-            )}
-          >
-            {flowState === 'receipt_prompt' && (
+          {flowState === 'receipt_prompt' && (
+            <div className="animate-slide-in-right">
               <ReceiptOptions onSelect={handleReceiptChoice} />
-            )}
-          </div>
+            </div>
+          )}
 
           {/* COMPLETE */}
-          <div
-            className={cn(
-              'transition-all duration-500',
-              flowState === 'complete'
-                ? 'translate-y-0 opacity-100'
-                : 'pointer-events-none absolute translate-y-8 opacity-0'
-            )}
-          >
-            {flowState === 'complete' && (
+          {flowState === 'complete' && (
+            <div className="animate-fade-in">
               <PaymentComplete
                 totalCents={paymentResult.amountCents}
                 tipCents={paymentResult.tipCents}
@@ -339,8 +344,8 @@ function PaymentsPage() {
                 onDone={handleDone}
                 autoRedirectMs={3000}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -174,3 +174,45 @@ export function useRealtimeTables(
     }
   }, [floorPlanId])
 }
+
+/**
+ * Subscribe to menu item 86 status changes.
+ * When an item is 86'd or un-86'd, the callback fires with the updated item.
+ * Use this on the POS to grey out unavailable items in real time.
+ */
+export function useRealtime86(
+  orgId: string,
+  onItemUpdate: (item: { id: string; is_86d: boolean; name: string }) => void
+) {
+  const callbackRef = useRef(onItemUpdate)
+  callbackRef.current = onItemUpdate
+
+  useEffect(() => {
+    if (!orgId) return
+
+    const supabase = getSupabase()
+
+    const channel = supabase
+      .channel(`menu-86:${orgId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'menu_items',
+          filter: `org_id=eq.${orgId}`,
+        },
+        (payload: PostgresChange) => {
+          const item = payload.new as { id: string; is_86d: boolean; name: string }
+          if (item.id) {
+            callbackRef.current(item)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [orgId])
+}

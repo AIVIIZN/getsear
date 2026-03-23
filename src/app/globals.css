@@ -4,8 +4,11 @@
 
 /* ============================================================
    SEAR POS DESIGN SYSTEM
-   Enterprise restaurant POS — light mode, warm, professional
+   Enterprise restaurant POS — iPad-native feel, warm, premium
    Brand: Ember Orange (#F06B18)
+   Typography: SF Pro (system font stack)
+   Grid: 8pt spacing
+   Touch: 48px minimum targets
    ============================================================ */
 
 @custom-variant dark (&:is(.dark *));
@@ -14,9 +17,11 @@
   /* Core mappings */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  --font-heading: var(--font-sans);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", monospace;
+  --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
 
   /* shadcn/ui mappings */
   --color-card: var(--card);
@@ -63,7 +68,7 @@
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
 
-  /* Radius scale */
+  /* Radius scale — iOS-style squircle-inspired */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -74,11 +79,11 @@
 
 /* ============================================================
    LIGHT MODE (primary — the only production mode)
-   Warm off-white backgrounds, ember orange brand, warm shadows
+   Warm off-white backgrounds, ember orange brand
    ============================================================ */
 :root {
   /* Backgrounds — warm, not sterile */
-  --background: #FAFAF8;
+  --background: #FDFBF7;
   --foreground: #1A1A17;
   --card: #FFFFFF;
   --card-foreground: #1A1A17;
@@ -104,36 +109,39 @@
   --accent-foreground: #9A4A12;
 
   /* Destructive — void, delete, critical */
-  --destructive: #DC2626;
+  --destructive: #FF3B30;
 
-  /* Borders — warm, subtle */
-  --border: #E8E5DF;
-  --border-hover: #D4D0C8;
-  --input: #E8E5DF;
+  /* Borders — iOS-style hairlines */
+  --border: rgba(60, 60, 67, 0.12);
+  --border-hover: rgba(60, 60, 67, 0.20);
+  --input: rgba(60, 60, 67, 0.12);
   --ring: #F06B18;
+
+  /* iOS hairline separator */
+  --separator: rgba(60, 60, 67, 0.29);
 
   /* Radius */
   --radius: 0.75rem;
 
-  /* Semantic status colors */
-  --success: #16A34A;
+  /* Semantic status colors — iOS system colors */
+  --success: #34C759;
   --success-bg: #F0FDF4;
-  --warning: #D97706;
+  --warning: #FF9500;
   --warning-bg: #FFFBEB;
-  --error: #DC2626;
+  --error: #FF3B30;
   --error-bg: #FEF2F2;
-  --info: #2563EB;
+  --info: #007AFF;
   --info-bg: #EFF6FF;
 
   /* Table status colors */
-  --table-available: #16A34A;
-  --table-seated: #2563EB;
-  --table-ordered: #7C3AED;
-  --table-served: #0891B2;
-  --table-check-presented: #D97706;
-  --table-dirty: #9CA3AF;
-  --table-reserved: #6366F1;
-  --table-needs-attention: #DC2626;
+  --table-available: #34C759;
+  --table-seated: #007AFF;
+  --table-ordered: #AF52DE;
+  --table-served: #5AC8FA;
+  --table-check-presented: #FF9500;
+  --table-dirty: #8E8E93;
+  --table-reserved: #5856D6;
+  --table-needs-attention: #FF3B30;
 
   /* KDS aging colors */
   --kds-fresh: #FFFFFF;
@@ -142,110 +150,214 @@
   --kds-critical: #FECACA;
 
   /* Order type colors */
-  --order-dinein: #2563EB;
-  --order-takeout: #16A34A;
-  --order-delivery: #7C3AED;
-  --order-bar: #D97706;
-  --order-catering: #0891B2;
-  --order-online: #6366F1;
-  --order-drivethru: #EC4899;
+  --order-dinein: #007AFF;
+  --order-takeout: #34C759;
+  --order-delivery: #AF52DE;
+  --order-bar: #FF9500;
+  --order-catering: #5AC8FA;
+  --order-online: #5856D6;
+  --order-drivethru: #FF2D55;
 
-  /* Shadows — warm tinted, not blue-gray */
-  --shadow-sm: 0 1px 2px 0 rgba(28, 25, 18, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(28, 25, 18, 0.07), 0 2px 4px -2px rgba(28, 25, 18, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(28, 25, 18, 0.08), 0 4px 6px -4px rgba(28, 25, 18, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(28, 25, 18, 0.1), 0 8px 10px -6px rgba(28, 25, 18, 0.06);
+  /* Shadows — two-layer Apple-style for premium depth */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.16);
 
   /* Chart palette */
   --chart-1: #F06B18;
-  --chart-2: #2563EB;
-  --chart-3: #16A34A;
-  --chart-4: #7C3AED;
-  --chart-5: #D97706;
+  --chart-2: #007AFF;
+  --chart-3: #34C759;
+  --chart-4: #AF52DE;
+  --chart-5: #FF9500;
 
-  /* Sidebar */
-  --sidebar: #F5F3F0;
-  --sidebar-foreground: #3D3D37;
+  /* Sidebar — dark background */
+  --sidebar: #1C1C1E;
+  --sidebar-foreground: rgba(255, 255, 255, 0.85);
   --sidebar-primary: #F06B18;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EBE7E0;
-  --sidebar-accent-foreground: #3D3D37;
-  --sidebar-border: #E8E5DF;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #F06B18;
+  --sidebar-muted: rgba(255, 255, 255, 0.45);
 
-  /* Animation timing */
-  --duration-fast: 150ms;
+  /* Animation timing — iOS spring physics */
+  --duration-fast: 100ms;
   --duration-normal: 250ms;
-  --duration-slow: 400ms;
+  --duration-slow: 350ms;
+  --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Layout constants */
   --topbar-height: 56px;
-  --sidebar-collapsed: 64px;
+  --sidebar-collapsed: 72px;
   --sidebar-expanded: 240px;
   --order-panel-width: 360px;
+
+  /* iOS Typography tracking */
+  --tracking-tight: -0.004em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.004em;
 }
 
 /* ============================================================
    KDS Dark Theme (ONLY for kitchen display)
    ============================================================ */
 .dark {
-  --background: #0F1117;
+  --background: #000000;
   --foreground: #F5F3F0;
-  --card: #1A1C23;
+  --card: #1C1C1E;
   --card-foreground: #F5F3F0;
-  --popover: #1A1C23;
+  --popover: #1C1C1E;
   --popover-foreground: #F5F3F0;
-  --primary: #F59E0B;
-  --primary-foreground: #0F1117;
-  --secondary: #262830;
+  --primary: #FF9F0A;
+  --primary-foreground: #000000;
+  --secondary: #2C2C2E;
   --secondary-foreground: #F5F3F0;
-  --muted: #262830;
-  --muted-foreground: #9CA3AF;
-  --accent: #262830;
+  --muted: #2C2C2E;
+  --muted-foreground: rgba(235, 235, 245, 0.60);
+  --accent: #2C2C2E;
   --accent-foreground: #F5F3F0;
-  --destructive: #EF4444;
-  --border: rgba(255, 255, 255, 0.08);
+  --destructive: #FF453A;
+  --border: rgba(84, 84, 88, 0.65);
   --input: rgba(255, 255, 255, 0.12);
-  --ring: #F59E0B;
-  --chart-1: #F59E0B;
-  --chart-2: #3B82F6;
-  --chart-3: #22C55E;
-  --chart-4: #A78BFA;
-  --chart-5: #FB923C;
-  --sidebar: #1A1C23;
+  --ring: #FF9F0A;
+  --separator: rgba(84, 84, 88, 0.65);
+
+  /* KDS aging — vivid on dark */
+  --kds-fresh: #34C759;
+  --kds-aging: #FFCC00;
+  --kds-late: #FF9500;
+  --kds-critical: #FF3B30;
+
+  --chart-1: #FF9F0A;
+  --chart-2: #0A84FF;
+  --chart-3: #30D158;
+  --chart-4: #BF5AF2;
+  --chart-5: #FF9F0A;
+
+  --sidebar: #000000;
   --sidebar-foreground: #F5F3F0;
-  --sidebar-primary: #F59E0B;
-  --sidebar-primary-foreground: #0F1117;
-  --sidebar-accent: #262830;
+  --sidebar-primary: #FF9F0A;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #2C2C2E;
   --sidebar-accent-foreground: #F5F3F0;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #F59E0B;
+  --sidebar-border: rgba(84, 84, 88, 0.65);
+  --sidebar-ring: #FF9F0A;
 }
 
 /* ============================================================
-   BASE STYLES
+   BASE STYLES — iOS-native feel
    ============================================================ */
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
     @apply font-sans antialiased;
-    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-size: 17px;
+    line-height: 1.29;
+    letter-spacing: var(--tracking-tight);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Prevent text selection on POS chrome, allow in inputs */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   /* Tabular numbers for prices and data */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ============================================================
+   iOS TYPOGRAPHY SCALE
+   Based on SF Pro / Apple HIG
+   ============================================================ */
+@layer base {
+  .text-large-title {
+    font-size: 34px;
+    line-height: 41px;
+    font-weight: 400;
+    letter-spacing: 0.011em;
+  }
+
+  .text-title-1 {
+    font-size: 28px;
+    line-height: 34px;
+    font-weight: 400;
+  }
+
+  .text-title-2 {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 400;
+  }
+
+  .text-title-3 {
+    font-size: 20px;
+    line-height: 25px;
+    font-weight: 400;
+    letter-spacing: 0.004em;
+  }
+
+  .text-headline {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 600;
+    letter-spacing: -0.004em;
+  }
+
+  .text-body {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 400;
+    letter-spacing: -0.004em;
+  }
+
+  .text-callout {
+    font-size: 16px;
+    line-height: 21px;
+    font-weight: 400;
+  }
+
+  .text-subhead {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+
+  .text-footnote {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+
+  .text-caption-1 {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 400;
+  }
+
+  .text-caption-2 {
+    font-size: 11px;
+    line-height: 13px;
+    font-weight: 400;
   }
 }
 
@@ -258,6 +370,7 @@
   .no-select {
     -webkit-user-select: none;
     user-select: none;
+    -webkit-touch-callout: none;
   }
 
   /* Prevent overscroll/pull-to-refresh */
@@ -272,10 +385,25 @@
     touch-action: manipulation;
   }
 
+  /* Touch-optimized — 48px targets for POS */
   .touch-target-lg {
     min-height: 48px;
     min-width: 48px;
     touch-action: manipulation;
+  }
+
+  /* Touch-optimized — 56px for primary actions */
+  .touch-target-xl {
+    min-height: 56px;
+    min-width: 56px;
+    touch-action: manipulation;
+  }
+
+  /* Scrollable container — native momentum */
+  .scroll-container {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   /* Hide scrollbar but keep scroll */
@@ -292,16 +420,30 @@
   .shadow-warm-md { box-shadow: var(--shadow-md); }
   .shadow-warm-lg { box-shadow: var(--shadow-lg); }
   .shadow-warm-xl { box-shadow: var(--shadow-xl); }
+
+  /* iOS hairline separator */
+  .hairline {
+    border-color: var(--separator);
+    border-width: 0.5px;
+  }
+
+  .hairline-b {
+    border-bottom: 0.5px solid var(--separator);
+  }
+
+  .hairline-t {
+    border-top: 0.5px solid var(--separator);
+  }
 }
 
 /* ============================================================
    ANIMATIONS
-   Purposeful micro-interactions
+   iOS spring physics + purposeful micro-interactions
    ============================================================ */
 @layer base {
   @keyframes item-flash {
     0%, 100% { background-color: transparent; }
-    50% { background-color: var(--accent); }
+    50% { background-color: rgba(52, 199, 89, 0.15); }
   }
 
   @keyframes skeleton-shimmer {
@@ -314,14 +456,44 @@
     50% { opacity: 0.5; }
   }
 
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.7; }
+  }
+
   @keyframes slide-in-right {
     from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
   }
 
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes slide-out-right {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+  }
+
   @keyframes slide-out-left {
     from { transform: translateX(0); opacity: 1; }
     to { transform: translateX(-100%); opacity: 0; }
+  }
+
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes backdrop-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   @keyframes shake {
@@ -335,8 +507,13 @@
     to { transform: translateY(0); opacity: 1; }
   }
 
+  @keyframes kds-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
   .animate-item-flash {
-    animation: item-flash 500ms ease-out;
+    animation: item-flash 400ms var(--ease-out);
   }
 
   .animate-skeleton {
@@ -349,12 +526,36 @@
     animation: pulse-attention 1s infinite;
   }
 
+  .animate-pulse-dot {
+    animation: pulse-dot 2s infinite;
+  }
+
   .animate-slide-in-right {
-    animation: slide-in-right var(--duration-normal) var(--ease-out);
+    animation: slide-in-right var(--duration-slow) var(--ease-spring);
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left var(--duration-slow) var(--ease-spring);
+  }
+
+  .animate-slide-out-right {
+    animation: slide-out-right var(--duration-normal) var(--ease-in);
   }
 
   .animate-slide-out-left {
     animation: slide-out-left var(--duration-normal) var(--ease-in);
+  }
+
+  .animate-sheet-up {
+    animation: sheet-up 0.4s var(--ease-spring);
+  }
+
+  .animate-fade-in {
+    animation: fade-in var(--duration-normal) var(--ease-spring);
+  }
+
+  .animate-backdrop {
+    animation: backdrop-fade 0.3s ease;
   }
 
   .animate-counter-roll {
@@ -364,16 +565,62 @@
   .animate-shake {
     animation: shake 0.5s ease-in-out;
   }
+
+  .animate-kds-flash {
+    animation: kds-flash 0.8s infinite;
+  }
 }
 
 /* ============================================================
-   BUTTON PRESS FEEDBACK
-   Scale down slightly on touch for tactile feel
+   BUTTON & TOUCH FEEDBACK
+   Scale down on press for native tactile feel
    ============================================================ */
 @layer components {
+  .btn-press {
+    transition: transform var(--duration-fast) ease, opacity var(--duration-fast) ease;
+    cursor: pointer;
+  }
+
   .btn-press:active {
     transform: scale(0.97);
-    transition: transform 80ms ease-out;
+    opacity: 0.85;
+  }
+
+  /* Menu tile press — subtle scale with shadow collapse */
+  .tile-press {
+    transition: transform 150ms cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 150ms ease;
+    cursor: pointer;
+  }
+
+  .tile-press:active {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+
+  /* List row press — background highlight */
+  .row-press {
+    transition: background-color var(--duration-fast) ease;
+  }
+
+  .row-press:active {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  /* iOS-style squircle corners — progressive enhancement */
+  .squircle {
+    border-radius: 16px;
+    corner-shape: squircle;
+  }
+
+  .squircle-sm {
+    border-radius: 12px;
+    corner-shape: squircle;
+  }
+
+  .squircle-lg {
+    border-radius: 20px;
+    corner-shape: squircle;
   }
 }
 

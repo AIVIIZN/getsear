@@ -1,10 +1,16 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { OrderPanel } from '@/components/pos/OrderPanel'
 import { MenuGrid } from '@/components/pos/MenuGrid'
 import { QuickActions } from '@/components/pos/QuickActions'
 import { ModifierSheet } from '@/components/pos/ModifierSheet'
+import { VoidReasonDialog } from '@/components/pos/VoidReasonDialog'
+import { CompDialog } from '@/components/pos/CompDialog'
+import { DiscountDialog } from '@/components/pos/DiscountDialog'
+import { OrderTransferDialog } from '@/components/pos/OrderTransferDialog'
+import { TableMoveDialog } from '@/components/pos/TableMoveDialog'
 import { useOrderStore } from '@/stores/order-store'
 import { useMenuStore } from '@/stores/menu-store'
 import { useAuthStore } from '@/stores/auth-store'
@@ -41,13 +47,25 @@ interface SelectedModifier {
 }
 
 export default function OrdersPage() {
+  const router = useRouter()
   const currentOrder = useOrderStore((s) => s.currentOrder)
-  const { addItem, newOrder, clearCurrentOrder } = useOrderStore((s) => s.actions)
+  const { addItem, newOrder, clearCurrentOrder, voidItem } = useOrderStore((s) => s.actions)
   const { setCategories, setItems, setLoading } = useMenuStore((s) => s.actions)
+  const user = useAuthStore((s) => s.user)
+  const activeLocationId = useAuthStore((s) => s.activeLocationId)
 
   const [modifierItem, setModifierItem] = useState<MenuItemWithModifiers | null>(null)
   const [modifierSheetOpen, setModifierSheetOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
+
+  // Dialog states
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false)
+  const [voidTarget, setVoidTarget] = useState<{ id: string; name: string; isSent: boolean } | null>(null)
+  const [compDialogOpen, setCompDialogOpen] = useState(false)
+  const [compTarget, setCompTarget] = useState<{ id: string; name: string; priceCents: number } | null>(null)
+  const [discountOpen, setDiscountOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [tableMoveOpen, setTableMoveOpen] = useState(false)
 
   // Fetch menu data on mount
   useEffect(() => {
@@ -118,16 +136,16 @@ export default function OrdersPage() {
     loadMenu()
   }, [setCategories, setItems, setLoading])
 
-  // Auto-create a draft order if none exists
+  // Auto-create a draft order if none exists — use real auth user
   useEffect(() => {
-    if (!currentOrder) {
+    if (!currentOrder && user) {
       newOrder({
         order_type: 'dine_in',
-        server_id: 'current-user', // Placeholder, replaced on send
-        server_name: 'Server',
+        server_id: user.id,
+        server_name: user.display_name,
       })
     }
-  }, [currentOrder, newOrder])
+  }, [currentOrder, newOrder, user])
 
   // Handle item tap from menu grid
   const handleItemTap = useCallback(
@@ -135,7 +153,6 @@ export default function OrdersPage() {
       const hasRequiredModifiers = item.modifier_groups.some((g) => g.is_required)
 
       if (hasRequiredModifiers || item.modifier_groups.length > 0) {
-        // Load full modifier data
         try {
           const res = await fetch(`/api/menu/items/${item.id}/modifier-groups`)
           if (res.ok) {
@@ -172,27 +189,13 @@ export default function OrdersPage() {
             })
             setModifierSheetOpen(true)
           } else {
-            // Fallback — add without modifiers
-            addItem({
-              menu_item_id: item.id,
-              name: item.name,
-              price_cents: item.price_cents,
-            })
+            addItem({ menu_item_id: item.id, name: item.name, price_cents: item.price_cents })
           }
         } catch {
-          addItem({
-            menu_item_id: item.id,
-            name: item.name,
-            price_cents: item.price_cents,
-          })
+          addItem({ menu_item_id: item.id, name: item.name, price_cents: item.price_cents })
         }
       } else {
-        // No modifiers — add directly
-        addItem({
-          menu_item_id: item.id,
-          name: item.name,
-          price_cents: item.price_cents,
-        })
+        addItem({ menu_item_id: item.id, name: item.name, price_cents: item.price_cents })
       }
     },
     [addItem]
@@ -220,30 +223,27 @@ export default function OrdersPage() {
     [modifierItem, addItem]
   )
 
-  // Send to kitchen
+  // ========== SEND TO KITCHEN ==========
   const handleSendToKitchen = useCallback(async () => {
     if (!currentOrder || isSending) return
 
     setIsSending(true)
     try {
-      // First persist the order if it's new (draft with no server-side ID)
       let orderId = currentOrder.id
 
       if (currentOrder.status === 'draft' && !currentOrder.order_number) {
-        // Get location from auth store
-        const locationId = useAuthStore.getState().activeLocationId
-        if (!locationId) {
+        if (!activeLocationId) {
           toast.error('No active location set')
           return
         }
 
-        // Create order on server
+        // Create order on server with real user ID
         const createRes = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             order_type: currentOrder.order_type,
-            location_id: locationId,
+            location_id: activeLocationId,
             table_id: currentOrder.table_id,
             guest_count: currentOrder.guest_count,
             notes: currentOrder.notes,
@@ -291,8 +291,6 @@ export default function OrdersPage() {
         toast.success('Order sent to kitchen!', {
           description: `${currentOrder.items.filter((i) => !i.voided && i.status === 'pending').length} items sent`,
         })
-
-        // Clear and start fresh
         clearCurrentOrder()
       } else {
         toast.error('Failed to send order')
@@ -302,9 +300,10 @@ export default function OrdersPage() {
     } finally {
       setIsSending(false)
     }
-  }, [currentOrder, isSending, clearCurrentOrder])
+  }, [currentOrder, isSending, clearCurrentOrder, activeLocationId])
 
-  // Quick action handlers
+  // ========== QUICK ACTIONS ==========
+
   const handleHold = useCallback(async () => {
     if (!currentOrder) return
     try {
@@ -332,42 +331,229 @@ export default function OrdersPage() {
     }
   }, [currentOrder])
 
-  const handleRush = useCallback(() => {
-    toast.info('Rush flag set — kitchen notified')
-  }, [])
+  const handleRush = useCallback(async () => {
+    if (!currentOrder) return
+    try {
+      const res = await fetch(`/api/orders/${currentOrder.id}/rush`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'long_wait' }),
+      })
+      if (res.ok) {
+        toast.success('Rush flag set — kitchen notified', {
+          description: 'Order is now marked as rush priority',
+        })
+      } else {
+        toast.error('Failed to set rush')
+      }
+    } catch {
+      toast.error('Failed to set rush')
+    }
+  }, [currentOrder])
 
   const handleDiscount = useCallback(() => {
-    toast.info('Discount — coming soon')
-  }, [])
+    if (!currentOrder) return
+    setDiscountOpen(true)
+  }, [currentOrder])
 
-  const handlePrint = useCallback(() => {
-    toast.info('Print — coming soon')
-  }, [])
+  const handlePrint = useCallback(async () => {
+    if (!currentOrder) return
+    try {
+      const res = await fetch(`/api/orders/${currentOrder.id}/print-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: 'receipt' }),
+      })
+      if (res.ok) {
+        toast.success('Check printed')
+      } else {
+        // Fallback: open browser print dialog with check preview
+        window.print()
+      }
+    } catch {
+      window.print()
+    }
+  }, [currentOrder])
 
-  const handleVoid = useCallback(async () => {
+  const handleVoid = useCallback(() => {
     if (!currentOrder) return
     if (currentOrder.items.length === 0) {
       clearCurrentOrder()
       toast.info('Order cleared')
       return
     }
-    try {
-      await fetch(`/api/orders/${currentOrder.id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ void_reason: 'Voided from POS' }),
-      })
-      clearCurrentOrder()
-      toast.info('Order voided')
-    } catch {
-      toast.error('Failed to void order')
-    }
+    // For whole-order void, we'll void the entire order
+    // But first check if any items are sent — if so, need manager PIN
+    const hasSentItems = currentOrder.items.some((i) => i.status !== 'pending' && !i.voided)
+    setVoidTarget({
+      id: '__ORDER__',
+      name: `Entire Order (${currentOrder.items.filter((i) => !i.voided).length} items)`,
+      isSent: hasSentItems,
+    })
+    setVoidDialogOpen(true)
   }, [currentOrder, clearCurrentOrder])
+
+  // Handle voiding from OrderPanel (individual item)
+  const handleItemVoid = useCallback((itemId: string, itemName: string, isSent: boolean) => {
+    setVoidTarget({ id: itemId, name: itemName, isSent })
+    setVoidDialogOpen(true)
+  }, [])
+
+  // Handle comping from OrderPanel (individual item)
+  const handleItemComp = useCallback((itemId: string, itemName: string, priceCents: number) => {
+    setCompTarget({ id: itemId, name: itemName, priceCents })
+    setCompDialogOpen(true)
+  }, [])
+
+  // Void confirmation
+  const handleVoidConfirm = useCallback(
+    async (reason: string, note: string, managerId?: string) => {
+      if (!currentOrder || !voidTarget) return
+
+      if (voidTarget.id === '__ORDER__') {
+        // Void entire order
+        try {
+          await fetch(`/api/orders/${currentOrder.id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              void_reason: `${reason}${note ? ': ' + note : ''}`,
+              manager_id: managerId,
+            }),
+          })
+          clearCurrentOrder()
+          toast.info('Order voided')
+        } catch {
+          toast.error('Failed to void order')
+        }
+      } else {
+        // Void single item in Zustand store
+        voidItem(voidTarget.id, `${reason}${note ? ': ' + note : ''}`)
+        toast.info(`Voided: ${voidTarget.name}`)
+      }
+    },
+    [currentOrder, voidTarget, voidItem, clearCurrentOrder]
+  )
+
+  // Comp confirmation
+  const handleCompConfirm = useCallback(
+    async (reason: string, note: string, managerId: string) => {
+      if (!currentOrder || !compTarget) return
+      try {
+        const res = await fetch(`/api/orders/${currentOrder.id}/comp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_item_id: compTarget.id,
+            comp_reason: `${reason}${note ? ': ' + note : ''}`,
+            manager_id: managerId,
+          }),
+        })
+        if (res.ok) {
+          toast.success(`Comped: ${compTarget.name}`)
+        } else {
+          toast.error('Failed to comp item')
+        }
+      } catch {
+        toast.error('Failed to comp item')
+      }
+    },
+    [currentOrder, compTarget]
+  )
+
+  // Discount application
+  const handleDiscountApply = useCallback(
+    async (params: { discount_type: 'percentage' | 'fixed'; discount_value: number; reason: string; managerId?: string }) => {
+      if (!currentOrder) return
+      try {
+        const res = await fetch(`/api/orders/${currentOrder.id}/discount`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            discount_type: params.discount_type,
+            discount_value: params.discount_type === 'percentage'
+              ? params.discount_value
+              : (params.discount_value / 100).toFixed(2),
+            reason: params.reason,
+            manager_id: params.managerId,
+          }),
+        })
+        if (res.ok) {
+          const label = params.discount_type === 'percentage'
+            ? `${params.discount_value}%`
+            : `$${(params.discount_value / 100).toFixed(2)}`
+          toast.success(`Discount applied: ${label}`)
+        } else {
+          toast.error('Failed to apply discount')
+        }
+      } catch {
+        toast.error('Failed to apply discount')
+      }
+    },
+    [currentOrder]
+  )
+
+  // Transfer order
+  const handleTransfer = useCallback(
+    async (newServerId: string, newServerName: string) => {
+      if (!currentOrder) return
+      try {
+        const res = await fetch(`/api/orders/${currentOrder.id}/transfer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ new_server_id: newServerId }),
+        })
+        if (res.ok) {
+          toast.success(`Order transferred to ${newServerName}`)
+        } else {
+          toast.error('Failed to transfer order')
+        }
+      } catch {
+        toast.error('Failed to transfer order')
+      }
+    },
+    [currentOrder]
+  )
+
+  // Move table
+  const handleTableMove = useCallback(
+    async (newTableId: string, newTableName: string) => {
+      if (!currentOrder) return
+      try {
+        const res = await fetch(`/api/orders/${currentOrder.id}/move-table`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ new_table_id: newTableId }),
+        })
+        if (res.ok) {
+          toast.success(`Moved to ${newTableName}`)
+          useOrderStore.getState().actions.setTable(newTableId, newTableName)
+        } else {
+          toast.error('Failed to move table')
+        }
+      } catch {
+        toast.error('Failed to move table')
+      }
+    },
+    [currentOrder]
+  )
+
+  // Navigate to payment
+  const handleGoToPayment = useCallback(() => {
+    if (!currentOrder) return
+    router.push(`/payments?order_id=${currentOrder.id}&total_cents=${currentOrder.total_cents}`)
+  }, [currentOrder, router])
 
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left Panel — Current Order */}
-      <OrderPanel onSendToKitchen={handleSendToKitchen} isSending={isSending} />
+      <OrderPanel
+        onSendToKitchen={handleSendToKitchen}
+        isSending={isSending}
+        onItemVoid={handleItemVoid}
+        onItemComp={handleItemComp}
+        onGoToPayment={handleGoToPayment}
+      />
 
       {/* Center Panel — Menu Grid */}
       <MenuGrid onItemTap={handleItemTap} />
@@ -380,6 +566,8 @@ export default function OrdersPage() {
         onDiscount={handleDiscount}
         onPrint={handlePrint}
         onVoid={handleVoid}
+        onTransfer={() => setTransferOpen(true)}
+        onMoveTable={() => setTableMoveOpen(true)}
         disabled={!currentOrder}
       />
 
@@ -389,6 +577,55 @@ export default function OrdersPage() {
         open={modifierSheetOpen}
         onOpenChange={setModifierSheetOpen}
         onAddToOrder={handleAddWithModifiers}
+      />
+
+      {/* Void Reason Dialog */}
+      {voidTarget && (
+        <VoidReasonDialog
+          open={voidDialogOpen}
+          onOpenChange={setVoidDialogOpen}
+          itemName={voidTarget.name}
+          isSent={voidTarget.isSent}
+          onConfirm={handleVoidConfirm}
+        />
+      )}
+
+      {/* Comp Dialog */}
+      {compTarget && (
+        <CompDialog
+          open={compDialogOpen}
+          onOpenChange={setCompDialogOpen}
+          itemName={compTarget.name}
+          itemPriceCents={compTarget.priceCents}
+          onConfirm={handleCompConfirm}
+        />
+      )}
+
+      {/* Discount Dialog */}
+      <DiscountDialog
+        open={discountOpen}
+        onOpenChange={setDiscountOpen}
+        subtotalCents={currentOrder?.subtotal_cents ?? 0}
+        onApply={handleDiscountApply}
+      />
+
+      {/* Order Transfer Dialog */}
+      <OrderTransferDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        currentServerId={currentOrder?.server_id ?? ''}
+        currentServerName={currentOrder?.server_name ?? ''}
+        onTransfer={handleTransfer}
+      />
+
+      {/* Table Move Dialog */}
+      <TableMoveDialog
+        open={tableMoveOpen}
+        onOpenChange={setTableMoveOpen}
+        currentTableId={currentOrder?.table_id ?? null}
+        currentTableName={currentOrder?.table_name ?? null}
+        locationId={activeLocationId ?? ''}
+        onMove={handleTableMove}
       />
     </div>
   )

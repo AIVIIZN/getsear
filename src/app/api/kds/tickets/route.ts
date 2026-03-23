@@ -47,6 +47,7 @@ interface TicketItem {
   course: number
   status: 'pending' | 'in_progress' | 'completed'
   is_void: boolean
+  is_fired: boolean
 }
 
 interface Ticket {
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
     .select('*')
     .eq('org_id', user.org_id)
     .eq('location_id', locationId)
-    .in('status', ['fired', 'sent', 'in_progress', 'ready'])
+    .in('status', ['open', 'fired', 'sent', 'in_progress', 'ready'])
     .order('created_at', { ascending: true })
 
   if (ordersError) {
@@ -231,6 +232,7 @@ export async function GET(request: NextRequest) {
       course: item.course ?? 1,
       status: item.is_ready ? 'completed' : item.is_fired ? 'in_progress' : 'pending',
       is_void: item.is_void ?? false,
+      is_fired: item.is_fired ?? false,
     }
 
     const existing = ticketsByOrder.get(item.order_id) ?? []
