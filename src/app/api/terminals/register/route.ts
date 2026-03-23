@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import type { AuthUser } from '@/lib/api/auth'
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   // Generate random 6-digit code
-  const registration_code = String(Math.floor(100000 + Math.random() * 900000))
+  const registration_code = String(crypto.randomInt(100000, 999999))
 
   // Code expires in 10 minutes
   const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString()

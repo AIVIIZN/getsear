@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   // Verify order exists and belongs to org
   const { data: order, error: orderErr } = await (supabase.from('orders') as any)
-    .select('id, org_id, total, balance_due, status')
+    .select('id, org_id, total, balance_due, amount_paid, status')
     .eq('id', order_id)
     .eq('org_id', user.org_id)
     .single()

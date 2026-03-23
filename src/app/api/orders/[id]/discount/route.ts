@@ -6,7 +6,7 @@ import { getAuthUser } from '@/lib/api/auth'
 const discountSchema = z.object({
   name: z.string().min(1).max(200),
   discount_type: z.enum(['percentage', 'fixed_amount']),
-  value: z.number().positive(),
+  value: z.number().positive().max(100),
   order_item_id: z.string().uuid().nullable().optional(),
   requires_manager_approval: z.boolean().optional().default(false),
 })
@@ -43,7 +43,7 @@ export async function POST(
   // Get the order
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, subtotal')
+    .select('id, org_id, subtotal, amount_paid')
     .eq('id', orderId)
     .eq('org_id', user.org_id)
     .single()
@@ -125,7 +125,7 @@ export async function POST(
       discount_total: totalDiscount.toFixed(2),
       tax_total: taxTotal.toFixed(2),
       total: total.toFixed(2),
-      balance_due: total.toFixed(2),
+      balance_due: Math.max(0, total - parseFloat(order.amount_paid ?? '0')).toFixed(2),
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)

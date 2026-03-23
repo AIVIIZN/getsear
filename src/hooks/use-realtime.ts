@@ -77,6 +77,9 @@ export function useRealtimeOrders(
   locationId: string,
   onOrderChange: (order: Record<string, unknown>, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void
 ) {
+  const callbackRef = useRef(onOrderChange)
+  callbackRef.current = onOrderChange
+
   useEffect(() => {
     const supabase = getSupabase()
 
@@ -91,7 +94,7 @@ export function useRealtimeOrders(
           filter: `location_id=eq.${locationId}`,
         },
         (payload: PostgresChange) => {
-          onOrderChange(
+          callbackRef.current(
             payload.eventType === 'DELETE' ? payload.old : payload.new,
             payload.eventType
           )
@@ -102,7 +105,7 @@ export function useRealtimeOrders(
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [locationId, onOrderChange])
+  }, [locationId])
 }
 
 /**
@@ -112,6 +115,9 @@ export function useRealtimeKds(
   stationId: string,
   onTicketChange: (ticket: Record<string, unknown>, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void
 ) {
+  const callbackRef = useRef(onTicketChange)
+  callbackRef.current = onTicketChange
+
   useEffect(() => {
     const supabase = getSupabase()
 
@@ -126,7 +132,7 @@ export function useRealtimeKds(
           filter: `station_id=eq.${stationId}`,
         },
         (payload: PostgresChange) => {
-          onTicketChange(
+          callbackRef.current(
             payload.eventType === 'DELETE' ? payload.old : payload.new,
             payload.eventType
           )
@@ -137,7 +143,7 @@ export function useRealtimeKds(
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [stationId, onTicketChange])
+  }, [stationId])
 }
 
 /**
