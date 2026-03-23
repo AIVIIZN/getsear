@@ -6,6 +6,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { StaffClockButton } from "@/components/pos/StaffClockButton";
 import { useAuthStore } from "@/stores/auth-store";
+import { PrintQueueBadge, PrintQueueDropdown } from "@/components/printing/PrintQueueDropdown";
 
 interface TopbarProps {
   showBreadcrumbs?: boolean;
@@ -105,6 +106,10 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
         <StaffClockButton />
         <LiveClock />
         <ConnectionDot />
+        <div className="relative">
+          <PrintQueueBadge />
+          <PrintQueueDropdown />
+        </div>
         <span className="text-[15px] font-medium text-[#3C3C43]">
           {displayName}
         </span>
