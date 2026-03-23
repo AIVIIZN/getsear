@@ -10,6 +10,7 @@ import { CompDialog } from '@/components/pos/CompDialog'
 import { DiscountDialog } from '@/components/pos/DiscountDialog'
 import { OrderTransferDialog } from '@/components/pos/OrderTransferDialog'
 import { TableMoveDialog } from '@/components/pos/TableMoveDialog'
+import { AllergenWarningDialog } from '@/components/pos/AllergenWarningDialog'
 import { useOrderStore } from '@/stores/order-store'
 import { useMenuStore } from '@/stores/menu-store'
 import { useAuthStore } from '@/stores/auth-store'
@@ -66,6 +67,11 @@ export default function OrdersPage() {
   const [discountOpen, setDiscountOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [tableMoveOpen, setTableMoveOpen] = useState(false)
+
+  // Allergen warning
+  const [allergenDialogOpen, setAllergenDialogOpen] = useState(false)
+  const [allergenConflicts, setAllergenConflicts] = useState<{ allergen: string; seatNumber: number | null; guestName: string | null; severity: 'preference' | 'intolerance' | 'allergy' | 'severe_anaphylaxis' }[]>([])
+  const [pendingAllergenItem, setPendingAllergenItem] = useState<{ menu_item_id: string; name: string; price_cents: number } | null>(null)
 
   // Fetch menu data on mount
   useEffect(() => {
@@ -199,17 +205,82 @@ export default function OrdersPage() {
             })
             setModifierSheetOpen(true)
           } else {
-            addItem({ menu_item_id: item.id, name: item.name, price_cents: item.price_cents })
+            addItemWithAllergenCheck(item.id, item.name, item.price_cents)
           }
         } catch {
-          addItem({ menu_item_id: item.id, name: item.name, price_cents: item.price_cents })
+          addItemWithAllergenCheck(item.id, item.name, item.price_cents)
         }
       } else {
-        addItem({ menu_item_id: item.id, name: item.name, price_cents: item.price_cents })
+        addItemWithAllergenCheck(item.id, item.name, item.price_cents)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [addItem]
+  )
+
+  // Check allergens before adding
+  const addItemWithAllergenCheck = useCallback(
+    (menuItemId: string, name: string, priceCents: number) => {
+      // Get item allergens from menu store
+      const menuItem = useMenuStore.getState().items.find((i) => i.id === menuItemId)
+      const itemAllergens = menuItem?.allergens ?? []
+
+      if (itemAllergens.length === 0) {
+        addItem({ menu_item_id: menuItemId, name, price_cents: priceCents })
+        return
+      }
+
+      // Check against guest allergies stored on the order (if any)
+      // guest_allergens is populated when a guest profile with allergies is assigned
+      const order = useOrderStore.getState().currentOrder as Record<string, unknown> | null
+      const guestAllergens = (order?.guest_allergens ?? []) as Array<{
+        allergen: string
+        seat_number: number | null
+        guest_name: string | null
+        severity: string
+      }>
+
+      if (guestAllergens.length === 0) {
+        addItem({ menu_item_id: menuItemId, name, price_cents: priceCents })
+        return
+      }
+
+      // Find conflicts
+      const conflicts = itemAllergens
+        .filter((allergen) =>
+          guestAllergens.some((ga) => ga.allergen.toLowerCase() === allergen.toLowerCase())
+        )
+        .map((allergen) => {
+          const match = guestAllergens.find((ga) => ga.allergen.toLowerCase() === allergen.toLowerCase())
+          return {
+            allergen,
+            seatNumber: match?.seat_number ?? null,
+            guestName: match?.guest_name ?? null,
+            severity: (match?.severity ?? 'allergy') as 'preference' | 'intolerance' | 'allergy' | 'severe_anaphylaxis',
+          }
+        })
+
+      if (conflicts.length > 0) {
+        setPendingAllergenItem({ menu_item_id: menuItemId, name, price_cents: priceCents })
+        setAllergenConflicts(conflicts)
+        setAllergenDialogOpen(true)
+      } else {
+        addItem({ menu_item_id: menuItemId, name, price_cents: priceCents })
       }
     },
     [addItem]
   )
+
+  const handleAllergenAcknowledge = useCallback(() => {
+    if (pendingAllergenItem) {
+      addItem(pendingAllergenItem)
+      setPendingAllergenItem(null)
+    }
+  }, [pendingAllergenItem, addItem])
+
+  const handleAllergenCancel = useCallback(() => {
+    setPendingAllergenItem(null)
+  }, [])
 
   // Handle adding item with modifiers from sheet
   const handleAddWithModifiers = useCallback(
@@ -621,6 +692,16 @@ export default function OrdersPage() {
         currentTableName={currentOrder?.table_name ?? null}
         locationId={activeLocationId ?? ''}
         onMove={handleTableMove}
+      />
+
+      {/* Allergen Warning Dialog */}
+      <AllergenWarningDialog
+        open={allergenDialogOpen}
+        onOpenChange={setAllergenDialogOpen}
+        itemName={pendingAllergenItem?.name ?? ''}
+        conflicts={allergenConflicts}
+        onAcknowledge={handleAllergenAcknowledge}
+        onCancel={handleAllergenCancel}
       />
     </div>
   )
