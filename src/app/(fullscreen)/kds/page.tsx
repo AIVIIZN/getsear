@@ -8,6 +8,25 @@ import { KdsStationTabs } from '@/components/kds/KdsStationTabs'
 import { KdsAllDay } from '@/components/kds/KdsAllDay'
 import { KdsRecallDrawer } from '@/components/kds/KdsRecallDrawer'
 
+// Web Audio API beep for KDS notifications
+function playKdsBeep(frequency: number = 800, duration: number = 150) {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = frequency
+    osc.type = 'sine'
+    gain.gain.value = 0.3
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration / 1000)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + duration / 1000)
+  } catch {
+    // Audio not available
+  }
+}
+
 // Default location — in production, this would come from auth context or URL params
 const DEFAULT_LOCATION_ID = typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search).get('location_id') ?? ''
@@ -111,8 +130,7 @@ export default function KdsPage() {
       // Re-fetch tickets on any KDS event
       fetchTickets()
       if (soundEnabled) {
-        // In production: play audio. For now, log.
-        console.log('[KDS] Sound: ticket event')
+        playKdsBeep(800, 150)
       }
     },
     [fetchTickets, soundEnabled]
@@ -126,7 +144,8 @@ export default function KdsPage() {
       // Re-fetch tickets when new orders come in
       fetchTickets()
       if (soundEnabled) {
-        console.log('[KDS] Sound: new order')
+        playKdsBeep(600, 200)
+        setTimeout(() => playKdsBeep(800, 200), 250)
       }
     },
     [fetchTickets, soundEnabled]
@@ -159,7 +178,7 @@ export default function KdsPage() {
         if (res.ok) {
           actions.bumpTicket(ticketId)
           if (soundEnabled) {
-            console.log('[KDS] Sound: bump')
+            playKdsBeep(1000, 100)
           }
         }
       } catch {
@@ -219,7 +238,7 @@ export default function KdsPage() {
   return (
     <div ref={darkRef} className="flex h-full w-full flex-col bg-[var(--background)] no-select no-overscroll">
       {/* Top bar — 48px */}
-      <header className="z-30 flex h-12 flex-shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--card)] px-3">
+      <header className="z-30 flex flex-shrink-0 items-center gap-2 bg-[var(--card)] px-4" style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--border)' }}>
         {/* Station tabs */}
         <KdsStationTabs
           stations={stations}
@@ -232,7 +251,7 @@ export default function KdsPage() {
         {/* All-Day button */}
         <button
           onClick={() => setAllDayOpen(true)}
-          className="touch-target flex h-9 items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
+          className="btn-press touch-target flex h-10 items-center gap-2 rounded-xl bg-[var(--secondary)] px-4 text-subhead font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
             <path d="M3 3v18h18" />
@@ -244,7 +263,7 @@ export default function KdsPage() {
         {/* Recall button */}
         <button
           onClick={() => setRecallOpen(true)}
-          className="touch-target flex h-9 items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
+          className="btn-press touch-target flex h-10 items-center gap-2 rounded-xl bg-[var(--secondary)] px-4 text-subhead font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -282,7 +301,7 @@ export default function KdsPage() {
         {activeTickets.length > 0 && (
           <button
             onClick={handleBumpAll}
-            className="touch-target flex h-9 items-center gap-1.5 rounded-lg bg-red-600 px-3 text-sm font-bold text-white transition-colors hover:bg-red-500"
+            className="btn-press touch-target flex h-10 items-center gap-2 rounded-xl bg-red-600 px-4 text-subhead font-bold text-white transition-colors hover:bg-red-500"
           >
             Bump All
           </button>
@@ -290,7 +309,7 @@ export default function KdsPage() {
       </header>
 
       {/* Main ticket area */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden p-3">
+      <main className="flex-1 overflow-x-auto overflow-y-hidden p-4">
         {error ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">

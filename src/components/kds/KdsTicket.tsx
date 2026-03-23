@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { KdsTimer } from './KdsTimer'
+import { cn } from '@/lib/utils'
 
 interface TicketItem {
   id: string
@@ -61,18 +62,34 @@ const ORDER_TYPE_COLORS: Record<string, string> = {
   qr: 'bg-teal-600',
 }
 
-function getAgingBackground(category: 'fresh' | 'aging' | 'late' | 'critical'): string {
+// Aging colors per POS_UI_RESEARCH.md — vivid on dark background
+function getAgingStyles(category: 'fresh' | 'aging' | 'late' | 'critical') {
   switch (category) {
     case 'fresh':
-      return 'bg-[var(--card)]'
+      return {
+        card: 'bg-[var(--card)] border-[var(--border)]',
+        headerColor: '#34C759', // iOS green
+      }
     case 'aging':
-      return 'bg-yellow-900/30 border-yellow-500/40'
+      return {
+        card: 'bg-[#1a1a00] border-[#FFCC00]/40',
+        headerColor: '#FFCC00', // iOS yellow
+      }
     case 'late':
-      return 'bg-orange-900/30 border-orange-500/40'
+      return {
+        card: 'bg-[#1a0d00] border-[#FF9500]/40',
+        headerColor: '#FF9500', // iOS orange
+      }
     case 'critical':
-      return 'bg-red-900/40 border-red-500/50 animate-pulse-attention'
+      return {
+        card: 'bg-[#1a0000] border-[#FF3B30]/50 animate-kds-flash',
+        headerColor: '#FF3B30', // iOS red
+      }
     default:
-      return 'bg-[var(--card)]'
+      return {
+        card: 'bg-[var(--card)] border-[var(--border)]',
+        headerColor: '#34C759',
+      }
   }
 }
 
@@ -83,7 +100,7 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
     setIsSliding(true)
     setTimeout(() => {
       onBump(ticket.id)
-    }, 250)
+    }, 280)
   }, [ticket.id, onBump])
 
   // Group items by course
@@ -98,55 +115,61 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
   const courses = [...courseGroups.entries()].sort(([a], [b]) => a - b)
   const hasMultipleCourses = courses.length > 1
 
-  // Determine if a course is held (course > 1 and items not fired)
   function isCourseHeld(courseItems: TicketItem[]): boolean {
     return courseItems.every((item) => !item.is_fired && item.status === 'pending')
   }
 
+  const aging = getAgingStyles(ticket.age_category)
+
   return (
     <div
-      className={`flex flex-col rounded-lg border transition-all duration-250 ${getAgingBackground(
-        ticket.age_category
-      )} ${isSliding ? 'animate-slide-out-left' : 'animate-slide-in-right'} ${
-        ticket.is_rush ? 'ring-2 ring-red-500' : ''
-      }`}
-      style={{ minWidth: 0 }}
+      className={cn(
+        'flex flex-col rounded-xl border transition-all',
+        aging.card,
+        isSliding ? 'animate-slide-out-right' : 'animate-slide-in-left',
+        ticket.is_rush && 'ring-2 ring-red-500'
+      )}
+      style={{ minWidth: 0, transitionDuration: 'var(--duration-slow)' }}
     >
       {/* Rush banner */}
       {ticket.is_rush && (
-        <div className="flex items-center justify-center rounded-t-lg bg-red-600 px-3 py-1.5 text-sm font-black tracking-wider text-white animate-pulse">
+        <div className="flex items-center justify-center rounded-t-xl bg-red-600 px-3 py-2 text-subhead font-black tracking-wider text-white animate-pulse-attention">
           RUSH
         </div>
       )}
 
-      {/* ADD badge for items added after initial send */}
+      {/* ADD badge */}
       {ticket.is_add && (
-        <div className="flex items-center justify-center bg-blue-600 px-3 py-1 text-xs font-black tracking-wider text-white">
+        <div className="flex items-center justify-center bg-blue-600 px-3 py-1.5 text-footnote font-black tracking-wider text-white">
           ADD
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] p-3">
+      {/* Header — with aging color accent */}
+      <div
+        className="flex items-start justify-between gap-2 p-3"
+        style={{ borderBottom: `2px solid ${aging.headerColor}` }}
+      >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-xl font-black text-[var(--foreground)]">
+            <span className="text-title-2 font-black text-[var(--foreground)]">
               #{ticket.order_number}
             </span>
             <span
-              className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold text-white ${
+              className={cn(
+                'inline-flex items-center rounded-lg px-2 py-0.5 text-caption-1 font-bold text-white',
                 ORDER_TYPE_COLORS[ticket.order_type] ?? 'bg-gray-600'
-              }`}
+              )}
             >
               {ORDER_TYPE_LABELS[ticket.order_type] ?? ticket.order_type}
             </span>
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+          <div className="mt-1 flex items-center gap-2 text-subhead text-[var(--muted-foreground)]">
             <span>{ticket.server_name}</span>
             {ticket.table_name && (
               <>
-                <span className="text-[var(--border)]">&middot;</span>
-                <span className="font-medium text-[var(--foreground)]">{ticket.table_name}</span>
+                <span className="opacity-40">&middot;</span>
+                <span className="font-semibold text-[var(--foreground)]">{ticket.table_name}</span>
               </>
             )}
           </div>
@@ -155,19 +178,19 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
       </div>
 
       {/* Items */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto scroll-container scrollbar-hide p-3">
         {courses.map(([course, items], idx) => {
           const held = hasMultipleCourses && course > 1 && isCourseHeld(items)
           return (
             <div key={course}>
               {hasMultipleCourses && (
-                <div className="mb-1.5 mt-1 flex items-center gap-2">
+                <div className="mb-2 mt-1.5 flex items-center gap-2">
                   <div className="h-px flex-1 bg-[var(--border)]" />
-                  <span className="text-xs font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  <span className="text-caption-1 font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
                     Course {course}
                   </span>
                   {held && (
-                    <span className="rounded bg-gray-600 px-1.5 py-0.5 text-[10px] font-black uppercase text-gray-200">
+                    <span className="rounded-md bg-gray-600 px-2 py-0.5 text-caption-2 font-black uppercase text-gray-200">
                       HOLD
                     </span>
                   )}
@@ -175,30 +198,31 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
                 </div>
               )}
               {idx > 0 && !hasMultipleCourses && (
-                <div className="my-1 h-px bg-[var(--border)]" />
+                <div className="my-1.5 h-px bg-[var(--border)]" />
               )}
               <div className={held ? 'opacity-40' : ''}>
                 {items.map((item) => (
                   <div
                     key={item.id}
-                    className={`mb-1.5 ${item.is_void ? 'opacity-40' : ''}`}
+                    className={cn('mb-2', item.is_void && 'opacity-40')}
                   >
-                    <div className="flex items-start gap-2">
-                      <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-[var(--secondary)] text-sm font-bold text-[var(--foreground)]">
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-subhead font-bold text-[var(--foreground)]">
                         {item.quantity}
                       </span>
                       <div className="min-w-0 flex-1">
                         <span
-                          className={`text-base font-semibold text-[var(--foreground)] ${
-                            item.is_void ? 'line-through' : ''
-                          }`}
+                          className={cn(
+                            'text-callout font-semibold text-[var(--foreground)]',
+                            item.is_void && 'line-through'
+                          )}
                         >
                           {item.name}
                           {item.is_void && (
-                            <span className="ml-2 text-xs font-bold text-red-400">(VOIDED)</span>
+                            <span className="ml-2 text-caption-1 font-bold text-red-400">(VOIDED)</span>
                           )}
                           {item.status === 'completed' && (
-                            <span className="ml-2 text-xs font-bold text-green-400">&#10003;</span>
+                            <span className="ml-2 text-caption-1 font-bold text-green-400">&#10003;</span>
                           )}
                         </span>
                         {item.modifiers.length > 0 && (
@@ -206,7 +230,7 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
                             {item.modifiers.map((mod, i) => (
                               <div
                                 key={i}
-                                className="pl-2 text-sm text-[var(--muted-foreground)]"
+                                className="pl-2 text-subhead text-[var(--muted-foreground)]"
                               >
                                 &bull; {mod}
                               </div>
@@ -214,13 +238,13 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
                           </div>
                         )}
                         {item.special_instructions && (
-                          <div className="mt-0.5 rounded bg-yellow-900/30 px-2 py-0.5 text-sm italic text-yellow-300">
+                          <div className="mt-1 rounded-lg bg-yellow-900/30 px-2.5 py-1 text-subhead italic text-yellow-300">
                             {item.special_instructions}
                           </div>
                         )}
                       </div>
                       {item.seat_number != null && (
-                        <span className="mt-0.5 flex-shrink-0 text-xs text-[var(--muted-foreground)]">
+                        <span className="mt-0.5 flex-shrink-0 text-caption-1 font-medium text-[var(--muted-foreground)]">
                           S{item.seat_number}
                         </span>
                       )}
@@ -233,10 +257,11 @@ export function KdsTicket({ ticket, onBump }: KdsTicketProps) {
         })}
       </div>
 
-      {/* Bump button */}
+      {/* Bump button — 56px tall, green, full width */}
       <button
         onClick={handleBump}
-        className="btn-press touch-target-lg m-2 flex h-14 items-center justify-center rounded-lg bg-green-600 text-lg font-black uppercase tracking-wider text-white transition-colors hover:bg-green-500 active:bg-green-700"
+        className="btn-press m-3 flex items-center justify-center rounded-xl bg-[#34C759] text-headline font-black uppercase tracking-wider text-white transition-colors hover:bg-[#30D158] active:bg-[#28a745]"
+        style={{ height: 56 }}
       >
         BUMP
       </button>
