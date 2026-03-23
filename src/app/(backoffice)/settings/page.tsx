@@ -9,6 +9,7 @@ import {
   Shield,
   ToggleLeft,
   Calculator,
+  ChefHat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +55,12 @@ const settingsLinks = [
     icon: Calculator,
     label: 'Accounting',
     description: 'QuickBooks integration',
+  },
+  {
+    href: '/settings/kds',
+    icon: ChefHat,
+    label: 'KDS Stations',
+    description: 'Kitchen display, aging thresholds, printer failover',
   },
 ]
 

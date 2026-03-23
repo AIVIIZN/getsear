@@ -20,6 +20,7 @@ interface RawOrderItem {
   sent_at: string | null
   fired_at: string | null
   ready_at: string | null
+  menu_category_id?: string | null
 }
 
 interface RawOrder {
@@ -32,10 +33,15 @@ interface RawOrder {
   status: string
   table_id: string | null
   server_id: string | null
+  customer_id: string | null
   is_rush: boolean
+  priority?: string
   created_at: string
   notes: string | null
 }
+
+type ItemStatus = 'pending' | 'in_progress' | 'completed' | 'voided' | 'held'
+type TicketPriority = 'refire' | 'rush' | 'vip' | 'normal'
 
 interface TicketItem {
   id: string
@@ -45,9 +51,16 @@ interface TicketItem {
   special_instructions: string
   seat_number: number | null
   course: number
-  status: 'pending' | 'in_progress' | 'completed'
+  status: ItemStatus
   is_void: boolean
   is_fired: boolean
+  is_bumped: boolean
+  is_refire: boolean
+  refire_count: number
+  refire_reason: string | null
+  prep_station: string | null
+  station_label: string | null
+  category_id: string | null
 }
 
 interface Ticket {
@@ -62,7 +75,12 @@ interface Ticket {
   age_seconds: number
   age_category: 'fresh' | 'aging' | 'late' | 'critical'
   is_rush: boolean
+  is_vip: boolean
+  is_refire: boolean
+  is_add: boolean
   station_id: string
+  priority: TicketPriority
+  station_statuses: Record<string, 'pending' | 'complete'>
 }
 
 function getAgeCategory(seconds: number): 'fresh' | 'aging' | 'late' | 'critical' {
@@ -73,11 +91,12 @@ function getAgeCategory(seconds: number): 'fresh' | 'aging' | 'late' | 'critical
 }
 
 /**
- * GET /api/kds/tickets — get active tickets for a station
+ * GET /api/kds/tickets -- get active tickets for a station
  *
  * Query params:
- *   station_id — required, the KDS station to get tickets for
- *   location_id — required, the location
+ *   station_id -- required, the KDS station to get tickets for
+ *   location_id -- required, the location
+ *   _bumped -- if "true", return recently bumped tickets (for recall)
  */
 export async function GET(request: NextRequest) {
   const user = await getAuthUser()
@@ -86,6 +105,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const stationId = params.get('station_id')
   const locationId = params.get('location_id')
+  const showBumped = params.get('_bumped') === 'true'
 
   if (!stationId) {
     return NextResponse.json({ error: 'station_id is required' }, { status: 400 })
@@ -110,8 +130,9 @@ export async function GET(request: NextRequest) {
 
   const stationType = station.station_type as string
   const prepStationsFilter: string[] = station.prep_stations ?? []
+  const isExpo = stationType === 'expo'
 
-  // 2. Get active orders (status = 'fired' or 'ready') for this location
+  // 2. Get active orders for this location
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orders, error: ordersError } = await (supabase.from('orders') as any)
     .select('*')
@@ -130,16 +151,14 @@ export async function GET(request: NextRequest) {
 
   const orderIds = (orders as RawOrder[]).map((o) => o.id)
 
-  // 3. Get order items for those orders
+  // 3. Get order items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let itemsQuery = (supabase.from('order_items') as any)
     .select('*')
     .in('order_id', orderIds)
     .eq('is_sent', true)
 
-  // For prep stations, filter to items matching this station's prep_stations
-  // For expo stations, show all items
-  if (stationType === 'prep' && prepStationsFilter.length > 0) {
+  if (!isExpo && prepStationsFilter.length > 0) {
     itemsQuery = itemsQuery.in('prep_station', prepStationsFilter)
   }
 
@@ -153,29 +172,92 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: [] })
   }
 
-  // 4. Check which items have been bumped at this station (via kds_ticket_events)
+  // 4. Get ALL bump/recall/refire events for these items
+  const allItemIds = (items as RawOrderItem[]).map((i) => i.id)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bumpEvents } = await (supabase.from('kds_ticket_events') as any)
-    .select('order_item_id, event_type')
-    .eq('station_id', stationId)
-    .in('event_type', ['bumped', 'recalled'])
-    .in('order_item_id', (items as RawOrderItem[]).map((i) => i.id))
+  const { data: allEvents } = await (supabase.from('kds_ticket_events') as any)
+    .select('order_item_id, event_type, station_id, metadata, data')
+    .in('order_item_id', allItemIds)
+    .in('event_type', ['bumped', 'recalled', 'refire'])
     .order('created_at', { ascending: true })
 
-  // Build a set of effectively bumped item IDs (bumped but not subsequently recalled)
-  const bumpedItemIds = new Set<string>()
-  if (bumpEvents) {
-    for (const evt of bumpEvents) {
-      const itemId = evt.order_item_id as string
+  // Build per-item state: bumped status per station, refire info
+  type ItemEventState = {
+    bumpedAtStation: Set<string>
+    refireCount: number
+    lastRefireReason: string | null
+    isRefire: boolean
+  }
+  const itemEventStates = new Map<string, ItemEventState>()
+
+  if (allEvents) {
+    for (const evt of allEvents as Array<{
+      order_item_id: string
+      event_type: string
+      station_id: string
+      metadata?: { reason_code?: string; refire_recall?: boolean }
+    }>) {
+      const itemId = evt.order_item_id
+      if (!itemEventStates.has(itemId)) {
+        itemEventStates.set(itemId, {
+          bumpedAtStation: new Set(),
+          refireCount: 0,
+          lastRefireReason: null,
+          isRefire: false,
+        })
+      }
+      const state = itemEventStates.get(itemId)!
+
       if (evt.event_type === 'bumped') {
-        bumpedItemIds.add(itemId)
+        state.bumpedAtStation.add(evt.station_id)
       } else if (evt.event_type === 'recalled') {
-        bumpedItemIds.delete(itemId)
+        if (evt.metadata?.refire_recall) {
+          // Refire recall - remove bump from ALL stations (item needs to be re-prepped)
+          state.bumpedAtStation.clear()
+        } else {
+          state.bumpedAtStation.delete(evt.station_id)
+        }
+      } else if (evt.event_type === 'refire') {
+        state.refireCount++
+        state.lastRefireReason = evt.metadata?.reason_code ?? null
+        state.isRefire = true
       }
     }
   }
 
-  // 5. Get server names and table names
+  // Determine effectively bumped items at THIS station
+  const bumpedItemIds = new Set<string>()
+  for (const [itemId, state] of itemEventStates) {
+    if (state.bumpedAtStation.has(stationId)) {
+      bumpedItemIds.add(itemId)
+    }
+  }
+
+  // 5. Get all KDS stations for expo station labels
+  let stationNameMap: Record<string, string> = {}
+  if (isExpo) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: allStations } = await (supabase.from('kds_stations') as any)
+      .select('id, name, prep_stations')
+      .eq('org_id', user.org_id)
+      .eq('location_id', locationId)
+
+    if (allStations) {
+      // Build prep_station -> station_name mapping
+      const prepToStationName: Record<string, string> = {}
+      for (const s of allStations as Array<{ id: string; name: string; prep_stations: string[] }>) {
+        stationNameMap[s.id] = s.name
+        for (const ps of s.prep_stations ?? []) {
+          prepToStationName[ps] = s.name
+        }
+      }
+      // We'll use prepToStationName below for station_label
+      stationNameMap = { ...stationNameMap, ...prepToStationName }
+    }
+  }
+
+  // 6. Get server names and table names
   const serverIds = [...new Set((orders as RawOrder[]).map((o) => o.server_id).filter(Boolean))]
   const tableIds = [...new Set((orders as RawOrder[]).map((o) => o.table_id).filter(Boolean))]
 
@@ -211,7 +293,27 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 6. Group items by order to build tickets
+  // 7. Get customer info for VIP and allergens (for expo)
+  const customerIds = [...new Set((orders as RawOrder[]).map((o) => o.customer_id).filter(Boolean))]
+  let customerMap: Record<string, { is_vip?: boolean; allergens?: string[] }> = {}
+
+  if (customerIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: customers } = await (supabase.from('customers') as any)
+      .select('id, is_vip, allergens')
+      .in('id', customerIds)
+
+    if (customers) {
+      customerMap = Object.fromEntries(
+        (customers as Array<{ id: string; is_vip?: boolean; allergens?: string[] }>).map((c) => [
+          c.id,
+          { is_vip: c.is_vip, allergens: c.allergens },
+        ])
+      )
+    }
+  }
+
+  // 8. Group items by order to build tickets
   const orderMap = new Map<string, RawOrder>()
   for (const order of orders as RawOrder[]) {
     orderMap.set(order.id, order)
@@ -219,8 +321,16 @@ export async function GET(request: NextRequest) {
 
   const ticketsByOrder = new Map<string, TicketItem[]>()
   for (const item of items as RawOrderItem[]) {
-    // Skip items that have been bumped at this station
-    if (bumpedItemIds.has(item.id)) continue
+    const itemEvents = itemEventStates.get(item.id)
+    const isBumpedHere = bumpedItemIds.has(item.id)
+
+    // For non-expo stations: skip fully bumped items
+    if (!isExpo && isBumpedHere) continue
+
+    // For expo: include all items but mark their bumped status
+    const isBumpedAnywhere = itemEvents
+      ? itemEvents.bumpedAtStation.size > 0
+      : false
 
     const ticketItem: TicketItem = {
       id: item.id,
@@ -230,9 +340,22 @@ export async function GET(request: NextRequest) {
       special_instructions: item.special_instructions ?? '',
       seat_number: item.seat_number,
       course: item.course ?? 1,
-      status: item.is_ready ? 'completed' : item.is_fired ? 'in_progress' : 'pending',
+      status: item.is_void
+        ? 'voided'
+        : isExpo
+          ? (isBumpedAnywhere || item.is_ready ? 'completed' : item.is_fired ? 'in_progress' : 'pending')
+          : (item.is_ready ? 'completed' : item.is_fired ? 'in_progress' : 'pending'),
       is_void: item.is_void ?? false,
       is_fired: item.is_fired ?? false,
+      is_bumped: isExpo ? (isBumpedAnywhere || item.is_ready) : isBumpedHere,
+      is_refire: itemEvents?.isRefire ?? false,
+      refire_count: itemEvents?.refireCount ?? 0,
+      refire_reason: itemEvents?.lastRefireReason ?? null,
+      prep_station: item.prep_station,
+      station_label: item.prep_station
+        ? (stationNameMap[item.prep_station] ?? item.prep_station)
+        : null,
+      category_id: (item as RawOrderItem).menu_category_id ?? null,
     }
 
     const existing = ticketsByOrder.get(item.order_id) ?? []
@@ -240,19 +363,50 @@ export async function GET(request: NextRequest) {
     ticketsByOrder.set(item.order_id, existing)
   }
 
-  // 7. Build tickets
+  // 9. Build tickets
   const now = Date.now()
   const tickets: Ticket[] = []
 
   for (const [orderId, ticketItems] of ticketsByOrder.entries()) {
-    // Skip orders where all items are completed (for prep stations)
     if (ticketItems.length === 0) continue
 
     const order = orderMap.get(orderId)
     if (!order) continue
 
+    // For non-expo: skip if all visible items are void
+    const nonVoidItems = ticketItems.filter((i) => !i.is_void)
+    if (!isExpo && nonVoidItems.length === 0) continue
+
     const createdAt = order.created_at
     const ageSeconds = Math.floor((now - new Date(createdAt).getTime()) / 1000)
+
+    // Determine order-level flags
+    const customerInfo = order.customer_id ? customerMap[order.customer_id] : undefined
+    const isVip = customerInfo?.is_vip ?? false
+    const isRefire = ticketItems.some((i) => i.is_refire)
+    const isRush = order.is_rush ?? false
+
+    // Resolve priority
+    let priority: TicketPriority = 'normal'
+    if (isRefire || order.priority === 'refire') priority = 'refire'
+    else if (isRush || order.priority === 'rush') priority = 'rush'
+    else if (isVip || order.priority === 'vip') priority = 'vip'
+
+    // Expo: build station completion statuses
+    const stationStatuses: Record<string, 'pending' | 'complete'> = {}
+    if (isExpo) {
+      const stationItems = new Map<string, boolean[]>()
+      for (const item of ticketItems) {
+        if (item.is_void) continue
+        const label = item.station_label ?? item.prep_station ?? 'Unknown'
+        const items = stationItems.get(label) ?? []
+        items.push(item.is_bumped || item.status === 'completed')
+        stationItems.set(label, items)
+      }
+      for (const [label, completions] of stationItems) {
+        stationStatuses[label] = completions.every(Boolean) ? 'complete' : 'pending'
+      }
+    }
 
     tickets.push({
       id: `${stationId}_${orderId}`,
@@ -265,14 +419,27 @@ export async function GET(request: NextRequest) {
       created_at: createdAt,
       age_seconds: ageSeconds,
       age_category: getAgeCategory(ageSeconds),
-      is_rush: order.is_rush ?? false,
+      is_rush: isRush,
+      is_vip: isVip,
+      is_refire: isRefire,
+      is_add: false, // TODO: detect ADD orders based on prior sent_at
       station_id: stationId,
+      priority,
+      station_statuses: stationStatuses,
     })
   }
 
-  // Sort by created_at ascending (oldest first) with rush orders first
+  // Sort by priority then age
+  const priorityRank: Record<TicketPriority, number> = {
+    refire: 1,
+    rush: 2,
+    vip: 3,
+    normal: 4,
+  }
+
   tickets.sort((a, b) => {
-    if (a.is_rush !== b.is_rush) return a.is_rush ? -1 : 1
+    const rankDiff = (priorityRank[a.priority] ?? 4) - (priorityRank[b.priority] ?? 4)
+    if (rankDiff !== 0) return rankDiff
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   })
 
