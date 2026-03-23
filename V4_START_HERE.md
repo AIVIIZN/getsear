@@ -6,10 +6,10 @@
 
 ## Current State (as of 2026-03-23)
 
-- **280+ API endpoints** across 22 modules
-- **37+ UI pages** — core modules at production depth
+- **300+ API endpoints** across 22 modules
+- **46+ UI pages** — core modules at production depth
 - **60+ database tables** in Supabase (+ 10 new from Phases 4-5)
-- **Core workflow works:** order → kitchen → payment (production depth)
+- **Core workflow works:** order → kitchen → payment → reports (production depth)
 - **Tech stack:** Next.js 15, TypeScript, Tailwind v4, shadcn/ui, Supabase, Zustand
 - **Deployed at:** getsear.com (GCP VM, PM2, Nginx)
 - **Login:** demo@getsear.com / demo1234
@@ -20,8 +20,10 @@
 - **Phase 3:** KDS — expo screen, multi-station, re-fire, allergen alerts, audio
 - **Phase 4:** Menu Management — 3-panel builder, @dnd-kit DnD, photo upload, daypart pricing, 9 price levels, seasonal rotation, 86 cascade with Realtime, allergens, CSV import/export
 - **Phase 5:** Hardware — ESC/POS driver (Star+Epson), receipt/kitchen printing, cash drawer, barcode scanner, print queue with retry, KDS failover, print relay service
+- **Phase 6:** Staff & Labor — 7-tab management hub (roster, time clock, permissions, tips with 4 pool models, cash drawers with denomination counter, DnD schedule with shift marketplace, payroll export ADP/Gusto/Paychex), overtime engine (Federal/CA/CO), break compliance, POS clock-in overlay
+- **Phase 7:** Reports — All reports live Supabase queries (no mocks), 6 new reports (cash, speed-of-service, food cost, void/comp, P&L waterfall, 13-week trends), owner mobile dashboard, reports hub, BullMQ daily aggregation + SendGrid email
 
-### Next Phase: 6 (Staff & Labor)
+### Next Phase: 8 (Integrations)
 
 ## The Problem
 
