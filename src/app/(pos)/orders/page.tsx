@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { OrderPanel } from '@/components/pos/OrderPanel'
 import { MenuGrid } from '@/components/pos/MenuGrid'
-import { QuickActions } from '@/components/pos/QuickActions'
 import { ModifierSheet } from '@/components/pos/ModifierSheet'
 import { VoidReasonDialog } from '@/components/pos/VoidReasonDialog'
 import { CompDialog } from '@/components/pos/CompDialog'
@@ -121,7 +120,7 @@ export default function OrdersPage() {
                 sort_order: i.sort_order ?? 0,
                 image_url: i.image_url ?? null,
                 allergens: i.allergens ?? [],
-                modifier_groups: [], // Loaded on-demand when item tapped
+                modifier_groups: [],
               })
             )
           )
@@ -136,7 +135,7 @@ export default function OrdersPage() {
     loadMenu()
   }, [setCategories, setItems, setLoading])
 
-  // Auto-create a draft order if none exists — use real auth user
+  // Auto-create a draft order if none exists
   useEffect(() => {
     if (!currentOrder && user) {
       newOrder({
@@ -237,7 +236,6 @@ export default function OrdersPage() {
           return
         }
 
-        // Create order on server with real user ID
         const createRes = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -258,7 +256,6 @@ export default function OrdersPage() {
         const createJson = await createRes.json()
         orderId = createJson.data.id
 
-        // Add each item to the server
         for (const item of currentOrder.items.filter((i) => !i.voided)) {
           await fetch(`/api/orders/${orderId}/items`, {
             method: 'POST',
@@ -282,7 +279,6 @@ export default function OrdersPage() {
         }
       }
 
-      // Send to kitchen
       const sendRes = await fetch(`/api/orders/${orderId}/send`, {
         method: 'POST',
       })
@@ -302,7 +298,7 @@ export default function OrdersPage() {
     }
   }, [currentOrder, isSending, clearCurrentOrder, activeLocationId])
 
-  // ========== QUICK ACTIONS ==========
+  // ========== ORDER ACTIONS (moved from QuickActions) ==========
 
   const handleHold = useCallback(async () => {
     if (!currentOrder) return
@@ -340,9 +336,7 @@ export default function OrdersPage() {
         body: JSON.stringify({ reason: 'long_wait' }),
       })
       if (res.ok) {
-        toast.success('Rush flag set — kitchen notified', {
-          description: 'Order is now marked as rush priority',
-        })
+        toast.success('Rush flag set — kitchen notified')
       } else {
         toast.error('Failed to set rush')
       }
@@ -367,7 +361,6 @@ export default function OrdersPage() {
       if (res.ok) {
         toast.success('Check printed')
       } else {
-        // Fallback: open browser print dialog with check preview
         window.print()
       }
     } catch {
@@ -375,15 +368,13 @@ export default function OrdersPage() {
     }
   }, [currentOrder])
 
-  const handleVoid = useCallback(() => {
+  const handleVoidOrder = useCallback(() => {
     if (!currentOrder) return
     if (currentOrder.items.length === 0) {
       clearCurrentOrder()
       toast.info('Order cleared')
       return
     }
-    // For whole-order void, we'll void the entire order
-    // But first check if any items are sent — if so, need manager PIN
     const hasSentItems = currentOrder.items.some((i) => i.status !== 'pending' && !i.voided)
     setVoidTarget({
       id: '__ORDER__',
@@ -411,7 +402,6 @@ export default function OrdersPage() {
       if (!currentOrder || !voidTarget) return
 
       if (voidTarget.id === '__ORDER__') {
-        // Void entire order
         try {
           await fetch(`/api/orders/${currentOrder.id}`, {
             method: 'DELETE',
@@ -427,7 +417,6 @@ export default function OrdersPage() {
           toast.error('Failed to void order')
         }
       } else {
-        // Void single item in Zustand store
         voidItem(voidTarget.id, `${reason}${note ? ': ' + note : ''}`)
         toast.info(`Voided: ${voidTarget.name}`)
       }
@@ -546,30 +535,25 @@ export default function OrdersPage() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Left Panel — Current Order */}
+      {/* Left Panel — Order (30%) */}
       <OrderPanel
         onSendToKitchen={handleSendToKitchen}
         isSending={isSending}
         onItemVoid={handleItemVoid}
         onItemComp={handleItemComp}
         onGoToPayment={handleGoToPayment}
-      />
-
-      {/* Center Panel — Menu Grid */}
-      <MenuGrid onItemTap={handleItemTap} />
-
-      {/* Right Strip — Quick Actions */}
-      <QuickActions
         onHold={handleHold}
         onFireCourse={handleFireCourse}
         onRush={handleRush}
         onDiscount={handleDiscount}
         onPrint={handlePrint}
-        onVoid={handleVoid}
+        onVoidOrder={handleVoidOrder}
         onTransfer={() => setTransferOpen(true)}
         onMoveTable={() => setTableMoveOpen(true)}
-        disabled={!currentOrder}
       />
+
+      {/* Right Panel — Menu Grid (70%) */}
+      <MenuGrid onItemTap={handleItemTap} />
 
       {/* Modifier Sheet */}
       <ModifierSheet

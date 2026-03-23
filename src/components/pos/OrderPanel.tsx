@@ -9,7 +9,24 @@ import { GuestCountPicker } from './GuestCountPicker'
 import { SeatSelector } from './SeatSelector'
 import { CourseSelector } from './CourseSelector'
 import { useOrderStore } from '@/stores/order-store'
-import { Minus, Plus, ArrowRight, UtensilsCrossed, Send, CreditCard, XCircle, Gift } from 'lucide-react'
+import {
+  Minus,
+  Plus,
+  ArrowRight,
+  UtensilsCrossed,
+  Send,
+  CreditCard,
+  XCircle,
+  Gift,
+  MoreHorizontal,
+  PauseCircle,
+  Flame,
+  Zap,
+  Percent,
+  Printer,
+  ArrowRightLeft,
+  MapPin,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface OrderPanelProps {
@@ -18,9 +35,119 @@ interface OrderPanelProps {
   onItemVoid?: (itemId: string, itemName: string, isSent: boolean) => void
   onItemComp?: (itemId: string, itemName: string, priceCents: number) => void
   onGoToPayment?: () => void
+  // Quick actions (moved from QuickActions strip)
+  onHold?: () => void
+  onFireCourse?: () => void
+  onRush?: () => void
+  onDiscount?: () => void
+  onPrint?: () => void
+  onVoidOrder?: () => void
+  onTransfer?: () => void
+  onMoveTable?: () => void
 }
 
-export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp, onGoToPayment }: OrderPanelProps) {
+function ActionMenu({
+  onHold,
+  onFireCourse,
+  onRush,
+  onDiscount,
+  onPrint,
+  onVoidOrder,
+  onTransfer,
+  onMoveTable,
+  disabled,
+}: {
+  onHold?: () => void
+  onFireCourse?: () => void
+  onRush?: () => void
+  onDiscount?: () => void
+  onPrint?: () => void
+  onVoidOrder?: () => void
+  onTransfer?: () => void
+  onMoveTable?: () => void
+  disabled: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const actions = [
+    { label: 'Hold Order', icon: PauseCircle, handler: onHold, color: 'text-[var(--warning)]' },
+    { label: 'Fire Course', icon: Flame, handler: onFireCourse, color: 'text-[var(--primary)]' },
+    { label: 'Rush', icon: Zap, handler: onRush, color: 'text-[var(--error)]' },
+    { label: 'Discount', icon: Percent, handler: onDiscount, color: 'text-[var(--info)]' },
+    { label: 'Print Check', icon: Printer, handler: onPrint, color: 'text-[var(--muted-foreground)]' },
+    { label: 'Transfer', icon: ArrowRightLeft, handler: onTransfer, color: 'text-[var(--info)]' },
+    { label: 'Move Table', icon: MapPin, handler: onMoveTable, color: 'text-[var(--success)]' },
+    { label: 'Void Order', icon: XCircle, handler: onVoidOrder, color: 'text-[var(--destructive)]' },
+  ]
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        disabled={disabled}
+        className="btn-press touch-target flex items-center justify-center rounded-xl text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)] disabled:opacity-30"
+        style={{ width: 44, height: 44, transitionDuration: 'var(--duration-fast)' }}
+      >
+        <MoreHorizontal className="h-5 w-5" />
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 top-full z-50 mt-1 w-56 rounded-2xl bg-white py-2 animate-fade-in"
+          style={{ boxShadow: 'var(--shadow-xl)' }}
+        >
+          {actions.map(({ label, icon: Icon, handler, color }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                handler?.()
+              }}
+              disabled={!handler}
+              className={cn(
+                'row-press flex w-full items-center gap-3 px-4 py-3 text-subhead font-medium text-[var(--foreground)]',
+                'disabled:opacity-30 disabled:cursor-not-allowed'
+              )}
+            >
+              <Icon className={cn('h-5 w-5 shrink-0', color)} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function OrderPanel({
+  onSendToKitchen,
+  isSending,
+  onItemVoid,
+  onItemComp,
+  onGoToPayment,
+  onHold,
+  onFireCourse,
+  onRush,
+  onDiscount,
+  onPrint,
+  onVoidOrder,
+  onTransfer,
+  onMoveTable,
+}: OrderPanelProps) {
   const currentOrder = useOrderStore((s) => s.currentOrder)
   const activeSeat = useOrderStore((s) => s.activeSeat)
   const {
@@ -75,7 +202,7 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
 
   if (!currentOrder) {
     return (
-      <div className="flex w-[var(--order-panel-width)] flex-col border-r border-border bg-white">
+      <div className="flex flex-col bg-white" style={{ width: '30%', minWidth: 320, maxWidth: 400 }}>
         <EmptyState
           icon={UtensilsCrossed}
           title="No Active Order"
@@ -86,32 +213,53 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
   }
 
   return (
-    <div className="flex w-[var(--order-panel-width)] flex-col border-r border-border bg-white">
-      {/* Header — compact, organized */}
-      <div className="shrink-0 border-b border-border">
-        {/* Order type + status bar */}
-        <div className="flex items-center justify-between px-3 pt-3 pb-1">
+    <div
+      className="flex flex-col bg-white"
+      style={{
+        width: '30%',
+        minWidth: 320,
+        maxWidth: 400,
+        borderRight: '0.5px solid var(--separator)',
+      }}
+    >
+      {/* Header */}
+      <div className="shrink-0" style={{ borderBottom: '0.5px solid var(--separator)' }}>
+        {/* Order info + action menu */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
           <div className="flex items-center gap-2">
             {currentOrder.order_number ? (
-              <span className="text-base font-black text-foreground tracking-tight">
+              <span className="text-title-3 font-black text-foreground tracking-tight">
                 #{currentOrder.order_number}
               </span>
             ) : (
-              <span className="text-xs font-medium text-muted-foreground bg-[var(--muted)] px-2 py-0.5 rounded-md">
+              <span className="text-footnote font-semibold text-muted-foreground bg-[var(--muted)] px-2.5 py-1 rounded-lg">
                 New Order
               </span>
             )}
             {currentOrder.table_name && (
-              <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+              <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-footnote font-bold text-blue-700">
                 {currentOrder.table_name}
               </span>
             )}
           </div>
-          <StatusBadge status={currentOrder.status} />
+          <div className="flex items-center gap-1">
+            <StatusBadge status={currentOrder.status} />
+            <ActionMenu
+              onHold={onHold}
+              onFireCourse={onFireCourse}
+              onRush={onRush}
+              onDiscount={onDiscount}
+              onPrint={onPrint}
+              onVoidOrder={onVoidOrder}
+              onTransfer={onTransfer}
+              onMoveTable={onMoveTable}
+              disabled={!currentOrder}
+            />
+          </div>
         </div>
 
         {/* Order type chips */}
-        <div className="px-3 pb-2">
+        <div className="px-4 pb-2">
           <OrderTypeChips
             value={currentOrder.order_type}
             onChange={(type) => setOrderType(type)}
@@ -119,17 +267,17 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
         </div>
 
         {/* Guest count + Course selector */}
-        <div className="flex items-center gap-3 px-3 pb-2">
+        <div className="flex items-center gap-3 px-4 pb-2">
           <GuestCountPicker
             count={currentOrder.guest_count}
             onChange={setGuestCount}
           />
-          <div className="h-4 w-px bg-border" />
+          <div className="h-4 w-px" style={{ backgroundColor: 'var(--separator)' }} />
           <CourseSelector />
         </div>
 
         {/* Seat selector */}
-        <div className="px-3 pb-2.5">
+        <div className="px-4 pb-3">
           <SeatSelector
             guestCount={currentOrder.guest_count}
             activeSeat={activeSeat}
@@ -139,11 +287,11 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
       </div>
 
       {/* Item list — scrollable middle */}
-      <div ref={itemListRef} className="flex-1 overflow-y-auto scrollbar-hide">
+      <div ref={itemListRef} className="flex-1 overflow-y-auto scrollbar-hide scroll-container">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-            <ArrowRight className="h-8 w-8 text-muted-foreground/30 mb-3" />
-            <p className="text-sm font-medium text-muted-foreground/60">
+            <ArrowRight className="h-10 w-10 text-muted-foreground/20 mb-3" />
+            <p className="text-callout font-medium text-muted-foreground/50">
               Tap a menu item to start
             </p>
           </div>
@@ -157,9 +305,9 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
                 <div
                   key={item.id}
                   className={cn(
-                    'relative mx-1.5 mb-1 rounded-xl transition-all duration-150',
+                    'relative mx-2 mb-1 rounded-xl transition-all duration-150',
                     item.voided && 'opacity-40',
-                    isSelected && 'bg-[var(--accent)] shadow-warm-sm',
+                    isSelected && 'bg-[var(--info)]/[0.06] ring-1 ring-[var(--info)]/20',
                     flashId === item.id && 'animate-item-flash',
                     !isSelected && !item.voided && 'hover:bg-[var(--secondary)]'
                   )}
@@ -167,12 +315,12 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
                   <button
                     type="button"
                     onClick={() => setSelectedItemId(isSelected ? null : item.id)}
-                    className="w-full text-left px-3 py-2.5"
+                    className="w-full text-left px-3 py-3"
                   >
-                    <div className="flex items-start gap-2.5">
+                    <div className="flex items-start gap-3">
                       {/* Quantity badge */}
                       {!item.voided && (
-                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--secondary)] text-xs font-bold text-foreground">
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-footnote font-bold text-foreground">
                           {item.quantity}
                         </span>
                       )}
@@ -182,42 +330,42 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span
                             className={cn(
-                              'text-[15px] font-semibold leading-tight text-foreground',
+                              'text-headline leading-tight text-foreground',
                               item.voided && 'line-through text-muted-foreground'
                             )}
                           >
                             {item.name}
                           </span>
                           {item.voided && (
-                            <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                            <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-caption-2 font-bold text-red-600">
                               VOID
                             </span>
                           )}
                           {item.seat_number != null && (
-                            <span className="rounded bg-[var(--muted)] px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span className="rounded-md bg-[var(--muted)] px-1.5 py-0.5 text-caption-2 font-medium text-muted-foreground">
                               S{item.seat_number}
                             </span>
                           )}
                           {item.course > 1 && (
-                            <span className="rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-700">
+                            <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-caption-2 font-medium text-blue-700">
                               C{item.course}
                             </span>
                           )}
                         </div>
 
-                        {/* Modifiers — indented */}
+                        {/* Modifiers — indented, readable */}
                         {item.modifiers.length > 0 && (
-                          <div className="mt-0.5 pl-0.5">
+                          <div className="mt-1 pl-1">
                             {item.modifiers.map((mod) => (
                               <p
                                 key={mod.id}
-                                className="text-xs text-muted-foreground leading-relaxed"
+                                className="text-subhead text-muted-foreground leading-relaxed"
                               >
-                                <span className="text-muted-foreground/40 mr-1">&bull;</span>
+                                <span className="text-muted-foreground/40 mr-1.5">&bull;</span>
                                 {mod.name}
                                 {mod.price_cents !== 0 && (
                                   <span className="text-muted-foreground/60">
-                                    {' '}(+<MoneyDisplay cents={mod.price_cents} className="text-xs" />)
+                                    {' '}(+<MoneyDisplay cents={mod.price_cents} className="text-subhead" />)
                                   </span>
                                 )}
                               </p>
@@ -227,7 +375,7 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
 
                         {/* Special instructions */}
                         {item.special_instructions && (
-                          <p className="mt-1 text-xs italic text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 inline-block">
+                          <p className="mt-1.5 text-footnote italic text-amber-700 bg-amber-50 rounded-lg px-2 py-1 inline-block">
                             {item.special_instructions}
                           </p>
                         )}
@@ -237,7 +385,7 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
                       <MoneyDisplay
                         cents={itemTotal}
                         className={cn(
-                          'text-[15px] font-semibold shrink-0 tabular-nums',
+                          'text-headline shrink-0 tabular-nums',
                           item.voided ? 'line-through text-muted-foreground' : 'text-foreground'
                         )}
                       />
@@ -246,25 +394,25 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
 
                   {/* Expanded controls when selected */}
                   {isSelected && !item.voided && (
-                    <div className="flex items-center gap-2 px-3 pb-2.5">
+                    <div className="flex items-center gap-2 px-3 pb-3">
                       {/* Quantity stepper */}
-                      <div className="flex items-center gap-1.5 rounded-lg border border-border bg-white p-0.5">
+                      <div className="flex items-center gap-1 rounded-xl border border-border bg-white p-0.5">
                         <button
                           type="button"
                           onClick={() => handleQuantityChange(item.id, item.quantity, -1)}
-                          className="btn-press flex h-8 w-8 items-center justify-center rounded-md hover:bg-[var(--muted)] transition-colors"
+                          className="btn-press flex h-9 w-9 items-center justify-center rounded-lg hover:bg-[var(--muted)] transition-colors"
                         >
-                          <Minus className="h-3.5 w-3.5" />
+                          <Minus className="h-4 w-4" />
                         </button>
-                        <span className="tabular-nums text-sm font-bold w-6 text-center">
+                        <span className="tabular-nums text-subhead font-bold w-7 text-center">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleQuantityChange(item.id, item.quantity, 1)}
-                          className="btn-press flex h-8 w-8 items-center justify-center rounded-md hover:bg-[var(--muted)] transition-colors"
+                          className="btn-press flex h-9 w-9 items-center justify-center rounded-lg hover:bg-[var(--muted)] transition-colors"
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus className="h-4 w-4" />
                         </button>
                       </div>
 
@@ -274,25 +422,28 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
                       <button
                         type="button"
                         onClick={() => onItemVoid?.(item.id, item.name, item.status !== 'pending')}
-                        className="btn-press flex h-8 items-center gap-1 rounded-lg bg-red-50 px-2.5 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
+                        className="btn-press flex h-9 items-center gap-1.5 rounded-xl bg-red-50 px-3 text-footnote font-bold text-red-600 hover:bg-red-100 transition-colors"
                       >
-                        <XCircle className="h-3.5 w-3.5" />
+                        <XCircle className="h-4 w-4" />
                         Void
                       </button>
                       {/* Comp button */}
                       <button
                         type="button"
                         onClick={() => onItemComp?.(item.id, item.name, itemTotal)}
-                        className="btn-press flex h-8 items-center gap-1 rounded-lg bg-amber-50 px-2.5 text-xs font-bold text-amber-600 hover:bg-amber-100 transition-colors"
+                        className="btn-press flex h-9 items-center gap-1.5 rounded-xl bg-amber-50 px-3 text-footnote font-bold text-amber-600 hover:bg-amber-100 transition-colors"
                       >
-                        <Gift className="h-3.5 w-3.5" />
+                        <Gift className="h-4 w-4" />
                         Comp
                       </button>
                     </div>
                   )}
 
                   {/* Hairline separator */}
-                  <div className="absolute bottom-0 left-3 right-3 h-px bg-border/50" />
+                  <div
+                    className="absolute bottom-0 left-4 right-4"
+                    style={{ borderBottom: '0.5px solid var(--separator)', opacity: 0.5 }}
+                  />
                 </div>
               )
             })}
@@ -301,45 +452,49 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
       </div>
 
       {/* Totals footer */}
-      <div className="shrink-0 border-t border-border bg-white">
-        <div className="px-3 pt-3 pb-2 space-y-1">
-          <div className="flex items-center justify-between text-sm">
+      <div className="shrink-0 bg-white" style={{ borderTop: '0.5px solid var(--separator)' }}>
+        <div className="px-4 pt-3 pb-2 space-y-1.5">
+          <div className="flex items-center justify-between text-subhead">
             <span className="text-muted-foreground">Subtotal</span>
-            <MoneyDisplay cents={currentOrder.subtotal_cents} className="font-medium" />
+            <MoneyDisplay cents={currentOrder.subtotal_cents} className="font-medium tabular-nums" />
           </div>
           {currentOrder.discount_cents > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-green-600">Discount</span>
-              <MoneyDisplay cents={-currentOrder.discount_cents} className="font-medium text-green-600" />
+            <div className="flex items-center justify-between text-subhead">
+              <span className="text-[var(--success)]">Discount</span>
+              <MoneyDisplay cents={-currentOrder.discount_cents} className="font-medium text-[var(--success)] tabular-nums" />
             </div>
           )}
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-subhead">
             <span className="text-muted-foreground">Tax</span>
-            <MoneyDisplay cents={currentOrder.tax_cents} className="font-medium" />
+            <MoneyDisplay cents={currentOrder.tax_cents} className="font-medium tabular-nums" />
           </div>
-          <div className="flex items-center justify-between pt-1.5 border-t border-border/50">
-            <span className="text-lg font-black text-foreground">Total</span>
+          <div
+            className="flex items-center justify-between pt-2"
+            style={{ borderTop: '0.5px solid var(--separator)' }}
+          >
+            <span className="text-title-2 font-black text-foreground">Total</span>
             <MoneyDisplay
               cents={currentOrder.total_cents}
-              className="text-xl font-black text-foreground"
+              className="text-title-2 font-black text-foreground tabular-nums"
             />
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2 px-3 pb-3">
+        {/* Action buttons — 56px tall per spec */}
+        <div className="flex gap-2 px-4 pb-4">
           <button
             type="button"
             onClick={onSendToKitchen}
             disabled={isSending || !hasUnsentItems}
             className={cn(
-              'btn-press flex h-[52px] flex-1 items-center justify-center gap-2 rounded-2xl text-[15px] font-bold transition-all duration-150',
+              'btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline transition-all duration-150',
               hasUnsentItems
                 ? 'bg-[var(--primary)] text-white shadow-[0_2px_8px_rgba(240,107,24,0.3)] hover:shadow-[0_4px_16px_rgba(240,107,24,0.4)] active:shadow-none'
                 : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
             )}
+            style={{ height: 56 }}
           >
-            <Send className="h-[18px] w-[18px]" />
+            <Send className="h-5 w-5" />
             {isSending ? 'Sending...' : 'Send'}
           </button>
 
@@ -347,9 +502,10 @@ export function OrderPanel({ onSendToKitchen, isSending, onItemVoid, onItemComp,
             <button
               type="button"
               onClick={onGoToPayment}
-              className="btn-press flex h-[52px] flex-1 items-center justify-center gap-2 rounded-2xl text-[15px] font-bold bg-[#34C759] text-white shadow-[0_2px_8px_rgba(52,199,89,0.3)] hover:shadow-[0_4px_16px_rgba(52,199,89,0.4)] active:shadow-none transition-all duration-150"
+              className="btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline bg-[var(--success)] text-white shadow-[0_2px_8px_rgba(52,199,89,0.3)] hover:shadow-[0_4px_16px_rgba(52,199,89,0.4)] active:shadow-none transition-all duration-150"
+              style={{ height: 56 }}
             >
-              <CreditCard className="h-[18px] w-[18px]" />
+              <CreditCard className="h-5 w-5" />
               Pay
             </button>
           )}

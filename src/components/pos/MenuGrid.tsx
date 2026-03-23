@@ -20,7 +20,7 @@ interface MenuGridProps {
   onItemTap: (item: MenuItem) => void
 }
 
-// Category color palette — when categories don't have a custom color
+// Category color palette — iOS system colors
 const CATEGORY_COLORS = [
   '#FF9500', // Orange — Appetizers
   '#FF3B30', // Red — Entrees
@@ -54,7 +54,6 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
 
   const [searchInput, setSearchInput] = useState(searchQuery)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const catScrollRef = useRef<HTMLDivElement>(null)
 
   // Debounced search
   const handleSearchChange = useCallback(
@@ -113,19 +112,23 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
-      {/* Category pills — horizontally scrollable */}
-      <div className="shrink-0 bg-white border-b border-border">
-        <div ref={catScrollRef} className="flex gap-2 overflow-x-auto scrollbar-hide px-3 py-2.5">
+      {/* Category pills — horizontally scrollable, 36px tall */}
+      <div
+        className="shrink-0 bg-white"
+        style={{ borderBottom: '0.5px solid var(--separator)' }}
+      >
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 py-3">
           {/* All button */}
           <button
             type="button"
             onClick={() => setActiveCategory(null)}
             className={cn(
-              'btn-press shrink-0 rounded-full px-5 py-2 text-sm font-semibold transition-all duration-150',
+              'btn-press shrink-0 rounded-full px-6 text-subhead font-semibold transition-all duration-150',
               activeCategoryId === null
                 ? 'bg-[var(--foreground)] text-white shadow-warm-sm'
                 : 'bg-[var(--secondary)] text-muted-foreground hover:bg-[var(--muted)]'
             )}
+            style={{ height: 36, minWidth: 64 }}
           >
             All
           </button>
@@ -138,13 +141,13 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                 type="button"
                 onClick={() => setActiveCategory(cat.id)}
                 className={cn(
-                  'btn-press shrink-0 rounded-full px-5 py-2 text-sm font-semibold transition-all duration-150',
-                  isActive
-                    ? 'text-white shadow-warm-sm'
-                    : 'text-foreground hover:shadow-warm-sm'
+                  'btn-press shrink-0 rounded-full px-6 text-subhead font-semibold transition-all duration-150',
+                  isActive ? 'text-white shadow-warm-sm' : 'hover:shadow-warm-sm'
                 )}
                 style={{
-                  backgroundColor: isActive ? color : tintColor(color, 0.12),
+                  height: 36,
+                  minWidth: 80,
+                  backgroundColor: isActive ? color : tintColor(color, 0.10),
                   color: isActive ? '#fff' : color,
                 }}
               >
@@ -155,28 +158,31 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
         </div>
       </div>
 
-      {/* Search bar */}
-      <div className="shrink-0 px-3 py-2 bg-white border-b border-border">
+      {/* Search bar — 44px tall */}
+      <div
+        className="shrink-0 px-4 py-2.5 bg-white"
+        style={{ borderBottom: '0.5px solid var(--separator)' }}
+      >
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search menu..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="h-11 w-full rounded-xl border border-border bg-[var(--secondary)] pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 transition-all"
+            className="h-11 w-full rounded-xl border-0 bg-[var(--secondary)] pl-10 pr-4 text-body text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-[var(--ring)]/20 transition-all"
           />
         </div>
       </div>
 
-      {/* Item grid — scrollable */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-3">
+      {/* Item grid — scrollable, bigger tiles */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide scroll-container p-4">
         {isLoading ? (
           <MenuGridSkeleton />
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center">
-            <Search className="h-8 w-8 text-muted-foreground/40 mb-2" />
-            <p className="text-sm font-medium text-muted-foreground">No items found</p>
+            <Search className="h-10 w-10 text-muted-foreground/30 mb-3" />
+            <p className="text-callout font-medium text-muted-foreground">No items found</p>
             {searchQuery && (
               <button
                 type="button"
@@ -184,14 +190,19 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                   setSearchInput('')
                   setSearchQuery('')
                 }}
-                className="mt-2 text-xs text-[var(--primary)] font-medium hover:underline"
+                className="mt-2 text-subhead text-[var(--primary)] font-medium hover:underline"
               >
                 Clear search
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2.5 lg:grid-cols-4 xl:grid-cols-5">
+          <div
+            className="grid gap-3"
+            style={{
+              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+            }}
+          >
             {filteredItems.map((item) => {
               const catColor = categoryColorMap.get(item.category_id) ?? '#8E8E93'
               const hasImage = !!(item as MenuItem & { image_url?: string | null }).image_url
@@ -204,12 +215,15 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                   onClick={() => handleItemTap(item as MenuItem)}
                   disabled={!item.is_available}
                   className={cn(
-                    'btn-press group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-150',
+                    'tile-press group relative flex flex-col overflow-hidden rounded-2xl',
                     item.is_available
-                      ? 'shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.12)] hover:scale-[1.02] active:scale-[0.97]'
+                      ? 'shadow-warm-md hover:shadow-warm-lg active:scale-[0.96]'
                       : 'opacity-50 cursor-not-allowed'
                   )}
-                  style={{ aspectRatio: '1' }}
+                  style={{
+                    aspectRatio: '1',
+                    cornerShape: 'squircle',
+                  } as React.CSSProperties}
                 >
                   {/* Tile background — image or colored */}
                   {hasImage ? (
@@ -219,29 +233,34 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                         backgroundImage: `url(${(item as MenuItem & { image_url?: string }).image_url})`,
                       }}
                     >
-                      {/* Gradient overlay for text readability */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                     </div>
                   ) : (
                     <div
                       className="absolute inset-0"
-                      style={{ backgroundColor: tintColor(catColor, 0.08) }}
+                      style={{ backgroundColor: tintColor(catColor, 0.07) }}
                     >
                       {/* Large letter watermark */}
                       <span
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl font-black opacity-[0.07]"
-                        style={{ color: catColor }}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-black opacity-[0.06]"
+                        style={{ color: catColor, fontSize: 72 }}
                       >
                         {firstLetter}
                       </span>
                     </div>
                   )}
 
-                  {/* Content overlay */}
-                  <div className="relative flex flex-1 flex-col justify-end p-2.5">
+                  {/* Category color bar at top — 4px */}
+                  <div
+                    className="absolute top-0 left-0 right-0"
+                    style={{ height: 4, backgroundColor: catColor }}
+                  />
+
+                  {/* Content — name + price at bottom */}
+                  <div className="relative flex flex-1 flex-col justify-end p-3">
                     <p
                       className={cn(
-                        'text-sm font-semibold leading-tight line-clamp-2',
+                        'text-callout font-semibold leading-tight line-clamp-2',
                         hasImage ? 'text-white' : 'text-foreground'
                       )}
                     >
@@ -250,30 +269,24 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                     <MoneyDisplay
                       cents={item.price_cents}
                       className={cn(
-                        'mt-0.5 text-sm font-medium',
+                        'mt-0.5 text-subhead font-medium tabular-nums',
                         hasImage ? 'text-white/80' : 'text-muted-foreground'
                       )}
                     />
                   </div>
 
-                  {/* Category color indicator bar at top */}
-                  <div
-                    className="absolute top-0 left-0 right-0 h-1"
-                    style={{ backgroundColor: catColor }}
-                  />
-
                   {/* 86'd overlay */}
                   {!item.is_available && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-                      <div className="flex items-center gap-1.5 rounded-lg bg-[var(--error)] px-3 py-1.5">
-                        <Ban className="h-4 w-4 text-white" />
-                        <span className="text-sm font-black text-white">86&apos;d</span>
+                      <div className="flex items-center gap-1.5 rounded-xl bg-[var(--error)] px-4 py-2">
+                        <Ban className="h-5 w-5 text-white" />
+                        <span className="text-subhead font-black text-white">86&apos;d</span>
                       </div>
                     </div>
                   )}
 
-                  {/* Border */}
-                  <div className="absolute inset-0 rounded-2xl border border-black/[0.06] pointer-events-none" />
+                  {/* Subtle border */}
+                  <div className="absolute inset-0 rounded-2xl border border-black/[0.04] pointer-events-none" />
                 </button>
               )
             })}
@@ -286,7 +299,10 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
 
 function MenuGridSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-2.5 lg:grid-cols-4 xl:grid-cols-5">
+    <div
+      className="grid gap-3"
+      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}
+    >
       {Array.from({ length: 12 }).map((_, i) => (
         <div
           key={i}
