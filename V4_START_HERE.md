@@ -6,13 +6,22 @@
 
 ## Current State (as of 2026-03-23)
 
-- **264 API endpoints** across 22 modules — all do basic CRUD
-- **37 UI pages** — all render but most are basic forms/tables
-- **60+ database tables** in Supabase
-- **Core workflow works:** order → kitchen → payment (but shallow)
+- **280+ API endpoints** across 22 modules
+- **37+ UI pages** — core modules at production depth
+- **60+ database tables** in Supabase (+ 10 new from Phases 4-5)
+- **Core workflow works:** order → kitchen → payment (production depth)
 - **Tech stack:** Next.js 15, TypeScript, Tailwind v4, shadcn/ui, Supabase, Zustand
 - **Deployed at:** getsear.com (GCP VM, PM2, Nginx)
 - **Login:** demo@getsear.com / demo1234
+
+### Phases Complete (deployed to production)
+- **Phase 1:** Order Entry — modifier sheets, combos, split checks, multi-tender
+- **Phase 2:** Valor Payments — pre-auth, bar tabs, dual pricing, settlement
+- **Phase 3:** KDS — expo screen, multi-station, re-fire, allergen alerts, audio
+- **Phase 4:** Menu Management — 3-panel builder, @dnd-kit DnD, photo upload, daypart pricing, 9 price levels, seasonal rotation, 86 cascade with Realtime, allergens, CSV import/export
+- **Phase 5:** Hardware — ESC/POS driver (Star+Epson), receipt/kitchen printing, cash drawer, barcode scanner, print queue with retry, KDS failover, print relay service
+
+### Next Phase: 6 (Staff & Labor)
 
 ## The Problem
 
