@@ -29,7 +29,13 @@
 - **Phase 10:** Tables & Reservations — Three-tab tables page (Floor Plan/List/Capacity), server section assignments, turn time tracking, reservation seating flow, waitlist with SMS, capacity dashboard, public reservation widget at /reserve/[slug]
 - **Phase 11:** All 10 Optional Modules — Inventory (waste, food cost, prep list, auto-86), Loyalty (phone enrollment, tiers, cross-location), Online Ordering (public /order/[slug], QR, throttle), Marketing (campaign builder, segments, real sends), Delivery (GPS, proof of delivery), Catering (BEO/proposal/invoice PDF), Scheduling (weekly grid, labor forecast, marketplace), Drive-Thru (lanes, speed metrics), House Accounts (statements, auto-billing, credit limits), Franchise (menu push, consolidated P&L, royalties)
 
-### Next Phase: 12 (Security)
+- **Phase 12:** Security & Performance — Zod validation on all API routes, Redis-backed rate limiting (5 tiers), location-level authorization, MFA/TOTP for owner/admin, password reset flow, 13 database indexes, load test scripts (k6)
+- **Phase 13:** Visual QA & Polish — 25 empty state variants, 13 loading skeleton variants, error states, branded 404, design token enforcement (111 color fixes), button press feedback, spring animations, prefers-reduced-motion support, audit script
+- **Phase 14:** AI Intelligence — Sear Ask (Claude API + 10 query tools), Sear Insights (daily BullMQ generation, dashboard cards), Sear Predict (13-week demand forecasting), chat UI with inline charts/tables, AI settings page, cost tracking
+- **Phase 15:** Website & Pricing — Public marketing landing page, pricing plans ($69/$129/$199), ROI calculator with animated sliders, 14-dimension competitor comparison table (vs Toast/Square/SpotOn/Clover), demo request form with SendGrid
+- **Phase 16:** Self-Service Onboarding — 8-step setup wizard, menu from photo (Claude Vision), interactive tutorials with spotlight overlay, demo data seeding (50 items, 24 tables, 8 staff), hardware sub-wizard, searchable help center (32 articles), tax lookup by zip code
+
+### ALL 16 PHASES COMPLETE
 
 ## The Problem
 
