@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { trackUsage } from './cost-tracker'
 
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 4096
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 1000
