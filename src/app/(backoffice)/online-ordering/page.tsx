@@ -429,10 +429,10 @@ export default function OnlineOrderingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="page-title">
             Online Ordering
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="page-subtitle">
             Manage incoming online orders, menus, and throttle settings
           </p>
         </div>

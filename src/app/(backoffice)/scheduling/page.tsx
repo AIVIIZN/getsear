@@ -169,10 +169,10 @@ export default function SchedulingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="page-title">
           Staff Scheduling
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="page-subtitle">
           Manage shifts, availability, and swap requests
         </p>
       </div>

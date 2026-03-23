@@ -286,8 +286,8 @@ export default function MarketingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Marketing</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="page-title">Marketing</h1>
+          <p className="page-subtitle">
             Email, SMS, and push campaigns
           </p>
         </div>

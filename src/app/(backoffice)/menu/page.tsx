@@ -255,8 +255,8 @@ export default function MenuManagerPage() {
       {/* Page header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Menu Manager</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="page-title">Menu Manager</h1>
+          <p className="page-subtitle">
             Manage categories, items, and modifier groups.
           </p>
         </div>

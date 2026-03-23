@@ -133,13 +133,13 @@ export default function ReportsPage() {
     : 0
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Reports Dashboard</h1>
+          <h1 className="page-title">Reports Dashboard</h1>
           {isMock && (
-            <p className="text-xs text-[var(--muted-foreground)] mt-1">
+            <p className="page-subtitle">
               Showing sample data. Real data will appear when orders are processed.
             </p>
           )}
@@ -149,7 +149,8 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium hover:bg-[var(--secondary)] transition-colors"
+            className="btn-press touch-target flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-4 text-subhead font-medium hover:bg-[var(--secondary)] transition-colors"
+            style={{ height: 44 }}
           >
             <Download className="h-4 w-4" />
             Export

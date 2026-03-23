@@ -283,6 +283,17 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Consistent input height across backoffice (48px) */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([role="combobox"]),
+  select {
+    min-height: 48px;
+    border-radius: 12px;
+  }
+
+  textarea {
+    border-radius: 12px;
+  }
 }
 
 /* ============================================================
@@ -605,6 +616,35 @@
 
   .row-press:active {
     background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  /* ============================================================
+     BACKOFFICE PAGE UTILITIES
+     Consistent structure across management pages
+     ============================================================ */
+
+  /* Page title — consistent heading for all backoffice pages */
+  .page-title {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  .page-subtitle {
+    font-size: 15px;
+    line-height: 20px;
+    color: var(--muted-foreground);
+    margin-top: 2px;
+  }
+
+  /* Table/card wrapper — consistent card treatment */
+  .card-section {
+    border-radius: 16px;
+    border: 0.5px solid var(--separator);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
   }
 
   /* iOS-style squircle corners — progressive enhancement */

@@ -407,10 +407,10 @@ export default function LoyaltyPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="page-title">
           Loyalty Program
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="page-subtitle">
           Manage loyalty programs, member accounts, and analytics
         </p>
       </div>

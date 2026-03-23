@@ -436,8 +436,8 @@ export default function HouseAccountsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">House Accounts</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="page-title">House Accounts</h1>
+          <p className="page-subtitle">
             Manage charge accounts for corporate clients and trusted guests
           </p>
         </div>

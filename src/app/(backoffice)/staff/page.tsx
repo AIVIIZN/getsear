@@ -188,8 +188,8 @@ export default function StaffPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Staff Management</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="page-title">Staff Management</h2>
+        <p className="page-subtitle">
           Manage your team, time clock, and tips
         </p>
       </div>

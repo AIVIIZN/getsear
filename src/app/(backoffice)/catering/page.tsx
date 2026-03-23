@@ -417,8 +417,8 @@ export default function CateringPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Catering</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="page-title">Catering</h1>
+          <p className="page-subtitle">
             Events, menus, and catering management
           </p>
         </div>

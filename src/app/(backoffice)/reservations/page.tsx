@@ -431,8 +431,8 @@ export default function ReservationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Reservations</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="page-title">Reservations</h1>
+          <p className="page-subtitle">
             Manage reservations and walk-in waitlist
           </p>
         </div>

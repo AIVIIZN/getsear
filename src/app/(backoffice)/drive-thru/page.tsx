@@ -260,8 +260,8 @@ export default function DriveThruPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Drive-Thru</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="page-title">Drive-Thru</h1>
+        <p className="page-subtitle">
           Speed of service metrics and digital menu board management
         </p>
       </div>
