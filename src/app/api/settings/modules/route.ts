@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest) {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
-  const roleErr = requireRole(user, ['owner'])
+  const roleErr = requireRole(user, ['owner', 'admin'])
   if (roleErr) return roleErr
 
   let body: unknown
@@ -70,6 +70,8 @@ export async function PATCH(request: NextRequest) {
     .eq('module_id', parsed.data.module_id)
     .single() as { data: OrgModuleRow | null }
 
+  const now = new Date().toISOString()
+
   if (existing) {
     // Update
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,25 +80,28 @@ export async function PATCH(request: NextRequest) {
         is_enabled: parsed.data.enabled,
         config: parsed.data.config ?? {},
         location_ids: parsed.data.location_ids ?? null,
-        updated_at: new Date().toISOString(),
+        enabled_at: parsed.data.enabled ? now : undefined,
+        disabled_at: parsed.data.enabled ? null : now,
+        updated_at: now,
       })
       .eq('id', existing.id)
       .select()
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update module' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to update module', detail: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ data })
   } else {
-    // Insert
+    // Insert — use module_id directly (the table accepts plain names like 'pos', 'kds')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('org_modules') as any)
       .insert({
         org_id: user.org_id,
         module_id: parsed.data.module_id,
         is_enabled: parsed.data.enabled,
+        enabled_at: parsed.data.enabled ? now : null,
         config: parsed.data.config ?? {},
         location_ids: parsed.data.location_ids ?? null,
       })
@@ -104,7 +109,7 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to enable module' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to enable module', detail: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ data }, { status: 201 })

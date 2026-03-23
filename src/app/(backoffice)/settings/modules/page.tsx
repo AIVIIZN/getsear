@@ -179,13 +179,17 @@ export default function ModulesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ module_id: moduleName, enabled }),
       });
-      if (!res.ok) throw new Error("Failed to update");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+        toast.error(err.detail ?? err.error ?? "Failed to update module");
+        return;
+      }
       toast.success(
         enabled ? `${def?.label ?? moduleName} enabled` : `${def?.label ?? moduleName} disabled`
       );
       fetchModules();
     } catch {
-      toast.error("Failed to update module");
+      toast.error("Network error — check your connection");
     } finally {
       setTogglingModule(null);
     }
@@ -198,8 +202,8 @@ export default function ModulesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Modules</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="page-title">Modules</h2>
+        <p className="page-subtitle">
           Enable features for your organization.{" "}
           {enabledModules.filter((m) => m.is_enabled).length} of {ALL_MODULES.length} modules active.
         </p>
