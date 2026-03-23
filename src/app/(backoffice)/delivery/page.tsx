@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
+import { DeliveryMap } from "@/components/delivery/DeliveryMap";
 import {
   MapPin,
   Plus,
@@ -166,8 +167,12 @@ export default function DeliveryPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="active" className="w-full">
+      <Tabs defaultValue="dashboard" className="w-full">
         <TabsList className="h-11">
+          <TabsTrigger value="dashboard" className="h-9 gap-2 touch-target">
+            <MapPin className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="active" className="h-9 gap-2 touch-target">
             <Truck className="h-4 w-4" />
             Active Deliveries
@@ -178,6 +183,9 @@ export default function DeliveryPage() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="dashboard">
+          <DeliveryMap />
+        </TabsContent>
         <TabsContent value="active">
           <ActiveDeliveriesTab />
         </TabsContent>

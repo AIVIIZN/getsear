@@ -19,7 +19,13 @@ import {
   ChevronRight,
   Hash,
   Activity,
+  LayoutDashboard,
+  Crown,
 } from "lucide-react";
+import { LoyaltyDashboard } from "@/components/loyalty/LoyaltyDashboard";
+import { TierEditor } from "@/components/loyalty/TierEditor";
+import { RewardsCatalog } from "@/components/loyalty/RewardsCatalog";
+import { MemberLookup } from "@/components/loyalty/MemberLookup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,7 +183,7 @@ function txTypeIcon(type: string) {
 // ---------------------------------------------------------------------------
 
 export default function LoyaltyPage() {
-  const [activeTab, setActiveTab] = useState("programs");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   // Programs state
   const [programs, setPrograms] = useState<LoyaltyProgram[]>([]);
@@ -417,20 +423,58 @@ export default function LoyaltyPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)}>
-        <TabsList>
-          <TabsTrigger value="programs" className="touch-target-lg gap-2">
-            <Award className="h-4 w-4" />
-            Programs
-          </TabsTrigger>
-          <TabsTrigger value="accounts" className="touch-target-lg gap-2">
-            <Users className="h-4 w-4" />
-            Accounts
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="touch-target-lg gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Analytics
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="w-max">
+            <TabsTrigger value="dashboard" className="touch-target-lg gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="programs" className="touch-target-lg gap-2">
+              <Award className="h-4 w-4" />
+              Programs
+            </TabsTrigger>
+            <TabsTrigger value="members" className="touch-target-lg gap-2">
+              <Users className="h-4 w-4" />
+              Members
+            </TabsTrigger>
+            <TabsTrigger value="rewards" className="touch-target-lg gap-2">
+              <Gift className="h-4 w-4" />
+              Rewards
+            </TabsTrigger>
+            <TabsTrigger value="tiers" className="touch-target-lg gap-2">
+              <Crown className="h-4 w-4" />
+              Tiers
+            </TabsTrigger>
+            <TabsTrigger value="accounts" className="touch-target-lg gap-2">
+              <Users className="h-4 w-4" />
+              Accounts
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="touch-target-lg gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* ==================== DASHBOARD ==================== */}
+        <TabsContent value="dashboard" className="space-y-4">
+          <LoyaltyDashboard />
+        </TabsContent>
+
+        {/* ==================== MEMBERS ==================== */}
+        <TabsContent value="members" className="space-y-4">
+          <MemberLookup />
+        </TabsContent>
+
+        {/* ==================== REWARDS ==================== */}
+        <TabsContent value="rewards" className="space-y-4">
+          <RewardsCatalog />
+        </TabsContent>
+
+        {/* ==================== TIERS ==================== */}
+        <TabsContent value="tiers" className="space-y-4">
+          <TierEditor />
+        </TabsContent>
 
         {/* ==================== PROGRAMS ==================== */}
         <TabsContent value="programs" className="space-y-4">

@@ -22,7 +22,11 @@ import {
   Eye,
   EyeOff,
   DollarSign,
+  QrCode,
+  ShoppingBag,
 } from "lucide-react";
+import { QRCodeGenerator } from "@/components/online-ordering/QRCodeGenerator";
+import { OrderQueuePanel } from "@/components/online-ordering/OrderQueuePanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -460,20 +464,40 @@ export default function OnlineOrderingPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)}>
-        <TabsList>
-          <TabsTrigger value="queue" className="touch-target-lg gap-2">
-            <ShoppingCart className="h-4 w-4" />
-            Order Queue
-          </TabsTrigger>
-          <TabsTrigger value="menus" className="touch-target-lg gap-2">
-            <Globe className="h-4 w-4" />
-            Menu Config
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="touch-target-lg gap-2">
-            <Settings2 className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="w-max">
+            <TabsTrigger value="queue" className="touch-target-lg gap-2">
+              <ShoppingBag className="h-4 w-4" />
+              Live Queue
+            </TabsTrigger>
+            <TabsTrigger value="incoming" className="touch-target-lg gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Order Queue
+            </TabsTrigger>
+            <TabsTrigger value="qr-codes" className="touch-target-lg gap-2">
+              <QrCode className="h-4 w-4" />
+              QR Codes
+            </TabsTrigger>
+            <TabsTrigger value="menus" className="touch-target-lg gap-2">
+              <Globe className="h-4 w-4" />
+              Menu Config
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="touch-target-lg gap-2">
+              <Settings2 className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* ==================== LIVE QUEUE (New Component) ==================== */}
+        <TabsContent value="incoming" className="space-y-4">
+          <OrderQueuePanel />
+        </TabsContent>
+
+        {/* ==================== QR CODES ==================== */}
+        <TabsContent value="qr-codes" className="space-y-4">
+          <QRCodeGenerator locationId="" />
+        </TabsContent>
 
         {/* ==================== ORDER QUEUE ==================== */}
         <TabsContent value="queue" className="space-y-4">

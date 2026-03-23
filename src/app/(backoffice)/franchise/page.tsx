@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { FranchiseDashboard } from "@/components/franchise/FranchiseDashboard"
 import {
   Building2,
   Plus,
@@ -286,6 +287,10 @@ export default function FranchisePage() {
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v)}>
         <TabsList>
+          <TabsTrigger value="overview">
+            <Building2 className="mr-2 h-4 w-4" />
+            Overview
+          </TabsTrigger>
           <TabsTrigger value="royalties">
             <DollarSign className="mr-2 h-4 w-4" />
             Royalties
@@ -296,9 +301,13 @@ export default function FranchisePage() {
           </TabsTrigger>
           <TabsTrigger value="reports">
             <BarChart3 className="mr-2 h-4 w-4" />
-            Reports
+            P&L
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <FranchiseDashboard />
+        </TabsContent>
 
         {/* ============================================================
             ROYALTIES TAB

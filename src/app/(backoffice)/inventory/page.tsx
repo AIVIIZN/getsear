@@ -13,7 +13,17 @@ import {
   BookOpen,
   Pencil,
   Trash2,
+  LayoutDashboard,
+  Trash,
+  TrendingDown,
+  ClipboardList,
+  ClipboardCheck,
 } from "lucide-react";
+import { InventoryDashboard } from "@/components/inventory/InventoryDashboard";
+import { WasteLogForm } from "@/components/inventory/WasteLogForm";
+import { FoodCostReport } from "@/components/inventory/FoodCostReport";
+import { PrepListView } from "@/components/inventory/PrepListView";
+import { InventoryCountSheet } from "@/components/inventory/InventoryCountSheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,28 +164,65 @@ export default function InventoryPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="items" className="w-full">
-        <TabsList className="h-11">
-          <TabsTrigger value="items" className="h-9 gap-2 touch-target">
-            <Package className="h-4 w-4" />
-            Items
-          </TabsTrigger>
-          <TabsTrigger value="vendors" className="h-9 gap-2 touch-target">
-            <Truck className="h-4 w-4" />
-            Vendors
-          </TabsTrigger>
-          <TabsTrigger value="purchase-orders" className="h-9 gap-2 touch-target">
-            <FileText className="h-4 w-4" />
-            Purchase Orders
-          </TabsTrigger>
-          <TabsTrigger value="recipes" className="h-9 gap-2 touch-target">
-            <BookOpen className="h-4 w-4" />
-            Recipes
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="dashboard" className="w-full">
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="h-11 w-max">
+            <TabsTrigger value="dashboard" className="h-9 gap-2 touch-target">
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="items" className="h-9 gap-2 touch-target">
+              <Package className="h-4 w-4" />
+              Items
+            </TabsTrigger>
+            <TabsTrigger value="waste" className="h-9 gap-2 touch-target">
+              <Trash className="h-4 w-4" />
+              Waste
+            </TabsTrigger>
+            <TabsTrigger value="food-cost" className="h-9 gap-2 touch-target">
+              <TrendingDown className="h-4 w-4" />
+              Food Cost
+            </TabsTrigger>
+            <TabsTrigger value="prep-list" className="h-9 gap-2 touch-target">
+              <ClipboardList className="h-4 w-4" />
+              Prep List
+            </TabsTrigger>
+            <TabsTrigger value="count" className="h-9 gap-2 touch-target">
+              <ClipboardCheck className="h-4 w-4" />
+              Count
+            </TabsTrigger>
+            <TabsTrigger value="vendors" className="h-9 gap-2 touch-target">
+              <Truck className="h-4 w-4" />
+              Vendors
+            </TabsTrigger>
+            <TabsTrigger value="purchase-orders" className="h-9 gap-2 touch-target">
+              <FileText className="h-4 w-4" />
+              POs
+            </TabsTrigger>
+            <TabsTrigger value="recipes" className="h-9 gap-2 touch-target">
+              <BookOpen className="h-4 w-4" />
+              Recipes
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
+        <TabsContent value="dashboard">
+          <InventoryDashboard />
+        </TabsContent>
         <TabsContent value="items">
           <ItemsTab />
+        </TabsContent>
+        <TabsContent value="waste">
+          <WasteLogForm />
+        </TabsContent>
+        <TabsContent value="food-cost">
+          <FoodCostReport />
+        </TabsContent>
+        <TabsContent value="prep-list">
+          <PrepListView />
+        </TabsContent>
+        <TabsContent value="count">
+          <InventoryCountSheet />
         </TabsContent>
         <TabsContent value="vendors">
           <VendorsTab />

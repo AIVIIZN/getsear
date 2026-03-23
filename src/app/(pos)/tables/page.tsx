@@ -7,9 +7,17 @@ import { useTableStore } from '@/stores/table-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { useRealtimeTables } from '@/hooks/use-realtime'
 import { FloorPlanCanvas } from '@/components/tables/FloorPlanCanvas'
+import { TableListView } from '@/components/tables/TableListView'
+import { CapacityDashboard } from '@/components/tables/CapacityDashboard'
+import { ServerSectionPanel } from '@/components/tables/ServerSectionPanel'
+import { WaitlistPanel } from '@/components/tables/WaitlistPanel'
+import { ReservationSeatingFlow } from '@/components/tables/ReservationSeatingFlow'
 import { SectionFilter } from '@/components/tables/SectionFilter'
 import { StatusSummary } from '@/components/tables/StatusSummary'
 import { cn } from '@/lib/utils'
+import { LayoutGrid, List, BarChart3, Users2 } from 'lucide-react'
+
+type ViewMode = 'floor' | 'list' | 'capacity'
 
 type TableStatus =
   | 'available'
@@ -49,7 +57,11 @@ interface TableData {
   guest_count: number
   seated_at: string | null
   section: string
+  section_color: string | null
+  assigned_server_id: string | null
+  assigned_server_name: string | null
   floor_plan_id: string
+  check_total?: number
 }
 
 // Seat dialog state
@@ -67,12 +79,26 @@ interface AddTableDialogState {
   shape: ShapeType
 }
 
+// Reservation seating flow state
+interface SeatingFlowState {
+  open: boolean
+  reservation: {
+    id: string
+    customer_name: string
+    party_size: number
+    reservation_time: string
+    table_id: string | null
+    status: string
+  } | null
+}
+
 export default function TablesPage() {
   const router = useRouter()
   const store = useTableStore()
   const { actions } = store
   const activeLocationId = useAuthStore((s) => s.activeLocationId)
 
+  const [viewMode, setViewMode] = useState<ViewMode>('floor')
   const [floorPlans, setFloorPlans] = useState<FloorPlanData[]>([])
   const [tables, setTables] = useState<TableData[]>([])
   const [activeFloorPlanId, setActiveFloorPlanId] = useState<string | null>(null)
@@ -92,6 +118,11 @@ export default function TablesPage() {
     shape: 'square',
   })
   const [saving, setSaving] = useState(false)
+  const [showSectionPanel, setShowSectionPanel] = useState(false)
+  const [seatingFlow, setSeatingFlow] = useState<SeatingFlowState>({
+    open: false,
+    reservation: null,
+  })
 
   // Track pending position changes for bulk save
   const pendingChanges = useRef<Map<string, { pos_x: number; pos_y: number }>>(new Map())
@@ -187,6 +218,8 @@ export default function TablesPage() {
               seated_at: (record.seated_at as string | null) ?? t.seated_at,
               pos_x: (record.pos_x as number) ?? t.pos_x,
               pos_y: (record.pos_y as number) ?? t.pos_y,
+              section_color: (record.section_color as string | null) ?? t.section_color,
+              assigned_server_id: (record.assigned_server_id as string | null) ?? t.assigned_server_id,
             }
           }
           return t
@@ -197,7 +230,6 @@ export default function TablesPage() {
       const newStatus = record.status as string | undefined
       if (newStatus) {
         setStatusCounts((prev) => {
-          // Find old status from current tables
           const oldTable = tables.find((t) => t.id === record.id)
           const oldStatus = oldTable?.status
           const updated = { ...prev }
@@ -358,7 +390,7 @@ export default function TablesPage() {
 
       if (res.ok) {
         const json = await res.json()
-        setTables((prev) => [...prev, { ...json.data, current_server_name: null }])
+        setTables((prev) => [...prev, { ...json.data, current_server_name: null, section_color: null, assigned_server_id: null, assigned_server_name: null }])
       }
     } catch {
       // silently fail
@@ -381,6 +413,24 @@ export default function TablesPage() {
     }
   }, [])
 
+  // Handle reservation seating from capacity dashboard
+  const handleSeatReservation = useCallback(
+    (reservation: { id: string; customer_name: string; party_size: number; reservation_time: string; table_id: string | null; status: string }) => {
+      setSeatingFlow({ open: true, reservation })
+    },
+    []
+  )
+
+  // Reload tables after section assignment
+  const handleSectionAssignmentChanged = useCallback(() => {
+    if (activeFloorPlanId) {
+      fetch(`/api/tables/floor-plans/${activeFloorPlanId}`)
+        .then((r) => r.json())
+        .then((json) => setTables(json.data.tables ?? []))
+        .catch(() => {})
+    }
+  }, [activeFloorPlanId])
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       {/* Top bar */}
@@ -388,135 +438,209 @@ export default function TablesPage() {
         className="flex flex-shrink-0 items-center gap-3 px-4"
         style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--separator)' }}
       >
-        {/* Floor plan tabs */}
-        <div className="flex items-center gap-1.5">
-          {floorPlans.map((fp) => (
+        {/* View mode tabs */}
+        <div className="flex items-center rounded-xl bg-secondary p-0.5">
+          {([
+            { mode: 'floor' as ViewMode, icon: LayoutGrid, label: 'Floor Plan' },
+            { mode: 'list' as ViewMode, icon: List, label: 'List' },
+            { mode: 'capacity' as ViewMode, icon: BarChart3, label: 'Capacity' },
+          ]).map(({ mode, icon: Icon, label }) => (
             <button
-              key={fp.id}
+              key={mode}
               type="button"
-              onClick={() => setActiveFloorPlanId(fp.id)}
+              onClick={() => setViewMode(mode)}
               className={cn(
-                'btn-press touch-target rounded-xl px-4 py-2 text-subhead font-semibold transition-colors',
-                activeFloorPlanId === fp.id
-                  ? 'bg-primary text-primary-foreground shadow-warm-sm'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+                viewMode === mode
+                  ? 'bg-background text-foreground shadow-warm-sm'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {fp.name}
+              <Icon className="h-3.5 w-3.5" />
+              {label}
             </button>
           ))}
         </div>
 
         {/* Separator */}
-        {floorPlans.length > 0 && sections.length > 0 && (
-          <div className="h-6 w-px bg-border" />
+        <div className="h-6 w-px bg-border" />
+
+        {/* Floor plan tabs (only in floor plan view) */}
+        {viewMode === 'floor' && (
+          <div className="flex items-center gap-1.5">
+            {floorPlans.map((fp) => (
+              <button
+                key={fp.id}
+                type="button"
+                onClick={() => setActiveFloorPlanId(fp.id)}
+                className={cn(
+                  'btn-press touch-target rounded-xl px-4 py-2 text-subhead font-semibold transition-colors',
+                  activeFloorPlanId === fp.id
+                    ? 'bg-primary text-primary-foreground shadow-warm-sm'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                )}
+              >
+                {fp.name}
+              </button>
+            ))}
+          </div>
         )}
 
-        {/* Section filter */}
-        <SectionFilter
-          sections={sections}
-          activeSection={activeSectionFilter}
-          onSelect={setActiveSectionFilter}
-        />
+        {/* Section filter (floor plan & list views) */}
+        {viewMode !== 'capacity' && sections.length > 0 && (
+          <>
+            <div className="h-6 w-px bg-border" />
+            <SectionFilter
+              sections={sections}
+              activeSection={activeSectionFilter}
+              onSelect={setActiveSectionFilter}
+            />
+          </>
+        )}
 
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Status summary */}
-        <StatusSummary counts={statusCounts} />
+        {/* Status summary (floor plan & list views) */}
+        {viewMode !== 'capacity' && <StatusSummary counts={statusCounts} />}
 
         {/* Separator */}
         <div className="h-6 w-px bg-border" />
 
-        {/* Edit mode toggle */}
-        {editMode ? (
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs"
-              onClick={() => setAddTableDialog({ open: true, name: '', capacity: 4, shape: 'square' })}
-            >
-              Add Table
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs text-destructive"
-              onClick={() => {
-                pendingChanges.current.clear()
-                setEditMode(false)
-                // Reload to discard changes
-                if (activeFloorPlanId) {
-                  fetch(`/api/tables/floor-plans/${activeFloorPlanId}`)
-                    .then((r) => r.json())
-                    .then((json) => setTables(json.data.tables ?? []))
-                    .catch(() => {})
-                }
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 text-xs"
-              disabled={saving}
-              onClick={handleSaveLayout}
-            >
-              {saving ? 'Saving...' : 'Save Layout'}
-            </Button>
-          </div>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs"
-            onClick={() => setEditMode(true)}
-          >
-            Edit Layout
-          </Button>
+        {/* Section assignment button (manager action) */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          onClick={() => setShowSectionPanel(true)}
+        >
+          <Users2 className="mr-1 h-3.5 w-3.5" />
+          Sections
+        </Button>
+
+        {/* Edit mode toggle (floor plan view only) */}
+        {viewMode === 'floor' && (
+          <>
+            {editMode ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => setAddTableDialog({ open: true, name: '', capacity: 4, shape: 'square' })}
+                >
+                  Add Table
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs text-destructive"
+                  onClick={() => {
+                    pendingChanges.current.clear()
+                    setEditMode(false)
+                    if (activeFloorPlanId) {
+                      fetch(`/api/tables/floor-plans/${activeFloorPlanId}`)
+                        .then((r) => r.json())
+                        .then((json) => setTables(json.data.tables ?? []))
+                        .catch(() => {})
+                    }
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs"
+                  disabled={saving}
+                  onClick={handleSaveLayout}
+                >
+                  {saving ? 'Saving...' : 'Save Layout'}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => setEditMode(true)}
+              >
+                Edit Layout
+              </Button>
+            )}
+          </>
         )}
       </div>
 
-      {/* Canvas area */}
-      <div className="relative flex-1 overflow-hidden">
-        {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-sm text-muted-foreground">Loading floor plan...</div>
-          </div>
-        ) : floorPlans.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3">
-            <p className="text-sm text-muted-foreground">No floor plans yet.</p>
-            <Button
-              size="sm"
-              onClick={async () => {
-                const res = await fetch('/api/tables/floor-plans', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name: 'Main Dining', location_id: activeLocationId }),
-                })
-                if (res.ok) {
-                  const json = await res.json()
-                  setFloorPlans([json.data])
-                  setActiveFloorPlanId(json.data.id)
-                }
+      {/* Main content area */}
+      <div className="relative flex flex-1 overflow-hidden">
+        {/* Left: View content */}
+        <div className="flex-1 overflow-hidden">
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-sm text-muted-foreground">Loading...</div>
+            </div>
+          ) : floorPlans.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3">
+              <p className="text-sm text-muted-foreground">No floor plans yet.</p>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  const res = await fetch('/api/tables/floor-plans', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: 'Main Dining', location_id: activeLocationId }),
+                  })
+                  if (res.ok) {
+                    const json = await res.json()
+                    setFloorPlans([json.data])
+                    setActiveFloorPlanId(json.data.id)
+                  }
+                }}
+              >
+                Create Floor Plan
+              </Button>
+            </div>
+          ) : viewMode === 'floor' ? (
+            <FloorPlanCanvas
+              tables={filteredTables}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              editMode={editMode}
+              onTablePositionChange={handleTablePositionChange}
+              onNewOrder={handleNewOrder}
+              onViewOrder={handleViewOrder}
+              onClearTable={handleClearTable}
+              onSeatTable={handleSeatTable}
+            />
+          ) : viewMode === 'list' ? (
+            <TableListView
+              tables={filteredTables.map((t) => ({
+                ...t,
+                section_color: t.section_color ?? null,
+                assigned_server_name: t.assigned_server_name ?? null,
+              }))}
+              onTableSelect={(id) => {
+                // Switch to floor plan view and select the table
+                setViewMode('floor')
               }}
-            >
-              Create Floor Plan
-            </Button>
+              onSeatTable={handleSeatTable}
+              onClearTable={handleClearTable}
+            />
+          ) : (
+            <div className="h-full overflow-auto p-4">
+              <CapacityDashboard
+                tables={tables}
+                onSeatReservation={handleSeatReservation}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right sidebar: Waitlist (visible in floor/list views) */}
+        {viewMode !== 'capacity' && (
+          <div className="w-80 flex-shrink-0 overflow-auto border-l border-border bg-card p-3">
+            <WaitlistPanel onSeatEntry={() => handleSectionAssignmentChanged()} />
           </div>
-        ) : (
-          <FloorPlanCanvas
-            tables={filteredTables}
-            canvasWidth={canvasWidth}
-            canvasHeight={canvasHeight}
-            editMode={editMode}
-            onTablePositionChange={handleTablePositionChange}
-            onNewOrder={handleNewOrder}
-            onViewOrder={handleViewOrder}
-            onClearTable={handleClearTable}
-            onSeatTable={handleSeatTable}
-          />
         )}
       </div>
 
@@ -655,6 +779,40 @@ export default function TablesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Server Section Panel */}
+      {showSectionPanel && (
+        <ServerSectionPanel
+          tables={tables.map((t) => ({
+            id: t.id,
+            name: t.name,
+            capacity: t.capacity,
+            section_color: t.section_color,
+            assigned_server_id: t.assigned_server_id,
+          }))}
+          onAssignmentsChanged={handleSectionAssignmentChanged}
+          onClose={() => setShowSectionPanel(false)}
+        />
+      )}
+
+      {/* Reservation Seating Flow */}
+      {seatingFlow.open && seatingFlow.reservation && (
+        <ReservationSeatingFlow
+          reservation={seatingFlow.reservation}
+          tables={tables.map((t) => ({
+            id: t.id,
+            name: t.name,
+            capacity: t.capacity,
+            status: t.status,
+            section_color: t.section_color,
+          }))}
+          onSeated={() => {
+            setSeatingFlow({ open: false, reservation: null })
+            handleSectionAssignmentChanged() // reload tables
+          }}
+          onClose={() => setSeatingFlow({ open: false, reservation: null })}
+        />
       )}
     </div>
   )

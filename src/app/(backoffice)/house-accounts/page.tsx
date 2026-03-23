@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { AccountDashboard } from "@/components/house-accounts/AccountDashboard"
 import {
   Building2,
   Plus,
@@ -446,6 +447,9 @@ export default function HouseAccountsPage() {
           Add Account
         </Button>
       </div>
+
+      {/* AR Aging Dashboard */}
+      <AccountDashboard />
 
       {/* Search */}
       <div className="relative max-w-sm">

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { CateringCalendar } from "@/components/catering/CateringCalendar"
 import {
   CalendarDays,
   Plus,
@@ -426,6 +427,10 @@ export default function CateringPage() {
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v)}>
         <TabsList>
+          <TabsTrigger value="calendar">
+            <CalendarDays className="mr-2 h-4 w-4" />
+            Calendar
+          </TabsTrigger>
           <TabsTrigger value="events">
             <CalendarDays className="mr-2 h-4 w-4" />
             Events
@@ -435,6 +440,10 @@ export default function CateringPage() {
             Menus
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="calendar" className="space-y-4">
+          <CateringCalendar />
+        </TabsContent>
 
         {/* ============================================================
             EVENTS TAB

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
+import { WeeklyGrid } from "@/components/scheduling/WeeklyGrid";
 import {
   CalendarDays,
   Plus,
@@ -177,11 +178,15 @@ export default function SchedulingPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="schedule" className="w-full">
+      <Tabs defaultValue="weekly-grid" className="w-full">
         <TabsList className="h-11">
+          <TabsTrigger value="weekly-grid" className="h-9 gap-2 touch-target">
+            <CalendarDays className="h-4 w-4" />
+            Weekly Grid
+          </TabsTrigger>
           <TabsTrigger value="schedule" className="h-9 gap-2 touch-target">
             <CalendarDays className="h-4 w-4" />
-            Schedule
+            Shifts
           </TabsTrigger>
           <TabsTrigger value="availability" className="h-9 gap-2 touch-target">
             <Clock className="h-4 w-4" />
@@ -189,10 +194,13 @@ export default function SchedulingPage() {
           </TabsTrigger>
           <TabsTrigger value="swaps" className="h-9 gap-2 touch-target">
             <ArrowRightLeft className="h-4 w-4" />
-            Swap Requests
+            Marketplace
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="weekly-grid">
+          <WeeklyGrid />
+        </TabsContent>
         <TabsContent value="schedule">
           <ScheduleTab />
         </TabsContent>

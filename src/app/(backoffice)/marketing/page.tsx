@@ -14,7 +14,9 @@ import {
   X,
   MousePointerClick,
   Target,
+  Wand2,
 } from "lucide-react"
+import { CampaignBuilder } from "@/components/marketing/CampaignBuilder"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -299,20 +301,31 @@ export default function MarketingPage() {
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={(v) => v && setTab(v)}>
-        <TabsList>
-          <TabsTrigger value="campaigns">
-            <Mail className="mr-2 h-4 w-4" />
-            Campaigns
-          </TabsTrigger>
-          <TabsTrigger value="segments">
-            <Target className="mr-2 h-4 w-4" />
-            Segments
-          </TabsTrigger>
-          <TabsTrigger value="analytics">
-            <BarChart3 className="mr-2 h-4 w-4" />
-            Analytics
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="w-max">
+            <TabsTrigger value="campaigns">
+              <Mail className="mr-2 h-4 w-4" />
+              Campaigns
+            </TabsTrigger>
+            <TabsTrigger value="builder">
+              <Wand2 className="mr-2 h-4 w-4" />
+              Builder
+            </TabsTrigger>
+            <TabsTrigger value="segments">
+              <Target className="mr-2 h-4 w-4" />
+              Segments
+            </TabsTrigger>
+            <TabsTrigger value="analytics">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* ==================== CAMPAIGN BUILDER ==================== */}
+        <TabsContent value="builder" className="space-y-4">
+          <CampaignBuilder onComplete={() => setTab("campaigns")} />
+        </TabsContent>
 
         {/* ============================================================
             CAMPAIGNS TAB

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { LaneDisplay } from "@/components/drive-thru/LaneDisplay"
 import {
   Car,
   Plus,
@@ -268,15 +269,23 @@ export default function DriveThruPage() {
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v)}>
         <TabsList>
+          <TabsTrigger value="lanes">
+            <Car className="mr-2 h-4 w-4" />
+            Lane Display
+          </TabsTrigger>
           <TabsTrigger value="speed">
             <Timer className="mr-2 h-4 w-4" />
-            Speed of Service
+            Speed Metrics
           </TabsTrigger>
           <TabsTrigger value="boards">
             <MonitorPlay className="mr-2 h-4 w-4" />
             Menu Boards
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="lanes" className="space-y-4">
+          <LaneDisplay />
+        </TabsContent>
 
         {/* ============================================================
             SPEED OF SERVICE TAB

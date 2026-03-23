@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { getCachedTables, getCachedFloorPlans } from '@/lib/offline/tables-cache'
 
 type TableStatus = 'available' | 'seated' | 'ordered' | 'served' | 'check_presented' | 'dirty' | 'reserved' | 'needs_attention'
+type ViewMode = 'floor' | 'list' | 'capacity'
 
 interface TableShape {
   type: 'square' | 'round' | 'rectangle' | 'booth' | 'bar'
@@ -34,20 +35,33 @@ interface FloorPlan {
   is_default: boolean
 }
 
+interface SectionAssignment {
+  tableId: string
+  serverId: string
+  serverName: string
+  color: string
+}
+
 interface TableState {
   tables: RestaurantTable[]
   floorPlans: FloorPlan[]
   activeFloorPlanId: string | null
   activeSectionFilter: string | null
   editMode: boolean
+  viewMode: ViewMode
+  sectionAssignments: SectionAssignment[]
   actions: {
     setTables: (tables: RestaurantTable[]) => void
     setFloorPlans: (plans: FloorPlan[]) => void
     setActiveFloorPlan: (id: string) => void
     setSectionFilter: (section: string | null) => void
     setEditMode: (editing: boolean) => void
+    setViewMode: (mode: ViewMode) => void
     updateTableStatus: (tableId: string, status: TableStatus) => void
     updateTablePosition: (tableId: string, x: number, y: number) => void
+    setSectionAssignments: (assignments: SectionAssignment[]) => void
+    addSectionAssignment: (assignment: SectionAssignment) => void
+    removeSectionAssignment: (tableId: string) => void
     getFilteredTables: () => RestaurantTable[]
     getSections: () => string[]
     /** Load tables from IndexedDB cache (offline mode) */
@@ -61,6 +75,8 @@ export const useTableStore = create<TableState>()((set, get) => ({
   activeFloorPlanId: null,
   activeSectionFilter: null,
   editMode: false,
+  viewMode: 'floor',
+  sectionAssignments: [],
   actions: {
     setTables: (tables) => set({ tables }),
     setFloorPlans: (plans) => {
@@ -71,6 +87,7 @@ export const useTableStore = create<TableState>()((set, get) => ({
     setActiveFloorPlan: (id) => set({ activeFloorPlanId: id }),
     setSectionFilter: (section) => set({ activeSectionFilter: section }),
     setEditMode: (editing) => set({ editMode: editing }),
+    setViewMode: (mode) => set({ viewMode: mode }),
     updateTableStatus: (tableId, status) =>
       set((state) => ({
         tables: state.tables.map((t) =>
@@ -82,6 +99,18 @@ export const useTableStore = create<TableState>()((set, get) => ({
         tables: state.tables.map((t) =>
           t.id === tableId ? { ...t, position_x: x, position_y: y } : t
         ),
+      })),
+    setSectionAssignments: (assignments) => set({ sectionAssignments: assignments }),
+    addSectionAssignment: (assignment) =>
+      set((state) => ({
+        sectionAssignments: [
+          ...state.sectionAssignments.filter((a) => a.tableId !== assignment.tableId),
+          assignment,
+        ],
+      })),
+    removeSectionAssignment: (tableId) =>
+      set((state) => ({
+        sectionAssignments: state.sectionAssignments.filter((a) => a.tableId !== tableId),
       })),
     getFilteredTables: () => {
       const { tables, activeFloorPlanId, activeSectionFilter } = get()

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { generateStatementHtml } from '@/lib/house-accounts/statement-template'
 
 /** GET /api/house-accounts/[id]/statement — generate statement for date range */
 export async function GET(
@@ -84,6 +85,63 @@ export async function GET(
 
   const endingBalance = beginningBalance + chargesTotal - paymentsTotal + adjustmentsTotal
 
+  // Get org info for statement
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: org } = await (supabase.from('organizations') as any)
+    .select('name, address, phone, email')
+    .eq('id', user.org_id)
+    .single()
+
+  const chargesList = txList
+    .filter((t: Record<string, unknown>) => t.type === 'charge')
+    .map((t: Record<string, unknown>) => ({
+      date: new Date(t.created_at as string).toLocaleDateString(),
+      description: (t.description as string) ?? 'Charge',
+      server: (t.server_name as string) ?? '',
+      amount: parseFloat(t.amount as string),
+    }))
+
+  const paymentsList = txList
+    .filter((t: Record<string, unknown>) => t.type === 'payment')
+    .map((t: Record<string, unknown>) => ({
+      date: new Date(t.created_at as string).toLocaleDateString(),
+      method: (t.payment_method as string) ?? 'Payment',
+      amount: Math.abs(parseFloat(t.amount as string)),
+    }))
+
+  const creditLimit = parseFloat(account.credit_limit ?? '0')
+
+  const statementHtml = generateStatementHtml({
+    account_name: account.account_name ?? '',
+    account_number: (account.id as string).slice(-8).toUpperCase(),
+    contact_name: account.contact_name ?? account.account_name ?? '',
+    contact_email: account.billing_email ?? '',
+    billing_address: account.billing_address ?? '',
+    statement_period: `${dateFrom} to ${dateTo}`,
+    statement_date: new Date().toLocaleDateString(),
+    beginning_balance: parseFloat(beginningBalance.toFixed(2)),
+    charges: chargesList,
+    payments: paymentsList,
+    total_charges: parseFloat(chargesTotal.toFixed(2)),
+    total_payments: parseFloat(paymentsTotal.toFixed(2)),
+    ending_balance: parseFloat(endingBalance.toFixed(2)),
+    credit_limit: creditLimit,
+    available_credit: Math.max(0, creditLimit - endingBalance),
+    payment_terms: `Net ${account.payment_terms_days ?? 30}`,
+    due_date: new Date(new Date(dateTo).getTime() + (account.payment_terms_days ?? 30) * 86400000).toLocaleDateString(),
+    restaurant_name: org?.name ?? '',
+    restaurant_address: org?.address ?? '',
+    restaurant_phone: org?.phone ?? '',
+  })
+
+  // Return HTML if format=html requested
+  const format = request.nextUrl.searchParams.get('format')
+  if (format === 'html') {
+    return new NextResponse(statementHtml, {
+      headers: { 'Content-Type': 'text/html' },
+    })
+  }
+
   return NextResponse.json({
     data: {
       account: {
@@ -103,6 +161,7 @@ export async function GET(
       adjustments_total: parseFloat(adjustmentsTotal.toFixed(2)),
       ending_balance: parseFloat(endingBalance.toFixed(2)),
       transactions: txList,
+      statement_html: statementHtml,
     },
   })
 }
