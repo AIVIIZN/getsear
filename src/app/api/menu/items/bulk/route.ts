@@ -1,0 +1,153 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getAuthUser, requireRole } from '@/lib/api/auth'
+
+const bulkActionSchema = z.object({
+  action: z.enum(['move', '86', 'restore', 'delete', 'price_change']),
+  item_ids: z.array(z.string().uuid()).min(1),
+  /** Required for 'move' action */
+  category_id: z.string().uuid().optional(),
+  /** Required for 'price_change' action */
+  price_change_type: z.enum(['percentage', 'fixed']).optional(),
+  price_change_value: z.number().optional(),
+})
+
+export async function POST(request: NextRequest) {
+  const user = await getAuthUser()
+  if (user instanceof NextResponse) return user
+
+  const roleErr = requireRole(user, ['owner', 'admin', 'manager'])
+  if (roleErr) return roleErr
+
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const parsed = bulkActionSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.issues },
+      { status: 400 }
+    )
+  }
+
+  const { action, item_ids, category_id, price_change_type, price_change_value } = parsed.data
+  const supabase = createAdminClient()
+  const now = new Date().toISOString()
+
+  switch (action) {
+    case 'move': {
+      if (!category_id) {
+        return NextResponse.json({ error: 'category_id required for move' }, { status: 400 })
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('menu_items') as any)
+        .update({ category_id, updated_at: now })
+        .in('id', item_ids)
+        .eq('org_id', user.org_id)
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to move items' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, affected: item_ids.length })
+    }
+
+    case '86': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('menu_items') as any)
+        .update({ is_86d: true, updated_at: now })
+        .in('id', item_ids)
+        .eq('org_id', user.org_id)
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to 86 items' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, affected: item_ids.length })
+    }
+
+    case 'restore': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('menu_items') as any)
+        .update({ is_86d: false, updated_at: now })
+        .in('id', item_ids)
+        .eq('org_id', user.org_id)
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to restore items' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, affected: item_ids.length })
+    }
+
+    case 'delete': {
+      // Soft delete
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('menu_items') as any)
+        .update({ deleted_at: now, updated_at: now })
+        .in('id', item_ids)
+        .eq('org_id', user.org_id)
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to delete items' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, affected: item_ids.length })
+    }
+
+    case 'price_change': {
+      if (price_change_type === undefined || price_change_value === undefined) {
+        return NextResponse.json(
+          { error: 'price_change_type and price_change_value required' },
+          { status: 400 }
+        )
+      }
+
+      // Fetch current prices
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: items, error: fetchError } = await (supabase.from('menu_items') as any)
+        .select('id, price')
+        .in('id', item_ids)
+        .eq('org_id', user.org_id)
+
+      if (fetchError || !items) {
+        return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
+      }
+
+      // Calculate new prices and update each
+      let updatedCount = 0
+      for (const item of items as { id: string; price: string }[]) {
+        const currentPrice = parseFloat(item.price)
+        let newPrice: number
+
+        if (price_change_type === 'percentage') {
+          newPrice = currentPrice * (1 + price_change_value / 100)
+        } else {
+          newPrice = currentPrice + price_change_value
+        }
+
+        // Ensure price doesn't go below 0
+        newPrice = Math.max(0, Math.round(newPrice * 100) / 100)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: updateError } = await (supabase.from('menu_items') as any)
+          .update({ price: newPrice.toFixed(2), updated_at: now })
+          .eq('id', item.id)
+          .eq('org_id', user.org_id)
+
+        if (!updateError) updatedCount++
+      }
+
+      return NextResponse.json({ success: true, affected: updatedCount })
+    }
+
+    default:
+      return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  }
+}

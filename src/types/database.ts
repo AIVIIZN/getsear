@@ -161,9 +161,17 @@ export interface MenuItem {
   course: string | null
   is_active: boolean
   is_86d: boolean
+  is_running_low: boolean
   available_start_time: string | null
   available_end_time: string | null
   available_days: number[] | null
+  availability_type: string
+  available_dayparts: UUID[] | null
+  available_start_date: DateString | null
+  available_end_date: DateString | null
+  quantity_available: number | null
+  quantity_low_threshold: number | null
+  price_type: string
   color: string | null
   image_url: string | null
   sort_order: number
@@ -174,6 +182,59 @@ export interface MenuItem {
   created_at: Timestamp
   updated_at: Timestamp
   deleted_at: Timestamp | null
+}
+
+// ---------------------------------------------------------------------------
+// Dayparts & Pricing
+// ---------------------------------------------------------------------------
+
+export interface MenuDaypart {
+  id: UUID
+  org_id: UUID
+  location_id: UUID
+  name: string
+  start_time: string
+  end_time: string
+  days: number[]
+  sections: string[]
+  is_active: boolean
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
+export interface PriceLevel {
+  id: UUID
+  org_id: UUID
+  name: string
+  level_number: number
+  description: string | null
+  is_active: boolean
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
+export interface PriceLevelPrice {
+  id: UUID
+  org_id: UUID
+  menu_item_id: UUID
+  price_level_id: UUID
+  price: Money
+  daypart_id: UUID | null
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
+export interface SeasonalMenuItem {
+  id: UUID
+  org_id: UUID
+  location_id: UUID
+  item_id: UUID
+  replaces_item_id: UUID | null
+  start_date: DateString
+  end_date: DateString
+  is_active: boolean
+  created_at: Timestamp
+  updated_at: Timestamp
 }
 
 export interface ModifierGroup {
@@ -643,6 +704,26 @@ export interface Database {
         Row: Modifier
         Insert: Partial<Modifier> & Pick<Modifier, 'org_id' | 'modifier_group_id' | 'name'>
         Update: Partial<Modifier>
+      }
+      menu_dayparts: {
+        Row: MenuDaypart
+        Insert: Partial<MenuDaypart> & Pick<MenuDaypart, 'org_id' | 'location_id' | 'name' | 'start_time' | 'end_time' | 'days'>
+        Update: Partial<MenuDaypart>
+      }
+      price_levels: {
+        Row: PriceLevel
+        Insert: Partial<PriceLevel> & Pick<PriceLevel, 'org_id' | 'name' | 'level_number'>
+        Update: Partial<PriceLevel>
+      }
+      price_level_prices: {
+        Row: PriceLevelPrice
+        Insert: Partial<PriceLevelPrice> & Pick<PriceLevelPrice, 'org_id' | 'menu_item_id' | 'price_level_id' | 'price'>
+        Update: Partial<PriceLevelPrice>
+      }
+      seasonal_menu_items: {
+        Row: SeasonalMenuItem
+        Insert: Partial<SeasonalMenuItem> & Pick<SeasonalMenuItem, 'org_id' | 'location_id' | 'item_id' | 'start_date' | 'end_date'>
+        Update: Partial<SeasonalMenuItem>
       }
       orders: {
         Row: Order
