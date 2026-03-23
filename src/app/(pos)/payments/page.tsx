@@ -97,7 +97,7 @@ function PaymentsPage() {
   )
 
   const handleCardApproved = useCallback(
-    (result: { cardLastFour: string; authCode: string; cardBrand: string; paymentId: string }) => {
+    (result: { cardLastFour: string; authCode: string; cardBrand: string; paymentId: string; transactionId: string }) => {
       setPaymentResult((prev) => ({
         ...prev,
         cardLastFour: result.cardLastFour,
@@ -114,7 +114,7 @@ function PaymentsPage() {
     [shouldShowTip]
   )
 
-  const handleCardDeclined = useCallback(() => {
+  const handleCardDeclined = useCallback((_reason: string) => {
     setFlowState('method_select')
     setSelectedMethod(null)
   }, [])
@@ -282,8 +282,14 @@ function PaymentsPage() {
             <div className="animate-slide-in-right">
               <CardProcessing
                 totalCents={orderTotalCents}
+                orderId={orderId}
+                locationId={locationId}
                 onApproved={handleCardApproved}
                 onDeclined={handleCardDeclined}
+                onCancel={() => {
+                  setFlowState('method_select')
+                  setSelectedMethod(null)
+                }}
               />
             </div>
           )}

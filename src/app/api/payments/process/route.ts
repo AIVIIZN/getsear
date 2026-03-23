@@ -2,15 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
-import { valorMock } from '@/lib/payments/valor-mock'
+import { valorClient } from '@/lib/payments/valor-client'
 import crypto from 'crypto'
 
 const processPaymentSchema = z.object({
   order_id: z.string().uuid(),
   location_id: z.string().uuid(),
-  payment_method: z.enum(['cash', 'credit_card', 'debit_card', 'gift_card', 'house_account', 'apple_pay', 'google_pay']),
+  payment_method: z.enum([
+    'cash',
+    'credit_card',
+    'debit_card',
+    'gift_card',
+    'house_account',
+    'apple_pay',
+    'google_pay',
+  ]),
   amount_cents: z.number().int().min(1),
   tip_cents: z.number().int().min(0).optional().default(0),
+  /**
+   * Payment mode:
+   * - 'sale': auth + capture in one step (counter-service, tip-on-screen)
+   * - 'auth_only': authorize only, capture later (full-service, tip-on-receipt)
+   */
+  mode: z.enum(['sale', 'auth_only']).optional().default('sale'),
+  /** Terminal ID for Valor Connect (optional, uses REST if not provided) */
+  terminal_id: z.string().optional(),
   // Cash-specific
   cash_tendered_cents: z.number().int().min(0).optional(),
   // Gift card-specific
@@ -18,7 +34,11 @@ const processPaymentSchema = z.object({
 })
 
 /**
- * POST /api/payments/process — process a payment (card, cash, gift card)
+ * POST /api/payments/process
+ *
+ * Process a payment: card (via Valor), cash, gift card, or house account.
+ * For card payments, supports both 'sale' (auth+capture) and 'auth_only'
+ * (pre-auth for tip-on-receipt flow).
  */
 export async function POST(request: NextRequest) {
   const user = await getAuthUser()
@@ -39,12 +59,23 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { order_id, location_id, payment_method, amount_cents, tip_cents, cash_tendered_cents, gift_card_number } = parsed.data
+  const {
+    order_id,
+    location_id,
+    payment_method,
+    amount_cents,
+    tip_cents,
+    mode,
+    terminal_id,
+    cash_tendered_cents,
+    gift_card_number,
+  } = parsed.data
+
   const total_cents = amount_cents + tip_cents
   const supabase = createAdminClient()
 
   // Verify order exists and belongs to org
-  const { data: order, error: orderErr } = await (supabase.from('orders') as any)
+  const { data: order, error: orderErr } = await (supabase.from('orders') as ReturnType<typeof supabase.from>)
     .select('id, org_id, total, balance_due, amount_paid, status')
     .eq('id', order_id)
     .eq('org_id', user.org_id)
@@ -68,58 +99,108 @@ export async function POST(request: NextRequest) {
     processor_response: {},
   }
 
-  // Handle payment by method
-  if (payment_method === 'credit_card' || payment_method === 'debit_card' || payment_method === 'apple_pay' || payment_method === 'google_pay') {
-    // Card payment via Valor mock
-    const authResult = await valorMock.authorize({
-      amount_cents: total_cents,
-      order_id,
-    })
+  // ---------------------------------------------------------------------------
+  // Card payment via Valor
+  // ---------------------------------------------------------------------------
+  if (
+    payment_method === 'credit_card' ||
+    payment_method === 'debit_card' ||
+    payment_method === 'apple_pay' ||
+    payment_method === 'google_pay'
+  ) {
+    try {
+      const valorRequest = {
+        amount_cents: total_cents,
+        order_id,
+        terminal_id,
+        capture: mode === 'sale',
+      }
 
-    paymentRecord.processor_response = authResult
-    paymentRecord.card_last_four = authResult.card_last_four
-    paymentRecord.card_brand = authResult.card_brand
-    paymentRecord.auth_code = authResult.auth_code
+      // Use sale() for auth+capture, authorize() for auth-only
+      const result = mode === 'sale'
+        ? await valorClient.sale(valorRequest)
+        : await valorClient.authorize(valorRequest)
 
-    if (authResult.success) {
-      // Authorize then capture in one step (Valor mock mode)
-      const captureResult = await valorMock.capture({
-        transaction_id: authResult.transaction_id,
-        amount_cents: amount_cents,
-        tip_cents: tip_cents,
-      })
-      paymentRecord.status = captureResult.success ? 'captured' : 'authorized'
-      paymentRecord.processor_transaction_id = authResult.transaction_id
-    } else {
-      paymentRecord.status = 'declined'
+      paymentRecord.processor_response = result
+      paymentRecord.card_last_four = result.card_last_four
+      paymentRecord.card_brand = result.card_brand
+      paymentRecord.auth_code = result.auth_code
+      paymentRecord.processor_transaction_id = result.transaction_id
 
-      // Insert declined record
-      const { data: declined } = await (supabase.from('payments') as any)
+      if (result.success) {
+        if (mode === 'sale') {
+          // Sale: auth + capture done — payment is complete
+          paymentRecord.status = 'captured'
+        } else {
+          // Auth only: card is held, capture later with tip
+          paymentRecord.status = 'authorized'
+        }
+      } else {
+        // Declined
+        paymentRecord.status = 'declined'
+
+        // Insert declined record for audit trail
+        const { data: declined } = await (supabase.from('payments') as ReturnType<typeof supabase.from>)
+          .insert(paymentRecord)
+          .select()
+          .single()
+
+        return NextResponse.json(
+          {
+            error: 'Payment declined',
+            reason: result.decline_reason ?? 'Card declined',
+            decline_code: result.decline_code,
+            data: declined,
+          },
+          { status: 402 }
+        )
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Payment processing error'
+      paymentRecord.status = 'error'
+      paymentRecord.processor_response = { error: errorMessage }
+
+      // Record the failed attempt
+      await (supabase.from('payments') as ReturnType<typeof supabase.from>)
         .insert(paymentRecord)
         .select()
         .single()
 
       return NextResponse.json(
-        { error: 'Payment declined', reason: authResult.decline_reason, data: declined },
-        { status: 402 }
+        { error: 'Payment processing failed', reason: errorMessage },
+        { status: 500 }
       )
     }
-  } else if (payment_method === 'cash') {
+  }
+  // ---------------------------------------------------------------------------
+  // Cash payment
+  // ---------------------------------------------------------------------------
+  else if (payment_method === 'cash') {
     const tendered = cash_tendered_cents ?? total_cents
     if (tendered < total_cents) {
-      return NextResponse.json({ error: 'Cash tendered is less than total' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Cash tendered is less than total' },
+        { status: 400 }
+      )
     }
     paymentRecord.status = 'captured'
     paymentRecord.cash_tendered = (tendered / 100).toFixed(2)
     paymentRecord.change_due = ((tendered - total_cents) / 100).toFixed(2)
-  } else if (payment_method === 'gift_card') {
+  }
+  // ---------------------------------------------------------------------------
+  // Gift card payment
+  // ---------------------------------------------------------------------------
+  else if (payment_method === 'gift_card') {
     if (!gift_card_number) {
-      return NextResponse.json({ error: 'Gift card number required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Gift card number required' },
+        { status: 400 }
+      )
     }
 
     const cardHash = crypto.createHash('sha256').update(gift_card_number).digest('hex')
 
-    const { data: card, error: cardErr } = await (supabase.from('gift_cards') as any)
+    const { data: card, error: cardErr } = await (supabase.from('gift_cards') as ReturnType<typeof supabase.from>)
       .select('id, current_balance, is_active')
       .eq('card_number_hash', cardHash)
       .eq('org_id', user.org_id)
@@ -129,11 +210,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gift card not found' }, { status: 404 })
     }
 
-    if (!card.is_active) {
+    const cardRecord = card as { id: string; current_balance: string; is_active: boolean }
+
+    if (!cardRecord.is_active) {
       return NextResponse.json({ error: 'Gift card is inactive' }, { status: 400 })
     }
 
-    const balanceCents = Math.round(parseFloat(card.current_balance) * 100)
+    const balanceCents = Math.round(parseFloat(cardRecord.current_balance) * 100)
     if (balanceCents < total_cents) {
       return NextResponse.json(
         { error: 'Insufficient gift card balance', balance_cents: balanceCents },
@@ -143,14 +226,14 @@ export async function POST(request: NextRequest) {
 
     // Deduct from gift card
     const newBalance = ((balanceCents - total_cents) / 100).toFixed(2)
-    await (supabase.from('gift_cards') as any)
+    await (supabase.from('gift_cards') as ReturnType<typeof supabase.from>)
       .update({ current_balance: newBalance })
-      .eq('id', card.id)
+      .eq('id', cardRecord.id)
 
     // Record gift card transaction
-    await (supabase.from('gift_card_transactions') as any)
+    await (supabase.from('gift_card_transactions') as ReturnType<typeof supabase.from>)
       .insert({
-        gift_card_id: card.id,
+        gift_card_id: cardRecord.id,
         order_id,
         amount: (total_cents / 100).toFixed(2),
         transaction_type: 'redeem',
@@ -158,48 +241,65 @@ export async function POST(request: NextRequest) {
       })
 
     paymentRecord.status = 'captured'
-    paymentRecord.gift_card_id = card.id
-  } else {
-    // house_account or other — mark captured
+    paymentRecord.gift_card_id = cardRecord.id
+  }
+  // ---------------------------------------------------------------------------
+  // House account / other
+  // ---------------------------------------------------------------------------
+  else {
     paymentRecord.status = 'captured'
   }
 
   // Insert payment
-  const { data: payment, error: paymentErr } = await (supabase.from('payments') as any)
+  const { data: payment, error: paymentErr } = await (supabase.from('payments') as ReturnType<typeof supabase.from>)
     .insert(paymentRecord)
     .select()
     .single()
 
   if (paymentErr) {
-    return NextResponse.json({ error: 'Failed to create payment record' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to create payment record' },
+      { status: 500 }
+    )
   }
 
-  // Update order amount_paid and balance_due
-  const currentPaid = Math.round(parseFloat(order.amount_paid ?? '0') * 100)
-  const currentBalance = Math.round(parseFloat(order.balance_due ?? order.total ?? '0') * 100)
-  const newPaid = currentPaid + total_cents
-  const newBalance = Math.max(0, currentBalance - total_cents)
+  const paymentData = payment as Record<string, unknown>
 
-  const orderUpdate: Record<string, unknown> = {
-    amount_paid: (newPaid / 100).toFixed(2),
-    balance_due: (newBalance / 100).toFixed(2),
+  // Update order amount_paid and balance_due (only for captured/authorized payments)
+  if (paymentRecord.status === 'captured') {
+    const orderData = order as { amount_paid?: string; balance_due?: string; total?: string }
+    const currentPaid = Math.round(parseFloat(orderData.amount_paid ?? '0') * 100)
+    const currentBalance = Math.round(
+      parseFloat(orderData.balance_due ?? orderData.total ?? '0') * 100
+    )
+    const newPaid = currentPaid + total_cents
+    const newBalance = Math.max(0, currentBalance - total_cents)
+
+    const orderUpdate: Record<string, unknown> = {
+      amount_paid: (newPaid / 100).toFixed(2),
+      balance_due: (newBalance / 100).toFixed(2),
+    }
+
+    // Close order if fully paid
+    if (newBalance === 0) {
+      orderUpdate.status = 'closed'
+    }
+
+    await (supabase.from('orders') as ReturnType<typeof supabase.from>)
+      .update(orderUpdate)
+      .eq('id', order_id)
   }
 
-  // Close order if fully paid
-  if (newBalance === 0) {
-    orderUpdate.status = 'closed'
-  }
-
-  await (supabase.from('orders') as any)
-    .update(orderUpdate)
-    .eq('id', order_id)
-
-  return NextResponse.json({
-    data: {
-      ...payment,
-      change_due_cents: payment_method === 'cash'
-        ? Math.round(parseFloat(payment.change_due ?? '0') * 100)
-        : 0,
+  return NextResponse.json(
+    {
+      data: {
+        ...paymentData,
+        change_due_cents:
+          payment_method === 'cash'
+            ? Math.round(parseFloat((paymentData.change_due as string) ?? '0') * 100)
+            : 0,
+      },
     },
-  }, { status: 201 })
+    { status: 201 }
+  )
 }
