@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { useKdsStore } from '@/stores/kds-store'
 import { useRealtimeKds, useRealtimeTable } from '@/hooks/use-realtime'
@@ -560,12 +560,51 @@ export default function KdsPage() {
   }, [activeStationId, locationId])
 
   // Get sorted active tickets and other derived state
-  const sortedTickets = actions.getSortedActiveTickets()
-  const activeStation = actions.getActiveStation()
+  // Use useMemo keyed on tickets/stations to avoid calling store getters on every render
+  const sortedTickets = useMemo(() => {
+    const state = useKdsStore.getState()
+    const active = state.tickets.filter(t => t.status !== 'completed' && t.status !== 'voided')
+    return active.sort((a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime())
+  }, [tickets])
+
+  const activeStation = useMemo(
+    () => stations.find(s => s.id === activeStationId),
+    [stations, activeStationId]
+  )
   const isExpo = activeStation?.station_type === 'expo'
-  const priorityCount = actions.getPriorityCount()
-  const allDayCounts = actions.getAllDayCounts()
-  const allDayByCategory = actions.getAllDayCountsByCategory()
+
+  const priorityCount = useMemo(
+    () => tickets.filter(t => t.priority === 'rush' || t.priority === 'vip' || t.priority === 'refire').length,
+    [tickets]
+  )
+
+  const allDayCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const t of tickets) {
+      if (t.status === 'completed' || t.status === 'voided') continue
+      for (const item of t.items ?? []) {
+        if (item.status !== 'voided') {
+          counts[item.name] = (counts[item.name] ?? 0) + item.quantity
+        }
+      }
+    }
+    return counts
+  }, [tickets])
+
+  const allDayByCategory = useMemo(() => {
+    const result: Record<string, Record<string, number>> = {}
+    for (const t of tickets) {
+      if (t.status === 'completed' || t.status === 'voided') continue
+      for (const item of t.items ?? []) {
+        if (item.status !== 'voided') {
+          const cat = item.station_label ?? item.prep_station ?? 'Other'
+          if (!result[cat]) result[cat] = {}
+          result[cat][item.name] = (result[cat][item.name] ?? 0) + item.quantity
+        }
+      }
+    }
+    return result
+  }, [tickets])
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0a0a] no-select no-overscroll">
@@ -584,7 +623,7 @@ export default function KdsPage() {
         <KdsStationTabs
           stations={stations}
           activeStationId={activeStationId}
-          onSelect={actions.setActiveStation}
+          onSelect={(id: string) => useKdsStore.getState().actions.setActiveStation(id)}
         />
 
         <div className="flex-1" />
@@ -647,7 +686,7 @@ export default function KdsPage() {
 
         {/* Sound toggle */}
         <button
-          onClick={actions.toggleSound}
+          onClick={() => useKdsStore.getState().actions.toggleSound()}
           className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-subhead font-semibold transition-colors ${
             soundEnabled
               ? 'bg-[#007AFF] text-white'
