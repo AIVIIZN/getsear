@@ -21,18 +21,18 @@ interface MenuGridProps {
   onItemTap: (item: MenuItem) => void
 }
 
-// Category color palette — iOS system colors
+// Category color palette — Toast-style pastels (soft, not alarming)
 const CATEGORY_COLORS = [
-  '#FF9500', // Orange — Appetizers
-  '#FF3B30', // Red — Entrees
-  '#34C759', // Green — Salads
-  '#007AFF', // Blue — Drinks
-  '#AF52DE', // Purple — Desserts
-  '#5AC8FA', // Teal — Sides
-  '#FF2D55', // Pink — Specials
-  '#8E8E93', // Gray — Wine/Beer
-  '#FF6B35', // Deep orange
-  '#30D158', // Mint
+  '#E3F0FB', // Light Blue — Appetizers
+  '#FFE6E9', // Light Pink — Entrees
+  '#E8F7D4', // Light Green — Salads
+  '#E3F0FB', // Light Blue — Drinks
+  '#F1E3FD', // Light Lavender — Desserts
+  '#E0F7FA', // Light Cyan — Sides
+  '#FFF0F5', // Light Rose — Specials
+  '#F2F2F7', // Light Gray — Wine/Beer
+  '#FBD9B6', // Light Peach
+  '#E8F7D4', // Light Mint
 ]
 
 function getCategoryColor(index: number, customColor?: string): string {
@@ -151,8 +151,9 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                 style={{
                   height: 36,
                   minWidth: 80,
-                  backgroundColor: isActive ? color : tintColor(color, 0.10),
-                  color: isActive ? '#fff' : color,
+                  backgroundColor: isActive ? color : 'transparent',
+                  color: isActive ? '#1C1C1E' : '#8E8E93',
+                  border: isActive ? '2px solid #007AFF' : '1.5px solid #E5E5EA',
                 }}
               >
                 {cat.name}
