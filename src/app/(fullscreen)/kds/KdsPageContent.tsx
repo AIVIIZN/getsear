@@ -559,52 +559,20 @@ export default function KdsPage() {
     }
   }, [activeStationId, locationId])
 
-  // Get sorted active tickets and other derived state
-  // Use useMemo keyed on tickets/stations to avoid calling store getters on every render
-  const sortedTickets = useMemo(() => {
-    const state = useKdsStore.getState()
-    const active = state.tickets.filter(t => t.status !== 'completed' && t.status !== 'voided')
-    return active.sort((a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime())
-  }, [tickets])
-
-  const activeStation = useMemo(
-    () => stations.find(s => s.id === activeStationId),
-    [stations, activeStationId]
-  )
-  const isExpo = activeStation?.station_type === 'expo'
-
-  const priorityCount = useMemo(
-    () => tickets.filter(t => t.priority === 'rush' || t.priority === 'vip' || t.priority === 'refire').length,
-    [tickets]
-  )
-
-  const allDayCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const t of tickets) {
-      if (t.status === 'completed' || t.status === 'voided') continue
-      for (const item of t.items ?? []) {
-        if (item.status !== 'voided') {
-          counts[item.name] = (counts[item.name] ?? 0) + item.quantity
-        }
-      }
+  // Get sorted active tickets and other derived state via getState()
+  // Called once per render — stable because tickets/stations are the dependency
+  const { sortedTickets, activeStation, isExpo, priorityCount, allDayCounts, allDayByCategory } = useMemo(() => {
+    const storeActions = useKdsStore.getState().actions
+    return {
+      sortedTickets: storeActions.getSortedActiveTickets(),
+      activeStation: storeActions.getActiveStation(),
+      isExpo: storeActions.getActiveStation()?.station_type === 'expo',
+      priorityCount: storeActions.getPriorityCount(),
+      allDayCounts: storeActions.getAllDayCounts(),
+      allDayByCategory: storeActions.getAllDayCountsByCategory(),
     }
-    return counts
-  }, [tickets])
-
-  const allDayByCategory = useMemo(() => {
-    const result: Record<string, Record<string, number>> = {}
-    for (const t of tickets) {
-      if (t.status === 'completed' || t.status === 'voided') continue
-      for (const item of t.items ?? []) {
-        if (item.status !== 'voided') {
-          const cat = item.station_label ?? item.prep_station ?? 'Other'
-          if (!result[cat]) result[cat] = {}
-          result[cat][item.name] = (result[cat][item.name] ?? 0) + item.quantity
-        }
-      }
-    }
-    return result
-  }, [tickets])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets, stations, activeStationId])
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0a0a] no-select no-overscroll">
