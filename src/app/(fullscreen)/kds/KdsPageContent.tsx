@@ -219,10 +219,10 @@ export default function KdsPage() {
   const handleLocationUpdate = useCallback(
     (record: Record<string, unknown>) => {
       if (typeof record.is_kitchen_closed === 'boolean') {
-        actions.setKitchenClosed(record.is_kitchen_closed as boolean)
+        actionsRef.current.setKitchenClosed(record.is_kitchen_closed as boolean)
       }
     },
-    [actions]
+    []
   )
 
   useRealtimeTable(
@@ -234,13 +234,13 @@ export default function KdsPage() {
 
   // --- KDS Heartbeat ---
   const getHeartbeatMetrics = useCallback(() => {
-    const capacity = actions.getCapacity()
+    const capacity = actionsRef.current.getCapacity()
     return {
       active_ticket_count: capacity.activeTickets,
       active_item_count: capacity.totalItems,
       utilization_pct: capacity.utilization,
     }
-  }, [actions])
+  }, [])
 
   const handleHeartbeatConfigUpdate = useCallback(
     (config: Record<string, unknown>) => {
@@ -265,7 +265,7 @@ export default function KdsPage() {
   // --- KDS Messages Realtime ---
   const handleMessageReceived = useCallback(
     (message: KdsMessageData) => {
-      actions.addMessage(message)
+      actionsRef.current.addMessage(message)
 
       // Show banner notification
       if (activeStationId) {
@@ -277,7 +277,7 @@ export default function KdsPage() {
         playNewTicketSound()
       }
     },
-    [actions, activeStationId, soundEnabled]
+    [activeStationId, soundEnabled]
   )
 
   useRealtimeKdsMessages(locationId, handleMessageReceived)
@@ -292,28 +292,28 @@ export default function KdsPage() {
         )
         if (res.ok) {
           const json = await res.json()
-          actions.setMessages(json.data ?? [])
+          actionsRef.current.setMessages(json.data ?? [])
         }
       } catch {
         // Messages fetch failure is non-critical
       }
     }
     fetchMessages()
-  }, [activeStationId, locationId, actions])
+  }, [activeStationId, locationId])
 
   // --- Station Status Realtime ---
   const handleStationOnline = useCallback(
     (event: { station_id: string }) => {
-      actions.setStationOnline(event.station_id)
+      actionsRef.current.setStationOnline(event.station_id)
     },
-    [actions]
+    []
   )
 
   const handleStationOffline = useCallback(
     (event: { station_id: string; failover_active?: boolean }) => {
-      actions.setStationOffline(event.station_id, event.failover_active ?? false)
+      actionsRef.current.setStationOffline(event.station_id, event.failover_active ?? false)
     },
-    [actions]
+    []
   )
 
   useRealtimeKdsStations(locationId, handleStationOnline, handleStationOffline)
@@ -321,9 +321,9 @@ export default function KdsPage() {
   // --- Kitchen Close Realtime (broadcast channel) ---
   const handleKitchenStatusChange = useCallback(
     (event: { kitchen_closed: boolean }) => {
-      actions.setKitchenClosed(event.kitchen_closed)
+      actionsRef.current.setKitchenClosed(event.kitchen_closed)
     },
-    [actions]
+    []
   )
 
   useRealtimeKitchenStatus(locationId, handleKitchenStatusChange)
@@ -338,7 +338,7 @@ export default function KdsPage() {
           const json = await res.json()
           const settings = json.data?.settings
           if (settings && typeof settings.kitchen_closed === 'boolean') {
-            actions.setKitchenClosed(settings.kitchen_closed)
+            actionsRef.current.setKitchenClosed(settings.kitchen_closed)
           }
         }
       } catch {
@@ -346,7 +346,7 @@ export default function KdsPage() {
       }
     }
     fetchKitchenStatus()
-  }, [locationId, actions])
+  }, [locationId])
 
   // --- Message Send Handler ---
   const handleSendMessage = useCallback(
@@ -366,20 +366,20 @@ export default function KdsPage() {
         })
         if (res.ok) {
           const json = await res.json()
-          actions.addMessage(json.data)
+          actionsRef.current.addMessage(json.data)
         }
       } catch {
         console.error('[KDS] Failed to send message')
       }
     },
-    [activeStationId, locationId, actions]
+    [activeStationId, locationId]
   )
 
   // --- Mark Message Read ---
   const handleMarkMessageRead = useCallback(
     async (messageId: string) => {
       if (!activeStationId) return
-      actions.markMessageRead(messageId)
+      actionsRef.current.markMessageRead(messageId)
       try {
         await fetch(`/api/kds/messages/${messageId}/read`, {
           method: 'POST',
@@ -390,7 +390,7 @@ export default function KdsPage() {
         // Non-critical
       }
     },
-    [activeStationId, actions]
+    [activeStationId]
   )
 
   // Bump a ticket
@@ -404,13 +404,13 @@ export default function KdsPage() {
         })
 
         if (res.ok) {
-          actions.bumpTicket(ticketId)
+          actionsRef.current.bumpTicket(ticketId)
         }
       } catch {
         console.error('[KDS] Failed to bump ticket')
       }
     },
-    [activeStationId, actions]
+    [activeStationId]
   )
 
   // Bump individual item
@@ -428,12 +428,12 @@ export default function KdsPage() {
 
         if (res.ok) {
           const data = await res.json()
-          actions.bumpItem(ticketId, itemId)
+          actionsRef.current.bumpItem(ticketId, itemId)
 
           // If all items bumped, auto-bump the ticket after animation
           if (data.data?.all_bumped) {
             setTimeout(() => {
-              actions.bumpTicket(ticketId)
+              actionsRef.current.bumpTicket(ticketId)
             }, 400)
           }
         }
@@ -441,7 +441,7 @@ export default function KdsPage() {
         console.error('[KDS] Failed to bump item')
       }
     },
-    [activeStationId, actions]
+    [activeStationId]
   )
 
   // Re-fire item
@@ -461,7 +461,7 @@ export default function KdsPage() {
         )
 
         if (res.ok) {
-          actions.refireItem(ticketId, itemId, reason)
+          actionsRef.current.refireItem(ticketId, itemId, reason)
           if (soundEnabled) {
             playRefireSound()
           }
@@ -472,7 +472,7 @@ export default function KdsPage() {
         console.error('[KDS] Failed to refire item')
       }
     },
-    [activeStationId, actions, soundEnabled, fetchTickets]
+    [activeStationId, soundEnabled, fetchTickets]
   )
 
   // Expo bump (final bump)
@@ -486,7 +486,7 @@ export default function KdsPage() {
         })
 
         if (res.ok) {
-          actions.bumpTicket(ticketId)
+          actionsRef.current.bumpTicket(ticketId)
           if (soundEnabled) {
             playReadyToRunSound()
           }
@@ -495,7 +495,7 @@ export default function KdsPage() {
         console.error('[KDS] Failed to expo bump ticket')
       }
     },
-    [activeStationId, actions, soundEnabled]
+    [activeStationId, soundEnabled]
   )
 
   // Fire course from expo
@@ -550,12 +550,12 @@ export default function KdsPage() {
       })
 
       if (res.ok) {
-        actions.bumpAll()
+        actionsRef.current.bumpAll()
       }
     } catch {
       console.error('[KDS] Failed to bump all tickets')
     }
-  }, [activeStationId, locationId, actions])
+  }, [activeStationId, locationId])
 
   // Get sorted active tickets and other derived state
   const sortedTickets = actions.getSortedActiveTickets()
