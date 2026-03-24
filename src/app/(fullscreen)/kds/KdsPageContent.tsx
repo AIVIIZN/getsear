@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { useKdsStore } from '@/stores/kds-store'
+import { useShallow } from 'zustand/react/shallow'
 import { useRealtimeKds, useRealtimeTable } from '@/hooks/use-realtime'
 import {
   useRealtimeKdsMessages,
@@ -31,17 +32,19 @@ import {
 import { type RefireReasonCode, type KdsMessageData } from '@/stores/kds-store'
 
 export default function KdsPage() {
-  const stations = useKdsStore((s) => s.stations)
-  const tickets = useKdsStore((s) => s.tickets)
-  const activeStationId = useKdsStore((s) => s.activeStationId)
-  const soundEnabled = useKdsStore((s) => s.soundEnabled)
-  const isKitchenClosed = useKdsStore((s) => s.isKitchenClosed)
-  const messages = useKdsStore((s) => s.messages)
-  const unreadCount = useKdsStore((s) => s.unreadCount)
-  const stationHealth = useKdsStore((s) => s.stationHealth)
-  // Get actions via getState() — NOT via selector — to avoid re-render loops
-  // Zustand v5 creates new actions object reference on each state change
-  const actions = useKdsStore.getState().actions
+  // Single shallow selector to prevent cascading re-renders in production
+  const { stations, tickets, activeStationId, soundEnabled, isKitchenClosed, messages, unreadCount, stationHealth } = useKdsStore(
+    useShallow((s) => ({
+      stations: s.stations,
+      tickets: s.tickets,
+      activeStationId: s.activeStationId,
+      soundEnabled: s.soundEnabled,
+      isKitchenClosed: s.isKitchenClosed,
+      messages: s.messages,
+      unreadCount: s.unreadCount,
+      stationHealth: s.stationHealth,
+    }))
+  )
 
   const [allDayOpen, setAllDayOpen] = useState(false)
   const [recallOpen, setRecallOpen] = useState(false)
