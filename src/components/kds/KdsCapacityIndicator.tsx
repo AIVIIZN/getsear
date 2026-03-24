@@ -1,18 +1,35 @@
 'use client'
 
 import { useKdsStore } from '@/stores/kds-store'
+import { useShallow } from 'zustand/react/shallow'
+import { useMemo } from 'react'
 
 /**
  * Kitchen Capacity Indicator
  *
  * Live badge showing: "{active_tickets} tickets | {total_items} items | {utilization}%"
  * Color-coded: green (<60%), yellow (60-80%), red (>80%)
- * Updates in realtime as the store changes.
  */
 export function KdsCapacityIndicator() {
-  const capacity = useKdsStore((s) => s.actions.getCapacity())
+  // Read tickets array via shallow selector — stable reference
+  const tickets = useKdsStore(useShallow((s) => s.tickets))
 
-  const { activeTickets, totalItems, utilization } = capacity
+  // Compute capacity from tickets directly — no store getter calls
+  const { activeTickets, totalItems, utilization } = useMemo(() => {
+    let itemCount = 0
+    const active = tickets.filter(t => {
+      const items = t.items ?? []
+      const pendingItems = items.filter(i => i.status !== 'voided' && !i.is_bumped)
+      itemCount += pendingItems.length
+      return pendingItems.length > 0
+    })
+    const maxTickets = 30 // reasonable max for capacity calc
+    return {
+      activeTickets: active.length,
+      totalItems: itemCount,
+      utilization: Math.round((active.length / maxTickets) * 100),
+    }
+  }, [tickets])
 
   let colorClass: string
   let dotColor: string
@@ -28,15 +45,11 @@ export function KdsCapacityIndicator() {
   }
 
   return (
-    <div
-      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-caption-1 font-semibold tabular-nums ${colorClass}`}
-    >
-      <span className={`h-2 w-2 rounded-full ${dotColor}`} />
-      <span>{activeTickets} ticket{activeTickets !== 1 ? 's' : ''}</span>
-      <span className="opacity-40">|</span>
-      <span>{totalItems} item{totalItems !== 1 ? 's' : ''}</span>
-      <span className="opacity-40">|</span>
-      <span>{utilization}%</span>
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 ${colorClass}`}>
+      <div className={`h-2 w-2 rounded-full ${dotColor} animate-pulse`} />
+      <span className="text-[11px] font-semibold tabular-nums">
+        {activeTickets} tickets · {totalItems} items · {utilization}%
+      </span>
     </div>
   )
 }

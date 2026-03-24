@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils'
 import { KdsStationStatus, getStationHealth } from './KdsStationStatus'
 import { useKdsStore } from '@/stores/kds-store'
+import { useShallow } from 'zustand/react/shallow'
 
 interface KdsStation {
   id: string
@@ -21,7 +22,7 @@ interface KdsStationTabsProps {
 }
 
 export function KdsStationTabs({ stations, activeStationId, onSelect }: KdsStationTabsProps) {
-  const stationHealth = useKdsStore((s) => s.stationHealth)
+  const stationHealth = useKdsStore(useShallow((s) => s.stationHealth))
   const activeStations = stations.filter((s) => s.is_active)
 
   if (activeStations.length === 0) {
