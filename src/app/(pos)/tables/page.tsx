@@ -124,8 +124,8 @@ export default function TablesPage() {
     reservation: null,
   })
 
-  // Track pending position changes for bulk save
-  const pendingChanges = useRef<Map<string, { pos_x: number; pos_y: number }>>(new Map())
+  // Track pending position/size changes for bulk save
+  const pendingChanges = useRef<Map<string, { pos_x: number; pos_y: number; width?: number; height?: number }>>(new Map())
 
   // Load floor plans
   useEffect(() => {
@@ -265,7 +265,20 @@ export default function TablesPage() {
       setTables((prev) =>
         prev.map((t) => (t.id === tableId ? { ...t, pos_x: x, pos_y: y } : t))
       )
-      pendingChanges.current.set(tableId, { pos_x: x, pos_y: y })
+      const existing = pendingChanges.current.get(tableId)
+      pendingChanges.current.set(tableId, { ...existing, pos_x: x, pos_y: y })
+    },
+    []
+  )
+
+  // Handle table size change (edit mode resize)
+  const handleTableSizeChange = useCallback(
+    (tableId: string, width: number, height: number, x: number, y: number) => {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, width, height, pos_x: x, pos_y: y } : t))
+      )
+      const existing = pendingChanges.current.get(tableId)
+      pendingChanges.current.set(tableId, { ...existing, pos_x: x, pos_y: y, width, height })
     },
     []
   )
@@ -280,10 +293,12 @@ export default function TablesPage() {
     setSaving(true)
     try {
       const tableUpdates = Array.from(pendingChanges.current.entries()).map(
-        ([id, pos]) => ({
+        ([id, changes]) => ({
           id,
-          pos_x: pos.pos_x,
-          pos_y: pos.pos_y,
+          pos_x: changes.pos_x,
+          pos_y: changes.pos_y,
+          ...(changes.width != null && { width: changes.width }),
+          ...(changes.height != null && { height: changes.height }),
         })
       )
 
@@ -607,6 +622,7 @@ export default function TablesPage() {
               canvasHeight={canvasHeight}
               editMode={editMode}
               onTablePositionChange={handleTablePositionChange}
+              onTableSizeChange={handleTableSizeChange}
               onNewOrder={handleNewOrder}
               onViewOrder={handleViewOrder}
               onClearTable={handleClearTable}

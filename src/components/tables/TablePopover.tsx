@@ -80,7 +80,7 @@ export function TablePopover({
   }, [onClose])
 
   // Calculate popover position
-  const popoverWidth = 240
+  const popoverWidth = 280
   const popoverEstimatedHeight = 200
   let left = posX + width / 2 - popoverWidth / 2
   let top = posY + height + 8
@@ -110,6 +110,16 @@ export function TablePopover({
         width: popoverWidth,
       }}
     >
+      {/* Table shape indicator */}
+      <div className="mb-2 flex items-center justify-center">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--secondary)]">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-muted-foreground">
+            <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            <circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.3" />
+          </svg>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-bold text-foreground">{name}</h3>
@@ -148,7 +158,7 @@ export function TablePopover({
           <>
             <Button
               size="sm"
-              className="h-8 w-full text-xs"
+              className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
               onClick={() => onSeat(tableId)}
             >
               Seat Guests
@@ -156,7 +166,7 @@ export function TablePopover({
             <Button
               size="sm"
               variant="outline"
-              className="h-8 w-full text-xs"
+              className="h-9 w-full text-xs"
               onClick={() => onNewOrder(tableId)}
             >
               New Order
@@ -167,7 +177,7 @@ export function TablePopover({
         {isOccupied && currentOrderId && (
           <Button
             size="sm"
-            className="h-8 w-full text-xs"
+            className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
             onClick={() => onViewOrder(tableId, currentOrderId)}
           >
             View Order
@@ -177,7 +187,7 @@ export function TablePopover({
         {isOccupied && !currentOrderId && (
           <Button
             size="sm"
-            className="h-8 w-full text-xs"
+            className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
             onClick={() => onNewOrder(tableId)}
           >
             New Order
@@ -198,7 +208,7 @@ export function TablePopover({
         {status === 'reserved' && (
           <Button
             size="sm"
-            className="h-8 w-full text-xs"
+            className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
             onClick={() => onSeat(tableId)}
           >
             Seat Guests

@@ -28,6 +28,7 @@ interface TableShapeProps {
   isEditMode: boolean
   isSelected: boolean
   onTap: (id: string) => void
+  onResizeStart?: (id: string, handle: 'se' | 'sw' | 'ne' | 'nw', e: React.PointerEvent) => void
 }
 
 // Apple-inspired status colors — softer, not alarming
@@ -123,6 +124,7 @@ export function TableShape({
   isEditMode,
   isSelected,
   onTap,
+  onResizeStart,
 }: TableShapeProps) {
   const minWidth = Math.max(width, 72)
   const minHeight = Math.max(height, 72)
@@ -142,9 +144,7 @@ export function TableShape({
         styles.border,
         SHAPE_RADIUS[shape],
         // Depth — subtle shadow for available, stronger for occupied
-        isOccupied
-          ? 'shadow-md'
-          : 'shadow-sm',
+        !isOccupied && 'shadow-sm',
         'hover:shadow-lg hover:scale-[1.03] active:scale-[0.97]',
         status === 'needs_attention' && 'animate-pulse',
         isEditMode && 'cursor-grab border-dashed !border-[#007AFF]',
@@ -153,6 +153,9 @@ export function TableShape({
       style={{
         width: minWidth,
         height: minHeight,
+        ...(isOccupied ? {
+          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1), inset 0 1px 3px rgba(0,0,0,0.06)',
+        } : {}),
       }}
     >
       {/* Table name — large and bold */}
@@ -202,9 +205,44 @@ export function TableShape({
 
       {/* Edit mode drag handle */}
       {isEditMode && (
-        <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#007AFF] text-[10px] font-bold text-white shadow-sm">
-          ✦
+        <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#007AFF] text-white shadow-sm">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+            <circle cx="3" cy="3" r="1.2" />
+            <circle cx="7" cy="3" r="1.2" />
+            <circle cx="3" cy="7" r="1.2" />
+            <circle cx="7" cy="7" r="1.2" />
+          </svg>
         </div>
+      )}
+
+      {/* Resize handles — 4 corners, edit mode only */}
+      {isEditMode && onResizeStart && (
+        <>
+          {/* NW */}
+          <div
+            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            style={{ top: -4, left: -4, cursor: 'nwse-resize' }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'nw', e) }}
+          />
+          {/* NE */}
+          <div
+            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            style={{ top: -4, right: -4, cursor: 'nesw-resize' }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'ne', e) }}
+          />
+          {/* SW */}
+          <div
+            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            style={{ bottom: -4, left: -4, cursor: 'nesw-resize' }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'sw', e) }}
+          />
+          {/* SE */}
+          <div
+            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            style={{ bottom: -4, right: -4, cursor: 'nwse-resize' }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'se', e) }}
+          />
+        </>
       )}
     </button>
   )

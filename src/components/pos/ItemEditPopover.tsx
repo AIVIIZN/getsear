@@ -45,6 +45,21 @@ interface ItemEditPopoverProps {
   onComp: (itemId: string, itemName: string, priceCents: number) => void
 }
 
+const QUICK_MODS = [
+  { label: 'No Onions', value: 'No onions' },
+  { label: 'No Dairy', value: 'No dairy' },
+  { label: 'No Gluten', value: 'No gluten' },
+  { label: 'Extra Sauce', value: 'Extra sauce' },
+  { label: 'On Side', value: 'On the side' },
+  { label: 'Well Done', value: 'Well done' },
+  { label: 'Rare', value: 'Rare' },
+  { label: 'Spicy', value: 'Spicy' },
+  { label: 'No Salt', value: 'No salt' },
+  { label: 'Sub GF', value: 'Sub gluten-free' },
+  { label: 'Allergy', value: '⚠️ ALLERGY' },
+  { label: 'Light', value: 'Light' },
+]
+
 /**
  * Popover that appears when tapping an item in the order list.
  * Shows quantity stepper, modifier list, special instructions, and action buttons.
@@ -95,6 +110,22 @@ export function ItemEditPopover({
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
+
+  // Toggle a quick mod chip in/out of special instructions
+  const toggleQuickMod = useCallback((modValue: string) => {
+    setLocalInstructions(prev => {
+      if (prev.toLowerCase().includes(modValue.toLowerCase())) {
+        const parts = prev.split(', ').filter(p => p.toLowerCase() !== modValue.toLowerCase())
+        const result = parts.join(', ')
+        updateItemSpecialInstructions(item.id, result)
+        return result
+      } else {
+        const result = prev ? `${prev}, ${modValue}` : modValue
+        updateItemSpecialInstructions(item.id, result)
+        return result
+      }
+    })
+  }, [item.id, updateItemSpecialInstructions])
 
   // Save instructions on blur
   const handleInstructionsBlur = useCallback(() => {
@@ -294,6 +325,35 @@ export function ItemEditPopover({
               </div>
             </div>
           )}
+
+          {/* Quick Mods */}
+          <div>
+            <span className="text-subhead font-medium text-muted-foreground mb-2 block">
+              Quick Mods
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_MODS.map((mod) => {
+                const isActive = localInstructions.toLowerCase().includes(mod.value.toLowerCase())
+                return (
+                  <button
+                    key={mod.value}
+                    type="button"
+                    onClick={() => toggleQuickMod(mod.value)}
+                    className={cn(
+                      'btn-press rounded-lg px-2.5 py-1.5 text-caption-1 font-semibold transition-all',
+                      isActive
+                        ? 'bg-[#007AFF] text-white shadow-sm'
+                        : 'bg-[var(--secondary)] text-foreground hover:bg-[var(--muted)]',
+                      mod.label === 'Allergy' && !isActive && 'bg-red-50 text-red-600 hover:bg-red-100',
+                      mod.label === 'Allergy' && isActive && 'bg-red-500 text-white',
+                    )}
+                  >
+                    {mod.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           {/* Special instructions */}
           <div>

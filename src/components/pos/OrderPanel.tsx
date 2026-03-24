@@ -188,7 +188,7 @@ function ActionMenu({
 
       {open && (
         <div
-          className="absolute right-0 top-full z-50 mt-1 w-56 rounded-2xl bg-white py-2 animate-fade-in"
+          className="absolute right-0 top-full z-50 mt-1 w-56 rounded-2xl bg-[var(--card)] py-2 animate-fade-in"
           style={{ boxShadow: 'var(--shadow-xl)' }}
         >
           {actions.map(({ label, icon: Icon, handler, color }) => (
@@ -748,7 +748,7 @@ export function OrderPanel({
             className={cn(
               'btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline transition-all duration-150',
               hasUnsentItems
-                ? 'bg-[var(--primary)] text-white shadow-[0_2px_8px_rgba(240,107,24,0.3)] hover:shadow-[0_4px_16px_rgba(240,107,24,0.4)] active:shadow-none'
+                ? 'bg-gradient-to-b from-[#1a8aff] to-[#0066e6] text-white shadow-[0_2px_8px_rgba(0,122,255,0.3)] hover:shadow-[0_4px_16px_rgba(0,122,255,0.4)] active:shadow-none'
                 : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
             )}
             style={{ height: 56 }}
@@ -761,7 +761,7 @@ export function OrderPanel({
             <button
               type="button"
               onClick={onGoToPayment}
-              className="btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline bg-[var(--success)] text-white shadow-[0_2px_8px_rgba(52,199,89,0.3)] hover:shadow-[0_4px_16px_rgba(52,199,89,0.4)] active:shadow-none transition-all duration-150"
+              className="btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline bg-gradient-to-b from-[#3dd47e] to-[#28b862] text-white shadow-[0_2px_8px_rgba(52,199,89,0.3)] hover:shadow-[0_4px_16px_rgba(52,199,89,0.4)] active:shadow-none transition-all duration-150"
               style={{ height: 56 }}
             >
               <CreditCard className="h-5 w-5" />
