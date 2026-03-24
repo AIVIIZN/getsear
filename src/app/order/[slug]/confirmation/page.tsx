@@ -28,7 +28,7 @@ export default function ConfirmationPage() {
       <div className="flex items-center justify-center min-h-screen p-6 text-center">
         <div>
           <p className="text-gray-500">No order found</p>
-          <a href={`/order/${params.slug}`} className="text-orange-500 mt-2 inline-block font-medium">
+          <a href={`/order/${params.slug}`} className="text-blue-500 mt-2 inline-block font-medium">
             Back to menu
           </a>
         </div>
@@ -55,7 +55,7 @@ export default function ConfirmationPage() {
 
         <div className="flex justify-between items-center pb-3 border-b border-gray-100">
           <span className="text-sm text-gray-500">Total</span>
-          <span className="font-bold text-lg text-orange-600">${order.total}</span>
+          <span className="font-bold text-lg text-blue-600">${order.total}</span>
         </div>
 
         <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
@@ -94,7 +94,7 @@ export default function ConfirmationPage() {
       <div className="text-center mt-8">
         <a
           href={`/order/${params.slug}`}
-          className="text-orange-500 font-medium text-sm hover:underline"
+          className="text-blue-500 font-medium text-sm hover:underline"
         >
           Order more
         </a>

@@ -12,7 +12,7 @@ export function MarketingNav() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F06B18]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]">
             <span className="text-lg font-bold text-white">S</span>
           </div>
           <span className="text-xl font-semibold tracking-tight text-[#1C1C1E]">
@@ -24,25 +24,25 @@ export function MarketingNav() {
         <div className="hidden items-center gap-8 md:flex">
           <Link
             href="/#features"
-            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#F06B18]"
+            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#007AFF]"
           >
             Features
           </Link>
           <Link
             href="/pricing"
-            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#F06B18]"
+            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#007AFF]"
           >
             Pricing
           </Link>
           <Link
             href="/compare"
-            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#F06B18]"
+            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#007AFF]"
           >
             Compare
           </Link>
           <Link
             href="/demo"
-            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#F06B18]"
+            className="text-[15px] font-medium text-[#3D3D37] transition-colors hover:text-[#007AFF]"
           >
             Demo
           </Link>
@@ -58,7 +58,7 @@ export function MarketingNav() {
           </Link>
           <Link
             href="/demo"
-            className="btn-press rounded-full bg-[#F06B18] px-5 py-2.5 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-[#E05A0A]"
+            className="btn-press rounded-full bg-[#007AFF] px-5 py-2.5 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-[#0066D6]"
           >
             Get Started
           </Link>
@@ -115,7 +115,7 @@ export function MarketingNav() {
               </Link>
               <Link
                 href="/demo"
-                className="btn-press rounded-xl bg-[#F06B18] py-3 text-center text-[17px] font-semibold text-white"
+                className="btn-press rounded-xl bg-[#007AFF] py-3 text-center text-[17px] font-semibold text-white"
               >
                 Get Started
               </Link>

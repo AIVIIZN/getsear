@@ -83,7 +83,7 @@ export default function ServerPerformancePage() {
                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${v}`} />
                 <Tooltip content={<ServerTooltip />} /><Legend />
-                <Bar yAxisId="left" dataKey="total_sales" name="Total Sales" fill="#F06B18" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar yAxisId="left" dataKey="total_sales" name="Total Sales" fill="#007AFF" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 <Bar yAxisId="right" dataKey="avg_check" name="Avg Check" fill="#7C3AED" radius={[4, 4, 0, 0]} maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer></div></CardContent>

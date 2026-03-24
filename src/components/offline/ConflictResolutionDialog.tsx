@@ -169,7 +169,7 @@ export function ConflictResolutionDialog({
             disabled={isResolving}
             className={cn(
               'flex items-center gap-1.5 px-4 py-2 rounded-lg text-[14px] font-semibold',
-              'text-white bg-[#F06B18]',
+              'text-white bg-[#007AFF]',
               'hover:bg-[#E05A0D] active:bg-[#C44D0B] transition-colors',
               isResolving && selectedResolution === 'keep_local' && 'opacity-60'
             )}

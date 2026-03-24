@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       org_id: user.org_id,
       ...parsed.data,
       total_visits: 0,
-      total_spend: '0.00',
+      total_spent: 0,
     })
     .select()
     .single()

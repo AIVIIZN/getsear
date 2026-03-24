@@ -311,7 +311,7 @@ export async function getDailySales(
   }
 
   const colorMap: Record<string, string> = {
-    cash: '#16A34A', credit_card: '#F06B18', debit_card: '#2563EB',
+    cash: '#16A34A', credit_card: '#007AFF', debit_card: '#2563EB',
     gift_card: '#7C3AED', house_account: '#D97706', apple_pay: '#000000',
     google_pay: '#4285F4', external: '#6B7280',
   }
@@ -761,7 +761,7 @@ export async function getPaymentSummary(
   }
 
   const colorMap: Record<string, string> = {
-    cash: '#16A34A', credit_card: '#F06B18', debit_card: '#2563EB',
+    cash: '#16A34A', credit_card: '#007AFF', debit_card: '#2563EB',
     gift_card: '#7C3AED', house_account: '#D97706', apple_pay: '#000000',
     google_pay: '#4285F4', external: '#6B7280',
   }

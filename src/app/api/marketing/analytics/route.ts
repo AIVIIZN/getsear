@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('campaigns') as any)
-    .select('id, name, type, status, stats, sent_at, created_at')
+    .select('id, name, campaign_type, status, recipients_count, opened_count, clicked_count, redeemed_count, sent_at, created_at')
     .eq('org_id', user.org_id)
     .in('status', ['sent', 'sending'])
     .order('sent_at', { ascending: false })
@@ -37,40 +37,38 @@ export async function GET(request: NextRequest) {
   const campaignList = (campaigns ?? []) as Array<{
     id: string
     name: string
-    type: string
+    campaign_type: string
     status: string
-    stats: Record<string, number> | null
+    recipients_count: number | null
+    opened_count: number | null
+    clicked_count: number | null
+    redeemed_count: number | null
     sent_at: string | null
     created_at: string
   }>
 
   // Aggregate stats
   let totalSent = 0
-  let totalDelivered = 0
   let totalOpened = 0
   let totalClicked = 0
-  let totalBounced = 0
+  let totalRedeemed = 0
 
   for (const c of campaignList) {
-    const s = c.stats ?? {}
-    totalSent += s.sent ?? 0
-    totalDelivered += s.delivered ?? 0
-    totalOpened += s.opened ?? 0
-    totalClicked += s.clicked ?? 0
-    totalBounced += s.bounced ?? 0
+    totalSent += c.recipients_count ?? 0
+    totalOpened += c.opened_count ?? 0
+    totalClicked += c.clicked_count ?? 0
+    totalRedeemed += c.redeemed_count ?? 0
   }
 
   return NextResponse.json({
     data: {
       total_campaigns: campaignList.length,
       total_sent: totalSent,
-      total_delivered: totalDelivered,
       total_opened: totalOpened,
       total_clicked: totalClicked,
-      total_bounced: totalBounced,
-      open_rate: totalDelivered > 0 ? (totalOpened / totalDelivered) * 100 : 0,
-      click_rate: totalDelivered > 0 ? (totalClicked / totalDelivered) * 100 : 0,
-      bounce_rate: totalSent > 0 ? (totalBounced / totalSent) * 100 : 0,
+      total_redeemed: totalRedeemed,
+      open_rate: totalSent > 0 ? (totalOpened / totalSent) * 100 : 0,
+      click_rate: totalSent > 0 ? (totalClicked / totalSent) * 100 : 0,
       campaigns: campaignList,
     },
   })

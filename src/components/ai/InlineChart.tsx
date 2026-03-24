@@ -30,11 +30,11 @@ const CHART_COLORS = [
 ]
 
 // Recharts needs raw color values, not CSS variables
-const CHART_HEX_COLORS = ['#F06B18', '#007AFF', '#34C759', '#AF52DE', '#FF9500']
+const CHART_HEX_COLORS = ['#007AFF', '#007AFF', '#34C759', '#AF52DE', '#FF9500']
 
 export function InlineChart({ data }: InlineChartProps) {
   const { type, title, data: chartData, xKey, yKey, color } = data
-  const primaryColor = color ?? '#F06B18'
+  const primaryColor = color ?? '#007AFF'
 
   if (!chartData || chartData.length === 0) return null
 

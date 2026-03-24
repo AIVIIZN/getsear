@@ -137,7 +137,7 @@ export default function CartPage() {
           ))}
           <div className="flex justify-between py-3 font-bold">
             <span>Total</span>
-            <span className="text-orange-600">${(total / 100).toFixed(2)}</span>
+            <span className="text-blue-600">${(total / 100).toFixed(2)}</span>
           </div>
         </div>
 
@@ -204,7 +204,7 @@ export default function CartPage() {
         <Button
           onClick={handleSubmit}
           disabled={submitting || cart.length === 0}
-          className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg rounded-xl"
+          className="w-full h-14 bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg rounded-xl"
         >
           {submitting ? (
             <Loader2 className="h-5 w-5 animate-spin mr-2" />

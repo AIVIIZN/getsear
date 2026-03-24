@@ -28,7 +28,7 @@ const VIOLATIONS: Violation[] = []
 
 // Allowed hex colors (design tokens and their values)
 const ALLOWED_HEX = new Set([
-  '#F06B18', '#f06b18', // primary
+  '#007AFF', '#f06b18', // primary
   '#FDFBF7', '#fdfbf7', // background
   '#F2F2F7', '#f2f2f7', // sidebar / iOS background
   '#FFFFFF', '#ffffff', // primary-foreground, card bg
@@ -43,8 +43,8 @@ const ALLOWED_HEX = new Set([
   '#FF9500', '#ff9500', // warning
   '#007AFF', '#007aff', // info
   '#000000', '#000000', // KDS dark bg
-  '#E05A0A', '#e05a0a', // primary-hover
-  '#CC4F08', '#cc4f08', // primary-active
+  '#0066D6', '#e05a0a', // primary-hover
+  '#0055B3', '#cc4f08', // primary-active
   '#FF9F0A', '#ff9f0a', // KDS dark primary
   '#5856D6', '#5856d6', // reserved/online
   '#AF52DE', '#af52de', // ordered/delivery

@@ -56,7 +56,7 @@ When your response would benefit from a visual, include a JSON block at the end 
   "data": [{"label": "Mon", "value": 1200}, ...],
   "xKey": "label",
   "yKey": "value",
-  "color": "#F06B18"
+  "color": "#007AFF"
 }
 \`\`\`
 

@@ -70,7 +70,7 @@ export function FeatureHighlights() {
             return (
               <div
                 key={feature.title}
-                className="group rounded-2xl border border-[rgba(60,60,67,0.08)] bg-white p-8 transition-all duration-300 hover:border-[#F06B18]/20 hover:shadow-md"
+                className="group rounded-2xl border border-[rgba(60,60,67,0.08)] bg-white p-8 transition-all duration-300 hover:border-[#007AFF]/20 hover:shadow-md"
                 style={{
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible
@@ -79,7 +79,7 @@ export function FeatureHighlights() {
                   transition: `opacity 0.5s ease ${i * 0.08}s, transform 0.5s ease ${i * 0.08}s`,
                 }}
               >
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#F06B18]">
+                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#007AFF]">
                   <Icon size={22} />
                 </div>
                 <h3 className="text-[18px] font-semibold text-[#1C1C1E]">

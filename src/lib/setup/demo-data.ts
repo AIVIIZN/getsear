@@ -102,7 +102,7 @@ export const DEMO_CATEGORIES: DemoCategory[] = [
   },
   {
     name: 'Entrees',
-    color: '#F06B18',
+    color: '#007AFF',
     sort_order: 2,
     items: [
       { name: 'Grilled Ribeye', description: '14oz USDA Choice ribeye, garlic herb butter, mashed potatoes, asparagus', price_cents: 3895, is_taxable: true, modifier_group_names: ['Temperature'] },

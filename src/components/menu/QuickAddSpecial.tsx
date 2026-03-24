@@ -97,8 +97,8 @@ export function QuickAddSpecial({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-[#F06B18]/10 p-2">
-              <Zap className="size-5 text-[#F06B18]" />
+            <div className="rounded-lg bg-[#007AFF]/10 p-2">
+              <Zap className="size-5 text-[#007AFF]" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-foreground">Quick Add Special</h2>
@@ -186,7 +186,7 @@ export function QuickAddSpecial({
                   className={cn(
                     'rounded-full border px-2.5 py-1 text-xs font-medium capitalize transition-colors',
                     station === s
-                      ? 'border-[#F06B18] bg-[#F06B18]/10 text-[#F06B18]'
+                      ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
                       : 'border-border text-muted-foreground'
                   )}
                 >
@@ -228,7 +228,7 @@ export function QuickAddSpecial({
                 className={cn(
                   'flex flex-col items-center gap-1 rounded-lg border p-2 text-xs font-medium transition-colors',
                   availability === 'always'
-                    ? 'border-[#F06B18] bg-[#F06B18]/5 text-[#F06B18]'
+                    ? 'border-[#007AFF] bg-[#007AFF]/5 text-[#007AFF]'
                     : 'border-border text-muted-foreground'
                 )}
               >
@@ -241,7 +241,7 @@ export function QuickAddSpecial({
                 className={cn(
                   'flex flex-col items-center gap-1 rounded-lg border p-2 text-xs font-medium transition-colors',
                   availability === 'tonight_only'
-                    ? 'border-[#F06B18] bg-[#F06B18]/5 text-[#F06B18]'
+                    ? 'border-[#007AFF] bg-[#007AFF]/5 text-[#007AFF]'
                     : 'border-border text-muted-foreground'
                 )}
               >
@@ -254,7 +254,7 @@ export function QuickAddSpecial({
                 className={cn(
                   'flex flex-col items-center gap-1 rounded-lg border p-2 text-xs font-medium transition-colors',
                   availability === 'until_86d'
-                    ? 'border-[#F06B18] bg-[#F06B18]/5 text-[#F06B18]'
+                    ? 'border-[#007AFF] bg-[#007AFF]/5 text-[#007AFF]'
                     : 'border-border text-muted-foreground'
                 )}
               >

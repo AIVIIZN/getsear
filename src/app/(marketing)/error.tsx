@@ -17,7 +17,7 @@ export default function MarketingError({
       </p>
       <button
         onClick={reset}
-        className="btn-press mt-6 rounded-full bg-[#F06B18] px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#E05A0A]"
+        className="btn-press mt-6 rounded-full bg-[#007AFF] px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#0066D6]"
       >
         Try again
       </button>

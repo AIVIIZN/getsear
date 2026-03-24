@@ -66,7 +66,7 @@ export function PricingHardware() {
       >
         <div className="mx-auto max-w-2xl text-center">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#FFF4EC] px-4 py-1.5">
-            <Tablet size={16} className="text-[#F06B18]" />
+            <Tablet size={16} className="text-[#007AFF]" />
             <span className="text-[13px] font-semibold text-[#9A4A12]">
               No Proprietary Hardware
             </span>
@@ -113,7 +113,7 @@ export function PricingHardware() {
                   <td className="px-6 py-4">
                     <span
                       className={`text-[15px] font-semibold ${
-                        hw.highlight ? 'text-[#F06B18]' : 'text-[#1C1C1E]'
+                        hw.highlight ? 'text-[#007AFF]' : 'text-[#1C1C1E]'
                       }`}
                     >
                       {hw.provider}

@@ -665,7 +665,7 @@ export function MenuBuilder() {
                       className={cn(
                         'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
                         filterMode === pill.value
-                          ? 'border-[#F06B18] bg-[#F06B18]/10 text-[#F06B18]'
+                          ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
                           : 'border-border text-muted-foreground hover:bg-muted'
                       )}
                     >

@@ -111,7 +111,7 @@ export function PricingPlans() {
               key={plan.name}
               className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-500 ${
                 plan.popular
-                  ? 'border-[#F06B18]/30 bg-white shadow-xl shadow-[#F06B18]/10 md:-mt-4 md:mb-[-16px] md:pb-12 md:pt-10'
+                  ? 'border-[#007AFF]/30 bg-white shadow-xl shadow-[#007AFF]/10 md:-mt-4 md:mb-[-16px] md:pb-12 md:pt-10'
                   : 'border-[rgba(60,60,67,0.08)] bg-white'
               }`}
               style={{
@@ -125,7 +125,7 @@ export function PricingPlans() {
               {/* Popular badge */}
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F06B18] px-4 py-1.5 text-[12px] font-bold uppercase tracking-wider text-white shadow-lg shadow-[#F06B18]/25">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#007AFF] px-4 py-1.5 text-[12px] font-bold uppercase tracking-wider text-white shadow-lg shadow-[#007AFF]/25">
                     <Star size={12} className="fill-white" />
                     Most Popular
                   </span>
@@ -153,7 +153,7 @@ export function PricingPlans() {
                 href={plan.ctaHref}
                 className={`btn-press mt-8 inline-flex items-center justify-center rounded-full py-3.5 text-[15px] font-semibold transition-colors ${
                   plan.popular
-                    ? 'bg-[#F06B18] text-white shadow-lg shadow-[#F06B18]/25 hover:bg-[#E05A0A]'
+                    ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25 hover:bg-[#0066D6]'
                     : 'bg-[#1C1C1E] text-white hover:bg-[#2C2C2E]'
                 }`}
               >

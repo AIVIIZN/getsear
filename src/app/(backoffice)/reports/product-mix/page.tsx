@@ -11,7 +11,7 @@ interface PMIXItem {
 }
 
 const CLASSIFICATION_BG: Record<string, string> = { Star: 'bg-orange-100 text-orange-800', Plowhorse: 'bg-blue-100 text-blue-800', Puzzle: 'bg-purple-100 text-purple-800', Dog: 'bg-gray-100 text-gray-800' }
-const CLASSIFICATION_COLORS: Record<string, string> = { Star: '#F06B18', Plowhorse: '#2563EB', Puzzle: '#7C3AED', Dog: '#9CA3AF' }
+const CLASSIFICATION_COLORS: Record<string, string> = { Star: '#007AFF', Plowhorse: '#2563EB', Puzzle: '#7C3AED', Dog: '#9CA3AF' }
 
 type SortField = 'name' | 'quantity_sold' | 'revenue' | 'food_cost_pct' | 'margin_pct' | 'classification'
 

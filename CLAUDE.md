@@ -1,135 +1,188 @@
-# Sear POS v2 — getsear.com
+# Claude Code Configuration - RuFlo V3
 
-## Project Overview
-Enterprise restaurant point-of-sale system for independent operators and multi-location groups. Month-to-month, no contracts, runs on iPads and Android. Valor Payments with Dual Pricing. Competing directly with Toast and R Power.
+## Behavioral Rules (Always Enforced)
 
-## Tech Stack
-- **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui
-- **State Management:** Zustand v5 + Immer
-- **Backend:** Next.js Route Handlers (TypeScript)
-- **Database:** Supabase (PostgreSQL 17.6) with Row-Level Security
-- **Auth:** Supabase Auth + @supabase/ssr (cookie-based, works with Server Components)
-- **Real-Time:** Supabase Realtime (WebSocket) for KDS, orders, tables, 86
-- **Background Jobs:** BullMQ v5 + Redis
-- **Process Manager:** PM2 (cluster mode, 2 workers)
-- **Reverse Proxy:** Nginx with SSL termination (certbot)
-- **Hosting:** Google Cloud VM (Compute Engine) — NOT Vercel, NOT Cloud Run
-- **IDs:** UUIDv7 (time-sortable)
-- **Timestamps:** All `timestamptz` in UTC
-- **SMS:** Twilio
-- **Email:** SendGrid
-- **Payments:** Valor PayTech (Dual Pricing model)
-- **Icons:** Lucide React
-- **Charts:** Recharts
-- **Drag & Drop:** @dnd-kit
-- **Forms:** react-hook-form + zod
-- **Testing:** Vitest + Playwright
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless they're absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (*.md) or README files unless explicitly requested
+- NEVER save working files, text/mds, or tests to the root folder
+- Never continuously check status after spawning a swarm — wait for results
+- ALWAYS read a file before editing it
+- NEVER commit secrets, credentials, or .env files
 
-## Infrastructure
-- **GCP Project:** getsear-pos (project number: 91896714758)
-- **VM:** getsear — us-central1-a, e2-standard-2, Ubuntu 24.04 LTS
-- **VM External IP:** 34.132.111.219
-- **Supabase Project:** lbekiyxqemxozmghgmtp (us-east-1)
-- **Supabase URL:** https://lbekiyxqemxozmghgmtp.supabase.co
-- **GitHub:** github.com/AIVIIZN/getsear
-- **Domain:** getsear.com (Google Cloud DNS)
-- **DNS:** A record -> 34.132.111.219
-- **Firewall:** getsear-allow-http (tcp:80, 443)
+## File Organization
 
-## Architecture Documents (READ BEFORE BUILDING)
-| Document | Purpose | Lines |
-|----------|---------|-------|
-| `SCHEMA.md` | Database tables, columns, types, constraints, RLS | 2,610 |
-| `API_SPEC.md` | All 267 routes with types and auth | 3,204 |
-| `UI_DESIGN.md` | Design system, colors, components, animations | 1,684 |
-| `BUSINESS_RULES.md` | All operational logic and state machines | 1,303 |
-| `MODULE_SPECS/` | 21 module specifications (one file each) | 4,703 |
-| `MASTER_TEMPLATE.md` | Build framework (11-phase autonomous pipeline) | 684 |
-| `SEAR_POS_ARCHITECTURE.md` | Original reference architecture (legacy, for context) | 17,935 |
+- NEVER save to root folder — use the directories below
+- Use `/src` for source code files
+- Use `/tests` for test files
+- Use `/docs` for documentation and markdown files
+- Use `/config` for configuration files
+- Use `/scripts` for utility scripts
+- Use `/examples` for example code
 
-## Coding Rules
-- TypeScript strict mode — no `any` types except at explicit boundaries
-- All components use named exports (not default exports)
-- Server Components by default, `'use client'` only when needed
-- Zod schemas for ALL API request/response validation
-- All money stored as numeric(10,2) in DB, integer cents in TypeScript
-- All database IDs are UUIDv7
-- All timestamps are `timestamptz` stored in UTC, displayed in restaurant's local timezone
-- PINs hashed with bcrypt (never SHA-256)
-- CSS uses design tokens from UI_DESIGN.md (never hardcode colors, spacing, shadows)
-- shadcn/ui components are the base — customize via CSS variables, don't rebuild from scratch
-- Use Zustand stores for client state, not React Context
-- Error boundaries on every route segment
-- Loading.tsx and error.tsx for every route group
+## Project Architecture
 
-## Naming Conventions (canonical glossary)
-- Organization: `org` (not `organization`)
-- ID columns: `entity_id` (e.g., `org_id`, `user_id`, `order_id`)
-- Timestamps: end with `_at` (e.g., `created_at`, `updated_at`, `deleted_at`)
-- Booleans: start with `is_` (e.g., `is_active`, `is_taxable`)
-- Route prefix: `/api/` (e.g., `/api/orders`, `/api/menu/categories`)
-- Component files: PascalCase (e.g., `OrderEntry.tsx`, `MenuGrid.tsx`)
-- Utility files: camelCase (e.g., `formatMoney.ts`, `useRealtimeOrders.ts`)
-- CSS classes: shadcn/ui conventions (cn utility, cva variants)
+- Follow Domain-Driven Design with bounded contexts
+- Keep files under 500 lines
+- Use typed interfaces for all public APIs
+- Prefer TDD London School (mock-first) for new code
+- Use event sourcing for state changes
+- Ensure input validation at system boundaries
 
-## Deploy
-- Next.js standalone output behind Nginx
-- PM2 cluster mode (2 workers) with auto-restart
-- Redis for BullMQ, caching, rate limiting, pub/sub
-- `pm2 reload sear-pos --update-env` for zero-downtime deploy
+### Project Config
 
-## Git
-- Don't commit unless asked
-- Don't push unless asked
-- Never amend, force push, or --no-verify without permission
+- **Topology**: hierarchical-mesh
+- **Max Agents**: 15
+- **Memory**: hybrid
+- **HNSW**: Enabled
+- **Neural**: Enabled
 
-## Scope — 21 Modules (ALL fully implemented, no empty shells)
-| # | Module | Routes | Key Features |
-|---|--------|--------|-------------|
-| 01 | Auth | 10 | Email login, PIN login, JWT, terminal registration, manager overrides |
-| 02 | Menu | 17 | Categories, items, modifiers, 86 toggle, 9 price levels, allergens |
-| 03 | Orders | 22 | Full POS order lifecycle, 9 order types, coursing, split/merge |
-| 04 | Payments | 10 | Valor card, cash, gift cards, house accounts, bar tabs, tips |
-| 05 | Tables | 14 | Floor plans, status management, sections, history |
-| 06 | KDS | 7 | Stations, tickets, bump/recall, aging, expo mode |
-| 07 | Staff | 15 | CRUD, clock in/out, breaks, tips, tip pool, overtime |
-| 08 | Customers | 9 | CRM, lookup, merge, VIP, allergens |
-| 09 | Reports | 13 | Sales, labor, PMIX, server perf, speed, franchise royalties |
-| 10 | Settings | 18 | Org, location, tax, terminals, printers, modules, roles |
-| 11 | Online Ordering | 10 | Commission-free ordering, throttling, scheduled orders, QR |
-| 12 | Loyalty | 10 | Points/visits/spend, tiers, rewards, cross-location |
-| 13 | Reservations | 14 | Reservations, waitlist, SMS reminders, table assignment |
-| 14 | Inventory | 14 | Par levels, recipes, vendors, POs, waste, food cost |
-| 15 | Scheduling | 10 | Templates, shifts, availability, swaps, labor forecast |
-| 16 | Marketing | 10 | Email/SMS campaigns, segmentation, tracking |
-| 17 | Delivery | 8 | Zones, drivers, GPS tracking, third-party hooks |
-| 18 | Catering | 10 | Events, BEOs, menus, invoicing, deposits |
-| 19 | Drive-Thru | 6 | Lanes, speed tracking, confirmation boards, menu boards |
-| 20 | Franchise | 6 | Multi-location sync, royalties, consolidated reports |
-| 21 | House Accounts | 7 | Corporate billing, credit limits, statements |
-| **TOTAL** | | **267** | |
+## Build & Test
 
-## Design System
-- **Light mode only** — professional enterprise SaaS
-- **Brand color:** Ember orange (#F06B18)
-- **Background:** Warm off-white, not pure white
-- **Shadows:** Warm-tinted, not blue-gray
-- **Touch targets:** 44px minimum, 48px for primary actions
-- **Animations:** Purposeful micro-interactions (see UI_DESIGN.md)
-- **See UI_DESIGN.md for full specification**
+```bash
+# Build
+npm run build
 
-## Key Integrations
-- **Valor PayTech:** Payment processing (MQTT + REST). Card data never touches Sear servers.
-- **Supabase Realtime:** KDS, order status, table management live updates
-- **Twilio:** SMS (order ready, reservations, waitlist, marketing)
-- **SendGrid:** Email (receipts, reports, marketing campaigns)
-- **BullMQ:** Background jobs (reports, notifications, reconciliation, stale tab close)
+# Test
+npm test
 
-## Hardware Strategy (NO proprietary hardware — competitive advantage)
-- iPad (Safari PWA, landscape primary)
-- Android tablets (Chrome PWA)
-- Any receipt printer (Star Micronics, Epson — ESC/POS)
-- Any cash drawer (RJ-11 trigger)
-- Valor terminals: VP800, VP550, VP300 Pro, RCKT (Bluetooth)
-- Generic barcode scanners
-- Generic customer-facing displays
+# Lint
+npm run lint
+```
+
+- ALWAYS run tests after making code changes
+- ALWAYS verify build succeeds before committing
+
+## Security Rules
+
+- NEVER hardcode API keys, secrets, or credentials in source files
+- NEVER commit .env files or any file containing secrets
+- Always validate user input at system boundaries
+- Always sanitize file paths to prevent directory traversal
+- Run `npx @claude-flow/cli@latest security scan` after security-related changes
+
+## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
+
+- All operations MUST be concurrent/parallel in a single message
+- Use Claude Code's Task tool for spawning agents, not just MCP
+- ALWAYS batch ALL todos in ONE TodoWrite call (5-10+ minimum)
+- ALWAYS spawn ALL agents in ONE message with full instructions via Task tool
+- ALWAYS batch ALL file reads/writes/edits in ONE message
+- ALWAYS batch ALL Bash commands in ONE message
+
+## Swarm Orchestration
+
+- MUST initialize the swarm using CLI tools when starting complex tasks
+- MUST spawn concurrent agents using Claude Code's Task tool
+- Never use CLI tools alone for execution — Task tool agents do the actual work
+- MUST call CLI tools AND Task tool in ONE message for complex work
+
+### 3-Tier Model Routing (ADR-026)
+
+| Tier | Handler | Latency | Cost | Use Cases |
+|------|---------|---------|------|-----------|
+| **1** | Agent Booster (WASM) | <1ms | $0 | Simple transforms (var→const, add types) — Skip LLM |
+| **2** | Haiku | ~500ms | $0.0002 | Simple tasks, low complexity (<30%) |
+| **3** | Sonnet/Opus | 2-5s | $0.003-0.015 | Complex reasoning, architecture, security (>30%) |
+
+- Always check for `[AGENT_BOOSTER_AVAILABLE]` or `[TASK_MODEL_RECOMMENDATION]` before spawning agents
+- Use Edit tool directly when `[AGENT_BOOSTER_AVAILABLE]`
+
+## Swarm Configuration & Anti-Drift
+
+- ALWAYS use hierarchical topology for coding swarms
+- Keep maxAgents at 6-8 for tight coordination
+- Use specialized strategy for clear role boundaries
+- Use `raft` consensus for hive-mind (leader maintains authoritative state)
+- Run frequent checkpoints via `post-task` hooks
+- Keep shared memory namespace for all agents
+
+```bash
+npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+```
+
+## Swarm Execution Rules
+
+- ALWAYS use `run_in_background: true` for all agent Task calls
+- ALWAYS put ALL agent Task calls in ONE message for parallel execution
+- After spawning, STOP — do NOT add more tool calls or check status
+- Never poll TaskOutput or check swarm status — trust agents to return
+- When agent results arrive, review ALL results before proceeding
+
+## V3 CLI Commands
+
+### Core Commands
+
+| Command | Subcommands | Description |
+|---------|-------------|-------------|
+| `init` | 4 | Project initialization |
+| `agent` | 8 | Agent lifecycle management |
+| `swarm` | 6 | Multi-agent swarm coordination |
+| `memory` | 11 | AgentDB memory with HNSW search |
+| `task` | 6 | Task creation and lifecycle |
+| `session` | 7 | Session state management |
+| `hooks` | 17 | Self-learning hooks + 12 workers |
+| `hive-mind` | 6 | Byzantine fault-tolerant consensus |
+
+### Quick CLI Examples
+
+```bash
+npx @claude-flow/cli@latest init --wizard
+npx @claude-flow/cli@latest agent spawn -t coder --name my-coder
+npx @claude-flow/cli@latest swarm init --v3-mode
+npx @claude-flow/cli@latest memory search --query "authentication patterns"
+npx @claude-flow/cli@latest doctor --fix
+```
+
+## Available Agents (60+ Types)
+
+### Core Development
+`coder`, `reviewer`, `tester`, `planner`, `researcher`
+
+### Specialized
+`security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
+
+### Swarm Coordination
+`hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`
+
+### GitHub & Repository
+`pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
+
+### SPARC Methodology
+`sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `architecture`
+
+## Memory Commands Reference
+
+```bash
+# Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
+npx @claude-flow/cli@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
+
+# Search (REQUIRED: --query; OPTIONAL: --namespace, --limit, --threshold)
+npx @claude-flow/cli@latest memory search --query "authentication patterns"
+
+# List (OPTIONAL: --namespace, --limit)
+npx @claude-flow/cli@latest memory list --namespace patterns --limit 10
+
+# Retrieve (REQUIRED: --key; OPTIONAL: --namespace)
+npx @claude-flow/cli@latest memory retrieve --key "pattern-auth" --namespace patterns
+```
+
+## Quick Setup
+
+```bash
+claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
+npx @claude-flow/cli@latest daemon start
+npx @claude-flow/cli@latest doctor --fix
+```
+
+## Claude Code vs CLI Tools
+
+- Claude Code's Task tool handles ALL execution: agents, file ops, code generation, git
+- CLI tools handle coordination via Bash: swarm init, memory, hooks, routing
+- NEVER use CLI tools as a substitute for Task tool agents
+
+## Support
+
+- Documentation: https://github.com/ruvnet/claude-flow
+- Issues: https://github.com/ruvnet/claude-flow/issues

@@ -103,7 +103,7 @@ export function CashDrawerConfig({
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-lg',
               config.enabled
-                ? 'bg-[#F06B18]/10 text-[#F06B18]'
+                ? 'bg-[#007AFF]/10 text-[#007AFF]'
                 : 'bg-black/[0.04] text-[#8E8E93]'
             )}
           >
@@ -155,7 +155,7 @@ export function CashDrawerConfig({
                   className={cn(
                     'flex h-12 flex-1 items-center justify-center rounded-lg border text-sm font-medium transition-all',
                     config.pin === pin
-                      ? 'border-[#F06B18] bg-[#F06B18]/[0.06] text-[#F06B18]'
+                      ? 'border-[#007AFF] bg-[#007AFF]/[0.06] text-[#007AFF]'
                       : 'border-black/[0.08] bg-white text-[#3C3C43] hover:border-black/[0.15] hover:bg-black/[0.02]'
                   )}
                   style={{ minHeight: 48 }}
@@ -182,7 +182,7 @@ export function CashDrawerConfig({
                   className={cn(
                     'flex h-12 flex-col items-center justify-center rounded-lg border px-4 transition-all',
                     config.pulse_duration === preset.value
-                      ? 'border-[#F06B18] bg-[#F06B18]/[0.06] text-[#F06B18]'
+                      ? 'border-[#007AFF] bg-[#007AFF]/[0.06] text-[#007AFF]'
                       : 'border-black/[0.08] bg-white text-[#3C3C43] hover:border-black/[0.15] hover:bg-black/[0.02]'
                   )}
                   style={{ minHeight: 48 }}
@@ -210,7 +210,7 @@ export function CashDrawerConfig({
               onChange={(e) =>
                 updateConfig({ pulse_duration: parseInt(e.target.value, 10) })
               }
-              className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-black/[0.08] accent-[#F06B18]"
+              className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-black/[0.08] accent-[#007AFF]"
               style={{ minHeight: 44 }}
             />
             <div className="mt-1 flex justify-between text-[10px] text-[#C7C7CC]">

@@ -216,7 +216,7 @@ export function PrintJobHistory({ orgId, locationId }: PrintJobHistoryProps) {
             onClick={() => setShowFilters(!showFilters)}
             className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
               showFilters
-                ? 'border-[#F06B18] bg-orange-50 text-[#F06B18]'
+                ? 'border-[#007AFF] bg-orange-50 text-[#007AFF]'
                 : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
             }`}
             style={{ minHeight: 44 }}
@@ -246,7 +246,7 @@ export function PrintJobHistory({ orgId, locationId }: PrintJobHistoryProps) {
               <select
                 value={filterType}
                 onChange={(e) => { setFilterType(e.target.value as PrintJobType | ''); setPage(1) }}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#F06B18] focus:outline-none focus:ring-1 focus:ring-[#F06B18]"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#007AFF] focus:outline-none focus:ring-1 focus:ring-[#007AFF]"
                 style={{ minHeight: 44 }}
               >
                 <option value="">All Types</option>
@@ -265,7 +265,7 @@ export function PrintJobHistory({ orgId, locationId }: PrintJobHistoryProps) {
               <select
                 value={filterStatus}
                 onChange={(e) => { setFilterStatus(e.target.value as PrintJobStatus | ''); setPage(1) }}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#F06B18] focus:outline-none focus:ring-1 focus:ring-[#F06B18]"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#007AFF] focus:outline-none focus:ring-1 focus:ring-[#007AFF]"
                 style={{ minHeight: 44 }}
               >
                 <option value="">All Statuses</option>
@@ -283,7 +283,7 @@ export function PrintJobHistory({ orgId, locationId }: PrintJobHistoryProps) {
                 type="date"
                 value={filterStartDate}
                 onChange={(e) => { setFilterStartDate(e.target.value); setPage(1) }}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#F06B18] focus:outline-none focus:ring-1 focus:ring-[#F06B18]"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#007AFF] focus:outline-none focus:ring-1 focus:ring-[#007AFF]"
                 style={{ minHeight: 44 }}
               />
             </div>
@@ -294,7 +294,7 @@ export function PrintJobHistory({ orgId, locationId }: PrintJobHistoryProps) {
                 type="date"
                 value={filterEndDate}
                 onChange={(e) => { setFilterEndDate(e.target.value); setPage(1) }}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#F06B18] focus:outline-none focus:ring-1 focus:ring-[#F06B18]"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#007AFF] focus:outline-none focus:ring-1 focus:ring-[#007AFF]"
                 style={{ minHeight: 44 }}
               />
             </div>
@@ -309,7 +309,7 @@ export function PrintJobHistory({ orgId, locationId }: PrintJobHistoryProps) {
                 setFilterEndDate('')
                 setPage(1)
               }}
-              className="mt-3 text-sm font-medium text-[#F06B18] hover:text-[#d45e14]"
+              className="mt-3 text-sm font-medium text-[#007AFF] hover:text-[#d45e14]"
             >
               Clear all filters
             </button>
@@ -364,7 +364,7 @@ export function PrintJobHistory({ orgId, locationId }: PrintJobHistoryProps) {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-sm">
                         {job.order_number ? (
-                          <span className="font-medium text-[#F06B18]">
+                          <span className="font-medium text-[#007AFF]">
                             #{job.order_number}
                           </span>
                         ) : (

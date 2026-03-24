@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
   let query = (supabase.from('cash_drawers') as any)
     .select('*')
     .eq('org_id', user.org_id)
-    .is('deleted_at', null)
     .order('name', { ascending: true })
 
   if (locationId) {

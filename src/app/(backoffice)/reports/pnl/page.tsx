@@ -67,7 +67,7 @@ export default function PnLPage() {
         <>
           {/* KPI Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="shadow-warm-sm border-l-4 border-l-[#F06B18]"><CardContent className="p-5">
+            <Card className="shadow-warm-sm border-l-4 border-l-[#007AFF]"><CardContent className="p-5">
               <p className="text-xs text-[var(--muted-foreground)] mb-1">Revenue</p>
               <p className="text-2xl font-bold tabular-nums">${data.total_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
               {prevRevChange !== 0 && <ComparisonArrow value={prevRevChange} size="sm" />}

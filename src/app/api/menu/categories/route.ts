@@ -6,7 +6,7 @@ import { getAuthUser, requireRole } from '@/lib/api/auth'
 const createCategorySchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional().default(''),
-  color: z.string().max(20).optional().default('#F06B18'),
+  color: z.string().max(20).optional().default('#007AFF'),
   image_url: z.string().url().optional().nullable(),
   is_active: z.boolean().optional().default(true),
   location_id: z.string().uuid().optional().nullable(),

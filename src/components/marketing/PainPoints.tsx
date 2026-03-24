@@ -52,7 +52,7 @@ export function PainPoints() {
             return (
               <div
                 key={point.title}
-                className="group relative rounded-2xl border border-[rgba(60,60,67,0.08)] bg-[#FDFBF7] p-8 transition-all duration-500 hover:border-[#F06B18]/20 hover:shadow-lg"
+                className="group relative rounded-2xl border border-[rgba(60,60,67,0.08)] bg-[#FDFBF7] p-8 transition-all duration-500 hover:border-[#007AFF]/20 hover:shadow-lg"
                 style={{
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible
@@ -61,7 +61,7 @@ export function PainPoints() {
                   transition: `opacity 0.6s ease ${i * 0.15}s, transform 0.6s ease ${i * 0.15}s`,
                 }}
               >
-                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#F06B18] transition-colors group-hover:bg-[#F06B18] group-hover:text-white">
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#007AFF] transition-colors group-hover:bg-[#007AFF] group-hover:text-white">
                   <Icon size={24} />
                 </div>
                 <h3 className="text-[20px] font-semibold text-[#1C1C1E]">
@@ -71,7 +71,7 @@ export function PainPoints() {
                   {point.description}
                 </p>
                 <div className="mt-6 border-t border-[rgba(60,60,67,0.08)] pt-5">
-                  <span className="text-[28px] font-bold text-[#F06B18]">
+                  <span className="text-[28px] font-bold text-[#007AFF]">
                     {point.stat}
                   </span>
                   <span className="ml-2 text-[14px] text-[#78756D]">

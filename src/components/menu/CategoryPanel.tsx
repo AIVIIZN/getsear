@@ -27,7 +27,7 @@ interface CategoryPanelProps {
 }
 
 const CATEGORY_COLORS = [
-  '#F06B18', '#DC2626', '#16A34A', '#2563EB',
+  '#007AFF', '#DC2626', '#16A34A', '#2563EB',
   '#7C3AED', '#D97706', '#0891B2', '#EC4899',
 ]
 
@@ -228,7 +228,7 @@ export function CategoryPanel({
                 >
                   <div
                     className="size-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: cat.color || '#F06B18' }}
+                    style={{ backgroundColor: cat.color || '#007AFF' }}
                   />
                   <span className="truncate">{cat.name}</span>
                 </button>

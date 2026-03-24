@@ -93,7 +93,7 @@ export function PredictionChart({ predictions, height = 280 }: PredictionChartPr
               type="monotone"
               dataKey="upper"
               stroke="none"
-              fill="#F06B18"
+              fill="#007AFF"
               fillOpacity={0.08}
               name="upper"
               legendType="none"
@@ -112,10 +112,10 @@ export function PredictionChart({ predictions, height = 280 }: PredictionChartPr
             <Line
               type="monotone"
               dataKey="predicted"
-              stroke="#F06B18"
+              stroke="#007AFF"
               strokeWidth={2}
               strokeDasharray="6 3"
-              dot={{ fill: '#F06B18', r: 3 }}
+              dot={{ fill: '#007AFF', r: 3 }}
               name="predicted"
             />
 

@@ -24,7 +24,7 @@ interface VoidCompData {
   location_avg_void_rate: number
 }
 
-const REASON_COLORS = ['#DC2626', '#D97706', '#2563EB', '#7C3AED', '#16A34A', '#F06B18', '#6B7280']
+const REASON_COLORS = ['#DC2626', '#D97706', '#2563EB', '#7C3AED', '#16A34A', '#007AFF', '#6B7280']
 
 export default function VoidsCompsPage() {
   const [data, setData] = useState<VoidCompData | null>(null)

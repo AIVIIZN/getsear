@@ -137,7 +137,7 @@ export function NoSaleDialog({
               className={cn(
                 'flex w-full items-center gap-3 rounded-xl border px-4 transition-all',
                 selectedReason === option.value
-                  ? 'border-[#F06B18] bg-[#F06B18]/[0.05]'
+                  ? 'border-[#007AFF] bg-[#007AFF]/[0.05]'
                   : 'border-black/[0.06] bg-white hover:border-black/[0.12] hover:bg-black/[0.01]'
               )}
               style={{ minHeight: 52 }}
@@ -146,7 +146,7 @@ export function NoSaleDialog({
               <span
                 className={cn(
                   'text-[15px] font-medium',
-                  selectedReason === option.value ? 'text-[#F06B18]' : 'text-[#1C1C1E]'
+                  selectedReason === option.value ? 'text-[#007AFF]' : 'text-[#1C1C1E]'
                 )}
               >
                 {option.label}

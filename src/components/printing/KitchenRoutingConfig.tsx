@@ -252,7 +252,7 @@ export function KitchenRoutingConfig({
                       }
                       className={cn(
                         'h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-sm text-[#1C1C1E] outline-none',
-                        'focus:border-[#F06B18] focus:ring-2 focus:ring-[#F06B18]/20',
+                        'focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20',
                         'transition-colors'
                       )}
                       style={{ minHeight: 44 }}
@@ -273,7 +273,7 @@ export function KitchenRoutingConfig({
                       }
                       className={cn(
                         'h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-sm text-[#1C1C1E] outline-none',
-                        'focus:border-[#F06B18] focus:ring-2 focus:ring-[#F06B18]/20',
+                        'focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20',
                         'transition-colors'
                       )}
                       style={{ minHeight: 44 }}

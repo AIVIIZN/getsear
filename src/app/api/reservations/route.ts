@@ -103,9 +103,9 @@ export async function POST(request: NextRequest) {
     .insert({
       org_id: user.org_id,
       location_id: locationId,
-      customer_name: parsed.data.customer_name,
-      customer_phone: parsed.data.customer_phone ?? null,
-      customer_email: parsed.data.customer_email ?? null,
+      guest_name: parsed.data.customer_name,
+      guest_phone: parsed.data.customer_phone ?? null,
+      guest_email: parsed.data.customer_email ?? null,
       party_size: parsed.data.party_size,
       reservation_date: parsed.data.reservation_date,
       reservation_time: parsed.data.reservation_time,
@@ -118,7 +118,8 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create reservation' }, { status: 500 })
+    console.error('[reservations/POST]', error.message, error.details)
+    return NextResponse.json({ error: 'Failed to create reservation', details: error.message }, { status: 500 })
   }
 
   return NextResponse.json({ data }, { status: 201 })

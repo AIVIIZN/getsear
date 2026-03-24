@@ -86,7 +86,7 @@ export default function OrganizationSettingsPage() {
         owner_name: org.owner_name ?? "",
         owner_email: org.owner_email ?? "",
         owner_phone: org.owner_phone ?? "",
-        primary_color: org.primary_color ?? "#F06B18",
+        primary_color: org.primary_color ?? "#007AFF",
       });
       setTimezone((org.settings?.default_timezone as string) ?? "America/New_York");
       setCurrency((org.settings?.default_currency as string) ?? "USD");
@@ -263,7 +263,7 @@ export default function OrganizationSettingsPage() {
                 />
                 <Input
                   className="h-12 flex-1 font-mono"
-                  placeholder="#F06B18"
+                  placeholder="#007AFF"
                   {...register("primary_color")}
                 />
               </div>

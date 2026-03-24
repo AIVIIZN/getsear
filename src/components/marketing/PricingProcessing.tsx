@@ -77,7 +77,7 @@ export function PricingProcessing() {
           </div>
 
           {/* Valor Dual Pricing */}
-          <div className="rounded-2xl border-2 border-[#F06B18]/20 bg-[#FFF4EC]/30 p-8">
+          <div className="rounded-2xl border-2 border-[#007AFF]/20 bg-[#FFF4EC]/30 p-8">
             <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#34C759]/10 text-[#34C759]">
               <Shield size={22} />
             </div>
@@ -133,7 +133,7 @@ export function PricingProcessing() {
           </p>
           <Link
             href="/demo"
-            className="mt-6 inline-flex items-center gap-1 text-[15px] font-semibold text-[#F06B18] hover:underline"
+            className="mt-6 inline-flex items-center gap-1 text-[15px] font-semibold text-[#007AFF] hover:underline"
           >
             Learn more about Dual Pricing
             <ArrowRight size={16} />

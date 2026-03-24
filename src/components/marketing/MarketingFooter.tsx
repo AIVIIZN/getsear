@@ -36,7 +36,7 @@ export function MarketingFooter() {
           {/* Brand column */}
           <div className="col-span-2 md:col-span-4 lg:col-span-1">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F06B18]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]">
                 <span className="text-lg font-bold text-white">S</span>
               </div>
               <span className="text-xl font-semibold tracking-tight text-[#1C1C1E]">
@@ -60,7 +60,7 @@ export function MarketingFooter() {
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-[15px] text-[#3D3D37] transition-colors hover:text-[#F06B18]"
+                      className="text-[15px] text-[#3D3D37] transition-colors hover:text-[#007AFF]"
                     >
                       {link.label}
                     </Link>

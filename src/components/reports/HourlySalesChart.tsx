@@ -51,8 +51,8 @@ export function HourlySalesChart({ data }: HourlySalesChartProps) {
             <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F06B18" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#F06B18" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#007AFF" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -73,7 +73,7 @@ export function HourlySalesChart({ data }: HourlySalesChartProps) {
               <Area
                 type="monotone"
                 dataKey="sales"
-                stroke="#F06B18"
+                stroke="#007AFF"
                 strokeWidth={2}
                 fill="url(#salesGradient)"
               />

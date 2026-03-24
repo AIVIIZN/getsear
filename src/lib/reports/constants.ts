@@ -5,7 +5,7 @@
 
 // ── Chart Colors (Sear Design System) ───────────────────────────────────
 export const CHART_COLORS = {
-  primary: '#F06B18',     // Ember orange
+  primary: '#007AFF',     // Ember orange
   blue: '#2563EB',
   green: '#16A34A',
   purple: '#7C3AED',

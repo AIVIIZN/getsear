@@ -41,7 +41,7 @@ export default function ReservationConfirmation() {
           <a
             href={`/reserve/${slug}`}
             className="font-medium underline"
-            style={{ color: '#F06B18' }}
+            style={{ color: '#007AFF' }}
           >
             make a reservation
           </a>
@@ -138,7 +138,7 @@ export default function ReservationConfirmation() {
         <a
           href={`/reserve/${slug}`}
           className="text-sm font-medium hover:underline"
-          style={{ color: '#F06B18' }}
+          style={{ color: '#007AFF' }}
         >
           Make another reservation
         </a>

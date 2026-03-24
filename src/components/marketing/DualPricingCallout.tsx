@@ -21,9 +21,9 @@ export function DualPricingCallout() {
           <div className="grid items-center gap-10 p-8 md:grid-cols-2 md:p-14">
             {/* Left: text */}
             <div>
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#F06B18]/20 px-4 py-1.5">
-                <TrendingUp size={16} className="text-[#F06B18]" />
-                <span className="text-[13px] font-semibold text-[#F06B18]">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#007AFF]/20 px-4 py-1.5">
+                <TrendingUp size={16} className="text-[#007AFF]" />
+                <span className="text-[13px] font-semibold text-[#007AFF]">
                   Valor Dual Pricing
                 </span>
               </div>
@@ -41,7 +41,7 @@ export function DualPricingCallout() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/pricing#calculator"
-                  className="btn-press inline-flex items-center justify-center gap-2 rounded-full bg-[#F06B18] px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#E05A0A]"
+                  className="btn-press inline-flex items-center justify-center gap-2 rounded-full bg-[#007AFF] px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#0066D6]"
                 >
                   Calculate Your Savings
                   <ArrowRight size={16} />
@@ -78,7 +78,7 @@ export function DualPricingCallout() {
                       <span className="text-[15px] font-medium text-white">
                         Your savings
                       </span>
-                      <span className="text-[24px] font-bold text-[#F06B18]">
+                      <span className="text-[24px] font-bold text-[#007AFF]">
                         $1,300/mo
                       </span>
                     </div>

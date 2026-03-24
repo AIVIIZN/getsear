@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -136,8 +137,10 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('users') as any)
     .insert({
+      id: randomUUID(),
       org_id: user.org_id,
       ...staffData,
+      location_ids: staffData.location_ids ?? user.location_ids ?? [],
       pin_hash: pinHash,
       is_active: true,
       settings: {},
@@ -146,7 +149,8 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create staff member' }, { status: 500 })
+    console.error('[staff/POST]', error.message, error.details, error.hint)
+    return NextResponse.json({ error: 'Failed to create staff member', details: error.message }, { status: 500 })
   }
 
   return NextResponse.json({ data }, { status: 201 })

@@ -135,7 +135,7 @@ export default function PublicOrderPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-3" />
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
           <p className="text-sm text-gray-500">Loading menu...</p>
         </div>
       </div>

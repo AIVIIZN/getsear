@@ -190,7 +190,7 @@ export function ComparisonTable() {
                   key={p.key}
                   className={`px-5 py-5 text-center text-[15px] font-semibold ${
                     p.highlight
-                      ? 'bg-[#FFF4EC] text-[#F06B18]'
+                      ? 'bg-[#FFF4EC] text-[#007AFF]'
                       : 'text-[#1C1C1E]'
                   }`}
                 >

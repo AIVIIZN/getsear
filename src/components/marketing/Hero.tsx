@@ -12,7 +12,7 @@ export function Hero() {
           {/* Text content */}
           <div className="max-w-xl">
             {/* Badge */}
-            <div className="mb-6 inline-flex items-center rounded-full border border-[#F06B18]/20 bg-[#FFF4EC] px-4 py-1.5">
+            <div className="mb-6 inline-flex items-center rounded-full border border-[#007AFF]/20 bg-[#FFF4EC] px-4 py-1.5">
               <span className="text-[13px] font-semibold text-[#9A4A12]">
                 No contracts. No lock-in. Ever.
               </span>
@@ -20,7 +20,7 @@ export function Hero() {
 
             <h1 className="text-[40px] font-bold leading-[1.1] tracking-tight text-[#1C1C1E] md:text-[56px]">
               The Restaurant POS That Doesn&apos;t{' '}
-              <span className="text-[#F06B18]">Lock You In</span>
+              <span className="text-[#007AFF]">Lock You In</span>
             </h1>
 
             <p className="mt-6 text-[18px] leading-relaxed text-[#78756D] md:text-[20px]">
@@ -33,7 +33,7 @@ export function Hero() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
               <Link
                 href="/pricing"
-                className="btn-press inline-flex items-center justify-center rounded-full bg-[#F06B18] px-8 py-4 text-[17px] font-semibold text-white shadow-lg shadow-[#F06B18]/25 transition-all hover:bg-[#E05A0A] hover:shadow-xl hover:shadow-[#F06B18]/30"
+                className="btn-press inline-flex items-center justify-center rounded-full bg-[#007AFF] px-8 py-4 text-[17px] font-semibold text-white shadow-lg shadow-[#007AFF]/25 transition-all hover:bg-[#0066D6] hover:shadow-xl hover:shadow-[#007AFF]/30"
               >
                 See Pricing
               </Link>
@@ -76,7 +76,7 @@ export function Hero() {
                 {/* Top bar */}
                 <div className="flex items-center justify-between bg-white px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-md bg-[#F06B18]" />
+                    <div className="h-6 w-6 rounded-md bg-[#007AFF]" />
                     <span className="text-[11px] font-semibold text-[#1C1C1E] md:text-[13px]">
                       Sear POS
                     </span>
@@ -100,7 +100,7 @@ export function Hero() {
                           key={cat}
                           className={`rounded-full px-2.5 py-1 text-[8px] font-medium md:text-[10px] ${
                             cat === 'Entrees'
-                              ? 'bg-[#F06B18] text-white'
+                              ? 'bg-[#007AFF] text-white'
                               : 'bg-white text-[#3D3D37]'
                           }`}
                         >
@@ -125,7 +125,7 @@ export function Hero() {
                           <p className="text-[7px] font-medium text-[#1C1C1E] md:text-[9px]">
                             {item.name}
                           </p>
-                          <p className="text-[7px] font-semibold text-[#F06B18] md:text-[9px]">
+                          <p className="text-[7px] font-semibold text-[#007AFF] md:text-[9px]">
                             {item.price}
                           </p>
                         </div>
@@ -163,12 +163,12 @@ export function Hero() {
                         <span className="text-[8px] font-semibold text-[#1C1C1E] md:text-[10px]">
                           Total
                         </span>
-                        <span className="text-[8px] font-bold text-[#F06B18] md:text-[10px]">
+                        <span className="text-[8px] font-bold text-[#007AFF] md:text-[10px]">
                           $98.00
                         </span>
                       </div>
                     </div>
-                    <button className="mt-2 w-full rounded-lg bg-[#F06B18] py-1.5 text-[8px] font-semibold text-white md:text-[10px]">
+                    <button className="mt-2 w-full rounded-lg bg-[#007AFF] py-1.5 text-[8px] font-semibold text-white md:text-[10px]">
                       Send to Kitchen
                     </button>
                   </div>

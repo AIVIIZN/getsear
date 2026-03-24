@@ -29,7 +29,7 @@ export function CacheWarmingScreen() {
           <div
             className="h-10 w-10 rounded-xl flex items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, #F06B18 0%, #E05A0D 100%)',
+              background: 'linear-gradient(135deg, #007AFF 0%, #E05A0D 100%)',
               boxShadow: '0 4px 12px rgba(240, 107, 24, 0.3)',
             }}
           >
@@ -59,7 +59,7 @@ export function CacheWarmingScreen() {
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#F06B18"
+            stroke="#007AFF"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}

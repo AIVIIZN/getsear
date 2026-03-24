@@ -82,7 +82,7 @@ export default function OwnerDashboardPage() {
             value={`$${data.today_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
             icon={DollarSign}
             sublabel={`${data.today_orders} orders | $${data.today_avg_check.toFixed(2)} avg`}
-            color="#F06B18"
+            color="#007AFF"
             onClick={() => router.push('/reports/sales')}
           />
 

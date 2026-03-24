@@ -35,7 +35,7 @@ export function PLWaterfallChart({ revenue, cogs, labor, grossProfit }: PLWaterf
       base: 0,
       value: revenue,
       displayValue: revenue,
-      fill: '#F06B18',
+      fill: '#007AFF',
       pct: '100%',
     },
     {

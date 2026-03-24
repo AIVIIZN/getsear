@@ -40,23 +40,23 @@ export default function ComparePage() {
               </h3>
               <ul className="mt-4 space-y-3 text-[14px] text-[#3D3D37]">
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   No 2-year contract (Toast requires one)
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   BYOD iPad vs $999 proprietary terminal
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   0% processing vs 2.49%+ locked rates
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   KDS included vs $25/mo add-on
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   Loyalty included (Growth) vs $50/mo add-on
                 </li>
               </ul>
@@ -79,19 +79,19 @@ export default function ComparePage() {
               </h3>
               <ul className="mt-4 space-y-3 text-[14px] text-[#3D3D37]">
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   0% processing vs 2.6% + $0.10
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   Full KDS included vs paid add-on
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   Drive-thru and catering support (Square lacks)
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   Built for restaurants (Square is general retail)
                 </li>
               </ul>
@@ -114,19 +114,19 @@ export default function ComparePage() {
               </h3>
               <ul className="mt-4 space-y-3 text-[14px] text-[#3D3D37]">
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   No 1-3 year contract (SpotOn often requires)
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   0% processing vs 1.99-2.89%
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   BYOD hardware vs $400-$850 proprietary
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                   Drive-thru and catering built-in
                 </li>
               </ul>

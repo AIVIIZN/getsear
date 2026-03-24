@@ -85,7 +85,7 @@ export function KdsRecallDrawer({
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#F06B18] border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#007AFF] border-t-transparent" />
             </div>
           ) : recentBumps.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -131,7 +131,7 @@ export function KdsRecallDrawer({
                     <p className="text-xs text-[#666]">
                       Bumped {formatTimeAgo(bump.bumped_at)}
                     </p>
-                    <span className="text-sm font-semibold text-[#F06B18]">Recall</span>
+                    <span className="text-sm font-semibold text-[#007AFF]">Recall</span>
                   </div>
                 </button>
               ))}

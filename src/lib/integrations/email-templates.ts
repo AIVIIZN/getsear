@@ -82,7 +82,7 @@ function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
 
-const BRAND_COLOR = '#F06B18'
+const BRAND_COLOR = '#007AFF'
 const TEXT_COLOR = '#1C1C1E'
 const MUTED_COLOR = '#78756D'
 const BG_COLOR = '#F2F2F7'

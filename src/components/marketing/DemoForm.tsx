@@ -126,7 +126,7 @@ export function DemoForm() {
           type="text"
           placeholder="The Copper Pot"
           {...register('restaurant_name')}
-          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#F06B18] focus:outline-none focus:ring-2 focus:ring-[#F06B18]/20"
+          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
         />
         {errors.restaurant_name && (
           <p className="mt-1 text-[13px] text-[#FF3B30]">
@@ -148,7 +148,7 @@ export function DemoForm() {
           type="text"
           placeholder="Maria Gonzalez"
           {...register('contact_name')}
-          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#F06B18] focus:outline-none focus:ring-2 focus:ring-[#F06B18]/20"
+          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
         />
         {errors.contact_name && (
           <p className="mt-1 text-[13px] text-[#FF3B30]">
@@ -171,7 +171,7 @@ export function DemoForm() {
             type="email"
             placeholder="maria@copperpot.com"
             {...register('email')}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#F06B18] focus:outline-none focus:ring-2 focus:ring-[#F06B18]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
           />
           {errors.email && (
             <p className="mt-1 text-[13px] text-[#FF3B30]">
@@ -191,7 +191,7 @@ export function DemoForm() {
             type="tel"
             placeholder="(555) 123-4567"
             {...register('phone')}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#F06B18] focus:outline-none focus:ring-2 focus:ring-[#F06B18]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
           />
           {errors.phone && (
             <p className="mt-1 text-[13px] text-[#FF3B30]">
@@ -216,7 +216,7 @@ export function DemoForm() {
             min={1}
             max={999}
             {...register('locations_count', { valueAsNumber: true })}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#F06B18] focus:outline-none focus:ring-2 focus:ring-[#F06B18]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
           />
           {errors.locations_count && (
             <p className="mt-1 text-[13px] text-[#FF3B30]">
@@ -234,7 +234,7 @@ export function DemoForm() {
           <select
             id="current_pos"
             {...register('current_pos')}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] transition-colors focus:border-[#F06B18] focus:outline-none focus:ring-2 focus:ring-[#F06B18]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
           >
             {posOptions.map((opt) => (
               <option key={opt.value} value={opt.value} disabled={!opt.value}>
@@ -261,7 +261,7 @@ export function DemoForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="btn-press flex w-full items-center justify-center gap-2 rounded-full bg-[#F06B18] py-4 text-[17px] font-semibold text-white shadow-lg shadow-[#F06B18]/25 transition-all hover:bg-[#E05A0A] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn-press flex w-full items-center justify-center gap-2 rounded-full bg-[#007AFF] py-4 text-[17px] font-semibold text-white shadow-lg shadow-[#007AFF]/25 transition-all hover:bg-[#0066D6] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? (
           <>

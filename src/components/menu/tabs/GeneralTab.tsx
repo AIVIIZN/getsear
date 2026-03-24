@@ -173,7 +173,7 @@ export function GeneralTab({ form, categories, onUpdateField }: GeneralTabProps)
                 onClick={() => handleStationToggle(station)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
                   isActive
-                    ? 'border-[#F06B18] bg-[#F06B18]/10 text-[#F06B18]'
+                    ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
                     : 'border-border text-muted-foreground hover:border-border'
                 }`}
               >

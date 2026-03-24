@@ -120,7 +120,7 @@ export default function SpeedOfServicePage() {
                     <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={{ stroke: 'var(--border)' }} />
                     <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatDuration(v)} />
                     <Tooltip formatter={(v) => formatDuration(Number(v))} />
-                    <Line type="monotone" dataKey="avg_seconds" name="Avg Time" stroke="#F06B18" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="avg_seconds" name="Avg Time" stroke="#007AFF" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

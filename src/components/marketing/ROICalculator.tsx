@@ -100,7 +100,7 @@ export function ROICalculator() {
       >
         <div className="mx-auto max-w-2xl text-center">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#FFF4EC] px-4 py-1.5">
-            <Calculator size={16} className="text-[#F06B18]" />
+            <Calculator size={16} className="text-[#007AFF]" />
             <span className="text-[13px] font-semibold text-[#9A4A12]">
               ROI Calculator
             </span>
@@ -137,7 +137,7 @@ export function ROICalculator() {
                 step={5000}
                 value={cardVolume}
                 onChange={handleSliderChange(setCardVolume)}
-                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#F06B18] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F06B18] [&::-webkit-slider-thumb]:shadow-md"
+                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#007AFF] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#007AFF] [&::-webkit-slider-thumb]:shadow-md"
               />
               <div className="mt-1 flex justify-between text-[12px] text-[#78756D]">
                 <span>$10K</span>
@@ -162,7 +162,7 @@ export function ROICalculator() {
                 step={0.1}
                 value={processingRate}
                 onChange={handleSliderChange(setProcessingRate)}
-                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#F06B18] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F06B18] [&::-webkit-slider-thumb]:shadow-md"
+                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#007AFF] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#007AFF] [&::-webkit-slider-thumb]:shadow-md"
               />
               <div className="mt-1 flex justify-between text-[12px] text-[#78756D]">
                 <span>1.5%</span>
@@ -187,7 +187,7 @@ export function ROICalculator() {
                 step={25}
                 value={softwareCost}
                 onChange={handleSliderChange(setSoftwareCost)}
-                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#F06B18] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F06B18] [&::-webkit-slider-thumb]:shadow-md"
+                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#007AFF] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#007AFF] [&::-webkit-slider-thumb]:shadow-md"
               />
               <div className="mt-1 flex justify-between text-[12px] text-[#78756D]">
                 <span>$0</span>
@@ -212,7 +212,7 @@ export function ROICalculator() {
                 step={25}
                 value={hardwareLease}
                 onChange={handleSliderChange(setHardwareLease)}
-                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#F06B18] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F06B18] [&::-webkit-slider-thumb]:shadow-md"
+                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#F0EDE8] accent-[#007AFF] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#007AFF] [&::-webkit-slider-thumb]:shadow-md"
               />
               <div className="mt-1 flex justify-between text-[12px] text-[#78756D]">
                 <span>$0</span>
@@ -233,7 +233,7 @@ export function ROICalculator() {
               </div>
 
               <div className="mt-6">
-                <span className="text-[56px] font-bold tracking-tight tabular-nums text-[#F06B18] md:text-[64px]">
+                <span className="text-[56px] font-bold tracking-tight tabular-nums text-[#007AFF] md:text-[64px]">
                   {formatCurrency(animatedMonthly)}
                 </span>
                 <span className="ml-2 text-[18px] text-[#A1A1A6]">

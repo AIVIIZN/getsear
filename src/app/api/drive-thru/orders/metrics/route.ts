@@ -22,14 +22,14 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('drive_thru_orders') as any)
-    .select('id, lane, order_taken_at, ready_at, delivered_at, total_seconds')
+    .select('id, lane, ordered_at, paid_at, served_at, total_seconds')
     .eq('org_id', user.org_id)
     .not('total_seconds', 'is', null)
-    .order('order_taken_at', { ascending: false })
+    .order('ordered_at', { ascending: false })
 
   if (locationId) query = query.eq('location_id', locationId)
-  if (dateFrom) query = query.gte('order_taken_at', dateFrom)
-  if (dateTo) query = query.lte('order_taken_at', dateTo)
+  if (dateFrom) query = query.gte('ordered_at', dateFrom)
+  if (dateTo) query = query.lte('ordered_at', dateTo)
 
   const { data, error } = await query
 
@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
   const orders = (data ?? []) as Array<{
     id: string
     lane: number
-    order_taken_at: string
-    ready_at: string | null
-    delivered_at: string | null
+    ordered_at: string
+    paid_at: string | null
+    served_at: string | null
     total_seconds: number
   }>
 
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
   // Group by hour
   const hourMap = new Map<number, number[]>()
   for (const o of orders) {
-    const hour = new Date(o.order_taken_at).getHours()
+    const hour = new Date(o.ordered_at).getHours()
     const existing = hourMap.get(hour) ?? []
     existing.push(o.total_seconds)
     hourMap.set(hour, existing)

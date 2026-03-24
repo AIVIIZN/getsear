@@ -4,7 +4,7 @@ import { useOfflineStore } from '@/stores/offline-store'
 
 /**
  * Thin progress bar at the very top of the viewport.
- * Ember orange (#F06B18), 3px tall, like YouTube/GitHub loading bar.
+ * Ember orange (#007AFF), 3px tall, like YouTube/GitHub loading bar.
  * Only visible during sync.
  */
 export function SyncProgressBar() {
@@ -26,7 +26,7 @@ export function SyncProgressBar() {
         className="h-full transition-all duration-300 ease-out"
         style={{
           width: `${syncProgress}%`,
-          background: 'linear-gradient(90deg, #F06B18, #F59E0B)',
+          background: 'linear-gradient(90deg, #007AFF, #F59E0B)',
           boxShadow: '0 0 8px rgba(240, 107, 24, 0.4)',
         }}
       />

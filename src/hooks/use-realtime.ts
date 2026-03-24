@@ -29,6 +29,14 @@ export function useRealtimeTable(
   onDelete?: (record: Record<string, unknown>) => void
 ) {
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const onInsertRef = useRef(onInsert)
+  const onUpdateRef = useRef(onUpdate)
+  const onDeleteRef = useRef(onDelete)
+
+  // Keep refs current without re-subscribing
+  onInsertRef.current = onInsert
+  onUpdateRef.current = onUpdate
+  onDeleteRef.current = onDelete
 
   useEffect(() => {
     const supabase = getSupabase()
@@ -47,13 +55,13 @@ export function useRealtimeTable(
         (payload: PostgresChange) => {
           switch (payload.eventType) {
             case 'INSERT':
-              onInsert?.(payload.new)
+              onInsertRef.current?.(payload.new)
               break
             case 'UPDATE':
-              onUpdate?.(payload.new)
+              onUpdateRef.current?.(payload.new)
               break
             case 'DELETE':
-              onDelete?.(payload.old)
+              onDeleteRef.current?.(payload.old)
               break
           }
         }
@@ -65,7 +73,7 @@ export function useRealtimeTable(
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [table, filter, onInsert, onUpdate, onDelete])
+  }, [table, filter])
 
   return channelRef
 }

@@ -95,15 +95,15 @@ export async function POST(request: Request) {
                 value: `
                   <div style="font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
                     <div style="text-align: center; margin-bottom: 32px;">
-                      <div style="display: inline-block; width: 40px; height: 40px; background: #F06B18; border-radius: 10px; line-height: 40px; color: white; font-weight: bold; font-size: 20px;">S</div>
+                      <div style="display: inline-block; width: 40px; height: 40px; background: #007AFF; border-radius: 10px; line-height: 40px; color: white; font-weight: bold; font-size: 20px;">S</div>
                     </div>
                     <h1 style="font-size: 24px; color: #1C1C1E; margin-bottom: 16px;">Thanks for reaching out, ${data.contact_name}!</h1>
                     <p style="font-size: 16px; color: #78756D; line-height: 1.6;">We received your demo request for <strong>${data.restaurant_name}</strong>. A member of our team will reach out within 2 business hours to schedule your personalized demo.</p>
                     <p style="font-size: 16px; color: #78756D; line-height: 1.6;">In the meantime, you can explore:</p>
                     <ul style="font-size: 16px; color: #78756D; line-height: 1.8;">
-                      <li><a href="https://getsear.com/pricing" style="color: #F06B18;">Our transparent pricing</a></li>
-                      <li><a href="https://getsear.com/compare" style="color: #F06B18;">How we compare to Toast, Square, and others</a></li>
-                      <li><a href="https://getsear.com/pricing#calculator" style="color: #F06B18;">Your savings calculator</a></li>
+                      <li><a href="https://getsear.com/pricing" style="color: #007AFF;">Our transparent pricing</a></li>
+                      <li><a href="https://getsear.com/compare" style="color: #007AFF;">How we compare to Toast, Square, and others</a></li>
+                      <li><a href="https://getsear.com/pricing#calculator" style="color: #007AFF;">Your savings calculator</a></li>
                     </ul>
                     <hr style="border: none; border-top: 1px solid #F0EDE8; margin: 32px 0;" />
                     <p style="font-size: 13px; color: #A1A1A6;">Sear POS &middot; getsear.com &middot; No contracts, no lock-in.</p>

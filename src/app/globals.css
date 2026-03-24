@@ -4,11 +4,12 @@
 
 /* ============================================================
    SEAR POS DESIGN SYSTEM
-   Enterprise restaurant POS — iPad-native feel, warm, premium
-   Brand: Ember Orange (#F06B18)
+   Enterprise restaurant POS — Apple iPadOS native feel
+   Primary: iOS System Blue (#007AFF)
    Typography: SF Pro (system font stack)
    Grid: 8pt spacing
-   Touch: 48px minimum targets
+   Touch: 44px minimum, 48px preferred
+   Competitors: Toast (#127EEF blue), Square (#006AFF blue)
    ============================================================ */
 
 @custom-variant dark (&:is(.dark *));
@@ -78,35 +79,36 @@
 }
 
 /* ============================================================
-   LIGHT MODE (primary — the only production mode)
-   Warm off-white backgrounds, ember orange brand
+   LIGHT MODE — Apple iPadOS native feel
+   Primary: iOS System Blue (#007AFF)
+   Backgrounds: Apple system grouped (#F2F2F7)
    ============================================================ */
 :root {
   /* Backgrounds — Apple system background */
   --background: #F2F2F7;
   --foreground: #1C1C1E;
   --card: #FFFFFF;
-  --card-foreground: #1A1A17;
+  --card-foreground: #1C1C1E;
   --popover: #FFFFFF;
-  --popover-foreground: #1A1A17;
+  --popover-foreground: #1C1C1E;
 
-  /* Brand — Ember Orange */
-  --primary: #F06B18;
+  /* Brand — iOS System Blue */
+  --primary: #007AFF;
   --primary-foreground: #FFFFFF;
-  --primary-hover: #E05A0A;
-  --primary-active: #CC4F08;
+  --primary-hover: #0066D6;
+  --primary-active: #0055B3;
 
-  /* Secondary — warm neutral */
-  --secondary: #F5F3F0;
-  --secondary-foreground: #3D3D37;
+  /* Secondary — Apple neutral */
+  --secondary: #F2F2F7;
+  --secondary-foreground: #3C3C43;
 
   /* Muted — for labels, captions, disabled */
-  --muted: #F0EDE8;
-  --muted-foreground: #78756D;
+  --muted: #E5E5EA;
+  --muted-foreground: #8E8E93;
 
-  /* Accent — subtle warm highlight */
-  --accent: #FFF4EC;
-  --accent-foreground: #9A4A12;
+  /* Accent — subtle blue highlight (tinted button style) */
+  --accent: rgba(0, 122, 255, 0.08);
+  --accent-foreground: #007AFF;
 
   /* Destructive — void, delete, critical */
   --destructive: #FF3B30;
@@ -115,13 +117,13 @@
   --border: rgba(60, 60, 67, 0.12);
   --border-hover: rgba(60, 60, 67, 0.20);
   --input: rgba(60, 60, 67, 0.12);
-  --ring: #F06B18;
+  --ring: #007AFF;
 
   /* iOS hairline separator */
   --separator: rgba(60, 60, 67, 0.29);
 
   /* Radius */
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
   /* Semantic status colors — iOS system colors */
   --success: #34C759;
@@ -164,22 +166,22 @@
   --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.16);
 
-  /* Chart palette */
-  --chart-1: #F06B18;
-  --chart-2: #007AFF;
-  --chart-3: #34C759;
-  --chart-4: #AF52DE;
-  --chart-5: #FF9500;
+  /* Chart palette — iOS system colors */
+  --chart-1: #007AFF;
+  --chart-2: #34C759;
+  --chart-3: #AF52DE;
+  --chart-4: #FF9500;
+  --chart-5: #5AC8FA;
 
-  /* Sidebar — Apple iOS light style (#F2F2F7 grouped background) */
+  /* Sidebar — Apple iPadOS light style */
   --sidebar: #F2F2F7;
   --sidebar-foreground: #3C3C43;
-  --sidebar-primary: #F06B18;
+  --sidebar-primary: #007AFF;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(0, 0, 0, 0.04);
-  --sidebar-accent-foreground: #3C3C43;
+  --sidebar-accent: rgba(0, 122, 255, 0.12);
+  --sidebar-accent-foreground: #007AFF;
   --sidebar-border: rgba(60, 60, 67, 0.12);
-  --sidebar-ring: #F06B18;
+  --sidebar-ring: #007AFF;
   --sidebar-muted: #8E8E93;
 
   /* Animation timing — iOS spring physics */

@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
 
   let query = supabase
-    .from('print_jobs')
-    .select('id, printer_id, job_type, status, attempts, error_message, priority, created_at, completed_at, updated_at')
+    .from('print_queue')
+    .select('id, printer_id, job_type, status, attempts, error_message, created_at, completed_at')
     .eq('org_id', user.org_id)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -58,10 +58,10 @@ export async function DELETE(request: NextRequest) {
   const supabase = createAdminClient()
 
   let query = supabase
-    .from('print_jobs')
+    .from('print_queue')
     .delete()
     .eq('org_id', user.org_id)
-    .in('status', ['printed', 'cancelled'])
+    .in('status', ['completed', 'cancelled'])
 
   if (locationId) {
     query = query.eq('location_id', locationId)

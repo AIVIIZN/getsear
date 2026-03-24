@@ -49,7 +49,7 @@ export function KdsStationTabs({ stations, activeStationId, onSelect }: KdsStati
             className={cn(
               'flex-shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
               isActive
-                ? 'bg-[#F06B18] text-white'
+                ? 'bg-[#007AFF] text-white'
                 : 'bg-[#2a2a2a] text-[#999] hover:bg-[#333]',
               health === 'offline' && !isActive && 'opacity-50'
             )}

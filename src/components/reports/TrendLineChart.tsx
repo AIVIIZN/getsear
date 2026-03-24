@@ -58,20 +58,20 @@ export function TrendLineChart({ data, metricLabel, average, formatValue }: Tren
             <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F06B18" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#F06B18" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#007AFF" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               {/* Average band (shaded area) */}
-              <ReferenceArea y1={average - band} y2={average + band} fill="#F06B18" fillOpacity={0.06} />
+              <ReferenceArea y1={average - band} y2={average + band} fill="#007AFF" fillOpacity={0.06} />
               <XAxis dataKey="week_number" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={{ stroke: 'var(--border)' }} label={{ value: 'Week', position: 'insideBottomRight', offset: -5, style: { fontSize: 11, fill: 'var(--muted-foreground)' } }} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatter(v)} />
               <Tooltip content={<TrendTooltip />} />
               <Line
                 type="monotone"
                 dataKey="value"
-                stroke="#F06B18"
+                stroke="#007AFF"
                 strokeWidth={2.5}
                 dot={(props) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,13 +87,13 @@ export function TrendLineChart({ data, metricLabel, average, formatValue }: Tren
                       cx={cx}
                       cy={cy}
                       r={isDev ? 6 : 4}
-                      fill={isDev ? (devPct > 0 ? '#16A34A' : '#DC2626') : '#F06B18'}
+                      fill={isDev ? (devPct > 0 ? '#16A34A' : '#DC2626') : '#007AFF'}
                       stroke="white"
                       strokeWidth={2}
                     />
                   )
                 }}
-                activeDot={{ r: 7, stroke: '#F06B18', strokeWidth: 2 }}
+                activeDot={{ r: 7, stroke: '#007AFF', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>

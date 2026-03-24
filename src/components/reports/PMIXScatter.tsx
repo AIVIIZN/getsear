@@ -32,7 +32,7 @@ interface PMIXScatterProps {
 export type { PMIXItem }
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
-  Star: '#F06B18',
+  Star: '#007AFF',
   Plowhorse: '#2563EB',
   Puzzle: '#7C3AED',
   Dog: '#9CA3AF',
@@ -98,7 +98,7 @@ export function PMIXScatter({ data }: PMIXScatterProps) {
               <ReferenceLine x={avgPopularity} stroke="var(--border)" strokeDasharray="5 5" />
               <ReferenceLine y={avgProfitability} stroke="var(--border)" strokeDasharray="5 5" />
               <Tooltip content={<CustomTooltip />} />
-              <Scatter data={data} fill="#F06B18">
+              <Scatter data={data} fill="#007AFF">
                 {data.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}

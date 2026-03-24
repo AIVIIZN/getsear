@@ -30,15 +30,15 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('customers') as any)
-    .select('id, first_name, last_name, email, phone, total_visits, total_spend, last_visit_at, tags', { count: 'exact' })
+    .select('id, first_name, last_name, email, phone, total_visits, total_spent, last_visit_at, tags', { count: 'exact' })
     .eq('org_id', user.org_id)
     .order('last_visit_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
   if (minVisits) query = query.gte('total_visits', parseInt(minVisits, 10))
   if (maxVisits) query = query.lte('total_visits', parseInt(maxVisits, 10))
-  if (minSpend) query = query.gte('total_spend', minSpend)
-  if (maxSpend) query = query.lte('total_spend', maxSpend)
+  if (minSpend) query = query.gte('total_spent', minSpend)
+  if (maxSpend) query = query.lte('total_spent', maxSpend)
   if (lastVisitDays) {
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - parseInt(lastVisitDays, 10))

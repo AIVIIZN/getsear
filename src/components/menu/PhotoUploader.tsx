@@ -283,7 +283,7 @@ export function PhotoUploader({ onUpload, isUploading }: PhotoUploaderProps) {
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                 cropState.preset === preset
-                  ? 'border-[#F06B18] bg-[#F06B18]/10 text-[#F06B18]'
+                  ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
                   : 'border-border text-muted-foreground'
               )}
             >
@@ -339,7 +339,7 @@ export function PhotoUploader({ onUpload, isUploading }: PhotoUploaderProps) {
         className={cn(
           'flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors cursor-pointer',
           isDragOver
-            ? 'border-[#F06B18] bg-[#F06B18]/5'
+            ? 'border-[#007AFF] bg-[#007AFF]/5'
             : 'border-border hover:border-border'
         )}
         onClick={() => fileInputRef.current?.click()}

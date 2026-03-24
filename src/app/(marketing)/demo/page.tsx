@@ -53,7 +53,7 @@ export default function DemoPage() {
                 const Icon = point.icon;
                 return (
                   <div key={point.title} className="flex gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#F06B18]">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#007AFF]">
                       <Icon size={22} />
                     </div>
                     <div>
@@ -85,7 +85,7 @@ export default function DemoPage() {
                     key={item}
                     className="flex items-start gap-2 text-[14px] text-[#3D3D37]"
                   >
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F06B18]" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
                     {item}
                   </li>
                 ))}

@@ -257,7 +257,7 @@ export async function testSendGridConnection(
           type: 'text/html',
           value: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-              <div style="background: #F06B18; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+              <div style="background: #007AFF; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
                 <h1 style="color: white; margin: 0; font-size: 24px;">Sear POS</h1>
               </div>
               <div style="background: white; padding: 32px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 12px 12px;">

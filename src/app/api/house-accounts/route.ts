@@ -101,25 +101,31 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
 
+  // Generate account number
+  const accountNumber = `HA-${Date.now().toString(36).toUpperCase()}`
+  const paymentTermsMap: Record<number, string> = { 0: 'due_on_receipt', 15: 'net_15', 30: 'net_30', 45: 'net_45', 60: 'net_60', 90: 'net_90' }
+  const paymentTerms = paymentTermsMap[parsed.data.payment_terms_days] ?? `net_${parsed.data.payment_terms_days}`
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('house_accounts') as any)
     .insert({
       org_id: user.org_id,
       customer_id: parsed.data.customer_id ?? null,
       account_name: parsed.data.account_name,
-      credit_limit: parsed.data.credit_limit.toFixed(2),
-      current_balance: '0.00',
+      account_number: accountNumber,
+      credit_limit: parsed.data.credit_limit,
+      current_balance: 0,
       is_active: true,
       billing_email: parsed.data.billing_email ?? null,
       billing_address: parsed.data.billing_address ?? null,
-      auto_pay: parsed.data.auto_pay,
-      payment_terms_days: parsed.data.payment_terms_days,
+      payment_terms: paymentTerms,
     })
     .select()
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create house account' }, { status: 500 })
+    console.error('[house-accounts/POST]', error.message, error.details)
+    return NextResponse.json({ error: 'Failed to create house account', details: error.message }, { status: 500 })
   }
 
   return NextResponse.json({ data }, { status: 201 })

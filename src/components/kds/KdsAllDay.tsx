@@ -37,7 +37,7 @@ export function KdsAllDay({ counts, countsByCategory, isOpen, onClose }: KdsAllD
                 onClick={() => setGroupByCategory(false)}
                 className={cn(
                   'rounded-lg px-3 py-1 text-caption-1 font-semibold transition-colors',
-                  !groupByCategory ? 'bg-[#F06B18] text-white' : 'bg-[#2a2a2a] text-[#888]'
+                  !groupByCategory ? 'bg-[#007AFF] text-white' : 'bg-[#2a2a2a] text-[#888]'
                 )}
               >
                 All Items
@@ -46,7 +46,7 @@ export function KdsAllDay({ counts, countsByCategory, isOpen, onClose }: KdsAllD
                 onClick={() => setGroupByCategory(true)}
                 className={cn(
                   'rounded-lg px-3 py-1 text-caption-1 font-semibold transition-colors',
-                  groupByCategory ? 'bg-[#F06B18] text-white' : 'bg-[#2a2a2a] text-[#888]'
+                  groupByCategory ? 'bg-[#007AFF] text-white' : 'bg-[#2a2a2a] text-[#888]'
                 )}
               >
                 By Station
@@ -83,7 +83,7 @@ export function KdsAllDay({ counts, countsByCategory, isOpen, onClose }: KdsAllD
                       <span className="mr-2 truncate text-sm font-medium text-white">
                         {name}
                       </span>
-                      <span className="flex-shrink-0 text-xl font-black tabular-nums text-[#F06B18]">
+                      <span className="flex-shrink-0 text-xl font-black tabular-nums text-[#007AFF]">
                         {count}
                       </span>
                     </div>
@@ -116,7 +116,7 @@ export function KdsAllDay({ counts, countsByCategory, isOpen, onClose }: KdsAllD
                               <span className="mr-2 truncate text-sm font-medium text-white">
                                 {name}
                               </span>
-                              <span className="flex-shrink-0 text-xl font-black tabular-nums text-[#F06B18]">
+                              <span className="flex-shrink-0 text-xl font-black tabular-nums text-[#007AFF]">
                                 {count}
                               </span>
                             </div>

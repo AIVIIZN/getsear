@@ -254,7 +254,7 @@ export function PricingTab({ item, locationId, onSave }: PricingTabProps) {
               className={cn(
                 'rounded-lg border px-3 py-2 text-sm font-medium transition-all min-h-[48px]',
                 priceType === pt.value
-                  ? 'border-[#F06B18] bg-[#F06B18]/10 text-[#F06B18]'
+                  ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
                   : 'border-border bg-background text-foreground hover:bg-muted',
               )}
             >
@@ -299,7 +299,7 @@ export function PricingTab({ item, locationId, onSave }: PricingTabProps) {
               key={row.level_name}
               className={cn(
                 'grid grid-cols-[1fr_120px_140px] gap-2 px-3 py-2 items-center border-t border-border transition-colors',
-                row.is_active_now && 'bg-[#F06B18]/5',
+                row.is_active_now && 'bg-[#007AFF]/5',
               )}
             >
               {/* Level name */}
@@ -308,7 +308,7 @@ export function PricingTab({ item, locationId, onSave }: PricingTabProps) {
                 {row.is_active_now && (
                   <Badge
                     variant="default"
-                    className="bg-[#F06B18] text-white text-[10px] px-1.5"
+                    className="bg-[#007AFF] text-white text-[10px] px-1.5"
                   >
                     ACTIVE
                   </Badge>
@@ -372,7 +372,7 @@ export function PricingTab({ item, locationId, onSave }: PricingTabProps) {
       <Button
         onClick={handleSave}
         disabled={isSaving}
-        className="w-full h-12 bg-[#F06B18] hover:bg-[#E05A0D] text-white font-medium"
+        className="w-full h-12 bg-[#007AFF] hover:bg-[#E05A0D] text-white font-medium"
       >
         {isSaving ? (
           <>

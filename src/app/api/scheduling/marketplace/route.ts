@@ -14,11 +14,11 @@ export async function GET(request: NextRequest) {
 
   const db = createAdminClient()
   const { searchParams } = new URL(request.url)
-  const status = searchParams.get('status') ?? 'available'
+  const status = searchParams.get('status') ?? 'open'
 
   const { data, error } = await db
     .from('shift_marketplace')
-    .select('*, shifts(date, start_time, end_time, role), users!shift_marketplace_posted_by_fkey(first_name, last_name), claimed_user:users!shift_marketplace_claimed_by_fkey(first_name, last_name)')
+    .select('*, shifts(shift_date, start_time, end_time, name), users!shift_marketplace_posted_by_fkey(first_name, last_name), claimed_user:users!shift_marketplace_claimed_by_fkey(first_name, last_name)')
     .eq('org_id', user.org_id)
     .eq('status', status)
     .order('created_at', { ascending: false })
@@ -36,10 +36,10 @@ export async function GET(request: NextRequest) {
       shift_id: item.shift_id,
       posted_by: item.posted_by,
       posted_by_name: poster ? `${poster.first_name ?? ''} ${poster.last_name ?? ''}`.trim() : 'Unknown',
-      date: shift?.date ?? '',
+      date: shift?.shift_date ?? '',
       start_time: shift?.start_time ?? '',
       end_time: shift?.end_time ?? '',
-      role: shift?.role ?? '',
+      role: shift?.name ?? '',
       reason: item.reason,
       status: item.status,
       claimed_by: item.claimed_by,

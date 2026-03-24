@@ -288,7 +288,7 @@ export function DaypartConfig({ locationId, orgId, onClose }: DaypartConfigProps
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <Clock className="size-5 text-[#F06B18]" />
+          <Clock className="size-5 text-[#007AFF]" />
           <h2 className="text-lg font-semibold">Daypart Configuration</h2>
         </div>
         {onClose && (
@@ -309,7 +309,7 @@ export function DaypartConfig({ locationId, orgId, onClose }: DaypartConfigProps
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button onClick={openNewForm} className="bg-[#F06B18] hover:bg-[#E05A0D] text-white gap-1.5">
+          <Button onClick={openNewForm} className="bg-[#007AFF] hover:bg-[#E05A0D] text-white gap-1.5">
             <Plus className="size-4" />
             Add Daypart
           </Button>
@@ -449,7 +449,7 @@ export function DaypartConfig({ locationId, orgId, onClose }: DaypartConfigProps
 
         {/* Create/Edit Form */}
         {isFormOpen && (
-          <div className="rounded-lg border-2 border-[#F06B18]/30 bg-[#F06B18]/5 p-4 space-y-4">
+          <div className="rounded-lg border-2 border-[#007AFF]/30 bg-[#007AFF]/5 p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">
                 {editingId ? 'Edit Daypart' : 'New Daypart'}
@@ -521,7 +521,7 @@ export function DaypartConfig({ locationId, orgId, onClose }: DaypartConfigProps
                       className={cn(
                         'flex-1 rounded-md border py-2 text-xs font-medium transition-all min-h-[40px]',
                         isSelected
-                          ? 'border-[#F06B18] bg-[#F06B18] text-white'
+                          ? 'border-[#007AFF] bg-[#007AFF] text-white'
                           : 'border-border bg-background text-muted-foreground hover:bg-muted',
                       )}
                     >
@@ -548,7 +548,7 @@ export function DaypartConfig({ locationId, orgId, onClose }: DaypartConfigProps
                       className={cn(
                         'rounded-full border px-3 py-1.5 text-xs font-medium transition-all min-h-[32px]',
                         isSelected
-                          ? 'border-[#F06B18] bg-[#F06B18]/10 text-[#F06B18]'
+                          ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
                           : 'border-border bg-background text-muted-foreground hover:bg-muted',
                       )}
                     >
@@ -569,7 +569,7 @@ export function DaypartConfig({ locationId, orgId, onClose }: DaypartConfigProps
                 !form.end_time ||
                 form.days.length === 0
               }
-              className="w-full h-10 bg-[#F06B18] hover:bg-[#E05A0D] text-white"
+              className="w-full h-10 bg-[#007AFF] hover:bg-[#E05A0D] text-white"
             >
               {isSaving ? (
                 <>

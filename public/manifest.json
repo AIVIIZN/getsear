@@ -5,7 +5,7 @@
   "start_url": "/orders",
   "display": "standalone",
   "background_color": "#FAFAF8",
-  "theme_color": "#F06B18",
+  "theme_color": "#007AFF",
   "orientation": "landscape",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },

@@ -67,7 +67,7 @@ export default function ReportsPage() {
       })}
 
       {/* Owner Dashboard CTA */}
-      <div className="rounded-2xl bg-gradient-to-r from-[#F06B18] to-[#EA580C] p-6 text-white">
+      <div className="rounded-2xl bg-gradient-to-r from-[#007AFF] to-[#EA580C] p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold">Owner Mobile Dashboard</h3>

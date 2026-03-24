@@ -49,7 +49,7 @@ interface NavTreeProps {
 }
 
 const CATEGORY_COLORS = [
-  '#F06B18', '#DC2626', '#16A34A', '#2563EB',
+  '#007AFF', '#DC2626', '#16A34A', '#2563EB',
   '#7C3AED', '#D97706', '#0891B2', '#EC4899',
 ]
 
@@ -361,7 +361,7 @@ export function NavTree({
                   <div className="flex items-center gap-2 rounded-lg bg-background px-3 py-2.5 text-sm font-medium shadow-lg ring-1 ring-foreground/10 opacity-90">
                     <div
                       className="size-2.5 rounded-full"
-                      style={{ backgroundColor: activeDragCategory.color || '#F06B18' }}
+                      style={{ backgroundColor: activeDragCategory.color || '#007AFF' }}
                     />
                     <span>{activeDragCategory.name}</span>
                   </div>
