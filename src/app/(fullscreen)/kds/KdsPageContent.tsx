@@ -39,7 +39,9 @@ export default function KdsPage() {
   const messages = useKdsStore((s) => s.messages)
   const unreadCount = useKdsStore((s) => s.unreadCount)
   const stationHealth = useKdsStore((s) => s.stationHealth)
-  const actions = useKdsStore((s) => s.actions)
+  // Get actions via getState() — NOT via selector — to avoid re-render loops
+  // Zustand v5 creates new actions object reference on each state change
+  const actions = useKdsStore.getState().actions
 
   const [allDayOpen, setAllDayOpen] = useState(false)
   const [recallOpen, setRecallOpen] = useState(false)
