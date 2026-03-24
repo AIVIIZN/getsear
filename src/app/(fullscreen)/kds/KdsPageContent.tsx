@@ -143,21 +143,12 @@ export default function KdsPage() {
     fetchTickets()
   }, [fetchTickets])
 
-  // Update ticket ages every second + process aging alerts
+  // Force re-render every 5 seconds for timer updates (not every 1s to avoid perf issues)
+  const [tick, setTick] = useState(0)
   useEffect(() => {
-    const interval = setInterval(() => {
-      actionsRef.current.updateTicketAges()
-
-      // Process aging alerts for each ticket
-      if (soundEnabled) {
-        const activeTickets = actionsRef.current.getActiveTickets()
-        for (const ticket of activeTickets) {
-          processTicketAgingAlert(ticket.id, ticket.age_category)
-        }
-      }
-    }, 1000)
+    const interval = setInterval(() => setTick(t => t + 1), 5000)
     return () => clearInterval(interval)
-  }, [soundEnabled])
+  }, [])
 
   // Detect new tickets for sound alerts
   useEffect(() => {
