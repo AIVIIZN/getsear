@@ -184,46 +184,11 @@ export default function KdsPage() {
     [fetchTickets]
   )
 
-  useRealtimeKds(activeStationId ?? '', handleKdsEvent)
-
-  // Real-time: subscribe to order changes
-  const handleOrderInsert = useCallback(
-    (_record: Record<string, unknown>) => {
-      fetchTickets()
-    },
-    [fetchTickets]
-  )
-
-  const handleOrderUpdate = useCallback(
-    (_record: Record<string, unknown>) => {
-      fetchTickets()
-    },
-    [fetchTickets]
-  )
-
-  useRealtimeTable(
-    'orders',
-    locationId ? `location_id=eq.${locationId}` : undefined,
-    handleOrderInsert,
-    handleOrderUpdate
-  )
-
-  // Real-time: subscribe to kitchen close state
-  const handleLocationUpdate = useCallback(
-    (record: Record<string, unknown>) => {
-      if (typeof record.is_kitchen_closed === 'boolean') {
-        actionsRef.current.setKitchenClosed(record.is_kitchen_closed as boolean)
-      }
-    },
-    []
-  )
-
-  useRealtimeTable(
-    'locations',
-    locationId ? `id=eq.${locationId}` : undefined,
-    undefined,
-    handleLocationUpdate
-  )
+  // Realtime hooks disabled temporarily for production stability
+  // TODO: Re-enable once Zustand v5 compatibility is resolved
+  // useRealtimeKds(activeStationId ?? '', handleKdsEvent)
+  // useRealtimeTable('orders', ...)
+  // useRealtimeTable('locations', ...)
 
   // --- KDS Heartbeat ---
   const getHeartbeatMetrics = useCallback(() => {
@@ -248,12 +213,8 @@ export default function KdsPage() {
     fetchTickets()
   }, [fetchTickets])
 
-  useKdsHeartbeat(
-    activeStationId,
-    getHeartbeatMetrics,
-    handleHeartbeatConfigUpdate,
-    handleHeartbeatRecovery
-  )
+  // useKdsHeartbeat — disabled for production stability
+  // useKdsHeartbeat(activeStationId, getHeartbeatMetrics, handleHeartbeatConfigUpdate, handleHeartbeatRecovery)
 
   // --- KDS Messages Realtime ---
   const handleMessageReceived = useCallback(
@@ -273,7 +234,8 @@ export default function KdsPage() {
     [activeStationId, soundEnabled]
   )
 
-  useRealtimeKdsMessages(locationId, handleMessageReceived)
+  // useRealtimeKdsMessages — disabled for production stability
+  // useRealtimeKdsMessages(locationId, handleMessageReceived)
 
   // Fetch initial messages
   useEffect(() => {
@@ -309,7 +271,8 @@ export default function KdsPage() {
     []
   )
 
-  useRealtimeKdsStations(locationId, handleStationOnline, handleStationOffline)
+  // useRealtimeKdsStations — disabled for production stability
+  // useRealtimeKdsStations(locationId, handleStationOnline, handleStationOffline)
 
   // --- Kitchen Close Realtime (broadcast channel) ---
   const handleKitchenStatusChange = useCallback(
@@ -319,7 +282,8 @@ export default function KdsPage() {
     []
   )
 
-  useRealtimeKitchenStatus(locationId, handleKitchenStatusChange)
+  // useRealtimeKitchenStatus — disabled for production stability
+  // useRealtimeKitchenStatus(locationId, handleKitchenStatusChange)
 
   // Fetch initial kitchen status
   useEffect(() => {
