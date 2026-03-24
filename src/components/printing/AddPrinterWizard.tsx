@@ -43,6 +43,7 @@ import {
   getDefaultPort,
 } from '@/lib/printing/printer-interface';
 import { TestPrintButton } from './TestPrintButton';
+import { NetworkPrinterScanner } from './NetworkPrinterScanner';
 
 interface AddPrinterWizardProps {
   open: boolean;
@@ -101,6 +102,7 @@ export function AddPrinterWizard({
   // Step 1
   const [connectionType, setConnectionType] = useState<ConnectionType>('network');
   // Step 2
+  const [networkMode, setNetworkMode] = useState<'scan' | 'manual'>('scan');
   const [ipAddress, setIpAddress] = useState('');
   const [port, setPort] = useState('9100');
   const [deviceName, setDeviceName] = useState('');
@@ -307,30 +309,104 @@ export function AddPrinterWizard({
             <div className="space-y-5">
               {(connectionType === 'network' || connectionType === 'cloudprnt') && (
                 <>
-                  <div className="space-y-2">
-                    <Label htmlFor="ip-address">IP Address *</Label>
-                    <Input
-                      id="ip-address"
-                      className="h-12 font-mono"
-                      placeholder="192.168.1.100"
-                      value={ipAddress}
-                      onChange={(e) => setIpAddress(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="port">Port</Label>
-                    <Input
-                      id="port"
-                      className="h-12 font-mono"
-                      placeholder="9100"
-                      value={port}
-                      onChange={(e) => setPort(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Default: 9100. Change only if your printer uses a different
-                      port.
-                    </p>
-                  </div>
+                  {connectionType === 'network' && (
+                    <div className="space-y-4">
+                      {/* Scan vs Manual toggle */}
+                      <div className="flex items-center rounded-xl bg-[var(--background-muted)] p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setNetworkMode('scan')}
+                          className={cn(
+                            'flex-1 rounded-[10px] px-3 py-2 text-sm font-medium transition-all touch-target',
+                            networkMode === 'scan'
+                              ? 'bg-[var(--background)] text-foreground shadow-sm'
+                              : 'text-muted-foreground'
+                          )}
+                        >
+                          Scan Network
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNetworkMode('manual')}
+                          className={cn(
+                            'flex-1 rounded-[10px] px-3 py-2 text-sm font-medium transition-all touch-target',
+                            networkMode === 'manual'
+                              ? 'bg-[var(--background)] text-foreground shadow-sm'
+                              : 'text-muted-foreground'
+                          )}
+                        >
+                          Manual Entry
+                        </button>
+                      </div>
+
+                      {networkMode === 'scan' ? (
+                        <NetworkPrinterScanner
+                          onSelect={(ip, selectedPort) => {
+                            setIpAddress(ip);
+                            setPort(String(selectedPort));
+                            setNetworkMode('manual');
+                            toast.success(`Selected ${ip}`);
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="ip-address">IP Address *</Label>
+                            <Input
+                              id="ip-address"
+                              className="h-12 font-mono"
+                              placeholder="192.168.1.100"
+                              value={ipAddress}
+                              onChange={(e) => setIpAddress(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="port">Port</Label>
+                            <Input
+                              id="port"
+                              className="h-12 font-mono"
+                              placeholder="9100"
+                              value={port}
+                              onChange={(e) => setPort(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Default: 9100. Change only if your printer uses a
+                              different port.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {connectionType === 'cloudprnt' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="ip-address">IP Address *</Label>
+                        <Input
+                          id="ip-address"
+                          className="h-12 font-mono"
+                          placeholder="192.168.1.100"
+                          value={ipAddress}
+                          onChange={(e) => setIpAddress(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="port">Port</Label>
+                        <Input
+                          id="port"
+                          className="h-12 font-mono"
+                          placeholder="9100"
+                          value={port}
+                          onChange={(e) => setPort(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Default: 9100. Change only if your printer uses a
+                          different port.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
