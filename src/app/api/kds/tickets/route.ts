@@ -110,7 +110,9 @@ export async function GET(request: NextRequest) {
   if (!stationId) {
     return NextResponse.json({ error: 'station_id is required' }, { status: 400 })
   }
-  if (!locationId) {
+  // Fall back to user's first location if not specified
+  const effectiveLocationId = locationId ?? user.location_ids?.[0]
+  if (!effectiveLocationId) {
     return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
   }
 
@@ -137,7 +139,7 @@ export async function GET(request: NextRequest) {
   const { data: orders, error: ordersError } = await (supabase.from('orders') as any)
     .select('*')
     .eq('org_id', user.org_id)
-    .eq('location_id', locationId)
+    .eq('location_id', effectiveLocationId)
     .in('status', ['open', 'fired', 'sent', 'in_progress', 'ready'])
     .order('created_at', { ascending: true })
 
@@ -241,7 +243,7 @@ export async function GET(request: NextRequest) {
     const { data: allStations } = await (supabase.from('kds_stations') as any)
       .select('id, name, prep_stations')
       .eq('org_id', user.org_id)
-      .eq('location_id', locationId)
+      .eq('location_id', effectiveLocationId)
 
     if (allStations) {
       // Build prep_station -> station_name mapping
