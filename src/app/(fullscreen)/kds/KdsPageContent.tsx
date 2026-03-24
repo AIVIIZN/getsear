@@ -67,9 +67,9 @@ export default function KdsPage() {
     }
   }, [])
 
-  // Stable ref for store actions — prevents dependency cascades
-  const actionsRef = useRef(actions)
-  actionsRef.current = actions
+  // Stable ref for store actions — use getState() to avoid selector re-renders
+  const actionsRef = useRef(useKdsStore.getState().actions)
+  actionsRef.current = useKdsStore.getState().actions
 
   // Sync mute state with audio module
   useEffect(() => {
