@@ -1,188 +1,81 @@
-# Claude Code Configuration - RuFlo V3
+# Sear POS — Project Instructions
 
-## Behavioral Rules (Always Enforced)
+## Project
 
-- Do what has been asked; nothing more, nothing less
-- NEVER create files unless they're absolutely necessary for achieving your goal
-- ALWAYS prefer editing an existing file to creating a new one
-- NEVER proactively create documentation files (*.md) or README files unless explicitly requested
-- NEVER save working files, text/mds, or tests to the root folder
-- Never continuously check status after spawning a swarm — wait for results
-- ALWAYS read a file before editing it
-- NEVER commit secrets, credentials, or .env files
+Sear POS — a restaurant POS built on Next.js 16 (App Router + TypeScript + Tailwind v4 + shadcn/ui), Supabase (Postgres + Auth + Realtime + Storage), deployed at https://getsear.com via PM2 on a GCP VM (34.132.111.219). Production state and module depth: see `docs/MODULE_DEPTH_AUDIT.md` (2026-04-30 audit, 19 of 21 modules workflow-complete). Multi-version V5–V10 roadmap and autonomous build runner: see `build-pipeline/`.
 
-## File Organization
+## Behavioral rules (always)
 
-- NEVER save to root folder — use the directories below
-- Use `/src` for source code files
-- Use `/tests` for test files
-- Use `/docs` for documentation and markdown files
-- Use `/config` for configuration files
-- Use `/scripts` for utility scripts
-- Use `/examples` for example code
+- Do what has been asked; nothing more, nothing less.
+- NEVER create files unless absolutely necessary.
+- ALWAYS prefer editing an existing file to creating a new one.
+- NEVER proactively create documentation (`*.md`, README) unless explicitly requested.
+- ALWAYS read a file before editing it.
+- NEVER commit secrets, credentials, or `.env*` files.
+- NEVER save scratch/working files to the project root.
 
-## Project Architecture
+## File organization
 
-- Follow Domain-Driven Design with bounded contexts
-- Keep files under 500 lines
-- Use typed interfaces for all public APIs
-- Prefer TDD London School (mock-first) for new code
-- Use event sourcing for state changes
-- Ensure input validation at system boundaries
+- `src/` — application source (Next.js app, components, lib, stores, hooks, types, workers).
+- `tests/` — unit tests.
+- `e2e/` — Playwright tests.
+- `docs/` — checked-in documentation.
+- `scripts/` — utility scripts.
+- `supabase/migrations/` — schema migrations (one-way; pair drops with rollback files).
+- `build-pipeline/` — autonomous build runner state, specs, prompts (do not modify during a run).
 
-### Project Config
+## Architecture
 
-- **Topology**: hierarchical-mesh
-- **Max Agents**: 15
-- **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
+- Domain-Driven Design with bounded contexts; keep files under 500 lines.
+- Typed interfaces for every public API.
+- Validate input at system boundaries with Zod.
+- Realtime via Supabase channels for cross-terminal sync.
+- Tenant scoping: every query filters by `org_id`; RLS is the second line of defense.
 
-## Build & Test
+## Build & test
 
 ```bash
-# Build
 npm run build
-
-# Test
-npm test
-
-# Lint
 npm run lint
+npm test
+npm run test:e2e
 ```
 
-- ALWAYS run tests after making code changes
-- ALWAYS verify build succeeds before committing
+- ALWAYS run tests after code changes.
+- Build must pass before commit.
 
-## Security Rules
+## Security
 
-- NEVER hardcode API keys, secrets, or credentials in source files
-- NEVER commit .env files or any file containing secrets
-- Always validate user input at system boundaries
-- Always sanitize file paths to prevent directory traversal
-- Run `npx @claude-flow/cli@latest security scan` after security-related changes
+- NEVER hardcode API keys, secrets, or credentials.
+- Sanitize file paths to prevent traversal.
+- Validate user input at boundaries.
+- All mutating endpoints require auth; privileged actions (void, comp, manager override) additionally require manager-PIN with audit log entry.
 
-## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
+## Memory & persistence
 
-- All operations MUST be concurrent/parallel in a single message
-- Use Claude Code's Task tool for spawning agents, not just MCP
-- ALWAYS batch ALL todos in ONE TodoWrite call (5-10+ minimum)
-- ALWAYS spawn ALL agents in ONE message with full instructions via Task tool
-- ALWAYS batch ALL file reads/writes/edits in ONE message
-- ALWAYS batch ALL Bash commands in ONE message
+Memory across sessions is handled by the `mem0` MCP server (`mcp__mem0__*` tools), an Obsidian vault at `~/Desktop/ObsidianVault`, and the auto-loaded `MEMORY.md` index at `~/.claude/projects/-Users-ianrakow-Desktop-getsear/memory/`. Use these for durable knowledge — preferences, project state, decisions worth recalling. Do not invent CLI memory tools.
 
-## Swarm Orchestration
+## Concurrency
 
-- MUST initialize the swarm using CLI tools when starting complex tasks
-- MUST spawn concurrent agents using Claude Code's Task tool
-- Never use CLI tools alone for execution — Task tool agents do the actual work
-- MUST call CLI tools AND Task tool in ONE message for complex work
+- One message = all related operations. Independent tool calls run in parallel.
+- Prefer the dedicated tool (`Read`, `Edit`, `Write`) over `Bash` when one fits.
+- For multi-file work or wide searches, spawn parallel subagents via the `Agent` tool.
 
-### 3-Tier Model Routing (ADR-026)
+## Reference docs
 
-| Tier | Handler | Latency | Cost | Use Cases |
-|------|---------|---------|------|-----------|
-| **1** | Agent Booster (WASM) | <1ms | $0 | Simple transforms (var→const, add types) — Skip LLM |
-| **2** | Haiku | ~500ms | $0.0002 | Simple tasks, low complexity (<30%) |
-| **3** | Sonnet/Opus | 2-5s | $0.003-0.015 | Complex reasoning, architecture, security (>30%) |
+- `docs/MODULE_DEPTH_AUDIT.md` — canonical state of the 21 modules.
+- `docs/COMPETITIVE_RESEARCH.md` — Toast / R Power competitive analysis with hex codes.
+- `SEAR_POS_ARCHITECTURE.md` — full product spec (heavy; extract sections rather than reading whole).
+- `build-pipeline/RUNNER.md` — operating manual for the V5–V10 autonomous runner.
+- `build-pipeline/STATE.yaml` — live build state.
 
-- Always check for `[AGENT_BOOSTER_AVAILABLE]` or `[TASK_MODEL_RECOMMENDATION]` before spawning agents
-- Use Edit tool directly when `[AGENT_BOOSTER_AVAILABLE]`
-
-## Swarm Configuration & Anti-Drift
-
-- ALWAYS use hierarchical topology for coding swarms
-- Keep maxAgents at 6-8 for tight coordination
-- Use specialized strategy for clear role boundaries
-- Use `raft` consensus for hive-mind (leader maintains authoritative state)
-- Run frequent checkpoints via `post-task` hooks
-- Keep shared memory namespace for all agents
+## Deploy
 
 ```bash
-npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+ssh -i ~/.ssh/google_compute_engine ianrakow@34.132.111.219
+cd /opt/sear/app && git pull origin main && npm ci && npm run build && \
+  cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && \
+  pm2 reload sear-pos
 ```
 
-## Swarm Execution Rules
-
-- ALWAYS use `run_in_background: true` for all agent Task calls
-- ALWAYS put ALL agent Task calls in ONE message for parallel execution
-- After spawning, STOP — do NOT add more tool calls or check status
-- Never poll TaskOutput or check swarm status — trust agents to return
-- When agent results arrive, review ALL results before proceeding
-
-## V3 CLI Commands
-
-### Core Commands
-
-| Command | Subcommands | Description |
-|---------|-------------|-------------|
-| `init` | 4 | Project initialization |
-| `agent` | 8 | Agent lifecycle management |
-| `swarm` | 6 | Multi-agent swarm coordination |
-| `memory` | 11 | AgentDB memory with HNSW search |
-| `task` | 6 | Task creation and lifecycle |
-| `session` | 7 | Session state management |
-| `hooks` | 17 | Self-learning hooks + 12 workers |
-| `hive-mind` | 6 | Byzantine fault-tolerant consensus |
-
-### Quick CLI Examples
-
-```bash
-npx @claude-flow/cli@latest init --wizard
-npx @claude-flow/cli@latest agent spawn -t coder --name my-coder
-npx @claude-flow/cli@latest swarm init --v3-mode
-npx @claude-flow/cli@latest memory search --query "authentication patterns"
-npx @claude-flow/cli@latest doctor --fix
-```
-
-## Available Agents (60+ Types)
-
-### Core Development
-`coder`, `reviewer`, `tester`, `planner`, `researcher`
-
-### Specialized
-`security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
-
-### Swarm Coordination
-`hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`
-
-### GitHub & Repository
-`pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
-
-### SPARC Methodology
-`sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `architecture`
-
-## Memory Commands Reference
-
-```bash
-# Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
-npx @claude-flow/cli@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
-
-# Search (REQUIRED: --query; OPTIONAL: --namespace, --limit, --threshold)
-npx @claude-flow/cli@latest memory search --query "authentication patterns"
-
-# List (OPTIONAL: --namespace, --limit)
-npx @claude-flow/cli@latest memory list --namespace patterns --limit 10
-
-# Retrieve (REQUIRED: --key; OPTIONAL: --namespace)
-npx @claude-flow/cli@latest memory retrieve --key "pattern-auth" --namespace patterns
-```
-
-## Quick Setup
-
-```bash
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
-npx @claude-flow/cli@latest daemon start
-npx @claude-flow/cli@latest doctor --fix
-```
-
-## Claude Code vs CLI Tools
-
-- Claude Code's Task tool handles ALL execution: agents, file ops, code generation, git
-- CLI tools handle coordination via Bash: swarm init, memory, hooks, routing
-- NEVER use CLI tools as a substitute for Task tool agents
-
-## Support
-
-- Documentation: https://github.com/ruvnet/claude-flow
-- Issues: https://github.com/ruvnet/claude-flow/issues
+Or use the autonomous runner's `build-pipeline/DEPLOY.sh` which wraps this and smoke-tests.

@@ -18,8 +18,7 @@ cd "$PROJECT_DIR"
 #    this is a safety net for trivial post-merge changes).
 git add -A
 if ! git diff --staged --quiet; then
-  git commit -m "auto: ${BATCH_ID} via build-pipeline" \
-    -m "Co-Authored-By: claude-flow <ruv@ruv.net>"
+  git commit -m "auto: ${BATCH_ID} via build-pipeline"
 else
   echo "[deploy] nothing new to commit"
 fi
