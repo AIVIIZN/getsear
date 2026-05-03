@@ -466,12 +466,12 @@ export function AvailabilityTab({
               min={0}
             />
             <p className="text-xs text-muted-foreground">
-              Item will be automatically 86'd when quantity reaches 0.
+              Item will be automatically 86&apos;d when quantity reaches 0.
             </p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              "Running Low" Threshold
+              &quot;Running Low&quot; Threshold
             </label>
             <Input
               type="number"
@@ -482,7 +482,7 @@ export function AvailabilityTab({
               min={0}
             />
             <p className="text-xs text-muted-foreground">
-              Shows "LOW" badge on POS when quantity drops to this number.
+              Shows &quot;LOW&quot; badge on POS when quantity drops to this number.
             </p>
           </div>
 
@@ -491,7 +491,7 @@ export function AvailabilityTab({
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Status:</span>
               {parseInt(quantityAvailable, 10) <= 0 ? (
-                <Badge variant="destructive">Auto-86'd (0 remaining)</Badge>
+                <Badge variant="destructive">Auto-86&apos;d (0 remaining)</Badge>
               ) : lowThreshold !== '' &&
                 parseInt(quantityAvailable, 10) <=
                   parseInt(lowThreshold, 10) ? (
@@ -513,7 +513,7 @@ export function AvailabilityTab({
         <div className="rounded-lg border border-dashed border-border p-4 text-center">
           <Ban className="size-6 mx-auto mb-2 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Item will remain available until manually 86'd using the toggle
+            Item will remain available until manually 86&apos;d using the toggle
             above or via the KDS 86 button.
           </p>
         </div>

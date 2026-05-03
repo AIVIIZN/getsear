@@ -14,6 +14,7 @@
 
 import * as http from 'http'
 import * as net from 'net'
+import * as os from 'os'
 import { getPooledPrinter, getPoolStatus, closeAllConnections } from './tcp-printer'
 
 const PORT = parseInt(process.env.RELAY_PORT ?? '8888', 10)
@@ -198,7 +199,6 @@ function scanPort(ip: string, port: number, timeoutMs: number): Promise<boolean>
 }
 
 function getLocalIp(): string | null {
-  const os = require('os') as typeof import('os')
   const interfaces = os.networkInterfaces()
 
   for (const name of Object.keys(interfaces)) {

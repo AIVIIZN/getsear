@@ -47,6 +47,7 @@ export function CashDrawersTab() {
     setLoading(false)
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(V7-reliability): refactor
   useEffect(() => { loadDrawers() }, [loadDrawers])
 
   const handleCreate = async () => {

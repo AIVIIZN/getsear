@@ -29,6 +29,8 @@ export function useOnlineStatus() {
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const prevOnlineRef = useRef(true)
 
+  const debouncedUpdateRef = useRef<((online: boolean) => void) | null>(null)
+
   const updateOnlineState = useCallback((online: boolean) => {
     if (online === prevOnlineRef.current) return
     prevOnlineRef.current = online
@@ -53,7 +55,7 @@ export function useOnlineStatus() {
         pingIntervalRef.current = setInterval(async () => {
           const reachable = await pingHealth()
           if (reachable) {
-            debouncedUpdate(true)
+            debouncedUpdateRef.current?.(true)
           }
         }, OFFLINE_PING_INTERVAL_MS)
       }
@@ -66,6 +68,10 @@ export function useOnlineStatus() {
       updateOnlineState(online)
     }, DEBOUNCE_MS)
   }, [updateOnlineState])
+
+  useEffect(() => {
+    debouncedUpdateRef.current = debouncedUpdate
+  }, [debouncedUpdate])
 
   useEffect(() => {
     // Set initial state with a health check
