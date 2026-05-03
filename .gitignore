@@ -43,3 +43,7 @@ next-env.d.ts
 # build-pipeline worktrees (each parallel agent gets its own isolated checkout)
 .claude/worktrees/*
 !.claude/worktrees/.gitkeep
+
+# playwright generated artifacts (HTML report + per-test trace zips/screenshots)
+/playwright-report/
+/test-results/

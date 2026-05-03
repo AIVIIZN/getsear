@@ -31,7 +31,7 @@ test.describe('Back Office Pages', () => {
   test('reports dashboard loads', async ({ page }) => {
     await page.goto('/reports')
     await expect(page).toHaveURL(/\/reports/)
-    await expect(page.locator('text=Reports Dashboard')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible()
   })
 
   test('settings organization loads', async ({ page }) => {

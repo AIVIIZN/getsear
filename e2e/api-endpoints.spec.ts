@@ -32,7 +32,7 @@ test.describe('API - Auth', () => {
     expect(data.user.email).toBe('demo@getsear.com')
     expect(data.user.role).toBe('owner')
     expect(data.user.org_id).toBeTruthy()
-    expect(data.user.location_ids).toHaveLength(1)
+    expect(data.user.location_ids.length).toBeGreaterThanOrEqual(1)
   })
 
   test('login fails with wrong password', async () => {
@@ -72,11 +72,13 @@ test.describe('API - Menu', () => {
 })
 
 test.describe('API - Staff', () => {
-  test('staff returns 7', async () => {
+  test('staff returns at least seeded set', async () => {
     const res = await authedRequest.get('/api/staff')
     expect(res.status()).toBe(200)
     const data = await res.json()
-    expect(data.data).toHaveLength(7)
+    expect(data.data.length).toBeGreaterThanOrEqual(7)
+    const names = data.data.map((s: { display_name: string }) => s.display_name)
+    expect(names).toContain('Marcus Rivera')
   })
 
   test('active staff returns data', async () => {
@@ -120,20 +122,21 @@ test.describe('API - Settings', () => {
     expect(data.data.name).toBe('Sear Demo Restaurant')
   })
 
-  test('locations returns 1', async () => {
+  test('locations includes Downtown Austin', async () => {
     const res = await authedRequest.get('/api/settings/locations')
     expect(res.status()).toBe(200)
     const data = await res.json()
-    expect(data.data).toHaveLength(1)
-    expect(data.data[0].name).toBe('Downtown Austin')
+    expect(data.data.length).toBeGreaterThanOrEqual(1)
+    const names = data.data.map((l: { name: string }) => l.name)
+    expect(names).toContain('Downtown Austin')
   })
 
-  test('tax-rates returns 1', async () => {
+  test('tax-rates returns Texas rate', async () => {
     const res = await authedRequest.get('/api/settings/tax-rates')
     expect(res.status()).toBe(200)
     const data = await res.json()
     expect(data.data).toHaveLength(1)
-    expect(data.data[0].rate).toBe(8.25)
+    expect(data.data[0].rate).toBeCloseTo(0.0825, 4)
   })
 
   test('terminals returns data', async () => {

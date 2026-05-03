@@ -60,6 +60,8 @@ const eslintConfig = defineConfig([
     ".claude/worktrees/**",
     "supabase/_archived_migrations/**",
     "build-pipeline/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
   {
     files: bucketBLintDebt,
