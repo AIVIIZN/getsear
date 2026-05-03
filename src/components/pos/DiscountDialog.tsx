@@ -84,6 +84,15 @@ export function DiscountDialog({
     setCustomInput('')
   }, [customInput, mode])
 
+  const resetAndClose = useCallback(() => {
+    setPercentValue(null)
+    setFixedCents(null)
+    setCustomInput('')
+    setReason('')
+    setMode('percentage')
+    onOpenChange(false)
+  }, [onOpenChange])
+
   const handleConfirm = useCallback(() => {
     if (!isValid) return
     if (requiresManager) {
@@ -96,7 +105,7 @@ export function DiscountDialog({
       })
       resetAndClose()
     }
-  }, [isValid, requiresManager, mode, percentValue, fixedCents, reason, onApply])
+  }, [isValid, requiresManager, mode, percentValue, fixedCents, reason, onApply, resetAndClose])
 
   const handlePinVerified = useCallback(
     (managerId: string) => {
@@ -108,17 +117,8 @@ export function DiscountDialog({
       })
       resetAndClose()
     },
-    [mode, percentValue, fixedCents, reason, onApply]
+    [mode, percentValue, fixedCents, reason, onApply, resetAndClose]
   )
-
-  function resetAndClose() {
-    setPercentValue(null)
-    setFixedCents(null)
-    setCustomInput('')
-    setReason('')
-    setMode('percentage')
-    onOpenChange(false)
-  }
 
   return (
     <>

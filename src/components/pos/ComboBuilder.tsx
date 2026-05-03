@@ -128,6 +128,12 @@ export function ComboBuilder({ item, open, onOpenChange, onAcceptCombo, onDeclin
     })
   }, [])
 
+  const handleClose = useCallback(() => {
+    setCurrentStep(0)
+    setSlotSelections(new Map())
+    onOpenChange(false)
+  }, [onOpenChange])
+
   const handleNext = useCallback(() => {
     if (!currentSlot) return
     const sel = slotSelections.get(currentSlot.id)
@@ -161,18 +167,12 @@ export function ComboBuilder({ item, open, onOpenChange, onAcceptCombo, onDeclin
     } else {
       setCurrentStep((prev) => Math.min(prev + 1, totalSteps - 1))
     }
-  }, [currentSlot, isLastStep, item, sortedSlots, slotSelections, comboPriceCents, onAcceptCombo, totalSteps])
+  }, [currentSlot, isLastStep, item, sortedSlots, slotSelections, comboPriceCents, onAcceptCombo, totalSteps, handleClose])
 
   const handleBack = useCallback(() => {
     if (currentStep === 0) return
     setCurrentStep((prev) => prev - 1)
   }, [currentStep])
-
-  const handleClose = useCallback(() => {
-    setCurrentStep(0)
-    setSlotSelections(new Map())
-    onOpenChange(false)
-  }, [onOpenChange])
 
   const handleDecline = useCallback(() => {
     handleClose()

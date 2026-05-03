@@ -455,7 +455,7 @@ export function HardwareSubWizard({ onComplete, onBack }: HardwareSubWizardProps
                 {terminalModel === 'rckt' && (
                   <li className="flex gap-3">
                     <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-caption-1 font-semibold text-white">4</span>
-                    <span className="text-callout text-[var(--foreground)]">For RCKT (Bluetooth): Hold the Bluetooth button on the terminal until the LED blinks. Then pair from your device's Bluetooth settings.</span>
+                    <span className="text-callout text-[var(--foreground)]">For RCKT (Bluetooth): Hold the Bluetooth button on the terminal until the LED blinks. Then pair from your device&apos;s Bluetooth settings.</span>
                   </li>
                 )}
               </ol>

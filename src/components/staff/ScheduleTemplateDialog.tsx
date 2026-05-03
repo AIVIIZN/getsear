@@ -36,12 +36,6 @@ export function ScheduleTemplateDialog({
   const [newName, setNewName] = useState('')
   const [mode, setMode] = useState<'list' | 'save'>('list')
 
-  useEffect(() => {
-    if (open) {
-      loadTemplates()
-    }
-  }, [open])
-
   const loadTemplates = async () => {
     setLoading(true)
     try {
@@ -53,6 +47,12 @@ export function ScheduleTemplateDialog({
     } catch { /* silent */ }
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (open) {
+      loadTemplates()
+    }
+  }, [open])
 
   const handleSave = async () => {
     if (!newName.trim()) { toast.error('Enter a name'); return }
