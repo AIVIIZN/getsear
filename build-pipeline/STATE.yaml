@@ -1,14 +1,16 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-03T04:30:00Z
+last_updated_at: 2026-05-03T06:35:00Z
 current_version: V5
 current_batch: 5.1
-status: in_progress
+status: awaiting_user_advance
 deferred_tasks:
   - { task_id: 5.0.4, reason: "needs_hardware (Star + Valor + Bematech), no human present", defer_count: 1 }
 blockers: []
 decisions:
   - { ts: "2026-05-03T04:30:00Z", scope: "lint", choice: "Bucket B distributed across V5/V6/V7 via eslint.config.mjs bucketBLintDebt array; lint passes today, future tasks remove debt file-by-file", rationale: "user-selected option 3 — slow/lowest-blast-radius; preserves regression safety for realtime infra" }
+  - { ts: "2026-05-03T06:00:00Z", scope: "e2e fixtures", choice: "fixed 5 stale tests inline (toBeGreaterThanOrEqual + contains-name) rather than .fixme()", rationale: "user-selected option 2 — durable, prevents future false-failures; cost ~30min" }
+  - { ts: "2026-05-03T06:30:00Z", scope: "deploy reliability", choice: "patched DEPLOY.sh smoke test to retry 5× with 5s backoff; accepts 2xx/3xx", rationale: "first deploy hit pm2-reload race; site was actually up but smoke fired too early" }
 
 versions:
   V5:
