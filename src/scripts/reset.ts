@@ -86,7 +86,7 @@ async function dropSeedData() {
     try {
       // For join tables without org_id, we skip (they cascade)
       // Try org_id filter first
-      const { error } = await (supabase.from(table) as any)
+      const { error } = await (supabase.from(table))
         .delete()
         .eq('org_id', ORG_ID)
 
@@ -97,7 +97,7 @@ async function dropSeedData() {
           // Try without org_id filter — delete by related IDs
           // For organizations table, filter by id directly
           if (table === 'organizations') {
-            const { error: orgErr } = await (supabase.from(table) as any)
+            const { error: orgErr } = await (supabase.from(table))
               .delete()
               .eq('id', ORG_ID)
             if (orgErr) {

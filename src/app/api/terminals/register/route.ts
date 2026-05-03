@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient()
 
-  const { data, error } = await (supabase.from('terminals') as any).insert({
+  const { data, error } = await supabase.from('terminals').insert({
     org_id: user.org_id,
     location_id,
     name: name.trim(),

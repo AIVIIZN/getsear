@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const cardHash = crypto.createHash('sha256').update(card_number).digest('hex')
   const supabase = createAdminClient()
 
-  const { data: card, error: cardErr } = await (supabase.from('gift_cards') as any)
+  const { data: card, error: cardErr } = await supabase.from('gift_cards')
     .select('id, current_balance, is_active')
     .eq('card_number_hash', cardHash)
     .eq('org_id', user.org_id)
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   const newBalance = (newCents / 100).toFixed(2)
 
   // Update balance
-  const { error: updateErr } = await (supabase.from('gift_cards') as any)
+  const { error: updateErr } = await supabase.from('gift_cards')
     .update({ current_balance: newBalance })
     .eq('id', card.id)
 
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Record transaction
-  await (supabase.from('gift_card_transactions') as any)
+  await supabase.from('gift_card_transactions')
     .insert({
       gift_card_id: card.id,
       order_id: order_id ?? null,

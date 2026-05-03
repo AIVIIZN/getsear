@@ -33,8 +33,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { id } = await params
   const supabase = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staff, error } = await (supabase.from('users') as any)
+  const { data: staff, error } = await supabase.from('users')
     .select('id, org_id, email, phone, first_name, last_name, display_name, avatar_url, role, location_ids, hire_date, hourly_rate, is_active, settings, created_at, updated_at')
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -46,8 +45,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 
   // Fetch recent time entries
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: timeEntries } = await (supabase.from('time_entries') as any)
+  const { data: timeEntries } = await supabase.from('time_entries')
     .select('*')
     .eq('user_id', id)
     .eq('org_id', user.org_id)
@@ -93,8 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const supabase = createAdminClient()
 
   // Build update payload
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const payload: Record<string, any> = {
+  const payload: Record<string, unknown> = {
     ...updateData,
     updated_at: new Date().toISOString(),
   }
@@ -105,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       payload.pin_hash = null
     } else {
       // Check PIN uniqueness within org
-      const { data: existingStaff } = await (supabase.from('users') as any)
+      const { data: existingStaff } = await supabase.from('users')
         .select('id, pin_hash')
         .eq('org_id', user.org_id)
         .is('deleted_at', null)
@@ -128,8 +125,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('users') as any)
+  const { data, error } = await supabase.from('users')
     .update(payload)
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -161,8 +157,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
   const supabase = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('users') as any)
+  const { error } = await supabase.from('users')
     .update({
       is_active: false,
       deleted_at: new Date().toISOString(),

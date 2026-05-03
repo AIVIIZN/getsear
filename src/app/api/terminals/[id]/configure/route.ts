@@ -71,7 +71,7 @@ export async function PATCH(
   const supabase = createAdminClient()
 
   // Ensure terminal belongs to user's org
-  const { data: terminal, error: findError } = await (supabase.from('terminals') as any)
+  const { data: terminal, error: findError } = await supabase.from('terminals')
     .select('id')
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -84,7 +84,7 @@ export async function PATCH(
     )
   }
 
-  const { data, error } = await (supabase.from('terminals') as any)
+  const { data, error } = await supabase.from('terminals')
     .update(updatePayload)
     .eq('id', id)
     .select('id, name, default_view, assigned_printer_id, settings')
