@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 
   // Calculate OT for each user
   const results = userIds.map((userId) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const userWeekEntries: TimeEntry[] = (weekEntries ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((e: any) => e.user_id === userId)

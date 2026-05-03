@@ -25,6 +25,7 @@ ABSOLUTE RULES:
 - DO NOT STOP between tasks, batches, or versions. Loop until STATE.yaml shows V10 status: complete, or until you write a hard blocker to BLOCKERS.md.
 - DO NOT use the AskUserQuestion tool. EVER.
 - DO NOT use the ExitPlanMode tool. EVER.
+- DO NOT use TodoWrite for status updates that the user needs to see — STATE.yaml is the only source of truth.
 - DO commit + push + deploy after every successful batch (DEPLOY.sh handles this).
 - DO use git worktrees for every parallel agent (RUNNER.md explains how).
 - DO log every decision and every batch transition (logs/decisions.jsonl, logs/batch-runs.jsonl).

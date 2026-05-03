@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
   let cashSalesCents = 0
   let cashRefundsCents = 0
-  let cashDropsCents = 0
+  const cashDropsCents = 0
   let paidOutCents = 0
   let paidInCents = 0
   let tipPayoutCents = 0

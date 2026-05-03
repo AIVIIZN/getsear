@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 
   // Fetch all price_level_prices for these items
   const itemIds = menuItems.map((i: { id: string }) => i.id)
-  let priceLevelMap: Map<string, PriceLevelPrice[]> = new Map()
+  const priceLevelMap: Map<string, PriceLevelPrice[]> = new Map()
 
   if (itemIds.length > 0) {
     const { data: plpRows } = await supabase

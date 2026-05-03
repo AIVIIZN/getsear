@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx src/scripts/seed.ts",
-    "reset": "npx tsx src/scripts/reset.ts"
+    "reset": "npx tsx src/scripts/reset.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:diff": "node scripts/db-diff.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

@@ -132,8 +132,8 @@ export async function generatePredictions(params: {
       }
     }
 
-    let predictedRevenue = Math.round(weightedAverage(historicalRevenues))
-    let predictedCovers = Math.round(weightedAverage(historicalCovers))
+    const predictedRevenue = Math.round(weightedAverage(historicalRevenues))
+    const predictedCovers = Math.round(weightedAverage(historicalCovers))
 
     // Calculate confidence based on data consistency
     let confidence = 0.7 // Base

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# build-pipeline worktrees (each parallel agent gets its own isolated checkout)
+.claude/worktrees/*
+!.claude/worktrees/.gitkeep

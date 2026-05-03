@@ -82,7 +82,7 @@ export async function recalculateOrderTotals(
     .filter((i: Record<string, unknown>) => i.menu_item_id && !i.is_voided)
     .map((i: Record<string, unknown>) => i.menu_item_id as string)
 
-  let menuItemTaxClasses: Record<string, { is_taxable: boolean; tax_class: string }> = {}
+  const menuItemTaxClasses: Record<string, { is_taxable: boolean; tax_class: string }> = {}
 
   if (menuItemIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -51,7 +51,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .map((t: any) => t.current_server_id)
   const uniqueServerIds = [...new Set(serverIds)] as string[]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let serverMap: Record<string, string> = {}
   if (uniqueServerIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

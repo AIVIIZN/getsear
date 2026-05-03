@@ -35,7 +35,7 @@ export async function querySalesData(
 
   // Base: aggregate orders
   if (!groupBy || groupBy === 'day') {
-    let query = supabase.rpc('ai_sales_summary', {
+    const query = supabase.rpc('ai_sales_summary', {
       p_org_id: orgId,
       p_location_id: locationId,
       p_start_date: startDate,
@@ -64,7 +64,7 @@ async function fallbackSalesQuery(
   const { orgId, locationId } = scope
   const { startDate, endDate } = dates
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let query = supabase
     .from('orders')
     .select('id, total_cents, subtotal_cents, tax_cents, tip_cents, cover_count, order_type, created_at, closed_at')
@@ -211,7 +211,7 @@ export async function queryLaborData(
   const { orgId, locationId } = scope
   const { startDate, endDate } = dates
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let query = supabase
     .from('time_entries')
     .select('id, user_id, clock_in, clock_out, regular_minutes, overtime_minutes, total_pay_cents, role, break_minutes')
@@ -394,7 +394,7 @@ export async function queryMenuPerformance(
     return { data: { items: [], period: `${startDate} to ${endDate}` }, error: null }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let menuQuery = supabase
     .from('menu_items')
     .select('id, name, category_id, price_cents, food_cost_cents')
@@ -591,7 +591,7 @@ export async function querySpeedOfService(
   const { orgId, locationId } = scope
   const { startDate, endDate } = dates
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let query = supabase
     .from('kds_tickets')
     .select('id, station_id, created_at, bumped_at, ticket_time_seconds')
@@ -912,7 +912,7 @@ export async function queryInventoryData(
   }
 
   if (options.queryType === 'stock_levels') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     let query = supabase
       .from('inventory_items')
       .select('id, name, current_quantity, par_level, unit, category, last_counted_at')
@@ -1068,8 +1068,8 @@ export async function comparePeriods(
 
   let periodAData: number = 0
   let periodBData: number = 0
-  let periodALabel = `${periodA.startDate} to ${periodA.endDate}`
-  let periodBLabel = `${periodB.startDate} to ${periodB.endDate}`
+  const periodALabel = `${periodA.startDate} to ${periodA.endDate}`
+  const periodBLabel = `${periodB.startDate} to ${periodB.endDate}`
 
   // Fetch data for both periods
   if (['revenue', 'covers', 'avg_check'].includes(metric)) {

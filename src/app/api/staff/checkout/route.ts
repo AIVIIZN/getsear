@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orderData = (orders ?? []).map((o: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const payments = o.payments ?? []
     const tipCents = Math.round(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     const cashReceived = payments.filter((p: any) => p.payment_method === 'cash')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .reduce((s: number, p: any) => s + Math.round(parseFloat(p.amount ?? '0') * 100), 0)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const paymentMethod = payments.length > 0 ? payments[0].payment_method : 'cash'
 
     return {

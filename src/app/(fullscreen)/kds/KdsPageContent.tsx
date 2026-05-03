@@ -117,7 +117,7 @@ export default function KdsPage() {
     }
 
     fetchStations()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [])
 
   // Reset alert tracking when station changes

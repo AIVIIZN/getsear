@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
   }
 
   // 2. Build existing items lookup for update mode
-  let existingItemsByPlu = new Map<string, string>()
-  let existingItemsByName = new Map<string, string>()
+  const existingItemsByPlu = new Map<string, string>()
+  const existingItemsByName = new Map<string, string>()
 
   if (update_existing) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

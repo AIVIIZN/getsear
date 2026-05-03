@@ -575,7 +575,7 @@ export async function getProductMix(
 
   // Get menu item details for cost
   const menuItemIds = Array.from(itemMap.keys()).filter(id => id && id !== 'null')
-  let costMap = new Map<string, { cost: number; categoryName: string }>()
+  const costMap = new Map<string, { cost: number; categoryName: string }>()
 
   if (menuItemIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -682,7 +682,7 @@ export async function getServerPerformance(
 
   // Get cash vs card tips from time_entries
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let tipsQuery = (supabase.from('time_entries') as any)
+  const tipsQuery = (supabase.from('time_entries') as any)
     .select('user_id, cash_tips, credit_tips')
     .eq('org_id', orgId)
     .gte('clock_in', `${dateFrom}T00:00:00Z`)
@@ -1655,7 +1655,7 @@ export async function getDashboardData(
 
   // Check for large voids
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let voidQuery = (supabase.from('order_items') as any)
+  const voidQuery = (supabase.from('order_items') as any)
     .select('line_total, is_voided, voided_by, order:orders!inner(created_at)')
     .eq('org_id', orgId)
     .eq('is_voided', true)

@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { name, location_id, sort_order, is_active, settings } = parsed.data
   const stationType = parsed.data.type
   const { prep_stations, ...displaySettings } = settings

@@ -117,11 +117,11 @@ export async function getDailySalesData(
   if (!orders || orders.length === 0) return null
 
   let foodSales = 0
-  let beverageSales = 0
-  let retailSales = 0
+  const beverageSales = 0
+  const retailSales = 0
   let onlineOrders = 0
   let cateringSales = 0
-  let giftCardSales = 0
+  const giftCardSales = 0
   let tips = 0
   let salesTax = 0
   let refunds = 0

@@ -97,7 +97,7 @@ export function calculateAging(
     let current = 0
     let d30 = 0
     let d60 = 0
-    let d90 = 0
+    const d90 = 0
     let d90Plus = 0
 
     for (const charge of account.charges) {
