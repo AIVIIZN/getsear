@@ -38,12 +38,22 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
   pm2 reload sear-pos
 '
 
-# 4. Smoke test: fetch homepage, expect HTTP 200.
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$SITE_URL")
-if [ "$HTTP_CODE" != "200" ]; then
-  echo "[deploy] SMOKE TEST FAILED: $SITE_URL returned $HTTP_CODE" >&2
-  exit 1
-fi
+# 4. Smoke test: fetch homepage, expect HTTP 200 or 3xx (login redirect).
+#    pm2 reload swaps workers; new instance can take 2–8s to bind. Retry 5×.
+HTTP_CODE=000
+for attempt in 1 2 3 4 5; do
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$SITE_URL" || echo "000")
+  case "$HTTP_CODE" in
+    2*|3*) echo "[deploy] smoke OK on attempt $attempt: $HTTP_CODE"; break ;;
+    *)     echo "[deploy] smoke attempt $attempt got $HTTP_CODE — sleeping 5s"; sleep 5 ;;
+  esac
+done
+case "$HTTP_CODE" in
+  2*|3*) ;;
+  *)
+    echo "[deploy] SMOKE TEST FAILED after 5 attempts: $SITE_URL returned $HTTP_CODE" >&2
+    exit 1 ;;
+esac
 
 # 5. Log success.
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
