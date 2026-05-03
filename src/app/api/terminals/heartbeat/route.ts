@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     updatePayload.current_user_id = current_user_id ?? null
   }
 
-  const { error } = await (supabase.from('terminals') as any)
+  const { error } = await supabase.from('terminals')
     .update(updatePayload)
     .eq('id', terminal_id)
     .eq('is_active', true)

@@ -37,8 +37,7 @@ export async function GET(request: NextRequest) {
   const roleFilter = searchParams.get('role')
   const statusFilter = searchParams.get('status')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('users') as any)
+  let query = supabase.from('users')
     .select('id, org_id, email, phone, first_name, last_name, display_name, avatar_url, role, location_ids, hire_date, hourly_rate, is_active, created_at, updated_at')
     .eq('org_id', user.org_id)
     .is('deleted_at', null)
@@ -61,7 +60,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Fetch active time entries to determine who is clocked in
-  const { data: activeEntries } = await (supabase.from('time_entries') as any)
+  const { data: activeEntries } = await supabase.from('time_entries')
     .select('id, user_id, clock_in')
     .eq('org_id', user.org_id)
     .is('clock_out', null)
@@ -73,8 +72,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const enriched = (staff ?? []).map((s: any) => ({
+  const enriched = (staff ?? []).map((s: { id: string; [key: string]: unknown }) => ({
     ...s,
     is_clocked_in: clockedInMap.has(s.id),
     last_clock_in: clockedInMap.get(s.id) ?? null,
@@ -113,7 +111,7 @@ export async function POST(request: NextRequest) {
 
   // Check PIN uniqueness within org if PIN provided
   if (pin) {
-    const { data: existingStaff } = await (supabase.from('users') as any)
+    const { data: existingStaff } = await supabase.from('users')
       .select('id, pin_hash')
       .eq('org_id', user.org_id)
       .is('deleted_at', null)
@@ -134,8 +132,7 @@ export async function POST(request: NextRequest) {
 
   const pinHash = pin ? await bcrypt.hash(pin, 10) : null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('users') as any)
+  const { data, error } = await supabase.from('users')
     .insert({
       id: randomUUID(),
       org_id: user.org_id,

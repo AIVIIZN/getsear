@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   const supabase = createAdminClient()
 
   // Find terminal with this code
-  const { data: terminal, error: findError } = await (supabase.from('terminals') as any)
+  const { data: terminal, error: findError } = await supabase.from('terminals')
     .select('id, name, location_id, default_view, registration_code_expires_at')
     .eq('registration_code', registration_code)
     .is('device_fingerprint', null)
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   }
 
   // Activate the terminal
-  const { error: updateError } = await (supabase.from('terminals') as any)
+  const { error: updateError } = await supabase.from('terminals')
     .update({
       device_fingerprint: {
         user_agent: device_info.user_agent,

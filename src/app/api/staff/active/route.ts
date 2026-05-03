@@ -12,8 +12,7 @@ export async function GET() {
   const supabase = createAdminClient()
 
   // Find all active time entries (no clock_out) for this org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: activeEntries, error: entriesError } = await (supabase.from('time_entries') as any)
+  const { data: activeEntries, error: entriesError } = await supabase.from('time_entries')
     .select('id, user_id, clock_in, location_id')
     .eq('org_id', user.org_id)
     .is('clock_out', null)
@@ -26,10 +25,9 @@ export async function GET() {
     return NextResponse.json({ data: [] })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userIds = activeEntries.map((e: any) => e.user_id)
+  const userIds = activeEntries.map((e: { user_id: string }) => e.user_id)
 
-  const { data: staff, error: staffError } = await (supabase.from('users') as any)
+  const { data: staff, error: staffError } = await supabase.from('users')
     .select('id, first_name, last_name, display_name, avatar_url, role')
     .in('id', userIds)
     .eq('is_active', true)
@@ -38,13 +36,12 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const entryMap = new Map(activeEntries.map((e: any) => [e.user_id, e]))
+  type ActiveEntry = { id: string; user_id: string; clock_in: string | null; location_id: string | null }
+  const entryMap = new Map(activeEntries.map((e: ActiveEntry) => [e.user_id, e]))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = (staff ?? []).map((s: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const entry = entryMap.get(s.id) as any
+  type StaffRow = { id: string; first_name: string; last_name: string; display_name: string | null; avatar_url: string | null; role: string }
+  const result = (staff ?? []).map((s: StaffRow) => {
+    const entry = entryMap.get(s.id)
     return {
       ...s,
       clock_in: entry?.clock_in ?? null,

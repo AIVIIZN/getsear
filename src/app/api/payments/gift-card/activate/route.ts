@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Check if card already exists
-  const { data: existing } = await (supabase.from('gift_cards') as any)
+  const { data: existing } = await supabase.from('gift_cards')
     .select('id')
     .eq('card_number_hash', cardHash)
     .eq('org_id', user.org_id)
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Create gift card
-  const { data: card, error: cardErr } = await (supabase.from('gift_cards') as any)
+  const { data: card, error: cardErr } = await supabase.from('gift_cards')
     .insert({
       org_id: user.org_id,
       card_number: card_number,
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Create activation transaction
-  await (supabase.from('gift_card_transactions') as any)
+  await supabase.from('gift_card_transactions')
     .insert({
       gift_card_id: card.id,
       order_id: order_id ?? null,

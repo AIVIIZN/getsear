@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   const cardHash = crypto.createHash('sha256').update(parsed.data.card_number).digest('hex')
   const supabase = createAdminClient()
 
-  const { data: card, error } = await (supabase.from('gift_cards') as any)
+  const { data: card, error } = await supabase.from('gift_cards')
     .select('id, current_balance, is_active, expires_at')
     .eq('card_number_hash', cardHash)
     .eq('org_id', user.org_id)

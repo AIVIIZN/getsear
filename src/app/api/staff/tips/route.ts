@@ -23,8 +23,7 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Fetch time entries with tips for the date range
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: entries, error } = await (supabase.from('time_entries') as any)
+  const { data: entries, error } = await supabase.from('time_entries')
     .select('id, user_id, clock_in, clock_out, cash_tips, credit_tips, regular_hours, overtime_hours')
     .eq('org_id', user.org_id)
     .gte('clock_in', `${startDate}T00:00:00Z`)
@@ -47,14 +46,15 @@ export async function GET(request: NextRequest) {
   }
 
   // Get staff names
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userIds = [...new Set(entries.map((e: any) => e.user_id))]
-  const { data: staff } = await (supabase.from('users') as any)
+  type TipEntry = { id: string; user_id: string; clock_in: string; clock_out: string | null; cash_tips: string | null; credit_tips: string | null; regular_hours: string | null; overtime_hours: string | null }
+  const typedEntries = entries as TipEntry[]
+  const userIds = [...new Set(typedEntries.map((e) => e.user_id))]
+  const { data: staff } = await supabase.from('users')
     .select('id, first_name, last_name, display_name')
     .in('id', userIds)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const staffMap = new Map((staff ?? []).map((s: any) => [s.id, s]))
+  type StaffRow = { id: string; first_name: string; last_name: string; display_name: string | null }
+  const staffMap = new Map((staff ?? []).map((s: StaffRow) => [s.id, s]))
 
   // Aggregate by user
   const byStaff = new Map<string, {
@@ -65,11 +65,9 @@ export async function GET(request: NextRequest) {
     hours_worked: number
   }>()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const entry of entries as any[]) {
+  for (const entry of typedEntries) {
     const existing = byStaff.get(entry.user_id)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const staffMember = staffMap.get(entry.user_id) as any
+    const staffMember = staffMap.get(entry.user_id)
     const name = staffMember
       ? (staffMember.display_name || `${staffMember.first_name} ${staffMember.last_name}`)
       : 'Unknown'

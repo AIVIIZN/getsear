@@ -121,7 +121,7 @@ function modId(name: string): string {
 // ---------------------------------------------------------------------------
 
 async function checkExists(): Promise<boolean> {
-  const { data } = await (supabase.from('organizations') as any)
+  const { data } = await (supabase.from('organizations'))
     .select('id')
     .eq('id', ORG_ID)
     .maybeSingle()
@@ -129,7 +129,7 @@ async function checkExists(): Promise<boolean> {
 }
 
 async function seedOrganization() {
-  const { error } = await (supabase.from('organizations') as any).insert({
+  const { error } = await (supabase.from('organizations')).insert({
     id: ORG_ID,
     name: 'Sear Demo Restaurant',
     slug: 'sear-demo',
@@ -152,7 +152,7 @@ async function seedOrganization() {
 }
 
 async function seedLocation() {
-  const { error } = await (supabase.from('locations') as any).insert({
+  const { error } = await (supabase.from('locations')).insert({
     id: LOCATION_ID,
     org_id: ORG_ID,
     name: 'Downtown Austin',
@@ -185,7 +185,7 @@ async function seedLocation() {
 }
 
 async function seedTaxRate() {
-  const { error } = await (supabase.from('tax_rates') as any).insert({
+  const { error } = await (supabase.from('tax_rates')).insert({
     id: TAX_RATE_ID,
     org_id: ORG_ID,
     location_id: LOCATION_ID,
@@ -277,7 +277,7 @@ async function seedUsers() {
     settings: {},
   }))
 
-  const { error } = await (supabase.from('users') as any).insert(rows)
+  const { error } = await (supabase.from('users')).insert(rows)
   if (error) throw new Error(`Users insert failed: ${error.message}`)
   console.log(`  + Users: ${users.length} staff members`)
 }
@@ -301,7 +301,7 @@ async function seedMenuCategories() {
     is_active: true,
   }))
 
-  const { error } = await (supabase.from('menu_categories') as any).insert(rows)
+  const { error } = await (supabase.from('menu_categories')).insert(rows)
   if (error) throw new Error(`Categories insert failed: ${error.message}`)
   console.log(`  + Menu Categories: ${categories.length}`)
 }
@@ -358,7 +358,7 @@ async function seedMenuItems() {
     is_86d: false,
   }))
 
-  const { error } = await (supabase.from('menu_items') as any).insert(rows)
+  const { error } = await (supabase.from('menu_items')).insert(rows)
   if (error) throw new Error(`Menu items insert failed: ${error.message}`)
   console.log(`  + Menu Items: ${items.length}`)
 }
@@ -392,7 +392,7 @@ async function seedModifierGroups() {
   ]
 
   const rows = groups.map((g) => ({ ...g, org_id: ORG_ID }))
-  const { error } = await (supabase.from('modifier_groups') as any).insert(rows)
+  const { error } = await (supabase.from('modifier_groups')).insert(rows)
   if (error) throw new Error(`Modifier groups insert failed: ${error.message}`)
   console.log(`  + Modifier Groups: ${groups.length}`)
 }
@@ -427,10 +427,10 @@ async function seedModifiers() {
     ...m,
     org_id: ORG_ID,
     is_active: true,
-    is_default: (m as any).is_default ?? false,
+    is_default: ('is_default' in m ? m.is_default : false) ?? false,
   }))
 
-  const { error } = await (supabase.from('modifiers') as any).insert(rows)
+  const { error } = await (supabase.from('modifiers')).insert(rows)
   if (error) throw new Error(`Modifiers insert failed: ${error.message}`)
   console.log(`  + Modifiers: ${modifiers.length}`)
 }
@@ -460,13 +460,13 @@ async function seedMenuItemModifierGroups() {
     links.push({ menu_item_id: id, modifier_group_id: MOD_GROUP_IDS.addOns, sort_order: 1 })
   }
 
-  const { error } = await (supabase.from('menu_item_modifier_groups') as any).insert(links)
+  const { error } = await (supabase.from('menu_item_modifier_groups')).insert(links)
   if (error) throw new Error(`Item-modifier links insert failed: ${error.message}`)
   console.log(`  + Menu Item <-> Modifier Group links: ${links.length}`)
 }
 
 async function seedFloorPlan() {
-  const { error } = await (supabase.from('floor_plans') as any).insert({
+  const { error } = await (supabase.from('floor_plans')).insert({
     id: FLOOR_PLAN_ID,
     org_id: ORG_ID,
     location_id: LOCATION_ID,
@@ -509,7 +509,7 @@ async function seedTables() {
     is_active: true,
   }))
 
-  const { error } = await (supabase.from('tables') as any).insert(rows)
+  const { error } = await (supabase.from('tables')).insert(rows)
   if (error) throw new Error(`Tables insert failed: ${error.message}`)
   console.log(`  + Tables: ${tables.length}`)
 }
@@ -530,7 +530,7 @@ async function seedKdsStations() {
     display_settings: {},
   }))
 
-  const { error } = await (supabase.from('kds_stations') as any).insert(rows)
+  const { error } = await (supabase.from('kds_stations')).insert(rows)
   if (error) throw new Error(`KDS stations insert failed: ${error.message}`)
   console.log(`  + KDS Stations: ${stations.length}`)
 }
@@ -646,7 +646,7 @@ async function seedOrders() {
     created_by: o.server_id,
   }))
 
-  const { error } = await (supabase.from('orders') as any).insert(rows)
+  const { error } = await (supabase.from('orders')).insert(rows)
   if (error) throw new Error(`Orders insert failed: ${error.message}`)
   console.log(`  + Orders: ${orders.length}`)
 }
@@ -694,7 +694,7 @@ async function seedOrderItems() {
     notes: null,
   }))
 
-  const { error } = await (supabase.from('order_items') as any).insert(rows)
+  const { error } = await (supabase.from('order_items')).insert(rows)
   if (error) throw new Error(`Order items insert failed: ${error.message}`)
   console.log(`  + Order Items: ${items.length}`)
 }
@@ -732,7 +732,7 @@ async function seedPayments() {
     },
   ]
 
-  const { error } = await (supabase.from('payments') as any).insert(payments)
+  const { error } = await (supabase.from('payments')).insert(payments)
   if (error) throw new Error(`Payments insert failed: ${error.message}`)
   console.log(`  + Payments: ${payments.length}`)
 }
