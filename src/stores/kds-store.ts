@@ -40,6 +40,7 @@ export interface KdsTicketItem {
   is_fired?: boolean
   is_bumped?: boolean
   is_refire?: boolean
+  is_add?: boolean
   refire_count?: number
   refire_reason?: RefireReasonCode
   prep_station?: string
