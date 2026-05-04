@@ -140,8 +140,11 @@ test.describe('Full Shift Workflow', () => {
         if (!res.ok()) continue
         const body = (await res.json()) as { data: { status: string } }
         if (body.data.status !== 'closed' && body.data.status !== 'voided') {
-          await api.delete(`/api/orders/${orderId}`, {
-            data: { void_reason: 'e2e cleanup: full-shift test did not complete' },
+          // 5.99.3: DELETE /api/orders/[id] was removed (now 405). Route the
+          // cleanup through the canonical void POST so we don't leak orphaned
+          // test orders.
+          await api.post(`/api/orders/${orderId}/void`, {
+            data: { reason: 'other', notes: 'e2e cleanup: full-shift test did not complete' },
           })
         }
       } catch {

@@ -114,7 +114,10 @@ function mapVoidReasonToEnum(
   if (l.includes('wrong item')) return 'wrong_item'
   if (l.includes('customer changed')) return 'customer_request'
   if (l.includes('quality')) return 'quality_issue'
-  if (l.includes('long wait')) return 'kitchen_error'
+  // "Long wait time" is a service-speed complaint, not a kitchen-prep mistake;
+  // map to customer_request as the closest semantic enum until/unless we add
+  // a dedicated `long_wait` value to VOID_REASONS.
+  if (l.includes('long wait')) return 'customer_request'
   if (l.includes('duplicate')) return 'duplicate'
   if (l.includes('kitchen')) return 'kitchen_error'
   if (l.includes('server error')) return 'server_error'
