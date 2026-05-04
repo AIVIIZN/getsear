@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'node:crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit, applyRateLimitHeaders, getClientIp } from '@/lib/api/rate-limit'
+import { audit } from '@/lib/audit/log'
 import type { User } from '@/types/database'
+
+/**
+ * Redact an email for audit storage. Keeps the first 2 chars of the local
+ * part + the domain + an 8-char SHA-256 prefix so an investigator can match
+ * "the same attacker hit alice@x.com 50 times" without storing the full PII.
+ *   alice@example.com -> al***@example.com (h:1a2b3c4d)
+ */
+function redactEmail(raw: string): string {
+  const trimmed = raw.toLowerCase().trim()
+  const at = trimmed.indexOf('@')
+  const hash = createHash('sha256').update(trimmed).digest('hex').slice(0, 8)
+  if (at <= 0) return `(invalid) (h:${hash})`
+  const local = trimmed.slice(0, at)
+  const domain = trimmed.slice(at + 1)
+  const prefix = local.slice(0, Math.min(2, local.length))
+  return `${prefix}***@${domain} (h:${hash})`
+}
 
 type UserProfile = Pick<
   User,
@@ -27,6 +46,18 @@ export async function POST(request: NextRequest) {
     const ip = getClientIp(request)
     const ipRl = await checkRateLimit('auth', `login:ip:${ip}`)
     if (!ipRl.allowed) {
+      // Best-effort audit: we don't know the email yet (rate-limit fired BEFORE
+      // body parse). Record an anonymous-tenant-skipped row carrying just IP.
+      // recordSystem will silently skip if it can't resolve org_id.
+      await audit.recordSystem({
+        action: 'auth_login_rate_limited',
+        entity_type: 'user',
+        entity_id: null,
+        description: `Login throttled at IP layer for ${ip}`,
+        reason: 'rate_limit_ip',
+        after_state: { scope: 'ip', client_ip: ip },
+        request,
+      })
       const res = NextResponse.json(
         { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
         { status: 429 }
@@ -47,8 +78,23 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Per-email rate limit (defends against attacker rotating IPs).
-    const emailRl = await checkRateLimit('auth', `login:email:${email.toLowerCase().trim()}`)
+    const emailNormalised = email.toLowerCase().trim()
+    const emailRl = await checkRateLimit('auth', `login:email:${emailNormalised}`)
     if (!emailRl.allowed) {
+      // Audit: now we know the email — recordSystem will resolve the user's
+      // org_id by email so the row lands in the correct tenant's audit feed.
+      // The full email is NOT stored; only the redacted form + IP.
+      await audit.recordSystem({
+        action: 'auth_login_rate_limited',
+        entity_type: 'user',
+        entity_id: null,
+        email_attempted: emailNormalised,
+        email_redacted: redactEmail(emailNormalised),
+        description: `Login throttled at per-email layer (${redactEmail(emailNormalised)})`,
+        reason: 'rate_limit_email',
+        after_state: { scope: 'email', client_ip: ip, email_redacted: redactEmail(emailNormalised) },
+        request,
+      })
       const res = NextResponse.json(
         { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
         { status: 429 }

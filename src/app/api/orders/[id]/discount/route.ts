@@ -93,7 +93,7 @@ export async function POST(
 
   if (order_item_id) {
     // Item-level discount
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types cover order_items chain
     const { data: item } = await (supabase.from('order_items') as any)
       .select('line_total')
       .eq('id', order_item_id)
@@ -161,7 +161,7 @@ export async function POST(
   }
 
   // Insert discount record
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types cover order_discounts chain
   const { data: discount, error } = await (supabase.from('order_discounts') as any)
     .insert({
       order_id: orderId,
@@ -183,7 +183,7 @@ export async function POST(
   // — this UPDATE bumps the order version (V5.4.1).
   await recalculateOrderTotals(supabase, orderId, user.org_id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types cover orders.version chain
   const { data: refreshed } = await (supabase.from('orders') as any)
     .select('version, subtotal, total, amount_paid')
     .eq('id', orderId)

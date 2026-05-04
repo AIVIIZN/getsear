@@ -69,14 +69,14 @@ const MANAGER_ROLES = ['owner', 'admin', 'manager'] as const
  * or where a single failed PIN attempt is acceptable.
  */
 export async function validateManagerPin(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): replace with typed Supabase client once supabase-generated types cover all helper signatures
   supabase: any,
   orgId: string,
   pin: string
 ): Promise<string | null> {
   if (!pin || typeof pin !== 'string') return null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types include the chain return shape on `.from('users')`
   const { data: managers } = await (supabase.from('users') as any)
     .select('id, pin_hash')
     .eq('org_id', orgId)
@@ -116,7 +116,7 @@ export async function verifyManagerPinWithRateLimit(args: {
   caller: AuthUser
   pin: string
   request: NextRequest | Request
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): replace with typed Supabase client once supabase-generated types cover all helper signatures
   supabase: any
 }): Promise<RateLimitedPinResult> {
   const { caller, pin, request, supabase } = args
@@ -176,7 +176,7 @@ export async function verifyManagerPinWithRateLimit(args: {
   }
 
   // 4. Walk active managers and bcrypt-compare.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types include the chain return shape on `.from('users')`
   const { data: managers } = await (supabase.from('users') as any)
     .select('id, display_name, first_name, last_name, email, role, pin_hash')
     .eq('org_id', caller.org_id)

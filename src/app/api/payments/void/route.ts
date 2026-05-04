@@ -19,20 +19,22 @@ const voidSchema = z.object({
   payment_id: z.string().uuid(),
   reason: z.enum(VOID_REASON_CODES),
   reason_detail: z.string().max(500).optional(),
-  manager_pin: z.string().min(4).max(8).optional(),
+  // PIN is REQUIRED for every actor — see SECURITY note on the route handler.
+  manager_pin: z.string().min(4).max(8),
 })
-
-const MANAGER_ROLES = ['manager', 'admin', 'owner', 'platform_admin'] as const
 
 /**
  * POST /api/payments/void — void a transaction before batch settlement
  *
- * SECURITY (V5.99.7):
- *   - Manager-PIN ALWAYS required (regardless of amount or actor role) — fixes
- *     the prior < $100 bypass that let cashiers void unaudited.
- *   - Manager-self voids: caller's own role+id satisfies PIN if no PIN supplied
- *     AND caller is a manager+. Otherwise PIN must be supplied and must match
- *     an *active* manager (terminated managers can't authorise).
+ * SECURITY (V5.99.7 + cycle-2):
+ *   - Manager-PIN ALWAYS required for EVERY actor — including managers, admins,
+ *     owners, and platform_admins. There is NO self-authorise path. A stolen
+ *     manager session must still satisfy the PIN gate. This produces a uniform
+ *     audit-log shape: `manager_pin_user_id` is always populated, downstream
+ *     dashboards can pivot on it without a NULL branch.
+ *   - The PIN can be the manager's own — they pass their own PIN through the
+ *     same `validateManagerPin` path. The verified user_id is recorded in
+ *     `audit_log.manager_pin_user_id`.
  *   - Replaces legacy `audit_log.details:` insert with audit.record(...) so the
  *     before/after_state and manager_pin_user_id are captured.
  *   - Rate-limited at the payment tier (20/min per actor).
@@ -109,33 +111,19 @@ export async function POST(request: NextRequest) {
 
   const totalCents = Math.round(parseFloat(paymentData.total_amount as string) * 100)
 
-  // -------- Manager-PIN ALWAYS required ----------------------------------
-  // Manager+ self-authorise (managers don't need to PIN their own actions),
-  // but the manager_pin_user_id is recorded as their own user id for audit
-  // continuity. All other roles MUST supply a valid PIN.
-  const isManagerRole = (MANAGER_ROLES as unknown as string[]).includes(user.role)
-  let managerPinUserId: string | null
-
-  if (isManagerRole && !manager_pin) {
-    managerPinUserId = user.id
-  } else {
-    if (!manager_pin) {
-      return NextResponse.json(
-        {
-          error: 'Manager PIN required to void a payment',
-          requires_manager_pin: true,
-        },
-        { status: 403 }
-      )
-    }
-
-    managerPinUserId = await validateManagerPin(supabase, user.org_id, manager_pin)
-    if (!managerPinUserId) {
-      return NextResponse.json(
-        { error: 'Invalid manager PIN' },
-        { status: 403 }
-      )
-    }
+  // -------- Manager-PIN ALWAYS required (no self-authorise) ----------------
+  // Even managers/owners must enter a PIN — that produces a uniformly
+  // populated `manager_pin_user_id` for downstream audit queries and means a
+  // stolen manager session can't be used to void without the second factor.
+  // The PIN may be the manager's own; verifyManagerPin returns the matching
+  // active-manager user id which is recorded as the authoriser.
+  // (Zod has already enforced manager_pin presence + 4-8 digit length.)
+  const managerPinUserId = await validateManagerPin(supabase, user.org_id, manager_pin)
+  if (!managerPinUserId) {
+    return NextResponse.json(
+      { error: 'Invalid manager PIN' },
+      { status: 403 }
+    )
   }
 
   // Call Valor void API for card payments
