@@ -12,6 +12,7 @@ const PUBLIC_ROUTES = [
   '/api/webhooks',
   '/api/terminals/activate',
   '/api/terminals/heartbeat',
+  '/api/observability/rum',
 ]
 
 export async function middleware(request: NextRequest) {
