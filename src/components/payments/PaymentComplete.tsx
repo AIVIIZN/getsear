@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
-import { SPRING_SNAP, SPRING_SOFT, useReducedMotion } from '@/lib/motion/transitions'
+import { SPRING_SNAP, SPRING_SOFT, checkmarkPop, useReducedMotion } from '@/lib/motion/transitions'
 
 interface PaymentCompleteProps {
   totalCents: number
@@ -73,20 +73,12 @@ export function PaymentComplete({
         className="flex size-24 items-center justify-center rounded-full bg-success/10"
         initial={reduced ? false : { scale: 0.4, opacity: 0 }}
         animate={showCheck ? { scale: 1, opacity: 1 } : { scale: 0.4, opacity: 0 }}
-        transition={
-          reduced
-            ? { duration: 0 }
-            : { type: 'spring', stiffness: 400, damping: 18, mass: 0.7 }
-        }
+        transition={reduced ? { duration: 0 } : checkmarkPop.transition}
       >
         <motion.span
           initial={reduced ? false : { scale: 0, opacity: 0 }}
           animate={showCheck ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-          transition={
-            reduced
-              ? { duration: 0 }
-              : { type: 'spring', stiffness: 420, damping: 20, mass: 0.6, delay: 0.12 }
-          }
+          transition={reduced ? { duration: 0 } : { ...checkmarkPop.transition, delay: 0.12 }}
         >
           <Check className="size-12 text-success" strokeWidth={3} />
         </motion.span>

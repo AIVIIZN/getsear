@@ -88,6 +88,7 @@ function ModalContent({
           className="relative flex flex-col gap-[var(--space-5)] p-[var(--space-6)]"
           initial={reduced ? false : { opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
+          exit={reduced ? undefined : { opacity: 0, scale: 0.96, transition: SPRING_SNAP }}
           transition={reduced ? { duration: 0 } : SPRING_SNAP}
           style={{ willChange: "transform, opacity" }}
         >

@@ -776,7 +776,6 @@ export default function KdsPage() {
               {sortedTickets.map((ticket) => (
                 <motion.div
                   key={ticket.id}
-                  layout={!reducedMotion}
                   initial={reducedMotion ? false : itemSpawn.initial}
                   animate={itemSpawn.animate}
                   exit={reducedMotion ? undefined : itemSpawn.exit}

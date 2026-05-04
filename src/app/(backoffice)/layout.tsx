@@ -32,20 +32,18 @@ export default function BackofficeLayout({
       {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar showBreadcrumbs onToggleSidebar={toggleSidebar} />
-        <main className="flex-1 overflow-y-auto scroll-container">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              className="mx-auto w-full max-w-[1280px] p-6"
-              initial={reduced ? false : fadeUp.initial}
-              animate={fadeUp.animate}
-              exit={reduced ? undefined : fadeUp.exit}
-              transition={reduced ? { duration: 0 } : fadeUp.transition}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.main
+            key={pathname}
+            className="flex-1 overflow-y-auto scroll-container"
+            initial={reduced ? false : fadeUp.initial}
+            animate={fadeUp.animate}
+            exit={reduced ? undefined : fadeUp.exit}
+            transition={reduced ? { duration: 0 } : fadeUp.transition}
+          >
+            <div className="mx-auto w-full max-w-[1280px] p-6">{children}</div>
+          </motion.main>
+        </AnimatePresence>
       </div>
     </div>
   );

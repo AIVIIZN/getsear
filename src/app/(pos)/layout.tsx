@@ -35,20 +35,18 @@ export default function PosLayout({
       {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar onToggleSidebar={toggleSidebar} />
-        <main className="flex-1 overflow-hidden">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              className="h-full"
-              initial={reduced ? false : fadeUp.initial}
-              animate={fadeUp.animate}
-              exit={reduced ? undefined : fadeUp.exit}
-              transition={reduced ? { duration: 0 } : fadeUp.transition}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.main
+            key={pathname}
+            className="flex-1 overflow-hidden"
+            initial={reduced ? false : fadeUp.initial}
+            animate={fadeUp.animate}
+            exit={reduced ? undefined : fadeUp.exit}
+            transition={reduced ? { duration: 0 } : fadeUp.transition}
+          >
+            {children}
+          </motion.main>
+        </AnimatePresence>
       </div>
 
       {/* V5.4.1 — listens for the global stale-order event from
