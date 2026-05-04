@@ -99,6 +99,17 @@ For a parallel batch with N tasks, you spawn N agents in **one message** contain
 | `reviewer` | Per-task verification (Layer 1 self-check — correctness, criteria, scope) | Spawned by the runner AFTER each implementer; see "Reviewer pass" below |
 | `design-reviewer` | Premium-feel design audit (Layer 1 self-check — visual quality) | Spawned IN PARALLEL with `reviewer` for any task touching `src/components/**`, `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/styles/**`, `src/app/globals.css` |
 
+### Orchestrators (top-level coordinators — call these instead of dispatching specialists one-at-a-time)
+
+| `subagent_type` | Owns | Use when |
+|---|---|---|
+| `sear-batch-implementer` | One full batch end-to-end: parallel implementer dispatch in worktrees → mandatory reviewer + design-reviewer pass → FAIL→cycle handling (max 3) → INTEGRATE → migration apply → DEPLOY → STATE.yaml update | "spawn batch X", "ship the next batch", "keep going" — the runner's primary loop |
+| `sear-cross-cutting-reviewer` | All 9 specialists dispatched in parallel against their domains across all shipped versions, then synthesis to a single AGGREGATE.md punch list | "review everything", "audit", "find errors", pre-version-tag, post-large-batch confidence |
+
+**Pattern:** the orchestrators DISPATCH the 9 specialists by name (`subagent_type: "<name>"`). They do NOT redefine the personas inline. The 9 specialists remain the source of truth for their domain knowledge.
+
+**Anti-pattern (proven to fail 2026-05-04):** spawning specialists via subprocess `claude -p` invocations hit the Write-tool sandbox block — outputs delivered inline instead of written to disk. ALWAYS use the Agent tool with `run_in_background: true`.
+
 For the rare task without a fitting specialist, dispatch with `subagent_type: general-purpose` and write the full briefing.
 
 ### Reviewer pass (Layer 1 self-check) — MANDATORY before INTEGRATE
