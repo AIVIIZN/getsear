@@ -3,8 +3,10 @@
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
+import { motion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
+import { SPRING_SNAP, useReducedMotion } from "@/lib/motion/transitions"
 
 type ModalSize = "sm" | "md" | "lg" | "full"
 
@@ -61,6 +63,7 @@ function ModalContent({
   showCloseButton = true,
   ...props
 }: ModalContentProps) {
+  const reduced = useReducedMotion()
   return (
     <ModalPortal>
       <ModalBackdrop />
@@ -70,35 +73,43 @@ function ModalContent({
         className={cn(
           "fixed left-1/2 top-1/2 z-[var(--z-modal)] w-[calc(100%-var(--space-8))]",
           "-translate-x-1/2 -translate-y-1/2",
-          "flex flex-col gap-[var(--space-5)]",
           "rounded-[var(--radius-lg)] bg-[color:var(--color-surface)] text-[color:var(--color-text)]",
-          "p-[var(--space-6)] shadow-[var(--shadow-modal)] outline-none",
-          "transition-[transform,opacity] duration-[var(--duration-slow)] ease-[var(--ease-spring)]",
-          "data-starting-style:opacity-0 data-starting-style:[transform:translate(-50%,-50%)_scale(0.94)]",
-          "data-ending-style:opacity-0 data-ending-style:[transform:translate(-50%,-50%)_scale(0.94)]",
+          "shadow-[var(--shadow-modal)] outline-none",
+          "transition-opacity duration-[var(--duration-base)] ease-[var(--ease-out)]",
+          "data-starting-style:opacity-0 data-ending-style:opacity-0",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-border-focus)]",
           sizeClass[size],
           className,
         )}
         {...props}
       >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="modal-close-icon"
-            aria-label="Close"
-            className={cn(
-              "btn-press touch-target absolute right-[var(--space-3)] top-[var(--space-3)]",
-              "inline-flex items-center justify-center rounded-[var(--radius-sm)]",
-              "text-[color:var(--color-text-muted)]",
-              "transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]",
-              "hover:bg-[color:var(--color-surface-hover)] hover:text-[color:var(--color-text)]",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-border-focus)]",
-            )}
-          >
-            <XIcon className="size-5" aria-hidden="true" />
-          </DialogPrimitive.Close>
-        )}
+        <motion.div
+          data-slot="modal-motion"
+          className="relative flex flex-col gap-[var(--space-5)] p-[var(--space-6)]"
+          initial={reduced ? false : { opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={reduced ? undefined : { opacity: 0, scale: 0.96, transition: SPRING_SNAP }}
+          transition={reduced ? { duration: 0 } : SPRING_SNAP}
+          style={{ willChange: "transform, opacity" }}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close
+              data-slot="modal-close-icon"
+              aria-label="Close"
+              className={cn(
+                "btn-press touch-target absolute right-[var(--space-3)] top-[var(--space-3)]",
+                "inline-flex items-center justify-center rounded-[var(--radius-sm)]",
+                "text-[color:var(--color-text-muted)]",
+                "transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]",
+                "hover:bg-[color:var(--color-surface-hover)] hover:text-[color:var(--color-text)]",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-border-focus)]",
+              )}
+            >
+              <XIcon className="size-5" aria-hidden="true" />
+            </DialogPrimitive.Close>
+          )}
+        </motion.div>
       </DialogPrimitive.Popup>
     </ModalPortal>
   )

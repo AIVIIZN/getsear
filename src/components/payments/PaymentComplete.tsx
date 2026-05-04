@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
-import { cn } from '@/lib/utils'
+import { SPRING_SNAP, SPRING_SOFT, checkmarkPop, useReducedMotion } from '@/lib/motion/transitions'
 
 interface PaymentCompleteProps {
   totalCents: number
@@ -24,14 +25,15 @@ export function PaymentComplete({
   onDone,
   autoRedirectMs = 3000,
 }: PaymentCompleteProps) {
+  const reduced = useReducedMotion()
   const [showCheck, setShowCheck] = useState(false)
   const [countdown, setCountdown] = useState(Math.ceil(autoRedirectMs / 1000))
 
   // Animate checkmark in
   useEffect(() => {
-    const timer = setTimeout(() => setShowCheck(true), 200)
+    const timer = setTimeout(() => setShowCheck(true), reduced ? 0 : 150)
     return () => clearTimeout(timer)
-  }, [])
+  }, [reduced])
 
   // Auto-redirect countdown
   useEffect(() => {
@@ -60,38 +62,43 @@ export function PaymentComplete({
             : 'Payment'
 
   return (
-    <div className="flex flex-col items-center gap-6 py-8">
+    <motion.div
+      className="flex flex-col items-center gap-6 py-8"
+      initial={reduced ? false : { opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={reduced ? { duration: 0 } : SPRING_SNAP}
+    >
       {/* Animated checkmark */}
-      <div
-        className={cn(
-          'flex items-center justify-center rounded-full bg-success/10 transition-all duration-500',
-          showCheck ? 'size-24 scale-100 opacity-100' : 'size-0 scale-50 opacity-0'
-        )}
+      <motion.div
+        className="flex size-24 items-center justify-center rounded-full bg-success/10"
+        initial={reduced ? false : { scale: 0.4, opacity: 0 }}
+        animate={showCheck ? { scale: 1, opacity: 1 } : { scale: 0.4, opacity: 0 }}
+        transition={reduced ? { duration: 0 } : checkmarkPop.transition}
       >
-        <Check
-          className={cn(
-            'text-success transition-all duration-300 delay-300',
-            showCheck ? 'size-12 opacity-100' : 'size-0 opacity-0'
-          )}
-          strokeWidth={3}
-        />
-      </div>
+        <motion.span
+          initial={reduced ? false : { scale: 0, opacity: 0 }}
+          animate={showCheck ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+          transition={reduced ? { duration: 0 } : { ...checkmarkPop.transition, delay: 0.12 }}
+        >
+          <Check className="size-12 text-success" strokeWidth={3} />
+        </motion.span>
+      </motion.div>
 
-      <h2
-        className={cn(
-          'text-2xl font-bold text-success transition-opacity duration-500 delay-500',
-          showCheck ? 'opacity-100' : 'opacity-0'
-        )}
+      <motion.h2
+        className="text-2xl font-bold text-success"
+        initial={reduced ? false : { opacity: 0, y: 6 }}
+        animate={showCheck ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+        transition={reduced ? { duration: 0 } : { ...SPRING_SOFT, delay: 0.18 }}
       >
         Payment Complete
-      </h2>
+      </motion.h2>
 
       {/* Summary */}
-      <div
-        className={cn(
-          'w-full max-w-xs space-y-3 rounded-xl bg-secondary p-5 transition-all duration-500 delay-700',
-          showCheck ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-        )}
+      <motion.div
+        className="w-full max-w-xs space-y-3 rounded-xl bg-secondary p-5"
+        initial={reduced ? false : { opacity: 0, y: 16 }}
+        animate={showCheck ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+        transition={reduced ? { duration: 0 } : { ...SPRING_SOFT, delay: 0.28 }}
       >
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Method</span>
@@ -118,7 +125,7 @@ export function PaymentComplete({
             <MoneyDisplay cents={changeDueCents} className="text-sm font-bold text-success" />
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Auto-redirect info */}
       <p className="text-sm text-muted-foreground">
@@ -131,6 +138,6 @@ export function PaymentComplete({
       >
         Done
       </button>
-    </div>
+    </motion.div>
   )
 }
