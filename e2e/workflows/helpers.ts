@@ -183,9 +183,10 @@ export async function createOrderWithItem(
 }
 
 /**
- * Best-effort cleanup of an order that the test created. Tries a soft DELETE
- * first; if that 4xxs (e.g. order is closed) we ignore — closed orders are
- * historical records and shouldn't be hard-deleted from prod anyway.
+ * Best-effort cleanup of an order that the test created. Routes through the
+ * canonical void endpoint (5.99.3 closed the DELETE side-door). If the void
+ * 4xxs (e.g. order is already in a terminal state) we ignore — closed/voided
+ * orders shouldn't be force-mutated from a cleanup hook anyway.
  */
 export async function cleanupOrder(
   request: APIRequestContext,
@@ -193,8 +194,8 @@ export async function cleanupOrder(
 ): Promise<void> {
   if (!orderId) return
   try {
-    await request.delete(`/api/orders/${orderId}`, {
-      data: { void_reason: 'e2e cleanup' },
+    await request.post(`/api/orders/${orderId}/void`, {
+      data: { reason: 'other', notes: 'e2e cleanup' },
     })
   } catch {
     // swallow — best-effort cleanup, tests should not fail because of it

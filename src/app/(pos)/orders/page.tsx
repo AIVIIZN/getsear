@@ -100,6 +100,28 @@ interface ComboChildResult {
   }[]
 }
 
+/**
+ * Map the human-readable label produced by VoidReasonDialog back to the
+ * canonical enum accepted by POST /api/orders/[id]/void. Unknown labels
+ * fall back to `other` so we never block a void on a string mismatch.
+ *
+ * Sister: 5.99.3 (close DELETE side-door void).
+ */
+function mapVoidReasonToEnum(
+  label: string
+): 'customer_request' | 'kitchen_error' | 'server_error' | 'wrong_item' | 'quality_issue' | '86d' | 'duplicate' | 'other' {
+  const l = label.toLowerCase()
+  if (l.includes('wrong item')) return 'wrong_item'
+  if (l.includes('customer changed')) return 'customer_request'
+  if (l.includes('quality')) return 'quality_issue'
+  if (l.includes('long wait')) return 'kitchen_error'
+  if (l.includes('duplicate')) return 'duplicate'
+  if (l.includes('kitchen')) return 'kitchen_error'
+  if (l.includes('server error')) return 'server_error'
+  if (l.includes('86')) return '86d'
+  return 'other'
+}
+
 export default function OrdersPage() {
   const router = useRouter()
   const currentOrder = useOrderStore((s) => s.currentOrder)
@@ -650,19 +672,28 @@ export default function OrdersPage() {
 
   // Void confirmation
   const handleVoidConfirm = useCallback(
-    async (reason: string, note: string, managerId?: string) => {
+    async (reason: string, note: string, _managerId?: string) => {
       if (!currentOrder || !voidTarget) return
 
       if (voidTarget.id === '__ORDER__') {
+        // Map the VoidReasonDialog human label → canonical /void/ enum.
+        // 5.99.3: route through /void/ subroute (state-machine + version check
+        // + audit) instead of the deprecated DELETE side-door.
+        const reasonEnum = mapVoidReasonToEnum(reason)
         try {
-          await fetch(`/api/orders/${currentOrder.id}`, {
-            method: 'DELETE',
+          const res = await fetch(`/api/orders/${currentOrder.id}/void`, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              void_reason: `${reason}${note ? ': ' + note : ''}`,
-              manager_id: managerId,
+              reason: reasonEnum,
+              notes: note || undefined,
             }),
           })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}))
+            toast.error(body?.error ?? 'Failed to void order')
+            return
+          }
           clearCurrentOrder()
           toast.info('Order voided')
         } catch {
