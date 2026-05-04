@@ -36,10 +36,15 @@ export async function GET(
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   }
 
+  // Defense-in-depth: even though the campaign id was already verified
+  // org-scoped above, also filter recipients by org_id so a misbehaving
+  // RLS policy or a future code path using a non-admin client cannot
+  // accidentally surface another org's rows.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('campaign_recipients') as any)
     .select('*', { count: 'exact' })
     .eq('campaign_id', id)
+    .eq('org_id', user.org_id)
     .order('sent_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -86,15 +91,44 @@ export async function POST(
 
   const supabase = createAdminClient()
 
+  // P0 fix (5.99.6 #5):
+  //  1. Verify the campaign belongs to the caller's org BEFORE accepting
+  //     any recipients — this route was previously open-bored, allowing
+  //     a manager to add recipients to any campaign id they could guess.
+  //  2. campaign_recipients has TWO NOT NULL columns the previous insert
+  //     omitted: `channel` (baseline.sql:364) and `org_id` (added by
+  //     20260504005008_add_campaign_recipients_indexes.sql). Both must
+  //     be supplied or the insert fails with 23502.
+  //  3. status='pending' was orphan; the rest of the system uses
+  //     'queued' for newly-enqueued recipients. Match it for analytics
+  //     consistency.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: campaign, error: campaignErr } = await (supabase.from('campaigns') as any)
+    .select('id, campaign_type')
+    .eq('id', id)
+    .eq('org_id', user.org_id)
+    .single()
+
+  if (campaignErr || !campaign) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+
+  const channel = (campaign.campaign_type as string) ?? 'email'
+
   const rows = customer_ids.map((customer_id: string) => ({
     campaign_id: id,
     customer_id,
-    status: 'pending',
+    org_id: user.org_id,
+    channel,
+    status: 'queued' as const,
   }))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('campaign_recipients') as any)
-    .insert(rows)
+    .upsert(rows, {
+      onConflict: 'campaign_id,customer_id',
+      ignoreDuplicates: false,
+    })
     .select()
 
   if (error) {

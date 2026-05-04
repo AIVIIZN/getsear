@@ -65,10 +65,25 @@ export function getCampaignEmailQueue(): Queue {
   if (!queue) {
     queue = new Queue(CAMPAIGN_EMAIL_QUEUE_NAME, {
       connection: getConnection(),
+      // ---------------------------------------------------------------
+      // P0 fix (5.99.6 #4) — idempotency / no double-sends.
+      //
+      // The worker (src/workers/campaign-email-worker.ts) owns the
+      // 5s/30s/5min retry schedule via a MANUAL re-enqueue loop in
+      // `handleTransient`. If BullMQ ALSO retries (attempts > 1) on top
+      // of the manual loop, an arbitrary processor error AFTER a
+      // successful Resend send (e.g. markRecipient throws on a flaky
+      // network) will cause BullMQ to re-run processJob, which re-fetches
+      // the recipient, finds status='queued' (because markRecipient
+      // never succeeded), and SENDS AGAIN. → duplicate emails.
+      //
+      // The contract is: producers set attempts=1, worker owns retries.
+      // Match `CAMPAIGN_EMAIL_JOB_OPTS` exactly so any caller that
+      // forgets to override `opts` still gets the safe default.
+      // ---------------------------------------------------------------
       defaultJobOptions: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5_000 }, // 5s, ~30s, ~5min
-        removeOnComplete: { age: 60 * 60 * 24 * 7, count: 5_000 }, // 7d / 5k
+        attempts: 1,
+        removeOnComplete: { age: 60 * 60 * 24 * 7, count: 10_000 }, // 7d / 10k
         removeOnFail: { age: 60 * 60 * 24 * 30 }, // 30d
       },
     })
