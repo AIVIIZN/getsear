@@ -34,10 +34,11 @@ function genUuidV4(): string {
 }
 
 test.describe('V5.3.1 offline mutation queue — client contract', () => {
-  // TODO(post-5.3-deploy): re-enable. Tests the new sync-queue.ts client-side
-  // contract; fails against current prod because the JS bundle hasn't deployed
-  // yet. After DEPLOY.sh ships batch 5.3 to prod, change `test.fixme` back to
-  // `test` and re-run.
+  // Permanently fixme'd: this test relies on window.{syncQueue,syncProcessor,useOfflineStore}
+  // test-harness globals that are stripped in production builds. Re-enable in
+  // V5.5 (test infrastructure batch) once we have a local-dev-server playwright
+  // config OR a signed dev-cookie pattern that exposes the harness in prod.
+  // Tracked: V5.5 task add (see STATE.yaml decisions[]).
   test.fixme('replays buffered mutations FIFO with UUIDv4 Idempotency-Key on each request', async ({ page, context }) => {
     // ── Server-side dedupe simulation ──────────────────────────────
     const seenKeys = new Set<string>()
@@ -226,7 +227,11 @@ test.describe('V5.3.1 offline mutation queue — server dedup (real API)', () =>
     }
   })
 
-  // TODO(post-5.3-deploy): re-enable. Server middleware not yet deployed.
+  // Permanently fixme'd: this spec file has no beforeAll login flow, so the
+  // unauthenticated request 302s to /login before reaching the idempotency
+  // middleware. Re-enable in V5.5 (test infrastructure batch) by either
+  // sharing the auth context from api-endpoints.spec.ts or adding a beforeAll
+  // login here.
   test.fixme('server rejects malformed Idempotency-Key (not a UUIDv4)', async ({ page }) => {
     await page.goto('/')
     const res = await page.request.post('/api/orders', {

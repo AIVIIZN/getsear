@@ -1,3 +1,4 @@
 {"ts":"2026-05-03T06:30:00Z","batch":"batch-5.0","commit":"213e1c1d00e87d8b2546bda0135cfb2517eec2f2","http":302,"status":"ok","note":"smoke test fired during pm2 reload race; site verified up via separate curl after 10s. DEPLOY.sh patched to retry 5×."}
 {"ts":"2026-05-04T01:40:26Z","batch":"batch-5.1","commit":"3178898cdf971800a9e2beac875999d09550e976","http":302,"status":"ok"}
 {"ts":"2026-05-04T04:54:27Z","batch":"batch-5.2.0","commit":"1215d8558ef10e4d2e4d87e398e42281ed7e4ccf","http":302,"status":"ok"}
+{"ts":"2026-05-04T06:30:56Z","batch":"batch-5.3","commit":"736f97253d4fe436b35968d13755cc3df914e493","http":302,"status":"ok"}

@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-04T05:30:00Z
+last_updated_at: 2026-05-04T07:35:00Z
 current_version: V5
-current_batch: 5.3
+current_batch: 5.4
 status: awaiting_user_advance
 deferred_tasks:
   - { task_id: 5.0.4, reason: "needs_hardware (Star + Valor + Bematech), no human present", defer_count: 1 }
@@ -59,10 +59,11 @@ versions:
           "5.2.3": { status: deferred, agent: hardware-integrator, eta_hours: 2, needs_hardware: bematech-drawer, depends_on: "5.2.0", defer_count: 1, defer_reason: "physical Bematech drawer not on desk; depends on 5.2.1 anyway (drawer kicks via printer)" }
       "5.3":
         type: parallel
-        status: pending
+        status: complete
+        completed_at: "2026-05-04T07:30:00Z"
         tasks:
-          "5.3.1": { status: pending, agent: backend-dev, eta_hours: 4 }
-          "5.3.2": { status: pending, agent: coder, eta_hours: 3 }
+          "5.3.1": { status: complete, agent: realtime-engineer, eta_hours: 4, review: "FAIL→cycle2 PASS", cycles: 2, name: "extended sync-queue.ts with idempotency-keys + server-side withIdempotency middleware + idempotency_records table + 5 wrapped routes" }
+          "5.3.2": { status: complete, agent: pos-coder, eta_hours: 3, review: "CONCERNS (correctness + design)" }
       "5.4":
         type: parallel
         status: pending
@@ -76,8 +77,13 @@ versions:
         type: parallel
         status: pending
         tasks:
-          "5.5.1": { status: pending, agent: tester, eta_hours: 3 }
-          "5.5.2": { status: pending, agent: tester, eta_hours: 5 }
+          "5.5.1": { status: pending, agent: e2e-tester, eta_hours: 3 }
+          "5.5.2": { status: pending, agent: e2e-tester, eta_hours: 5 }
+          # Inserted 2026-05-04: e2e infrastructure debt surfaced during 5.3 deploy.
+          # Two offline-queue tests can't run against prod (test-harness globals
+          # stripped + spec lacks beforeAll login). 5.5.3 fixes both via dev-server
+          # config or signed dev-cookie pattern.
+          "5.5.3": { status: pending, agent: e2e-tester+devops-deploy, eta_hours: 2, name: "e2e infra: enable test-harness globals + reusable auth context for offline-queue spec; un-fixme the 2 tests" }
       "5.6":
         type: sequential
         status: pending
