@@ -3,9 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Monitor,
-  Plus,
   Save,
-  Trash2,
   ChevronDown,
   ChevronRight,
   Printer,
@@ -14,6 +12,14 @@ import {
   Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui-v2/Card'
+import { Button } from '@/components/ui-v2/Button'
+import { Text } from '@/components/ui-v2/inputs/Text'
+import { NumberInput } from '@/components/ui-v2/inputs/Number'
+import { Select } from '@/components/ui-v2/inputs/Select'
+import { Toggle } from '@/components/ui-v2/inputs/Toggle'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { Alert } from '@/components/ui-v2/feedback/Alert'
 
 interface StationConfig {
   id: string
@@ -45,16 +51,33 @@ interface CategoryThreshold {
   critical_max_seconds: number
 }
 
-interface Printer {
+interface PrinterRecord {
   id: string
   name: string
 }
 
-const DEFAULT_CATEGORY_THRESHOLDS: Array<{ name: string; fresh: number; aging: number; critical: number }> = [
+const DEFAULT_CATEGORY_THRESHOLDS: Array<{
+  name: string
+  fresh: number
+  aging: number
+  critical: number
+}> = [
   { name: 'Appetizers', fresh: 300, aging: 480, critical: 720 },
   { name: 'Entrees', fresh: 480, aging: 900, critical: 1320 },
   { name: 'Desserts', fresh: 300, aging: 600, critical: 900 },
   { name: 'Drinks', fresh: 120, aging: 300, critical: 480 },
+]
+
+const STATION_TYPE_OPTIONS = [
+  { value: 'prep', label: 'Prep Station' },
+  { value: 'expo', label: 'Expo Station' },
+]
+
+const FONT_SIZE_OPTIONS = [
+  { value: 'small', label: 'Small (14px / 12px)' },
+  { value: 'medium', label: 'Medium (16px / 14px)' },
+  { value: 'large', label: 'Large (18px / 16px)' },
+  { value: 'xlarge', label: 'X-Large (22px / 18px)' },
 ]
 
 export default function KdsSettingsPage() {
@@ -64,10 +87,11 @@ export default function KdsSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['display', 'aging']))
-  const [printers, setPrinters] = useState<Printer[]>([])
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(['display', 'aging']),
+  )
+  const [printers, setPrinters] = useState<PrinterRecord[]>([])
 
-  // Fetch stations
   useEffect(() => {
     async function fetchStations() {
       try {
@@ -77,7 +101,6 @@ export default function KdsSettingsPage() {
         const json = await res.json()
         const stationList = json.data ?? []
 
-        // Fetch config for each station
         const configs: StationConfig[] = await Promise.all(
           stationList.map(async (s: { id: string }) => {
             const configRes = await fetch(`/api/kds/stations/${s.id}/config`)
@@ -86,13 +109,14 @@ export default function KdsSettingsPage() {
               return configJson.data
             }
             return null
-          })
+          }),
         )
 
-        setStations(configs.filter(Boolean))
+        const valid = configs.filter(Boolean)
+        setStations(valid)
 
-        if (configs.length > 0 && !selectedStationId) {
-          setSelectedStationId(configs[0]?.id ?? null)
+        if (valid.length > 0 && !selectedStationId) {
+          setSelectedStationId(valid[0]?.id ?? null)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load stations')
@@ -102,9 +126,9 @@ export default function KdsSettingsPage() {
     }
 
     fetchStations()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Fetch printers for failover dropdown
   useEffect(() => {
     async function fetchPrinters() {
       try {
@@ -114,7 +138,7 @@ export default function KdsSettingsPage() {
           setPrinters(json.data ?? [])
         }
       } catch {
-        // Printers endpoint may not exist yet — that is fine
+        // Endpoint may not exist yet
       }
     }
     fetchPrinters()
@@ -127,11 +151,11 @@ export default function KdsSettingsPage() {
       if (!selectedStationId) return
       setStations((prev) =>
         prev.map((s) =>
-          s.id === selectedStationId ? { ...s, [field]: value } : s
-        )
+          s.id === selectedStationId ? { ...s, [field]: value } : s,
+        ),
       )
     },
-    [selectedStationId]
+    [selectedStationId],
   )
 
   const updateCategoryThreshold = useCallback(
@@ -141,7 +165,7 @@ export default function KdsSettingsPage() {
       thresholds[index] = { ...thresholds[index], [field]: value }
       updateStation('category_thresholds', thresholds)
     },
-    [selectedStation, updateStation]
+    [selectedStation, updateStation],
   )
 
   const saveStation = useCallback(async () => {
@@ -200,50 +224,55 @@ export default function KdsSettingsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-[var(--space-6)]">
         <div>
-          <h1 className="page-title">KDS Configuration</h1>
-          <p className="page-subtitle">Configure kitchen display stations</p>
+          <h1 className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            KDS Configuration
+          </h1>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Configure kitchen display stations
+          </p>
         </div>
-        <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--primary)] border-t-transparent" />
-        </div>
+        <Skeleton variant="card" />
       </div>
     )
   }
 
+  const printerOptions = [
+    { value: '', label: 'No backup printer' },
+    ...printers.map((p) => ({ value: p.id, label: p.name })),
+  ]
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">KDS Configuration</h1>
-          <p className="page-subtitle">Configure kitchen display stations, aging thresholds, and printer failover</p>
+          <h1 className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            KDS Configuration
+          </h1>
+          <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Configure kitchen display stations, aging thresholds, and printer failover
+          </p>
         </div>
       </div>
 
       {/* Notifications */}
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {success}
-        </div>
-      )}
+      {error && <Alert variant="danger">{error}</Alert>}
+      {success && <Alert variant="success">{success}</Alert>}
 
-      <div className="flex gap-6">
+      <div className="flex gap-[var(--space-6)]">
         {/* Station list — left sidebar */}
-        <div className="w-64 flex-shrink-0">
-          <div className="rounded-2xl border border-[var(--border)] bg-white shadow-warm-sm">
-            <div className="border-b border-[var(--border)] px-4 py-3">
-              <h3 className="text-headline font-semibold">Stations</h3>
+        <div className="w-[256px] flex-shrink-0">
+          <Card variant="flat" padding="default" className="gap-0 p-0">
+            <div className="border-b border-[color:var(--color-border)] px-[var(--space-4)] py-[var(--space-3)]">
+              <h3 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                Stations
+              </h3>
             </div>
-            <div className="p-2">
+            <div className="p-[var(--space-2)]">
               {stations.length === 0 ? (
-                <p className="px-3 py-4 text-center text-sm text-[var(--text-muted)]">
+                <p className="px-[var(--space-3)] py-[var(--space-4)] text-center text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
                   No stations configured
                 </p>
               ) : (
@@ -252,84 +281,79 @@ export default function KdsSettingsPage() {
                     key={station.id}
                     onClick={() => setSelectedStationId(station.id)}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                      'btn-press touch-target flex w-full items-center gap-[var(--space-3)]',
+                      'rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-2)] text-left',
+                      'transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]',
                       station.id === selectedStationId
-                        ? 'bg-[var(--primary-subtle)] text-[var(--primary)]'
-                        : 'hover:bg-[var(--background-subtle)]'
+                        ? 'bg-[color:var(--color-sidebar-active)] text-[color:var(--color-primary)]'
+                        : 'hover:bg-[color:var(--color-surface-hover)]',
                     )}
                   >
                     <Monitor className="h-4 w-4 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{station.name}</p>
-                      <p className="text-xs text-[var(--text-muted)]">
+                      <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] truncate">
+                        {station.name}
+                      </p>
+                      <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                         {station.station_type === 'expo' ? 'Expo' : 'Prep'} station
                       </p>
                     </div>
-                    {station.is_active ? (
-                      <span className="h-2 w-2 rounded-full bg-green-500" />
-                    ) : (
-                      <span className="h-2 w-2 rounded-full bg-gray-300" />
-                    )}
+                    <span
+                      className={cn(
+                        'h-2 w-2 rounded-full',
+                        station.is_active
+                          ? 'bg-[color:var(--color-success-strong)]'
+                          : 'bg-[color:var(--color-border-strong)]',
+                      )}
+                    />
                   </button>
                 ))
               )}
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Station config — right panel */}
         <div className="flex-1">
           {!selectedStation ? (
-            <div className="flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white py-20 shadow-warm-sm">
-              <p className="text-sm text-[var(--text-muted)]">Select a station to configure</p>
-            </div>
+            <Card variant="flat" padding="default" className="items-center justify-center py-[var(--space-20)]">
+              <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+                Select a station to configure
+              </p>
+            </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-[var(--space-4)]">
               {/* Station Name & Type */}
-              <div className="rounded-2xl border border-[var(--border)] bg-white shadow-warm-sm">
-                <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
-                  <h3 className="text-headline font-semibold">Station Settings</h3>
-                  <button
+              <Card variant="flat" padding="default" className="gap-0 p-0">
+                <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-[var(--space-5)] py-[var(--space-3)]">
+                  <h3 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                    Station Settings
+                  </h3>
+                  <Button
                     onClick={saveStation}
-                    disabled={saving}
-                    className={cn(
-                      'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors',
-                      saving
-                        ? 'bg-gray-400'
-                        : 'bg-[var(--primary)] hover:bg-[var(--primary-hover)]'
-                    )}
+                    loading={saving}
+                    size="md"
+                    leadingIcon={<Save className="h-4 w-4" />}
                   >
-                    <Save className="h-4 w-4" />
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </button>
+                    Save Changes
+                  </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-4 p-5">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Station Name
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedStation.name}
-                      onChange={(e) => updateStation('name', e.target.value)}
-                      className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Station Type
-                    </label>
-                    <select
-                      value={selectedStation.station_type}
-                      onChange={(e) => updateStation('station_type', e.target.value)}
-                      className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                    >
-                      <option value="prep">Prep Station</option>
-                      <option value="expo">Expo Station</option>
-                    </select>
-                  </div>
+                <div className="grid grid-cols-2 gap-[var(--space-4)] p-[var(--space-5)]">
+                  <Text
+                    size="md"
+                    label="Station Name"
+                    value={selectedStation.name}
+                    onChange={(e) => updateStation('name', e.target.value)}
+                  />
+                  <Select
+                    size="md"
+                    label="Station Type"
+                    options={STATION_TYPE_OPTIONS}
+                    value={selectedStation.station_type}
+                    onChange={(v) => updateStation('station_type', v)}
+                  />
                 </div>
-              </div>
+              </Card>
 
               {/* Display Settings */}
               <CollapsibleSection
@@ -338,70 +362,43 @@ export default function KdsSettingsPage() {
                 isExpanded={expandedSections.has('display')}
                 onToggle={() => toggleSection('display')}
               >
-                <div className="grid grid-cols-2 gap-4 p-5">
+                <div className="grid grid-cols-2 gap-[var(--space-4)] p-[var(--space-5)]">
+                  <NumberInput
+                    size="md"
+                    label="Display Columns (2-6)"
+                    min={2}
+                    max={6}
+                    value={selectedStation.display_columns}
+                    onChange={(e) =>
+                      updateStation('display_columns', parseInt(e.target.value, 10) || 4)
+                    }
+                  />
+                  <Select
+                    size="md"
+                    label="Font Size"
+                    options={FONT_SIZE_OPTIONS}
+                    value={selectedStation.font_size}
+                    onChange={(v) => updateStation('font_size', v)}
+                  />
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Display Columns (2-6)
-                    </label>
-                    <input
-                      type="number"
-                      min={2}
-                      max={6}
-                      value={selectedStation.display_columns}
-                      onChange={(e) => updateStation('display_columns', parseInt(e.target.value, 10) || 4)}
-                      className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Font Size
-                    </label>
-                    <select
-                      value={selectedStation.font_size}
-                      onChange={(e) => updateStation('font_size', e.target.value)}
-                      className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                    >
-                      <option value="small">Small (14px / 12px)</option>
-                      <option value="medium">Medium (16px / 14px)</option>
-                      <option value="large">Large (18px / 16px)</option>
-                      <option value="xlarge">X-Large (22px / 18px)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    <label className="mb-[var(--space-2)] block text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-text)]">
                       Sound Enabled
                     </label>
-                    <div className="flex items-center gap-3 py-1.5">
-                      <button
-                        onClick={() => updateStation('sound_enabled', !selectedStation.sound_enabled)}
-                        className={cn(
-                          'relative h-7 w-12 rounded-full transition-colors',
-                          selectedStation.sound_enabled ? 'bg-[var(--primary)]' : 'bg-gray-300'
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform',
-                            selectedStation.sound_enabled ? 'left-[22px]' : 'left-0.5'
-                          )}
-                        />
-                      </button>
-                      <span className="text-sm">{selectedStation.sound_enabled ? 'On' : 'Off'}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Max Capacity (items)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={500}
-                      value={selectedStation.max_capacity}
-                      onChange={(e) => updateStation('max_capacity', parseInt(e.target.value, 10) || 50)}
-                      className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
+                    <Toggle
+                      checked={selectedStation.sound_enabled}
+                      onChange={(v) => updateStation('sound_enabled', v)}
                     />
                   </div>
+                  <NumberInput
+                    size="md"
+                    label="Max Capacity (items)"
+                    min={1}
+                    max={500}
+                    value={selectedStation.max_capacity}
+                    onChange={(e) =>
+                      updateStation('max_capacity', parseInt(e.target.value, 10) || 50)
+                    }
+                  />
                 </div>
               </CollapsibleSection>
 
@@ -412,75 +409,71 @@ export default function KdsSettingsPage() {
                 isExpanded={expandedSections.has('aging')}
                 onToggle={() => toggleSection('aging')}
               >
-                <div className="p-5">
-                  <p className="mb-4 text-xs text-[var(--text-muted)]">
+                <div className="p-[var(--space-5)]">
+                  <p className="mb-[var(--space-4)] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                     Default thresholds for this station. Override per menu category below.
                   </p>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#34C759]">
-                        Fresh Threshold (min)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={120}
-                        value={secondsToMinutes(selectedStation.default_fresh_max)}
-                        onChange={(e) =>
-                          updateStation('default_fresh_max', minutesToSeconds(parseInt(e.target.value, 10) || 5))
-                        }
-                        className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#FFCC00]">
-                        Aging Threshold (min)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={120}
-                        value={secondsToMinutes(selectedStation.default_aging_max)}
-                        onChange={(e) =>
-                          updateStation('default_aging_max', minutesToSeconds(parseInt(e.target.value, 10) || 10))
-                        }
-                        className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#FF3B30]">
-                        Critical Threshold (min)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={120}
-                        value={secondsToMinutes(selectedStation.default_critical_max)}
-                        onChange={(e) =>
-                          updateStation('default_critical_max', minutesToSeconds(parseInt(e.target.value, 10) || 15))
-                        }
-                        className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                      />
-                    </div>
+                  <div className="grid grid-cols-3 gap-[var(--space-4)]">
+                    <NumberInput
+                      size="md"
+                      label="Fresh (min)"
+                      min={1}
+                      max={120}
+                      value={secondsToMinutes(selectedStation.default_fresh_max)}
+                      onChange={(e) =>
+                        updateStation(
+                          'default_fresh_max',
+                          minutesToSeconds(parseInt(e.target.value, 10) || 5),
+                        )
+                      }
+                    />
+                    <NumberInput
+                      size="md"
+                      label="Aging (min)"
+                      min={1}
+                      max={120}
+                      value={secondsToMinutes(selectedStation.default_aging_max)}
+                      onChange={(e) =>
+                        updateStation(
+                          'default_aging_max',
+                          minutesToSeconds(parseInt(e.target.value, 10) || 10),
+                        )
+                      }
+                    />
+                    <NumberInput
+                      size="md"
+                      label="Critical (min)"
+                      min={1}
+                      max={120}
+                      value={secondsToMinutes(selectedStation.default_critical_max)}
+                      onChange={(e) =>
+                        updateStation(
+                          'default_critical_max',
+                          minutesToSeconds(parseInt(e.target.value, 10) || 15),
+                        )
+                      }
+                    />
                   </div>
 
                   {/* Category-specific thresholds */}
-                  <div className="mt-6">
-                    <h4 className="mb-3 text-sm font-semibold">Category-Specific Overrides</h4>
-                    <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-                      <table className="w-full text-sm">
+                  <div className="mt-[var(--space-6)]">
+                    <h4 className="mb-[var(--space-3)] text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                      Category-Specific Overrides
+                    </h4>
+                    <div className="overflow-x-auto rounded-[var(--radius-md)] border border-[color:var(--color-border)]">
+                      <table className="w-full text-[length:var(--type-subhead-size)]">
                         <thead>
-                          <tr className="border-b border-[var(--border)] bg-[var(--background-subtle)]">
-                            <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                          <tr className="border-b border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)]">
+                            <th className="px-[var(--space-4)] py-[var(--space-3)] text-left text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
                               Category
                             </th>
-                            <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-[#34C759]">
+                            <th className="px-[var(--space-4)] py-[var(--space-3)] text-center text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-success)]">
                               Fresh (min)
                             </th>
-                            <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-[#FFCC00]">
+                            <th className="px-[var(--space-4)] py-[var(--space-3)] text-center text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-warning)]">
                               Aging (min)
                             </th>
-                            <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-[#FF3B30]">
+                            <th className="px-[var(--space-4)] py-[var(--space-3)] text-center text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-danger)]">
                               Critical (min)
                             </th>
                           </tr>
@@ -496,13 +489,16 @@ export default function KdsSettingsPage() {
                                 critical_max_seconds: d.critical,
                               }))
                           ).map((threshold, idx) => (
-                            <tr key={idx} className="border-b border-[var(--border)] last:border-0">
-                              <td className="px-4 py-2 font-medium">
+                            <tr
+                              key={idx}
+                              className="border-b border-[color:var(--color-border)] last:border-0"
+                            >
+                              <td className="px-[var(--space-4)] py-[var(--space-2)] font-[var(--weight-medium)]">
                                 {threshold.menu_category_name ?? threshold.menu_category_id}
                               </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
+                              <td className="px-[var(--space-4)] py-[var(--space-2)]">
+                                <NumberInput
+                                  size="md"
                                   min={1}
                                   max={120}
                                   value={secondsToMinutes(threshold.fresh_max_seconds)}
@@ -510,15 +506,15 @@ export default function KdsSettingsPage() {
                                     updateCategoryThreshold(
                                       idx,
                                       'fresh_max_seconds',
-                                      minutesToSeconds(parseInt(e.target.value, 10) || 5)
+                                      minutesToSeconds(parseInt(e.target.value, 10) || 5),
                                     )
                                   }
-                                  className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center text-sm outline-none focus:border-[var(--primary)]"
+                                  className="w-24 text-center tabular-nums"
                                 />
                               </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
+                              <td className="px-[var(--space-4)] py-[var(--space-2)]">
+                                <NumberInput
+                                  size="md"
                                   min={1}
                                   max={120}
                                   value={secondsToMinutes(threshold.aging_max_seconds)}
@@ -526,15 +522,15 @@ export default function KdsSettingsPage() {
                                     updateCategoryThreshold(
                                       idx,
                                       'aging_max_seconds',
-                                      minutesToSeconds(parseInt(e.target.value, 10) || 10)
+                                      minutesToSeconds(parseInt(e.target.value, 10) || 10),
                                     )
                                   }
-                                  className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center text-sm outline-none focus:border-[var(--primary)]"
+                                  className="w-24 text-center tabular-nums"
                                 />
                               </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
+                              <td className="px-[var(--space-4)] py-[var(--space-2)]">
+                                <NumberInput
+                                  size="md"
                                   min={1}
                                   max={120}
                                   value={secondsToMinutes(threshold.critical_max_seconds)}
@@ -542,10 +538,10 @@ export default function KdsSettingsPage() {
                                     updateCategoryThreshold(
                                       idx,
                                       'critical_max_seconds',
-                                      minutesToSeconds(parseInt(e.target.value, 10) || 15)
+                                      minutesToSeconds(parseInt(e.target.value, 10) || 15),
                                     )
                                   }
-                                  className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center text-sm outline-none focus:border-[var(--primary)]"
+                                  className="w-24 text-center tabular-nums"
                                 />
                               </td>
                             </tr>
@@ -564,55 +560,35 @@ export default function KdsSettingsPage() {
                 isExpanded={expandedSections.has('failover')}
                 onToggle={() => toggleSection('failover')}
               >
-                <div className="p-5">
-                  <p className="mb-4 text-xs text-[var(--text-muted)]">
+                <div className="p-[var(--space-5)]">
+                  <p className="mb-[var(--space-4)] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                     When this KDS station goes offline (misses 3 heartbeats / 90 seconds),
                     tickets will automatically route to the backup kitchen printer.
                   </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                        Backup Printer
-                      </label>
-                      <select
-                        value={selectedStation.failover_printer_id ?? ''}
-                        onChange={(e) =>
-                          updateStation(
-                            'failover_printer_id',
-                            e.target.value || null
-                          )
-                        }
-                        className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                      >
-                        <option value="">No backup printer</option>
-                        {printers.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                        Kitchen Close Auto-Timer (min)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={480}
-                        value={selectedStation.kitchen_close_auto_minutes}
-                        onChange={(e) =>
-                          updateStation(
-                            'kitchen_close_auto_minutes',
-                            parseInt(e.target.value, 10) || 0
-                          )
-                        }
-                        className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-                      />
-                      <p className="mt-1 text-xs text-[var(--text-muted)]">
-                        0 = manual only. Set to auto-close kitchen after X minutes.
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-[var(--space-4)]">
+                    <Select
+                      size="md"
+                      label="Backup Printer"
+                      options={printerOptions}
+                      value={selectedStation.failover_printer_id ?? ''}
+                      onChange={(v) =>
+                        updateStation('failover_printer_id', v || null)
+                      }
+                    />
+                    <NumberInput
+                      size="md"
+                      label="Kitchen Close Auto-Timer (min)"
+                      min={0}
+                      max={480}
+                      value={selectedStation.kitchen_close_auto_minutes}
+                      onChange={(e) =>
+                        updateStation(
+                          'kitchen_close_auto_minutes',
+                          parseInt(e.target.value, 10) || 0,
+                        )
+                      }
+                      helper="0 = manual only. Set to auto-close kitchen after X minutes."
+                    />
                   </div>
                 </div>
               </CollapsibleSection>
@@ -624,26 +600,27 @@ export default function KdsSettingsPage() {
                 isExpanded={expandedSections.has('health')}
                 onToggle={() => toggleSection('health')}
               >
-                <div className="p-5">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="p-[var(--space-5)]">
+                  <div className="grid grid-cols-2 gap-[var(--space-4)]">
                     <div>
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      <label className="mb-[var(--space-1)] block text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
                         Last Heartbeat
                       </label>
-                      <p className="text-sm">
+                      <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text)]">
                         {selectedStation.last_heartbeat_at
                           ? new Date(selectedStation.last_heartbeat_at).toLocaleString()
                           : 'Never'}
                       </p>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      <label className="mb-[var(--space-1)] block text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
                         Status
                       </label>
-                      <p className="text-sm">
+                      <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text)]">
                         {(() => {
                           if (!selectedStation.last_heartbeat_at) return 'Offline'
-                          const elapsed = Date.now() - new Date(selectedStation.last_heartbeat_at).getTime()
+                          const elapsed =
+                            Date.now() - new Date(selectedStation.last_heartbeat_at).getTime()
                           if (elapsed < 60000) return 'Online'
                           if (elapsed < 90000) return 'Degraded'
                           return 'Offline'
@@ -661,7 +638,6 @@ export default function KdsSettingsPage() {
   )
 }
 
-/** Collapsible section used in the config panel */
 function CollapsibleSection({
   title,
   icon,
@@ -676,20 +652,27 @@ function CollapsibleSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-white shadow-warm-sm">
+    <Card variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-[var(--background-subtle)]"
+        className={cn(
+          'btn-press touch-target flex w-full items-center gap-[var(--space-3)]',
+          'px-[var(--space-5)] py-[var(--space-3)] text-left',
+          'transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]',
+          'hover:bg-[color:var(--color-surface-hover)]',
+        )}
       >
         {icon}
-        <span className="flex-1 text-headline font-semibold">{title}</span>
+        <span className="flex-1 text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+          {title}
+        </span>
         {isExpanded ? (
-          <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
+          <ChevronDown className="h-4 w-4 text-[color:var(--color-text-muted)]" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" />
+          <ChevronRight className="h-4 w-4 text-[color:var(--color-text-muted)]" />
         )}
       </button>
-      {isExpanded && <div className="border-t border-[var(--border)]">{children}</div>}
-    </div>
+      {isExpanded && <div className="border-t border-[color:var(--color-border)]">{children}</div>}
+    </Card>
   )
 }

@@ -2,9 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Save, Loader2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Save, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Select } from '@/components/ui-v2/inputs/Select'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { Badge } from '@/components/ui-v2/data/Badge'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from '@/components/ui-v2/data/Table'
 import { SEAR_CATEGORIES, type SearCategoryKey } from '@/lib/integrations/quickbooks-journal'
 
 interface QboAccount {
@@ -48,21 +60,22 @@ export default function AccountMappingPage() {
     }
   }, [locationId])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const getMappingForCategory = (key: SearCategoryKey): MappingRow | undefined => {
-    return mappings.find(m => m.sear_category === key)
+    return mappings.find((m) => m.sear_category === key)
   }
 
   const handleMappingChange = (key: SearCategoryKey, accountId: string) => {
-    const account = accounts.find(a => a.id === accountId)
+    const account = accounts.find((a) => a.id === accountId)
     if (!account && accountId !== '') return
 
-    setMappings(prev => {
-      const existing = prev.findIndex(m => m.sear_category === key)
+    setMappings((prev) => {
+      const existing = prev.findIndex((m) => m.sear_category === key)
       if (accountId === '') {
-        // Remove mapping
-        return prev.filter(m => m.sear_category !== key)
+        return prev.filter((m) => m.sear_category !== key)
       }
       const newMapping: MappingRow = {
         sear_category: key,
@@ -79,13 +92,12 @@ export default function AccountMappingPage() {
   }
 
   const handleSave = async () => {
-    // Validate required mappings
-    const requiredKeys = SEAR_CATEGORIES.filter(c => c.required).map(c => c.key)
-    const mappedKeys = new Set(mappings.map(m => m.sear_category))
-    const missing = requiredKeys.filter(k => !mappedKeys.has(k))
+    const requiredKeys = SEAR_CATEGORIES.filter((c) => c.required).map((c) => c.key)
+    const mappedKeys = new Set(mappings.map((m) => m.sear_category))
+    const missing = requiredKeys.filter((k) => !mappedKeys.has(k))
 
     if (missing.length > 0) {
-      const labels = missing.map(k => SEAR_CATEGORIES.find(c => c.key === k)?.label).join(', ')
+      const labels = missing.map((k) => SEAR_CATEGORIES.find((c) => c.key === k)?.label).join(', ')
       toast.error(`Required mappings missing: ${labels}`)
       return
     }
@@ -112,108 +124,94 @@ export default function AccountMappingPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col gap-[var(--space-6)]">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton variant="card" />
       </div>
     )
   }
 
+  const accountOptions = [
+    { value: '', label: 'Select account...' },
+    ...accounts.map((a) => ({
+      value: a.id,
+      label: `${a.number ? `${a.number} — ` : ''}${a.name} (${a.type})`,
+    })),
+  ]
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-[var(--space-3)]">
         <Link
           href="/settings/integrations/quickbooks"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+          className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+          aria-label="Back to QuickBooks"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-foreground">Chart of Accounts Mapping</h2>
-          <p className="text-sm text-muted-foreground">Map Sear revenue categories to QuickBooks accounts</p>
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            Chart of Accounts Mapping
+          </h2>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Map Sear revenue categories to QuickBooks accounts
+          </p>
         </div>
       </div>
 
       {accounts.length === 0 ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-white p-8 text-center">
-          <AlertCircle className="h-8 w-8 text-[var(--warning)] mx-auto mb-3" />
-          <p className="text-sm font-medium text-foreground">No accounts found</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Make sure QuickBooks is connected and your chart of accounts is set up.
-          </p>
-        </div>
+        <EmptyState
+          icon={AlertCircle}
+          title="No accounts found"
+          description="Make sure QuickBooks is connected and your chart of accounts is set up."
+        />
       ) : (
         <>
-          <div className="rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--secondary)]">
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Sear Category
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    QuickBooks Account
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">
-                    Required
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]">
+          <Card variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableCell header>Sear Category</TableCell>
+                  <TableCell header>QuickBooks Account</TableCell>
+                  <TableCell header>Required</TableCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {SEAR_CATEGORIES.map((cat) => {
                   const mapping = getMappingForCategory(cat.key)
                   return (
-                    <tr key={cat.key} className="group">
-                      <td className="px-5 py-4">
-                        <p className="text-sm font-medium text-foreground">{cat.label}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <select
-                          value={mapping?.qbo_account_id ?? ''}
-                          onChange={(e) => handleMappingChange(cat.key, e.target.value)}
-                          className={cn(
-                            'flex h-10 w-full max-w-md rounded-lg border border-[var(--border)] bg-white px-3',
-                            'text-sm text-foreground',
-                            'focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20',
-                            'touch-target'
-                          )}
-                        >
-                          <option value="">Select account...</option>
-                          {accounts.map((account) => (
-                            <option key={account.id} value={account.id}>
-                              {account.number ? `${account.number} — ` : ''}{account.name} ({account.type})
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-5 py-4">
-                        {cat.required && (
-                          <span className="inline-flex items-center rounded-full bg-[var(--error-bg)] px-2 py-0.5 text-xs font-medium text-[var(--error)]">
-                            Required
-                          </span>
-                        )}
-                      </td>
-                    </tr>
+                    <TableRow key={cat.key}>
+                      <TableCell className="font-[var(--weight-medium)]">{cat.label}</TableCell>
+                      <TableCell>
+                        <div className="max-w-md">
+                          <Select
+                            size="md"
+                            options={accountOptions}
+                            value={mapping?.qbo_account_id ?? ''}
+                            onChange={(v) => handleMappingChange(cat.key, v)}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {cat.required && <Badge variant="danger">Required</Badge>}
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Card>
 
           <div className="flex justify-end">
-            <button
+            <Button
               onClick={handleSave}
-              disabled={saving}
-              className={cn(
-                'flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-colors',
-                'bg-[var(--primary)] hover:bg-[var(--primary-hover)]',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                'touch-target shadow-sm'
-              )}
+              loading={saving}
+              size="lg"
+              leadingIcon={<Save className="h-4 w-4" />}
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Save Mapping
-            </button>
+            </Button>
           </div>
         </>
       )}

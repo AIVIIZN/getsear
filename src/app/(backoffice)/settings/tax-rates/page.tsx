@@ -2,38 +2,31 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import {
-  Receipt,
-  Plus,
-  Pencil,
-  Trash2,
-  Loader2,
-  Star,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { Receipt, Plus, Pencil, Trash2, Star } from "lucide-react";
+import { Button } from "@/components/ui-v2/Button";
+import { Card } from "@/components/ui-v2/Card";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { Toggle } from "@/components/ui-v2/inputs/Toggle";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
+import { Badge } from "@/components/ui-v2/data/Badge";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/ui-v2/data/Table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+  ModalClose,
+} from "@/components/ui-v2/Modal";
 import { useAuthStore } from "@/stores/auth-store";
 import type { TaxRate } from "@/types/database";
 
@@ -158,17 +151,18 @@ export default function TaxRatesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Tax Rates</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            Tax Rates
+          </h2>
+          <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
             Configure tax rates for your location.
           </p>
         </div>
-        <Button onClick={openCreate} className="h-11 gap-2 btn-press touch-target">
-          <Plus className="h-4 w-4" />
+        <Button onClick={openCreate} size="lg" leadingIcon={<Plus className="h-4 w-4" />}>
           Add Tax Rate
         </Button>
       </div>
@@ -179,176 +173,149 @@ export default function TaxRatesPage() {
           icon={Receipt}
           title="No tax rates configured"
           description="Add a tax rate to start collecting sales tax."
-          actionLabel="Add Tax Rate"
-          onAction={openCreate}
+          action={{ label: "Add Tax Rate", onClick: openCreate }}
         />
       ) : (
-        <Card className="shadow-warm-sm">
-          <CardHeader>
-            <CardTitle className="sr-only">Tax rates table</CardTitle>
-          </CardHeader>
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead className="pl-4">Name</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Default</TableHead>
-                  <TableHead className="text-right pr-4">Actions</TableHead>
+        <Card variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableCell header>Name</TableCell>
+                <TableCell header>Rate</TableCell>
+                <TableCell header>Type</TableCell>
+                <TableCell header>Default</TableCell>
+                <TableCell header align="right">
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {taxRates.map((rate) => (
+                <TableRow key={rate.id}>
+                  <TableCell className="font-[var(--weight-medium)]">
+                    {rate.name}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {parseFloat(rate.rate).toFixed(2)}%
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="default">
+                      {rate.is_inclusive ? "Inclusive" : "Exclusive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {rate.is_default && (
+                      <Star className="h-4 w-4 fill-[color:var(--color-primary)] text-[color:var(--color-primary)]" />
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    <div className="flex items-center justify-end gap-[var(--space-1)]">
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        onClick={() => openEdit(rate)}
+                        aria-label="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        onClick={() => handleDelete(rate.id)}
+                        loading={deleting === rate.id}
+                        aria-label="Delete"
+                        className="text-[color:var(--color-danger)] hover:bg-[color:var(--color-danger-bg)]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {taxRates.map((rate) => (
-                  <TableRow key={rate.id} className="even:bg-muted/20">
-                    <TableCell className="pl-4 font-medium">{rate.name}</TableCell>
-                    <TableCell className="tabular-nums">
-                      {parseFloat(rate.rate).toFixed(2)}%
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {rate.is_inclusive ? "Inclusive" : "Exclusive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {rate.is_default && (
-                        <Star className="h-4 w-4 fill-primary text-primary" />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right pr-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => openEdit(rate)}
-                          className="touch-target"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleDelete(rate.id)}
-                          disabled={deleting === rate.id}
-                          className="text-destructive hover:text-destructive touch-target"
-                        >
-                          {deleting === rate.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       )}
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
+      {/* Create/Edit Modal */}
+      <Modal open={dialogOpen} onOpenChange={setDialogOpen}>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>
               {editingRate ? "Edit Tax Rate" : "New Tax Rate"}
-            </DialogTitle>
-            <DialogDescription>
+            </ModalTitle>
+            <ModalDescription>
               {editingRate
                 ? "Update the tax rate configuration."
                 : "Define a new tax rate for this location."}
-            </DialogDescription>
-          </DialogHeader>
+            </ModalDescription>
+          </ModalHeader>
 
-          <div className="space-y-5 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="tr-name">Name *</Label>
-              <Input
-                id="tr-name"
-                className="h-12"
-                placeholder="State Sales Tax"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-              />
-            </div>
+          <ModalBody className="gap-[var(--space-5)]">
+            <Text
+              size="lg"
+              label="Name"
+              required
+              placeholder="State Sales Tax"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+            />
+            <Text
+              size="lg"
+              label="Rate (%)"
+              required
+              placeholder="8.25"
+              className="tabular-nums"
+              value={formRate}
+              onChange={(e) => setFormRate(e.target.value)}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="tr-rate">Rate (%) *</Label>
-              <Input
-                id="tr-rate"
-                className="h-12 tabular-nums"
-                placeholder="8.25"
-                value={formRate}
-                onChange={(e) => setFormRate(e.target.value)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <p className="text-sm font-medium">Default rate</p>
-                <p className="text-xs text-muted-foreground">
-                  Applied to items without a specific tax rate
-                </p>
-              </div>
-              <Switch
+            <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-[var(--space-4)]">
+              <Toggle
                 checked={formIsDefault}
-                onCheckedChange={setFormIsDefault}
+                onChange={setFormIsDefault}
+                label="Default rate"
+                helper="Applied to items without a specific tax rate"
               />
             </div>
-
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <p className="text-sm font-medium">Tax inclusive</p>
-                <p className="text-xs text-muted-foreground">
-                  Tax is included in the item price
-                </p>
-              </div>
-              <Switch
+            <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-[var(--space-4)]">
+              <Toggle
                 checked={formIsInclusive}
-                onCheckedChange={setFormIsInclusive}
+                onChange={setFormIsInclusive}
+                label="Tax inclusive"
+                helper="Tax is included in the item price"
               />
             </div>
-          </div>
+          </ModalBody>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              className="h-11 touch-target"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="h-11 gap-2 btn-press touch-target"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          <ModalFooter>
+            <ModalClose
+              render={
+                <Button variant="secondary" size="lg">
+                  Cancel
+                </Button>
+              }
+            />
+            <Button onClick={handleSave} size="lg" loading={saving}>
               {editingRate ? "Save Changes" : "Create"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
 
 function TaxRatesSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-28" />
+        <Skeleton className="h-7 w-32" />
         <Skeleton className="h-11 w-36" />
       </div>
-      <Card className="shadow-warm-sm">
-        <CardContent className="p-4 space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </CardContent>
-      </Card>
+      <Skeleton variant="table-row" />
+      <Skeleton variant="table-row" />
+      <Skeleton variant="table-row" />
     </div>
   );
 }

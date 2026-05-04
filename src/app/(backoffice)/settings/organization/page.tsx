@@ -5,20 +5,14 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Building2, Loader2, Save } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Building2, Save } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui-v2/Card";
+import { Button } from "@/components/ui-v2/Button";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { Email } from "@/components/ui-v2/inputs/Email";
+import { Field } from "@/components/ui-v2/inputs/Field";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
 
 const TIMEZONES = [
   "America/New_York",
@@ -57,12 +51,15 @@ interface OrgData {
   settings: Record<string, unknown>;
 }
 
+const TZ_OPTIONS = TIMEZONES.map((tz) => ({ value: tz, label: tz.replace(/_/g, " ") }));
+const CCY_OPTIONS = CURRENCIES.map((c) => ({ value: c, label: c }));
+
 export default function OrganizationSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [orgData, setOrgData] = useState<OrgData | null>(null);
-  const [timezone, setTimezone] = useState("America/New_York");
-  const [currency, setCurrency] = useState("USD");
+  const [timezone, setTimezone] = useState<string>("America/New_York");
+  const [currency, setCurrency] = useState<string>("USD");
 
   const {
     register,
@@ -137,185 +134,158 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-[var(--space-6)]">
+      {/* Page header */}
+      <div>
+        <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+          Organization
+        </h2>
+        <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+          Core business details, regional preferences, and subscription info.
+        </p>
+      </div>
+
       {/* Business Info */}
-      <Card className="shadow-warm-sm">
+      <Card variant="flat" padding="default">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
+          <CardTitle className="flex items-center gap-[var(--space-2)]">
+            <Building2 className="h-5 w-5 text-[color:var(--color-primary)]" />
             Business Information
           </CardTitle>
-          <CardDescription>
-            Core details about your organization.
-          </CardDescription>
+          <CardDescription>Core details about your organization.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Organization Name *</Label>
-              <Input
-                id="name"
-                className="h-12"
-                placeholder="My Restaurant"
-                {...register("name")}
-              />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="legal_name">Legal Name</Label>
-              <Input
-                id="legal_name"
-                className="h-12"
-                placeholder="My Restaurant LLC"
-                {...register("legal_name")}
-              />
-            </div>
+        <CardBody className="gap-[var(--space-5)]">
+          <div className="grid gap-[var(--space-5)] sm:grid-cols-2">
+            <Text
+              size="lg"
+              label="Organization Name"
+              required
+              placeholder="My Restaurant"
+              {...register("name")}
+              error={errors.name?.message}
+            />
+            <Text
+              size="lg"
+              label="Legal Name"
+              placeholder="My Restaurant LLC"
+              {...register("legal_name")}
+            />
           </div>
 
-          <Separator />
-
-          <div className="grid gap-5 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="owner_name">Owner Name</Label>
-              <Input
-                id="owner_name"
-                className="h-12"
-                placeholder="John Doe"
-                {...register("owner_name")}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="owner_email">Owner Email</Label>
-              <Input
-                id="owner_email"
-                type="email"
-                className="h-12"
-                placeholder="john@example.com"
-                {...register("owner_email")}
-              />
-              {errors.owner_email && (
-                <p className="text-xs text-destructive">{errors.owner_email.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="owner_phone">Owner Phone</Label>
-              <Input
-                id="owner_phone"
-                className="h-12"
-                placeholder="(555) 123-4567"
-                {...register("owner_phone")}
-              />
-            </div>
+          <div className="grid gap-[var(--space-5)] sm:grid-cols-3">
+            <Text
+              size="lg"
+              label="Owner Name"
+              placeholder="John Doe"
+              {...register("owner_name")}
+            />
+            <Email
+              size="lg"
+              label="Owner Email"
+              placeholder="john@example.com"
+              {...register("owner_email")}
+              error={errors.owner_email?.message}
+            />
+            <Text
+              size="lg"
+              label="Owner Phone"
+              placeholder="(555) 123-4567"
+              {...register("owner_phone")}
+            />
           </div>
-        </CardContent>
+        </CardBody>
       </Card>
 
       {/* Regional Settings */}
-      <Card className="shadow-warm-sm">
+      <Card variant="flat" padding="default">
         <CardHeader>
           <CardTitle>Regional Settings</CardTitle>
           <CardDescription>
             Timezone and currency affect all locations by default.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-5 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Timezone</Label>
-              <Select value={timezone} onValueChange={(v) => v && setTimezone(v)}>
-                <SelectTrigger className="h-12 w-full">
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {tz.replace(/_/g, " ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Currency</Label>
-              <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-                <SelectTrigger className="h-12 w-full">
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="primary_color">Brand Color</Label>
-              <div className="flex items-center gap-3">
-                <Input
+        <CardBody>
+          <div className="grid gap-[var(--space-5)] sm:grid-cols-3">
+            <Select
+              size="lg"
+              label="Timezone"
+              options={TZ_OPTIONS}
+              value={timezone}
+              onChange={(v) => setTimezone(v)}
+            />
+            <Select
+              size="lg"
+              label="Currency"
+              options={CCY_OPTIONS}
+              value={currency}
+              onChange={(v) => setCurrency(v)}
+            />
+            <Field id="primary_color" label="Brand Color">
+              <div className="flex items-center gap-[var(--space-3)]">
+                <input
                   id="primary_color"
                   type="color"
-                  className="h-12 w-16 cursor-pointer p-1"
+                  className="h-[44px] w-[64px] cursor-pointer rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-[2px]"
                   {...register("primary_color")}
                 />
-                <Input
-                  className="h-12 flex-1 font-mono"
+                <Text
+                  size="lg"
+                  className="flex-1 font-mono"
                   placeholder="#007AFF"
                   {...register("primary_color")}
                 />
               </div>
-            </div>
+            </Field>
           </div>
-        </CardContent>
+        </CardBody>
       </Card>
 
       {/* Subscription Info (read-only) */}
       {orgData && (
-        <Card className="shadow-warm-sm">
+        <Card variant="flat" padding="default">
           <CardHeader>
             <CardTitle>Subscription</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-5 sm:grid-cols-2">
+          <CardBody>
+            <div className="grid gap-[var(--space-5)] sm:grid-cols-2">
               <div>
-                <p className="text-sm text-muted-foreground">Plan</p>
-                <p className="text-sm font-medium capitalize">{orgData.plan}</p>
+                <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                  Plan
+                </p>
+                <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] capitalize text-[color:var(--color-text)]">
+                  {orgData.plan}
+                </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <p className="text-sm font-medium capitalize">
+                <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                  Status
+                </p>
+                <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] capitalize text-[color:var(--color-text)]">
                   {orgData.subscription_status.replace(/_/g, " ")}
                 </p>
               </div>
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
       {/* Save bar */}
-      <div className="flex items-center justify-end gap-3 rounded-xl border border-border bg-card p-4 shadow-warm-sm">
+      <div className="flex items-center justify-end gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-[var(--space-4)] shadow-[var(--shadow-low)]">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
+          size="lg"
           onClick={() => fetchOrg()}
           disabled={saving || !isDirty}
-          className="h-11 touch-target"
         >
           Discard Changes
         </Button>
         <Button
           type="submit"
-          disabled={saving}
-          className="h-11 gap-2 touch-target btn-press"
+          size="lg"
+          loading={saving}
+          leadingIcon={<Save className="h-4 w-4" />}
         >
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
           Save Changes
         </Button>
       </div>
@@ -325,36 +295,9 @@ export default function OrganizationSettingsPage() {
 
 function OrgSkeleton() {
   return (
-    <div className="space-y-6">
-      <Card className="shadow-warm-sm">
-        <CardHeader>
-          <Skeleton className="h-5 w-48" />
-          <Skeleton className="h-4 w-64" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="shadow-warm-sm">
-        <CardHeader>
-          <Skeleton className="h-5 w-36" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex flex-col gap-[var(--space-6)]">
+      <Skeleton variant="card" className="h-[260px]" />
+      <Skeleton variant="card" className="h-[200px]" />
     </div>
   );
 }

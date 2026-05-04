@@ -7,49 +7,31 @@ import {
   BookOpen,
   CheckCircle2,
   ExternalLink,
-  Loader2,
   RefreshCw,
   Unplug,
   Zap,
 } from "lucide-react";
 import {
   Card,
-  CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  CardDescription,
+  CardBody,
+} from "@/components/ui-v2/Card";
+import { Button } from "@/components/ui-v2/Button";
+import { Badge } from "@/components/ui-v2/data/Badge";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
+import { Alert } from "@/components/ui-v2/feedback/Alert";
+import { ConfirmDialog } from "@/components/ui-v2/feedback/ConfirmDialog";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-
-// --- Types ---
+} from "@/components/ui-v2/data/Table";
 
 interface AccountingStatus {
   is_connected: boolean;
@@ -79,58 +61,20 @@ interface SyncLogEntry {
 
 type SyncType = "daily_sales" | "payments" | "labor";
 
-// --- Constants ---
-
 const ACCOUNT_FIELDS: {
   key: keyof AccountMappings;
   label: string;
   placeholder: string;
 }[] = [
-  {
-    key: "sales_account",
-    label: "Sales Revenue Account",
-    placeholder: "e.g. 4000 - Sales Revenue",
-  },
-  {
-    key: "tax_account",
-    label: "Sales Tax Payable Account",
-    placeholder: "e.g. 2100 - Sales Tax Payable",
-  },
-  {
-    key: "tips_account",
-    label: "Tips Payable Account",
-    placeholder: "e.g. 2200 - Tips Payable",
-  },
-  {
-    key: "cash_account",
-    label: "Cash on Hand Account",
-    placeholder: "e.g. 1010 - Cash on Hand",
-  },
-  {
-    key: "card_account",
-    label: "Credit Card Clearing Account",
-    placeholder: "e.g. 1050 - CC Clearing",
-  },
-  {
-    key: "gift_card_account",
-    label: "Gift Card Liability Account",
-    placeholder: "e.g. 2300 - Gift Card Liability",
-  },
-  {
-    key: "discount_account",
-    label: "Discounts Account",
-    placeholder: "e.g. 4900 - Discounts Given",
-  },
-  {
-    key: "cogs_account",
-    label: "Cost of Goods Sold Account",
-    placeholder: "e.g. 5000 - COGS",
-  },
-  {
-    key: "labor_account",
-    label: "Labor / Payroll Account",
-    placeholder: "e.g. 6000 - Payroll Expense",
-  },
+  { key: "sales_account", label: "Sales Revenue Account", placeholder: "e.g. 4000 - Sales Revenue" },
+  { key: "tax_account", label: "Sales Tax Payable Account", placeholder: "e.g. 2100 - Sales Tax Payable" },
+  { key: "tips_account", label: "Tips Payable Account", placeholder: "e.g. 2200 - Tips Payable" },
+  { key: "cash_account", label: "Cash on Hand Account", placeholder: "e.g. 1010 - Cash on Hand" },
+  { key: "card_account", label: "Credit Card Clearing Account", placeholder: "e.g. 1050 - CC Clearing" },
+  { key: "gift_card_account", label: "Gift Card Liability Account", placeholder: "e.g. 2300 - Gift Card Liability" },
+  { key: "discount_account", label: "Discounts Account", placeholder: "e.g. 4900 - Discounts Given" },
+  { key: "cogs_account", label: "Cost of Goods Sold Account", placeholder: "e.g. 5000 - COGS" },
+  { key: "labor_account", label: "Labor / Payroll Account", placeholder: "e.g. 6000 - Payroll Expense" },
 ];
 
 const SYNC_TYPE_LABELS: Record<SyncType, string> = {
@@ -139,11 +83,22 @@ const SYNC_TYPE_LABELS: Record<SyncType, string> = {
   labor: "Labor",
 };
 
-// --- Page Component ---
+const SYNC_OPTIONS: { value: SyncType; label: string }[] = [
+  { value: "daily_sales", label: "Daily Sales" },
+  { value: "payments", label: "Payments" },
+  { value: "labor", label: "Labor" },
+];
 
 export default function AccountingPageWrapper() {
   return (
-    <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="animate-spin h-8 w-8 border-2 border-[var(--primary)] border-t-transparent rounded-full" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex flex-col gap-[var(--space-6)]">
+          <Skeleton className="h-7 w-64" />
+          <Skeleton variant="card" />
+        </div>
+      }
+    >
       <AccountingPage />
     </Suspense>
   );
@@ -162,13 +117,11 @@ function AccountingPage() {
   const [disconnectOpen, setDisconnectOpen] = useState(false);
   const [mappings, setMappings] = useState<AccountMappings>({});
 
-  // Show success/error messages from callback redirect
   useEffect(() => {
     const success = searchParams.get("success");
     const error = searchParams.get("error");
     if (success) {
       toast.success(success);
-      // Clean URL
       window.history.replaceState({}, "", "/settings/accounting");
     }
     if (error) {
@@ -202,7 +155,6 @@ function AccountingPage() {
       const res = await fetch("/api/accounting/connect");
       if (!res.ok) throw new Error("Failed to get connect URL");
       const json = await res.json();
-      // Redirect to QBO OAuth page
       window.location.href = json.url;
     } catch {
       toast.error("Failed to initiate QuickBooks connection");
@@ -216,7 +168,6 @@ function AccountingPage() {
       const res = await fetch("/api/accounting/disconnect", { method: "POST" });
       if (!res.ok) throw new Error("Failed to disconnect");
       toast.success("Disconnected from QuickBooks");
-      setDisconnectOpen(false);
       fetchStatus();
     } catch {
       toast.error("Failed to disconnect");
@@ -255,9 +206,7 @@ function AccountingPage() {
         throw new Error(json.error ?? "Sync failed");
       }
       const json = await res.json();
-      toast.success(
-        `${SYNC_TYPE_LABELS[syncType]} sync completed`
-      );
+      toast.success(`${SYNC_TYPE_LABELS[syncType]} sync completed`);
       setSyncHistory((prev) => [
         {
           sync_id: json.sync_id,
@@ -267,10 +216,9 @@ function AccountingPage() {
         },
         ...prev,
       ]);
-      fetchStatus(); // Refresh last_sync_at
+      fetchStatus();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Sync failed";
+      const message = err instanceof Error ? err.message : "Sync failed";
       toast.error(message);
     } finally {
       setSyncing(false);
@@ -288,39 +236,27 @@ function AccountingPage() {
   const isConnected = status?.is_connected ?? false;
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
+    <div className="flex flex-col gap-[var(--space-6)]">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
           QuickBooks Online Integration
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
           Sync daily sales, payments, and labor data to your accounting system.
         </p>
       </div>
 
       {/* Connection status card */}
-      <Card className="shadow-warm-sm">
+      <Card variant="flat" padding="default">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#2CA01C]/10">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-7 w-7"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <circle cx="12" cy="12" r="10" fill="#2CA01C" />
-                  <path
-                    d="M8 12c0-1.66 1.34-3 3-3h2c1.66 0 3 1.34 3 3s-1.34 3-3 3h-2c-1.66 0-3-1.34-3-3z"
-                    fill="white"
-                  />
-                </svg>
+          <div className="flex items-start justify-between gap-[var(--space-3)]">
+            <div className="flex items-center gap-[var(--space-3)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--color-success-bg)]">
+                <BookOpen className="h-6 w-6 text-[color:var(--color-success)]" />
               </div>
               <div>
-                <CardTitle className="text-base">QuickBooks Online</CardTitle>
-                <CardDescription className="mt-0.5">
+                <CardTitle>QuickBooks Online</CardTitle>
+                <CardDescription className="mt-[2px]">
                   {isConnected
                     ? "Your account is connected and syncing."
                     : "Connect to automatically sync sales, payments, and labor data."}
@@ -328,217 +264,155 @@ function AccountingPage() {
               </div>
             </div>
             {isConnected ? (
-              <Badge className="bg-success/10 text-success border-success/20 shrink-0">
-                <CheckCircle2 className="mr-1 h-3 w-3" />
+              <Badge variant="success" shape="pill">
+                <CheckCircle2 className="mr-[var(--space-1)] h-3 w-3" />
                 Connected
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-muted-foreground shrink-0">
+              <Badge variant="default" shape="pill">
                 Disconnected
               </Badge>
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardBody>
           {isConnected ? (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <div className="flex flex-wrap items-center gap-x-[var(--space-6)] gap-y-[var(--space-2)] text-[length:var(--type-subhead-size)]">
               {status?.realm_id && (
-                <div className="text-muted-foreground">
+                <div className="text-[color:var(--color-text-muted)]">
                   Company ID:{" "}
-                  <span className="font-mono text-foreground">
-                    {status.realm_id}
-                  </span>
+                  <span className="font-mono text-[color:var(--color-text)]">{status.realm_id}</span>
                 </div>
               )}
               {status?.last_sync_at && (
-                <div className="text-muted-foreground">
+                <div className="text-[color:var(--color-text-muted)]">
                   Last sync:{" "}
-                  <span className="text-foreground">
+                  <span className="text-[color:var(--color-text)]">
                     {new Date(status.last_sync_at).toLocaleString()}
                   </span>
                 </div>
               )}
               <div className="ml-auto">
-                <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
-                  <DialogTrigger
-                    render={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive border-destructive/30 hover:bg-destructive/5"
-                      />
-                    }
-                  >
-                    <Unplug className="mr-1.5 h-3.5 w-3.5" />
-                    Disconnect
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Disconnect QuickBooks?</DialogTitle>
-                      <DialogDescription>
-                        This will stop all automatic syncing. Your existing data
-                        in QuickBooks will not be affected. You can reconnect at
-                        any time.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => setDisconnectOpen(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={handleDisconnect}
-                        disabled={disconnecting}
-                      >
-                        {disconnecting && (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        )}
-                        Disconnect
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => setDisconnectOpen(true)}
+                  leadingIcon={<Unplug className="h-4 w-4" />}
+                  className="text-[color:var(--color-danger)]"
+                >
+                  Disconnect
+                </Button>
               </div>
             </div>
           ) : (
-            <Button
-              onClick={handleConnect}
-              disabled={connecting}
-              className="btn-press"
-            >
-              {connecting ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <ExternalLink className="mr-1.5 h-4 w-4" />
-              )}
-              Connect to QuickBooks
-            </Button>
+            <div>
+              <Button
+                onClick={handleConnect}
+                size="lg"
+                loading={connecting}
+                leadingIcon={<ExternalLink className="h-4 w-4" />}
+              >
+                Connect to QuickBooks
+              </Button>
+            </div>
           )}
-        </CardContent>
+        </CardBody>
       </Card>
 
-      {/* Account mappings — only when connected */}
+      {/* Account mappings */}
       {isConnected && (
-        <Card className="shadow-warm-sm">
+        <Card variant="flat" padding="default">
           <CardHeader>
-            <CardTitle className="text-base">Account Mappings</CardTitle>
+            <CardTitle>Account Mappings</CardTitle>
             <CardDescription>
               Map Sear POS data to your QuickBooks chart of accounts. Enter the
               account name or number as it appears in QuickBooks.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
+          <CardBody>
+            <div className="grid gap-[var(--space-4)] sm:grid-cols-2">
               {ACCOUNT_FIELDS.map((field) => (
-                <div key={field.key} className="space-y-1.5">
-                  <Label htmlFor={field.key} className="text-sm">
-                    {field.label}
-                  </Label>
-                  <Input
-                    id={field.key}
-                    value={mappings[field.key] ?? ""}
-                    onChange={(e) => updateMapping(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                  />
-                </div>
+                <Text
+                  key={field.key}
+                  size="md"
+                  label={field.label}
+                  id={field.key}
+                  value={mappings[field.key] ?? ""}
+                  onChange={(e) => updateMapping(field.key, e.target.value)}
+                  placeholder={field.placeholder}
+                />
               ))}
             </div>
-            <div className="mt-6 flex justify-end">
-              <Button
-                onClick={handleSaveSettings}
-                disabled={savingSettings}
-                className="btn-press"
-              >
-                {savingSettings && (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                )}
+            <div className="mt-[var(--space-6)] flex justify-end">
+              <Button onClick={handleSaveSettings} size="lg" loading={savingSettings}>
                 Save Mappings
               </Button>
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
-      {/* Sync section — only when connected */}
+      {/* Sync section */}
       {isConnected && (
-        <Card className="shadow-warm-sm">
+        <Card variant="flat" padding="default">
           <CardHeader>
-            <CardTitle className="text-base">Manual Sync</CardTitle>
+            <CardTitle>Manual Sync</CardTitle>
             <CardDescription>
               Trigger a sync to push data to QuickBooks immediately.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-sm">Sync Type</Label>
+          <CardBody>
+            <div className="flex flex-wrap items-end gap-[var(--space-3)]">
+              <div className="w-48">
                 <Select
+                  size="md"
+                  label="Sync Type"
+                  options={SYNC_OPTIONS}
                   value={syncType}
-                  onValueChange={(v) =>
-                    v && setSyncType(v as SyncType)
-                  }
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily_sales">Daily Sales</SelectItem>
-                    <SelectItem value="payments">Payments</SelectItem>
-                    <SelectItem value="labor">Labor</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setSyncType(v as SyncType)}
+                />
               </div>
               <Button
                 onClick={handleSync}
-                disabled={syncing}
-                className="btn-press"
+                size="lg"
+                loading={syncing}
+                leadingIcon={<RefreshCw className="h-4 w-4" />}
               >
-                {syncing ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-1.5 h-4 w-4" />
-                )}
                 Sync Now
               </Button>
             </div>
 
-            {/* Sync history */}
             {syncHistory.length > 0 && (
-              <div className="mt-6">
-                <h4 className="mb-2 text-sm font-medium text-foreground">
+              <div className="mt-[var(--space-6)]">
+                <h4 className="mb-[var(--space-2)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-text)]">
                   Recent Syncs
                 </h4>
-                <div className="rounded-lg border">
+                <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableCell header>Date</TableCell>
+                        <TableCell header>Type</TableCell>
+                        <TableCell header>Status</TableCell>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {syncHistory.map((entry) => (
                         <TableRow key={entry.sync_id}>
-                          <TableCell className="text-sm">
+                          <TableCell>
                             {new Date(entry.created_at).toLocaleString()}
                           </TableCell>
-                          <TableCell className="text-sm">
-                            {SYNC_TYPE_LABELS[
-                              entry.sync_type as SyncType
-                            ] ?? entry.sync_type}
+                          <TableCell>
+                            {SYNC_TYPE_LABELS[entry.sync_type as SyncType] ?? entry.sync_type}
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={
+                              variant={
                                 entry.status === "completed"
-                                  ? "bg-success/10 text-success border-success/20"
+                                  ? "success"
                                   : entry.status === "failed"
-                                    ? "bg-error/10 text-error border-error/20"
-                                    : "bg-warning/10 text-warning border-warning/20"
+                                    ? "danger"
+                                    : "warning"
                               }
                             >
                               {entry.status}
@@ -551,91 +425,63 @@ function AccountingPage() {
                 </div>
               </div>
             )}
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
       {/* Info section */}
-      <Card className="shadow-warm-sm">
+      <Card variant="flat" padding="default">
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">What Gets Synced</CardTitle>
+          <div className="flex items-center gap-[var(--space-2)]">
+            <BookOpen className="h-4 w-4 text-[color:var(--color-text-muted)]" />
+            <CardTitle>What Gets Synced</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
-          <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-            <li className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-primary" />
-              Daily sales totals by category
-            </li>
-            <li className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-primary" />
-              Payment method breakdown (cash, card, gift card)
-            </li>
-            <li className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-primary" />
-              Tax collected
-            </li>
-            <li className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-primary" />
-              Tips collected and distributed
-            </li>
-            <li className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-primary" />
-              Labor hours and cost
-            </li>
-            <li className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-primary" />
-              Discounts and comps
-            </li>
+        <CardBody>
+          <ul className="grid gap-[var(--space-2)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] sm:grid-cols-2">
+            {[
+              "Daily sales totals by category",
+              "Payment method breakdown (cash, card, gift card)",
+              "Tax collected",
+              "Tips collected and distributed",
+              "Labor hours and cost",
+              "Discounts and comps",
+            ].map((item) => (
+              <li key={item} className="flex items-center gap-[var(--space-2)]">
+                <Zap className="h-3.5 w-3.5 text-[color:var(--color-primary)]" />
+                {item}
+              </li>
+            ))}
           </ul>
-          <p className="mt-4 rounded-lg bg-info/5 px-3 py-2 text-sm text-info border border-info/10">
-            Syncs automatically at end-of-day close. Use manual sync for
-            on-demand updates.
-          </p>
-        </CardContent>
+          <Alert variant="info" className="mt-[var(--space-4)]">
+            Syncs automatically at end-of-day close. Use manual sync for on-demand updates.
+          </Alert>
+        </CardBody>
       </Card>
+
+      <ConfirmDialog
+        open={disconnectOpen}
+        onOpenChange={setDisconnectOpen}
+        title="Disconnect QuickBooks?"
+        description="This will stop all automatic syncing. Your existing data in QuickBooks will not be affected. You can reconnect at any time."
+        confirmLabel="Disconnect"
+        variant="destructive"
+        loading={disconnecting}
+        onConfirm={handleDisconnect}
+      />
     </div>
   );
 }
 
 function AccountingSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       <div>
-        <Skeleton className="h-6 w-64" />
-        <Skeleton className="h-4 w-96 mt-2" />
+        <Skeleton className="h-7 w-64" />
+        <Skeleton className="mt-[var(--space-2)] h-4 w-96" />
       </div>
-      <Card className="shadow-warm-sm">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-12 w-12 rounded-xl" />
-            <div>
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-4 w-64 mt-1" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-10 w-48" />
-        </CardContent>
-      </Card>
-      <Card className="shadow-warm-sm">
-        <CardHeader>
-          <Skeleton className="h-5 w-32" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="space-y-1.5">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <Skeleton variant="card" />
+      <Skeleton variant="card" />
     </div>
   );
 }

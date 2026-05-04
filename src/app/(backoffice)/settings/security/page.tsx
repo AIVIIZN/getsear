@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ShieldCheck, ShieldOff, Loader2, AlertTriangle } from 'lucide-react'
+import { ShieldCheck, ShieldOff, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { Badge } from '@/components/ui-v2/data/Badge'
+import { ConfirmDialog } from '@/components/ui-v2/feedback/ConfirmDialog'
 import { MFASetup } from '@/components/auth/MFASetup'
 
 interface MfaFactor {
@@ -23,6 +27,7 @@ export default function SecuritySettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSetup, setShowSetup] = useState(false)
   const [isDisabling, setIsDisabling] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const fetchMfaStatus = useCallback(async () => {
     try {
@@ -43,10 +48,6 @@ export default function SecuritySettingsPage() {
   }, [fetchMfaStatus])
 
   async function handleDisableMFA() {
-    if (!window.confirm('Are you sure you want to disable two-factor authentication? Your account will be less secure.')) {
-      return
-    }
-
     setIsDisabling(true)
     try {
       const res = await fetch('/api/auth/mfa/setup', { method: 'DELETE' })
@@ -75,207 +76,180 @@ export default function SecuritySettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin" style={{ color: 'var(--muted-foreground)' }} />
+      <div className="flex flex-col gap-[var(--space-6)]">
+        <div>
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="mt-[var(--space-2)] h-4 w-80" />
+        </div>
+        <Skeleton variant="card" className="h-32" />
+        <Skeleton variant="card" className="h-32" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-[var(--space-8)]">
       {/* Page header */}
       <div>
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--foreground)' }}>
+        <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
           Security
         </h2>
-        <p className="mt-1 text-sm" style={{ color: 'var(--muted-foreground)' }}>
+        <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
           Manage two-factor authentication and account security settings.
         </p>
       </div>
 
-      {/* Two-Factor Authentication section */}
-      <div
-        className="rounded-xl border"
-        style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border)',
-        }}
-      >
-        <div className="border-b p-6" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+      {/* Two-Factor Authentication */}
+      <Card variant="flat" padding="default" className="gap-0 p-0">
+        <div className="border-b border-[color:var(--color-border)] p-[var(--space-6)]">
+          <div className="flex items-center justify-between gap-[var(--space-4)]">
+            <div className="flex items-center gap-[var(--space-3)]">
               {mfaStatus?.is_enrolled ? (
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: 'var(--success, #22C55E)', color: 'white' }}
-                >
-                  <ShieldCheck className="size-5" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--color-success-bg)]">
+                  <ShieldCheck className="h-5 w-5 text-[color:var(--color-success)]" />
                 </div>
               ) : (
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
-                >
-                  <ShieldOff className="size-5" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--color-bg-muted)]">
+                  <ShieldOff className="h-5 w-5 text-[color:var(--color-text-muted)]" />
                 </div>
               )}
               <div>
-                <h3 className="font-semibold" style={{ color: 'var(--foreground)' }}>
+                <h3 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
                   Two-Factor Authentication
                 </h3>
-                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
                   {mfaStatus?.is_enrolled
                     ? 'Your account is protected with 2FA'
                     : 'Add an extra layer of security to your account'}
                 </p>
               </div>
             </div>
-
-            {/* Status badge */}
-            <div
-              className="rounded-full px-3 py-1 text-xs font-semibold"
-              style={{
-                backgroundColor: mfaStatus?.is_enrolled
-                  ? 'rgba(34, 197, 94, 0.1)'
-                  : 'rgba(239, 68, 68, 0.1)',
-                color: mfaStatus?.is_enrolled
-                  ? 'var(--success, #22C55E)'
-                  : 'var(--error)',
-              }}
-            >
-              {mfaStatus?.is_enrolled ? 'Enabled' : 'Not configured'}
-            </div>
+            {mfaStatus?.is_enrolled ? (
+              <Badge variant="success" shape="pill">
+                Enabled
+              </Badge>
+            ) : (
+              <Badge variant="danger" shape="pill">
+                Not configured
+              </Badge>
+            )}
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-[var(--space-6)]">
           {showSetup ? (
             <MFASetup onComplete={handleSetupComplete} />
           ) : mfaStatus?.is_enrolled ? (
-            <div className="space-y-4">
-              {/* Enrolled factors */}
+            <div className="flex flex-col gap-[var(--space-4)]">
               {mfaStatus.factors
                 .filter((f) => f.status === 'verified')
                 .map((factor) => (
                   <div
                     key={factor.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
-                    style={{ borderColor: 'var(--border)' }}
+                    className="flex items-center justify-between gap-[var(--space-4)] rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-[var(--space-4)]"
                   >
                     <div>
-                      <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                      <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-text)]">
                         {factor.friendly_name || 'Authenticator App'}
                       </p>
-                      <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                      <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                         Added {new Date(factor.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDisableMFA}
-                      disabled={isDisabling}
-                      className="h-9 text-sm touch-target"
-                      style={{ color: 'var(--error)' }}
+                      variant="destructive"
+                      size="md"
+                      onClick={() => setConfirmOpen(true)}
+                      loading={isDisabling}
                     >
-                      {isDisabling ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        'Disable'
-                      )}
+                      Disable
                     </Button>
                   </div>
                 ))}
 
               {/* Security warning */}
-              <div
-                className="flex items-start gap-3 rounded-lg p-4"
-                style={{ backgroundColor: 'var(--muted)' }}
-              >
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--warning, #EAB308)' }} />
-                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              <div className="flex items-start gap-[var(--space-3)] rounded-[var(--radius-md)] bg-[color:var(--color-warning-bg)] p-[var(--space-4)]">
+                <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0 text-[color:var(--color-warning)]" />
+                <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                   If you disable two-factor authentication, your account will only be protected
                   by your password. We strongly recommend keeping 2FA enabled.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+            <div className="flex flex-col gap-[var(--space-4)]">
+              <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
                 Two-factor authentication adds an additional layer of security by requiring
                 a verification code from your authenticator app when you sign in.
                 Recommended for all owner and admin accounts.
               </p>
-              <Button
-                onClick={() => setShowSetup(true)}
-                className="h-12 touch-target text-base font-semibold"
-              >
-                Set up two-factor authentication
-              </Button>
+              <div>
+                <Button onClick={() => setShowSetup(true)} size="lg">
+                  Set up two-factor authentication
+                </Button>
+              </div>
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Password section */}
-      <div
-        className="rounded-xl border"
-        style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border)',
-        }}
-      >
-        <div className="p-6">
-          <h3 className="font-semibold" style={{ color: 'var(--foreground)' }}>
+      <Card variant="flat" padding="default">
+        <div>
+          <h3 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
             Password
           </h3>
-          <p className="mt-1 text-sm" style={{ color: 'var(--muted-foreground)' }}>
+          <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
             Change your password or request a password reset link via email.
           </p>
-          <div className="mt-4">
-            <Button
-              variant="outline"
-              className="h-12 touch-target"
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/auth/me')
-                  const json = await res.json()
-                  if (json.user?.email) {
-                    await fetch('/api/auth/forgot-password', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ email: json.user.email }),
-                    })
-                    toast.success('Password reset link sent to your email')
-                  }
-                } catch {
-                  toast.error('Failed to send reset link')
-                }
-              }}
-            >
-              Send password reset link
-            </Button>
-          </div>
         </div>
-      </div>
+        <div>
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/auth/me')
+                const json = await res.json()
+                if (json.user?.email) {
+                  await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: json.user.email }),
+                  })
+                  toast.success('Password reset link sent to your email')
+                }
+              } catch {
+                toast.error('Failed to send reset link')
+              }
+            }}
+          >
+            Send password reset link
+          </Button>
+        </div>
+      </Card>
 
       {/* Session info */}
-      <div
-        className="rounded-xl border"
-        style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border)',
-        }}
-      >
-        <div className="p-6">
-          <h3 className="font-semibold" style={{ color: 'var(--foreground)' }}>
+      <Card variant="flat" padding="default">
+        <div>
+          <h3 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
             Session
           </h3>
-          <p className="mt-1 text-sm" style={{ color: 'var(--muted-foreground)' }}>
+          <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
             POS terminals stay signed in for 12 hours. Back-office sessions expire after 1 hour of inactivity.
           </p>
         </div>
-      </div>
+      </Card>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Disable two-factor authentication?"
+        description="Your account will be less secure. You can re-enable 2FA at any time."
+        confirmLabel="Disable 2FA"
+        variant="destructive"
+        onConfirm={handleDisableMFA}
+      />
     </div>
   )
 }

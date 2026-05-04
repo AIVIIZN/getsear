@@ -2,9 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Save, Send, FileText, ScrollText, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Send, FileText, ScrollText } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Email } from '@/components/ui-v2/inputs/Email'
+import { Text } from '@/components/ui-v2/inputs/Text'
+import { Toggle } from '@/components/ui-v2/inputs/Toggle'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { ConnectionStatus } from '@/components/integrations/ConnectionStatus'
 import { ApiKeyInput } from '@/components/integrations/ApiKeyInput'
 import { useIntegrationsStore } from '@/stores/integrations-store'
@@ -27,7 +32,9 @@ export default function EmailConfigPage() {
     password_reset: true,
   })
 
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error' | 'loading'>('disconnected')
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connected' | 'disconnected' | 'error' | 'loading'
+  >('disconnected')
   const [errorMessage, setErrorMessage] = useState<string | undefined>()
 
   const locationId = '00000000-0000-0000-0000-000000000001'
@@ -55,9 +62,12 @@ export default function EmailConfigPage() {
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId, setStatus])
 
-  useEffect(() => { fetchConfig() }, [fetchConfig])
+  useEffect(() => {
+    fetchConfig()
+  }, [fetchConfig])
 
   const handleSave = async () => {
     setSaving(true)
@@ -122,57 +132,62 @@ export default function EmailConfigPage() {
   }
 
   const toggleNotification = (key: keyof typeof notifications) => {
-    setNotifications(prev => ({ ...prev, [key]: !prev[key] }))
+    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col gap-[var(--space-6)] max-w-2xl">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="flex max-w-2xl flex-col gap-[var(--space-6)]">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-[var(--space-3)]">
         <Link
           href="/settings/integrations"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+          className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+          aria-label="Back to integrations"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-foreground">Email Configuration</h2>
-          <p className="text-sm text-muted-foreground">Configure SendGrid for email notifications</p>
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            Email Configuration
+          </h2>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Configure SendGrid for email notifications
+          </p>
         </div>
         <ConnectionStatus status={connectionStatus} errorMessage={errorMessage} />
       </div>
 
       {/* Sub-nav */}
-      <div className="flex gap-2">
-        <Link
-          href="/settings/integrations/email/templates"
-          className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
-        >
-          <FileText className="h-4 w-4" />
-          Templates
+      <div className="flex gap-[var(--space-2)]">
+        <Link href="/settings/integrations/email/templates" className="block">
+          <Button variant="secondary" size="md" leadingIcon={<FileText className="h-4 w-4" />}>
+            Templates
+          </Button>
         </Link>
-        <Link
-          href="/settings/integrations/email/log"
-          className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
-        >
-          <ScrollText className="h-4 w-4" />
-          Delivery Log
+        <Link href="/settings/integrations/email/log" className="block">
+          <Button variant="secondary" size="md" leadingIcon={<ScrollText className="h-4 w-4" />}>
+            Delivery Log
+          </Button>
         </Link>
       </div>
 
       {/* Credentials */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white p-6 space-y-5">
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">SendGrid Credentials</h3>
+      <Card variant="flat" padding="default">
+        <h3 className="text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text)]">
+          SendGrid Credentials
+        </h3>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-[var(--space-4)]">
           <ApiKeyInput
             id="api_key"
             label="API Key"
@@ -182,121 +197,85 @@ export default function EmailConfigPage() {
             helpText="Create an API key in SendGrid Settings > API Keys with Mail Send permission"
           />
 
-          <div className="space-y-1.5">
-            <label htmlFor="sender_email" className="text-sm font-medium text-foreground">Sender Email</label>
-            <input
-              id="sender_email"
-              type="email"
-              value={senderEmail}
-              onChange={(e) => setSenderEmail(e.target.value)}
-              placeholder="noreply@yourdomain.com"
-              className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
-            />
-            <p className="text-xs text-muted-foreground">Must be a verified sender in SendGrid</p>
-          </div>
+          <Email
+            size="lg"
+            label="Sender Email"
+            value={senderEmail}
+            onChange={(e) => setSenderEmail(e.target.value)}
+            placeholder="noreply@yourdomain.com"
+            helper="Must be a verified sender in SendGrid"
+          />
 
-          <div className="space-y-1.5">
-            <label htmlFor="sender_name" className="text-sm font-medium text-foreground">Sender Name</label>
-            <input
-              id="sender_name"
-              type="text"
-              value={senderName}
-              onChange={(e) => setSenderName(e.target.value)}
-              placeholder="Sear Grill Downtown"
-              className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
-            />
-          </div>
+          <Text
+            size="lg"
+            label="Sender Name"
+            value={senderName}
+            onChange={(e) => setSenderName(e.target.value)}
+            placeholder="Sear Grill Downtown"
+          />
 
-          <div className="space-y-1.5">
-            <label htmlFor="reply_to" className="text-sm font-medium text-foreground">Reply-To Address (optional)</label>
-            <input
-              id="reply_to"
-              type="email"
-              value={replyTo}
-              onChange={(e) => setReplyTo(e.target.value)}
-              placeholder="hello@yourdomain.com"
-              className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
-            />
-          </div>
+          <Email
+            size="lg"
+            label="Reply-To Address (optional)"
+            value={replyTo}
+            onChange={(e) => setReplyTo(e.target.value)}
+            placeholder="hello@yourdomain.com"
+          />
 
-          <button
-            onClick={handleTest}
-            disabled={testing || !apiKey || !senderEmail}
-            className={cn(
-              'flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors touch-target',
-              'bg-[var(--secondary)] text-foreground hover:bg-[var(--muted)]',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
-          >
-            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send Test Email
-          </button>
+          <div>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={handleTest}
+              disabled={!apiKey || !senderEmail}
+              loading={testing}
+              leadingIcon={<Send className="h-4 w-4" />}
+            >
+              Send Test Email
+            </Button>
+          </div>
         </div>
-      </div>
+      </Card>
 
       {/* Notification Toggles */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white p-6 space-y-5">
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Email Types</h3>
+      <Card variant="flat" padding="default">
+        <h3 className="text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text)]">
+          Email Types
+        </h3>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-[var(--space-4)]">
           {[
             { key: 'receipts' as const, label: 'Receipts', desc: 'Send email receipts after payment' },
             { key: 'daily_reports' as const, label: 'Daily Reports', desc: 'Send daily performance summaries to owners and managers' },
             { key: 'marketing' as const, label: 'Marketing Campaigns', desc: 'Send promotional emails (CAN-SPAM compliant)' },
             { key: 'password_reset' as const, label: 'Password Reset', desc: 'Allow password reset via email' },
           ].map(({ key, label, desc }) => (
-            <div key={key} className="flex items-start justify-between gap-4 py-1">
-              <div>
-                <p className="text-sm font-medium text-foreground">{label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={notifications[key]}
-                onClick={() => toggleNotification(key)}
-                className={cn(
-                  'relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors touch-target',
-                  notifications[key] ? 'bg-[var(--primary)]' : 'bg-[var(--muted)]'
-                )}
-              >
-                <span className={cn('pointer-events-none block h-6 w-6 rounded-full bg-white shadow-lg transition-transform', notifications[key] ? 'translate-x-5' : 'translate-x-0')} />
-              </button>
-            </div>
+            <Toggle
+              key={key}
+              checked={notifications[key]}
+              onChange={() => toggleNotification(key)}
+              label={label}
+              helper={desc}
+            />
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* Save */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isActive}
-            onClick={() => setIsActive(!isActive)}
-            className={cn(
-              'relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors touch-target',
-              isActive ? 'bg-[var(--success)]' : 'bg-[var(--muted)]'
-            )}
-          >
-            <span className={cn('pointer-events-none block h-6 w-6 rounded-full bg-white shadow-lg transition-transform', isActive ? 'translate-x-5' : 'translate-x-0')} />
-          </button>
-          <span className="text-sm font-medium text-foreground">Integration {isActive ? 'Active' : 'Inactive'}</span>
-        </div>
-        <button
+        <Toggle
+          checked={isActive}
+          onChange={setIsActive}
+          label={`Integration ${isActive ? 'Active' : 'Inactive'}`}
+        />
+        <Button
           onClick={handleSave}
-          disabled={saving}
-          className={cn(
-            'flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-colors',
-            'bg-[var(--primary)] hover:bg-[var(--primary-hover)]',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            'touch-target shadow-sm'
-          )}
+          loading={saving}
+          size="lg"
+          leadingIcon={<Save className="h-4 w-4" />}
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save Configuration
-        </button>
+        </Button>
       </div>
     </div>
   )

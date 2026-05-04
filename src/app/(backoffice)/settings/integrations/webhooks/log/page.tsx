@@ -4,7 +4,11 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import { DeliveryLogTable, type DeliveryLogEntry, type DeliveryStatus } from '@/components/integrations/DeliveryLogTable'
+import {
+  DeliveryLogTable,
+  type DeliveryLogEntry,
+  type DeliveryStatus,
+} from '@/components/integrations/DeliveryLogTable'
 
 export default function WebhookDeliveryLogPage() {
   const [entries, setEntries] = useState<DeliveryLogEntry[]>([])
@@ -46,20 +50,27 @@ export default function WebhookDeliveryLogPage() {
     }
   }, [locationId, statusFilter])
 
-  useEffect(() => { fetchLog() }, [fetchLog])
+  useEffect(() => {
+    fetchLog()
+  }, [fetchLog])
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-[var(--space-6)]">
+      <div className="flex items-center gap-[var(--space-3)]">
         <Link
           href="/settings/integrations/webhooks"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+          className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+          aria-label="Back to webhooks"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Webhook Delivery Log</h2>
-          <p className="text-sm text-muted-foreground">{total} total deliveries</p>
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            Webhook Delivery Log
+          </h2>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            {total} total deliveries
+          </p>
         </div>
       </div>
 

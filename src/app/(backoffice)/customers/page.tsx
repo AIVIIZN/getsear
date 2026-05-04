@@ -8,46 +8,49 @@ import {
   Star,
   AlertTriangle,
   X,
-  ChevronUp,
-  ChevronDown,
   Loader2,
   Merge,
   Trash2,
   MapPin,
 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui-v2/Button"
+import { Card } from "@/components/ui-v2/Card"
+import { Text } from "@/components/ui-v2/inputs/Text"
+import { Email } from "@/components/ui-v2/inputs/Email"
+import { Textarea } from "@/components/ui-v2/inputs/Textarea"
+import { Toggle } from "@/components/ui-v2/inputs/Toggle"
+import { Skeleton } from "@/components/ui-v2/data/Skeleton"
+import { Badge } from "@/components/ui-v2/data/Badge"
+import { Avatar } from "@/components/ui-v2/data/Avatar"
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
+import { ConfirmDialog } from "@/components/ui-v2/feedback/ConfirmDialog"
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
-} from "@/components/ui/table"
+  TableHeader,
+  TableRow,
+  type SortDirection,
+} from "@/components/ui-v2/data/Table"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+  SheetBody,
+} from "@/components/ui-v2/Sheet"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { EmptyState } from "@/components/shared/EmptyState"
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+  ModalClose,
+} from "@/components/ui-v2/Modal"
+import { cn } from "@/lib/utils"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -111,26 +114,20 @@ interface Pagination {
 
 type SortField = "last_name" | "total_visits" | "total_spend" | "last_visit_at"
 
-// ---------------------------------------------------------------------------
-// Tag colors
-// ---------------------------------------------------------------------------
-const TAG_COLORS: Record<string, string> = {
-  vip: "bg-amber-100 text-amber-800 border-amber-200",
-  regular: "bg-blue-100 text-blue-800 border-blue-200",
-  "food-allergy": "bg-red-100 text-red-800 border-red-200",
-  "birthday-month": "bg-pink-100 text-pink-800 border-pink-200",
-  "gluten-free": "bg-emerald-100 text-emerald-800 border-emerald-200",
-  vegetarian: "bg-green-100 text-green-800 border-green-200",
-  vegan: "bg-lime-100 text-lime-800 border-lime-200",
+const TAG_VARIANTS: Record<string, "primary" | "warning" | "danger" | "success" | "info" | "default"> = {
+  vip: "warning",
+  regular: "info",
+  "food-allergy": "danger",
+  "birthday-month": "primary",
+  "gluten-free": "success",
+  vegetarian: "success",
+  vegan: "success",
 }
 
-function getTagColor(tag: string): string {
-  return TAG_COLORS[tag] ?? "bg-gray-100 text-gray-700 border-gray-200"
+function getTagVariant(tag: string) {
+  return TAG_VARIANTS[tag] ?? "default"
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 function formatCurrency(val: string | number): string {
   const n = typeof val === "string" ? parseFloat(val) : val
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n)
@@ -145,15 +142,7 @@ function formatDate(iso: string | null): string {
   })
 }
 
-function getInitials(first: string, last: string): string {
-  return ((first?.[0] ?? "") + (last?.[0] ?? "")).toUpperCase() || "?"
-}
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 export default function CustomersPage() {
-  // ---- list state ----
   const [customers, setCustomers] = React.useState<Customer[]>([])
   const [pagination, setPagination] = React.useState<Pagination>({
     page: 1,
@@ -166,14 +155,12 @@ export default function CustomersPage() {
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("asc")
   const [loading, setLoading] = React.useState(true)
 
-  // ---- detail state ----
   const [selectedCustomer, setSelectedCustomer] = React.useState<CustomerDetail | null>(null)
   const [sheetOpen, setSheetOpen] = React.useState(false)
   const [detailLoading, setDetailLoading] = React.useState(false)
   const [orders, setOrders] = React.useState<OrderRecord[]>([])
   const [ordersLoading, setOrdersLoading] = React.useState(false)
 
-  // ---- create state ----
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createLoading, setCreateLoading] = React.useState(false)
   const [createForm, setCreateForm] = React.useState({
@@ -184,24 +171,19 @@ export default function CustomersPage() {
   })
   const [createError, setCreateError] = React.useState<string | null>(null)
 
-  // ---- merge state ----
   const [mergeOpen, setMergeOpen] = React.useState(false)
   const [mergeLoading, setMergeLoading] = React.useState(false)
   const [mergeSecondaryId, setMergeSecondaryId] = React.useState("")
   const [mergeSearch, setMergeSearch] = React.useState("")
   const [mergeResults, setMergeResults] = React.useState<Customer[]>([])
 
-  // ---- edit state (inline in sheet) ----
   const [editNotes, setEditNotes] = React.useState("")
   const [editTags, setEditTags] = React.useState<string[]>([])
   const [newTag, setNewTag] = React.useState("")
   const [editVip, setEditVip] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
 
-  // debounced search
-  const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // ---- fetch list ----
   const fetchCustomers = React.useCallback(
     async (page = 1) => {
       setLoading(true)
@@ -225,23 +207,13 @@ export default function CustomersPage() {
         setLoading(false)
       }
     },
-    [search, sortBy, sortDir]
+    [search, sortBy, sortDir],
   )
 
   React.useEffect(() => {
     fetchCustomers(1)
   }, [fetchCustomers])
 
-  // ---- search debounce ----
-  function handleSearchChange(val: string) {
-    setSearch(val)
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    searchTimeoutRef.current = setTimeout(() => {
-      // fetchCustomers triggers via effect
-    }, 300)
-  }
-
-  // ---- sorting ----
   function handleSort(field: SortField) {
     if (sortBy === field) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -251,16 +223,11 @@ export default function CustomersPage() {
     }
   }
 
-  function SortIcon({ field }: { field: SortField }) {
+  function getSortDirection(field: SortField): SortDirection {
     if (sortBy !== field) return null
-    return sortDir === "asc" ? (
-      <ChevronUp className="inline h-3.5 w-3.5 ml-0.5" />
-    ) : (
-      <ChevronDown className="inline h-3.5 w-3.5 ml-0.5" />
-    )
+    return sortDir
   }
 
-  // ---- open detail ----
   async function openCustomerDetail(id: string) {
     setSheetOpen(true)
     setDetailLoading(true)
@@ -274,7 +241,6 @@ export default function CustomersPage() {
       setEditNotes(c.notes ?? "")
       setEditTags(c.tags ?? [])
       setEditVip(c.is_vip)
-      // load orders
       fetchOrders(id)
     } catch {
       setSheetOpen(false)
@@ -297,7 +263,6 @@ export default function CustomersPage() {
     }
   }
 
-  // ---- save detail edits ----
   async function saveCustomerEdits() {
     if (!selectedCustomer) return
     setSaving(true)
@@ -322,7 +287,6 @@ export default function CustomersPage() {
     }
   }
 
-  // ---- create customer ----
   async function handleCreate() {
     setCreateLoading(true)
     setCreateError(null)
@@ -340,7 +304,9 @@ export default function CustomersPage() {
       const json = await res.json()
       if (!res.ok) {
         if (res.status === 409) {
-          setCreateError(`Duplicate found: ${json.duplicates?.[0]?.first_name ?? ""} ${json.duplicates?.[0]?.last_name ?? ""}`)
+          setCreateError(
+            `Duplicate found: ${json.duplicates?.[0]?.first_name ?? ""} ${json.duplicates?.[0]?.last_name ?? ""}`,
+          )
         } else {
           setCreateError(json.error ?? "Failed to create customer")
         }
@@ -356,10 +322,8 @@ export default function CustomersPage() {
     }
   }
 
-  // ---- delete customer ----
   async function handleDelete() {
     if (!selectedCustomer) return
-    if (!window.confirm(`Delete ${selectedCustomer.first_name} ${selectedCustomer.last_name}?`)) return
     try {
       const res = await fetch(`/api/customers/${selectedCustomer.id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Failed")
@@ -371,7 +335,6 @@ export default function CustomersPage() {
     }
   }
 
-  // ---- merge ----
   async function handleMergeSearch() {
     if (!mergeSearch.trim() || !selectedCustomer) return
     try {
@@ -402,7 +365,6 @@ export default function CustomersPage() {
       setMergeSecondaryId("")
       setMergeSearch("")
       setMergeResults([])
-      // Reload detail
       openCustomerDetail(selectedCustomer.id)
       fetchCustomers(pagination.page)
     } catch {
@@ -412,7 +374,6 @@ export default function CustomersPage() {
     }
   }
 
-  // ---- tag management ----
   function addTag() {
     const tag = newTag.trim().toLowerCase()
     if (tag && !editTags.includes(tag)) {
@@ -425,141 +386,154 @@ export default function CustomersPage() {
     setEditTags((prev) => prev.filter((t) => t !== tag))
   }
 
-  // ---- render ----
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">Customers</h1>
-          <p className="page-subtitle">
+          <h1 className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            Customers
+          </h1>
+          <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
             Manage guest profiles, preferences, and order history.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="btn-press">
-          <Plus className="mr-1.5 h-4 w-4" />
+        <Button
+          onClick={() => setCreateOpen(true)}
+          size="lg"
+          leadingIcon={<Plus className="h-4 w-4" />}
+        >
           Add Customer
         </Button>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
+      <div className="max-w-md">
+        <Text
+          size="lg"
           placeholder="Search by name, email, or phone..."
+          leadingIcon={<Search className="h-4 w-4" />}
           value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="h-12 pl-10 text-base"
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex flex-col gap-[var(--space-2)]">
+          <Skeleton variant="table-row" />
+          <Skeleton variant="table-row" />
+          <Skeleton variant="table-row" />
+          <Skeleton variant="table-row" />
+          <Skeleton variant="table-row" />
         </div>
       ) : customers.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No customers yet"
           description="They'll appear here after their first order."
-          actionLabel="Add Customer"
-          onAction={() => setCreateOpen(true)}
+          action={{ label: "Add Customer", onClick: () => setCreateOpen(true) }}
         />
       ) : (
         <>
-          <div className="rounded-lg border border-border bg-card shadow-warm-sm overflow-hidden">
+          <Card variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead
-                    className="cursor-pointer select-none"
-                    onClick={() => handleSort("last_name")}
+                  <TableCell
+                    header
+                    sortable
+                    sortDirection={getSortDirection("last_name")}
+                    onSort={() => handleSort("last_name")}
                   >
-                    Name <SortIcon field="last_name" />
-                  </TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none text-right"
-                    onClick={() => handleSort("total_visits")}
+                    Name
+                  </TableCell>
+                  <TableCell header>Email</TableCell>
+                  <TableCell header>Phone</TableCell>
+                  <TableCell
+                    header
+                    align="right"
+                    sortable
+                    sortDirection={getSortDirection("total_visits")}
+                    onSort={() => handleSort("total_visits")}
                   >
-                    Visits <SortIcon field="total_visits" />
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none text-right"
-                    onClick={() => handleSort("total_spend")}
+                    Visits
+                  </TableCell>
+                  <TableCell
+                    header
+                    align="right"
+                    sortable
+                    sortDirection={getSortDirection("total_spend")}
+                    onSort={() => handleSort("total_spend")}
                   >
-                    Total Spend <SortIcon field="total_spend" />
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none"
-                    onClick={() => handleSort("last_visit_at")}
+                    Total Spend
+                  </TableCell>
+                  <TableCell
+                    header
+                    sortable
+                    sortDirection={getSortDirection("last_visit_at")}
+                    onSort={() => handleSort("last_visit_at")}
                   >
-                    Last Visit <SortIcon field="last_visit_at" />
-                  </TableHead>
-                  <TableHead>Tags</TableHead>
+                    Last Visit
+                  </TableCell>
+                  <TableCell header>Tags</TableCell>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((c, idx) => (
+                {customers.map((c) => (
                   <TableRow
                     key={c.id}
-                    className={`cursor-pointer transition-colors hover:bg-accent/50 ${
-                      idx % 2 === 1 ? "bg-muted/30" : ""
-                    } ${c.is_vip ? "bg-amber-50/50 hover:bg-amber-50/80" : ""}`}
+                    interactive
                     onClick={() => openCustomerDetail(c.id)}
+                    className={cn(c.is_vip && "bg-[color:var(--color-warning-bg)]/30")}
                   >
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarFallback
-                            className={`text-xs font-medium ${
-                              c.is_vip
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {getInitials(c.first_name, c.last_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-foreground">
+                      <div className="flex items-center gap-[var(--space-3)]">
+                        <Avatar
+                          name={`${c.first_name} ${c.last_name}`}
+                          className={cn(
+                            c.is_vip
+                              ? "bg-[color:var(--color-warning-bg)] text-[color:var(--color-warning)]"
+                              : undefined,
+                          )}
+                        />
+                        <div className="flex items-center gap-[var(--space-1)]">
+                          <span className="font-[var(--weight-medium)] text-[color:var(--color-text)]">
                             {c.first_name} {c.last_name}
                           </span>
                           {c.is_vip && (
-                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            <Star className="h-3.5 w-3.5 fill-[color:var(--color-warning-strong)] text-[color:var(--color-warning-strong)]" />
                           )}
                           {c.allergies && c.allergies.length > 0 && (
-                            <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                            <AlertTriangle className="h-3.5 w-3.5 text-[color:var(--color-danger)]" />
                           )}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{c.email ?? "--"}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.phone ?? "--"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{c.total_visits}</TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-[color:var(--color-text-muted)]">
+                      {c.email ?? "--"}
+                    </TableCell>
+                    <TableCell className="text-[color:var(--color-text-muted)]">
+                      {c.phone ?? "--"}
+                    </TableCell>
+                    <TableCell align="right" className="tabular-nums">
+                      {c.total_visits}
+                    </TableCell>
+                    <TableCell align="right" className="tabular-nums">
                       {formatCurrency(c.total_spend)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-[color:var(--color-text-muted)]">
                       {formatDate(c.last_visit_at)}
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-[var(--space-1)]">
                         {(c.tags ?? []).slice(0, 3).map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className={`text-[11px] ${getTagColor(tag)}`}
-                          >
+                          <Badge key={tag} size="sm" variant={getTagVariant(tag)}>
                             {tag}
                           </Badge>
                         ))}
                         {(c.tags ?? []).length > 3 && (
-                          <Badge variant="outline" className="text-[11px]">
-                            +{c.tags.length - 3}
-                          </Badge>
+                          <Badge size="sm">+{c.tags.length - 3}</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -567,28 +541,28 @@ export default function CustomersPage() {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
 
           {/* Pagination */}
           {pagination.total_pages > 1 && (
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center justify-between text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
               <span>
                 Showing {(pagination.page - 1) * pagination.limit + 1}--
                 {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
                 {pagination.total} customers
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-[var(--space-2)]">
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="secondary"
+                  size="md"
                   disabled={pagination.page <= 1}
                   onClick={() => fetchCustomers(pagination.page - 1)}
                 >
                   Previous
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="secondary"
+                  size="md"
                   disabled={pagination.page >= pagination.total_pages}
                   onClick={() => fetchCustomers(pagination.page + 1)}
                 >
@@ -600,118 +574,105 @@ export default function CustomersPage() {
         </>
       )}
 
-      {/* ================================================================ */}
-      {/* Customer Detail Sheet                                            */}
-      {/* ================================================================ */}
+      {/* Customer Detail Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0">
+        <SheetContent side="right" width="lg">
           {detailLoading || !selectedCustomer ? (
             <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 w-6 animate-spin text-[color:var(--color-text-muted)]" />
             </div>
           ) : (
-            <ScrollArea className="h-full">
-              <div className="p-6 space-y-6">
-                {/* Header */}
-                <SheetHeader className="p-0">
-                  <div className="flex items-start gap-4">
-                    <Avatar
-                      className={`h-16 w-16 ${
-                        selectedCustomer.is_vip ? "ring-2 ring-amber-400" : ""
-                      }`}
-                    >
-                      <AvatarFallback
-                        className={`text-lg font-semibold ${
-                          selectedCustomer.is_vip
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {getInitials(
-                          selectedCustomer.first_name,
-                          selectedCustomer.last_name
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <SheetTitle className="text-xl">
-                        {selectedCustomer.first_name} {selectedCustomer.last_name}
-                      </SheetTitle>
-                      <SheetDescription className="mt-0.5">
-                        {selectedCustomer.email ?? "No email"} &middot;{" "}
-                        {selectedCustomer.phone ?? "No phone"}
-                      </SheetDescription>
-                      <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center gap-1.5">
-                          <Label htmlFor="vip-toggle" className="text-xs text-muted-foreground">
-                            VIP
-                          </Label>
-                          <Switch
-                            id="vip-toggle"
-                            checked={editVip}
-                            onCheckedChange={(val: boolean) => setEditVip(val)}
-                            size="sm"
-                          />
+            <>
+              <SheetHeader>
+                <div className="flex items-start gap-[var(--space-4)]">
+                  <Avatar
+                    size="lg"
+                    name={`${selectedCustomer.first_name} ${selectedCustomer.last_name}`}
+                    className={cn(
+                      selectedCustomer.is_vip
+                        ? "bg-[color:var(--color-warning-bg)] text-[color:var(--color-warning)] ring-2 ring-[color:var(--color-warning-strong)]"
+                        : undefined,
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <SheetTitle>
+                      {selectedCustomer.first_name} {selectedCustomer.last_name}
+                    </SheetTitle>
+                    <SheetDescription className="mt-[2px]">
+                      {selectedCustomer.email ?? "No email"} ·{" "}
+                      {selectedCustomer.phone ?? "No phone"}
+                    </SheetDescription>
+                    <div className="mt-[var(--space-2)] flex items-center gap-[var(--space-3)]">
+                      <Toggle
+                        size="md"
+                        checked={editVip}
+                        onChange={setEditVip}
+                        label="VIP"
+                      />
+                      {selectedCustomer.allergies.length > 0 && (
+                        <div className="flex items-center gap-[var(--space-1)] text-[length:var(--type-footnote-size)] text-[color:var(--color-danger)]">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Allergies: {selectedCustomer.allergies.join(", ")}
                         </div>
-                        {selectedCustomer.allergies.length > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-red-600">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            Allergies: {selectedCustomer.allergies.join(", ")}
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
-                </SheetHeader>
+                </div>
+              </SheetHeader>
 
+              <SheetBody className="flex flex-col gap-[var(--space-6)]">
                 {/* Stats row */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                    <div className="text-lg font-semibold tabular-nums">
+                <div className="grid grid-cols-3 gap-[var(--space-3)]">
+                  <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)] p-[var(--space-3)] text-center">
+                    <div className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] tabular-nums">
                       {selectedCustomer.total_visits}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">Visits</div>
+                    <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                      Visits
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                    <div className="text-lg font-semibold tabular-nums">
+                  <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)] p-[var(--space-3)] text-center">
+                    <div className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] tabular-nums">
                       {formatCurrency(selectedCustomer.total_spend)}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">Total Spent</div>
+                    <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                      Total Spent
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                    <div className="text-lg font-semibold tabular-nums">
+                  <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)] p-[var(--space-3)] text-center">
+                    <div className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] tabular-nums">
                       {formatDate(selectedCustomer.last_visit_at)}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">Last Visit</div>
+                    <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                      Last Visit
+                    </div>
                   </div>
                 </div>
 
-                <Separator />
+                <div className="border-t border-[color:var(--color-border)]" />
 
                 {/* Tags */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="flex flex-col gap-[var(--space-2)]">
+                  <label className="text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
                     Tags
-                  </Label>
-                  <div className="flex flex-wrap gap-1.5">
+                  </label>
+                  <div className="flex flex-wrap items-center gap-[var(--space-1)]">
                     {editTags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="outline"
-                        className={`text-xs pr-1 ${getTagColor(tag)}`}
-                      >
+                      <Badge key={tag} variant={getTagVariant(tag)} className="pr-[var(--space-1)]">
                         {tag}
                         <button
                           onClick={() => removeTag(tag)}
-                          className="ml-1 rounded-full hover:bg-black/10 p-0.5"
+                          className="btn-press ml-[var(--space-1)] inline-flex items-center justify-center rounded-full p-[2px] hover:bg-black/10"
                           type="button"
+                          aria-label={`Remove ${tag}`}
                         >
                           <X className="h-2.5 w-2.5" />
                         </button>
                       </Badge>
                     ))}
-                    <div className="flex items-center gap-1">
-                      <Input
+                    <div className="flex items-center gap-[var(--space-1)]">
+                      <Text
+                        size="md"
                         placeholder="Add tag..."
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
@@ -721,14 +682,14 @@ export default function CustomersPage() {
                             addTag()
                           }
                         }}
-                        className="h-6 w-24 text-xs"
+                        className="h-7 w-28 text-[length:var(--type-footnote-size)]"
                       />
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-xs"
                         onClick={addTag}
                         type="button"
+                        aria-label="Add tag"
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
@@ -737,69 +698,68 @@ export default function CustomersPage() {
                 </div>
 
                 {/* Notes */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Notes
-                  </Label>
+                <div className="flex flex-col gap-[var(--space-2)]">
                   <Textarea
+                    label="Notes"
+                    size="md"
                     value={editNotes}
                     onChange={(e) => setEditNotes(e.target.value)}
                     placeholder="Preferences, dietary restrictions, special requests..."
                     rows={3}
-                    className="resize-none text-sm"
+                    className="resize-none"
                   />
                 </div>
 
-                {/* Birthday */}
                 {selectedCustomer.birthday && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="flex flex-col gap-[var(--space-1)]">
+                    <label className="text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
                       Birthday
-                    </Label>
-                    <p className="text-sm">{formatDate(selectedCustomer.birthday)}</p>
+                    </label>
+                    <p className="text-[length:var(--type-subhead-size)]">
+                      {formatDate(selectedCustomer.birthday)}
+                    </p>
                   </div>
                 )}
 
-                {/* Save button */}
                 <Button
                   onClick={saveCustomerEdits}
-                  disabled={saving}
-                  className="w-full btn-press"
+                  loading={saving}
+                  size="lg"
+                  className="w-full"
                 >
-                  {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                   Save Changes
                 </Button>
 
-                <Separator />
+                <div className="border-t border-[color:var(--color-border)]" />
 
                 {/* Order History */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="flex flex-col gap-[var(--space-2)]">
+                  <label className="text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
                     Recent Orders ({selectedCustomer.order_count})
-                  </Label>
+                  </label>
                   {ordersLoading ? (
-                    <div className="flex justify-center py-4">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <div className="flex justify-center py-[var(--space-4)]">
+                      <Loader2 className="h-4 w-4 animate-spin text-[color:var(--color-text-muted)]" />
                     </div>
                   ) : orders.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">No orders yet.</p>
+                    <p className="py-[var(--space-2)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+                      No orders yet.
+                    </p>
                   ) : (
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-[var(--space-1)]">
                       {orders.map((o) => (
                         <div
                           key={o.id}
-                          className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                          className="flex items-center justify-between rounded-[var(--radius-sm)] border border-[color:var(--color-border)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--type-subhead-size)]"
                         >
-                          <div>
-                            <span className="font-medium">#{o.order_number}</span>
-                            <span className="mx-2 text-muted-foreground">
+                          <div className="flex items-center gap-[var(--space-2)]">
+                            <span className="font-[var(--weight-medium)]">#{o.order_number}</span>
+                            <span className="text-[color:var(--color-text-muted)]">
                               {formatDate(o.created_at)}
                             </span>
-                            <Badge variant="outline" className="text-[10px] ml-1">
-                              {o.status}
-                            </Badge>
+                            <Badge size="sm">{o.status}</Badge>
                           </div>
-                          <div className="tabular-nums font-medium">
+                          <div className="font-[var(--weight-medium)] tabular-nums">
                             {formatCurrency(o.total)}
                           </div>
                         </div>
@@ -808,33 +768,33 @@ export default function CustomersPage() {
                   )}
                 </div>
 
-                <Separator />
+                <div className="border-t border-[color:var(--color-border)]" />
 
                 {/* Addresses */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="flex flex-col gap-[var(--space-2)]">
+                  <label className="text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
                     Addresses
-                  </Label>
+                  </label>
                   {selectedCustomer.addresses.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">No saved addresses.</p>
+                    <p className="py-[var(--space-2)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+                      No saved addresses.
+                    </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-[var(--space-2)]">
                       {selectedCustomer.addresses.map((addr) => (
                         <div
                           key={addr.id}
-                          className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                          className="flex items-start gap-[var(--space-2)] rounded-[var(--radius-sm)] border border-[color:var(--color-border)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--type-subhead-size)]"
                         >
-                          <MapPin className="mt-0.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <MapPin className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[color:var(--color-text-muted)]" />
                           <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium capitalize">{addr.type}</span>
-                              {addr.is_default && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  Default
-                                </Badge>
-                              )}
+                            <div className="flex items-center gap-[var(--space-1)]">
+                              <span className="font-[var(--weight-medium)] capitalize">
+                                {addr.type}
+                              </span>
+                              {addr.is_default && <Badge size="sm">Default</Badge>}
                             </div>
-                            <p className="text-muted-foreground">
+                            <p className="text-[color:var(--color-text-muted)]">
                               {addr.address_line1}
                               {addr.address_line2 ? `, ${addr.address_line2}` : ""}
                               <br />
@@ -847,12 +807,13 @@ export default function CustomersPage() {
                   )}
                 </div>
 
-                <Separator />
+                <div className="border-t border-[color:var(--color-border)]" />
 
                 {/* Actions */}
-                <div className="flex gap-2">
+                <div className="flex gap-[var(--space-2)]">
                   <Button
-                    variant="outline"
+                    variant="secondary"
+                    size="lg"
                     className="flex-1"
                     onClick={() => {
                       setMergeOpen(true)
@@ -860,169 +821,177 @@ export default function CustomersPage() {
                       setMergeResults([])
                       setMergeSecondaryId("")
                     }}
+                    leadingIcon={<Merge className="h-4 w-4" />}
                   >
-                    <Merge className="mr-1.5 h-4 w-4" />
                     Merge Duplicate
                   </Button>
-                  <Button variant="outline" className="text-destructive" onClick={handleDelete}>
-                    <Trash2 className="mr-1.5 h-4 w-4" />
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    onClick={() => setDeleteOpen(true)}
+                    leadingIcon={<Trash2 className="h-4 w-4" />}
+                  >
                     Delete
                   </Button>
                 </div>
-              </div>
-            </ScrollArea>
+              </SheetBody>
+            </>
           )}
         </SheetContent>
       </Sheet>
 
-      {/* ================================================================ */}
-      {/* Create Customer Dialog                                           */}
-      {/* ================================================================ */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Customer</DialogTitle>
-            <DialogDescription>
+      {/* Create Customer Modal */}
+      <Modal open={createOpen} onOpenChange={setCreateOpen}>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>Add Customer</ModalTitle>
+            <ModalDescription>
               Create a new customer profile. Duplicate phone or email will be flagged.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="create-first">First Name *</Label>
-                <Input
-                  id="create-first"
-                  value={createForm.first_name}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, first_name: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="create-last">Last Name</Label>
-                <Input
-                  id="create-last"
-                  value={createForm.last_name}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, last_name: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-email">Email</Label>
-              <Input
-                id="create-email"
-                type="email"
-                value={createForm.email}
-                onChange={(e) =>
-                  setCreateForm((f) => ({ ...f, email: e.target.value }))
-                }
+            </ModalDescription>
+          </ModalHeader>
+          <ModalBody>
+            <div className="grid grid-cols-2 gap-[var(--space-3)]">
+              <Text
+                size="lg"
+                label="First Name"
+                required
+                value={createForm.first_name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, first_name: e.target.value }))}
+              />
+              <Text
+                size="lg"
+                label="Last Name"
+                value={createForm.last_name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, last_name: e.target.value }))}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-phone">Phone</Label>
-              <Input
-                id="create-phone"
-                type="tel"
-                value={createForm.phone}
-                onChange={(e) =>
-                  setCreateForm((f) => ({ ...f, phone: e.target.value }))
-                }
-              />
-            </div>
+            <Email
+              size="lg"
+              label="Email"
+              value={createForm.email}
+              onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+            />
+            <Text
+              size="lg"
+              label="Phone"
+              type="tel"
+              value={createForm.phone}
+              onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+            />
             {createError && (
-              <p className="text-sm text-destructive">{createError}</p>
+              <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-danger)]">
+                {createError}
+              </p>
             )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
-            </Button>
+          </ModalBody>
+          <ModalFooter>
+            <ModalClose
+              render={
+                <Button variant="secondary" size="lg">
+                  Cancel
+                </Button>
+              }
+            />
             <Button
               onClick={handleCreate}
-              disabled={createLoading || !createForm.first_name.trim()}
-              className="btn-press"
+              loading={createLoading}
+              disabled={!createForm.first_name.trim()}
+              size="lg"
             >
-              {createLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Create Customer
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-      {/* ================================================================ */}
-      {/* Merge Dialog                                                     */}
-      {/* ================================================================ */}
-      <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Merge Customer</DialogTitle>
-            <DialogDescription>
+      {/* Merge Modal */}
+      <Modal open={mergeOpen} onOpenChange={setMergeOpen}>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>Merge Customer</ModalTitle>
+            <ModalDescription>
               Search for the duplicate record to merge into{" "}
               <strong>
                 {selectedCustomer?.first_name} {selectedCustomer?.last_name}
               </strong>
               . All orders and data from the duplicate will be transferred.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex gap-2">
-              <Input
+            </ModalDescription>
+          </ModalHeader>
+          <ModalBody>
+            <div className="flex gap-[var(--space-2)]">
+              <Text
+                size="lg"
                 placeholder="Search duplicate by name, email, phone..."
                 value={mergeSearch}
                 onChange={(e) => setMergeSearch(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleMergeSearch()
                 }}
+                className="flex-1"
               />
-              <Button variant="outline" onClick={handleMergeSearch}>
+              <Button variant="secondary" size="lg" onClick={handleMergeSearch} aria-label="Search">
                 <Search className="h-4 w-4" />
               </Button>
             </div>
             {mergeResults.length > 0 && (
-              <div className="space-y-1 max-h-48 overflow-y-auto">
+              <div className="flex max-h-48 flex-col gap-[var(--space-1)] overflow-y-auto">
                 {mergeResults.map((c) => (
-                  <div
+                  <button
                     key={c.id}
-                    className={`flex items-center justify-between rounded-md border px-3 py-2 cursor-pointer transition-colors ${
-                      mergeSecondaryId === c.id
-                        ? "border-primary bg-accent"
-                        : "border-border hover:bg-muted/50"
-                    }`}
                     onClick={() => setMergeSecondaryId(c.id)}
+                    className={cn(
+                      "btn-press touch-target flex w-full items-center justify-between rounded-[var(--radius-sm)] border px-[var(--space-3)] py-[var(--space-2)] text-left",
+                      "transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]",
+                      mergeSecondaryId === c.id
+                        ? "border-[color:var(--color-primary)] bg-[color:var(--color-sidebar-active)]"
+                        : "border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)]",
+                    )}
                   >
                     <div>
-                      <span className="font-medium text-sm">
+                      <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)]">
                         {c.first_name} {c.last_name}
                       </span>
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ml-[var(--space-2)] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                         {c.email ?? c.phone ?? ""}
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                       {c.total_visits} visits
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMergeOpen(false)}>
-              Cancel
-            </Button>
+          </ModalBody>
+          <ModalFooter>
+            <ModalClose
+              render={
+                <Button variant="secondary" size="lg">
+                  Cancel
+                </Button>
+              }
+            />
             <Button
               onClick={handleMerge}
-              disabled={mergeLoading || !mergeSecondaryId}
-              className="btn-press"
+              loading={mergeLoading}
+              disabled={!mergeSecondaryId}
+              size="lg"
             >
-              {mergeLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Merge Records
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete customer?"
+        description={`This will permanently remove ${selectedCustomer?.first_name ?? ""} ${selectedCustomer?.last_name ?? ""}. Their order history will be preserved but unlinked.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

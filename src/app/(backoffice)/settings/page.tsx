@@ -11,8 +11,11 @@ import {
   Calculator,
   ChefHat,
   Plug2,
+  Sparkles,
+  Lock,
+  Printer,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui-v2/Card'
 
 const settingsLinks = [
   {
@@ -40,6 +43,18 @@ const settingsLinks = [
     description: 'Register and manage POS terminals',
   },
   {
+    href: '/settings/printers',
+    icon: Printer,
+    label: 'Printers',
+    description: 'Configure receipt and kitchen printers',
+  },
+  {
+    href: '/settings/kds',
+    icon: ChefHat,
+    label: 'KDS Stations',
+    description: 'Kitchen display, aging thresholds, printer failover',
+  },
+  {
     href: '/settings/roles',
     icon: Shield,
     label: 'Roles & Permissions',
@@ -58,10 +73,16 @@ const settingsLinks = [
     description: 'QuickBooks integration',
   },
   {
-    href: '/settings/kds',
-    icon: ChefHat,
-    label: 'KDS Stations',
-    description: 'Kitchen display, aging thresholds, printer failover',
+    href: '/settings/ai',
+    icon: Sparkles,
+    label: 'AI Intelligence',
+    description: 'Sear Ask, Insights, and Predictions',
+  },
+  {
+    href: '/settings/security',
+    icon: Lock,
+    label: 'Security',
+    description: 'Two-factor auth and account security',
   },
   {
     href: '/settings/integrations',
@@ -73,29 +94,36 @@ const settingsLinks = [
 
 export default function SettingsPage() {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       <div>
-        <h1 className="page-title">Settings</h1>
-        <p className="page-subtitle">Manage your restaurant configuration</p>
+        <h1 className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] leading-[var(--type-line-height-snug)] text-[color:var(--color-text)]">
+          Settings
+        </h1>
+        <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+          Manage your restaurant configuration
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-[var(--space-3)] sm:grid-cols-2 lg:grid-cols-3">
         {settingsLinks.map(({ href, icon: Icon, label, description }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              'btn-press flex items-start gap-4 rounded-2xl border bg-white p-5 transition-all',
-              'border-[var(--border)] shadow-warm-sm hover:shadow-warm-md'
-            )}
-          >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)]">
-              <Icon className="h-5 w-5 text-[var(--primary)]" />
-            </div>
-            <div>
-              <p className="text-headline text-foreground">{label}</p>
-              <p className="text-footnote text-muted-foreground mt-0.5">{description}</p>
-            </div>
+          <Link key={href} href={href} className="block">
+            <Card
+              variant="interactive"
+              padding="default"
+              className="flex-row items-start gap-[var(--space-4)]"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--color-sidebar-active)]">
+                <Icon className="h-5 w-5 text-[color:var(--color-primary)]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                  {label}
+                </p>
+                <p className="mt-[2px] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                  {description}
+                </p>
+              </div>
+            </Card>
           </Link>
         ))}
       </div>

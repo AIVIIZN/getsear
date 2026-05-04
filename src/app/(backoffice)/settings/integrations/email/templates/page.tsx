@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Eye } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmailTemplatePreview } from '@/components/integrations/EmailTemplatePreview'
-import { ReceiptEmail } from '@/components/integrations/ReceiptEmail'
 import {
   renderReceiptEmail,
   renderDailyReportEmail,
@@ -19,15 +18,14 @@ interface TemplatePreview {
   type: EmailTemplateType
   name: string
   description: string
-  color: string
 }
 
 const TEMPLATE_LIST: TemplatePreview[] = [
-  { type: 'receipt', name: 'Receipt', description: 'Itemized order receipt sent after payment', color: 'bg-[var(--success-bg)]' },
-  { type: 'daily_report', name: 'Daily Summary Report', description: 'Revenue, orders, and metrics summary', color: 'bg-[var(--info-bg)]' },
-  { type: 'marketing', name: 'Marketing Campaign', description: 'Promotional email with CAN-SPAM compliance', color: 'bg-[var(--warning-bg)]' },
-  { type: 'password_reset', name: 'Password Reset', description: 'Secure password reset link', color: 'bg-[var(--error-bg)]' },
-  { type: 'welcome', name: 'Welcome Email', description: 'Sent to new online ordering customers', color: 'bg-[var(--accent)]' },
+  { type: 'receipt', name: 'Receipt', description: 'Itemized order receipt sent after payment' },
+  { type: 'daily_report', name: 'Daily Summary Report', description: 'Revenue, orders, and metrics summary' },
+  { type: 'marketing', name: 'Marketing Campaign', description: 'Promotional email with CAN-SPAM compliance' },
+  { type: 'password_reset', name: 'Password Reset', description: 'Secure password reset link' },
+  { type: 'welcome', name: 'Welcome Email', description: 'Sent to new online ordering customers' },
 ]
 
 function getSampleHtml(type: EmailTemplateType): { subject: string; html: string } {
@@ -83,7 +81,8 @@ function getSampleHtml(type: EmailTemplateType): { subject: string; html: string
       const { html } = renderMarketingEmail({
         locationName: 'Sear Grill Downtown',
         locationAddress: '123 Main St, Austin, TX 78701',
-        bodyHtml: '<h2>Weekend Special!</h2><p>Join us this Saturday for our famous wagyu tasting menu. Reserve your table now and enjoy 20% off your first bottle of wine.</p>',
+        bodyHtml:
+          '<h2>Weekend Special!</h2><p>Join us this Saturday for our famous wagyu tasting menu. Reserve your table now and enjoy 20% off your first bottle of wine.</p>',
         ctaText: 'Reserve Now',
         ctaUrl: '#',
         unsubscribeUrl: '#',
@@ -100,47 +99,56 @@ export default function EmailTemplatesPage() {
   const preview = getSampleHtml(activeTemplate)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-[var(--space-3)]">
         <Link
           href="/settings/integrations/email"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+          className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+          aria-label="Back to email integration"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Email Templates</h2>
-          <p className="text-sm text-muted-foreground">Preview and customize email templates</p>
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            Email Templates
+          </h2>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Preview and customize email templates
+          </p>
         </div>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex gap-[var(--space-6)]">
         {/* Template list */}
-        <div className="w-56 shrink-0 space-y-1">
+        <div className="flex w-[224px] shrink-0 flex-col gap-[var(--space-1)]">
           {TEMPLATE_LIST.map((t) => (
             <button
               key={t.type}
               onClick={() => setActiveTemplate(t.type)}
               className={cn(
-                'flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left transition-colors touch-target',
+                'btn-press touch-target flex w-full flex-col items-start',
+                'rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-2)] text-left',
+                'transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]',
+                'focus-visible:outline-2 focus-visible:outline-[color:var(--color-border-focus)] focus-visible:outline-offset-2',
                 activeTemplate === t.type
-                  ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
-                  : 'text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground'
+                  ? 'bg-[color:var(--color-sidebar-active)] text-[color:var(--color-primary)]'
+                  : 'text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-sidebar)] hover:text-[color:var(--color-text)]',
               )}
             >
-              <span className="text-sm font-medium">{t.name}</span>
-              <span className="text-xs opacity-70 mt-0.5">{t.description}</span>
+              <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)]">
+                {t.name}
+              </span>
+              <span className="mt-[2px] text-[length:var(--type-footnote-size)] opacity-70">
+                {t.description}
+              </span>
             </button>
           ))}
         </div>
 
         {/* Preview */}
-        <div className="flex-1 min-w-0">
-          <EmailTemplatePreview
-            html={preview.html}
-            subject={preview.subject}
-          />
+        <div className="min-w-0 flex-1">
+          <EmailTemplatePreview html={preview.html} subject={preview.subject} />
         </div>
       </div>
     </div>

@@ -2,9 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Save, Send, FileText, ScrollText, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Send, FileText, ScrollText } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Text } from '@/components/ui-v2/inputs/Text'
+import { Toggle } from '@/components/ui-v2/inputs/Toggle'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { ConnectionStatus } from '@/components/integrations/ConnectionStatus'
 import { ApiKeyInput } from '@/components/integrations/ApiKeyInput'
 import { useIntegrationsStore } from '@/stores/integrations-store'
@@ -27,10 +31,11 @@ export default function SmsConfigPage() {
     marketing: false,
   })
 
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error' | 'loading'>('disconnected')
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connected' | 'disconnected' | 'error' | 'loading'
+  >('disconnected')
   const [errorMessage, setErrorMessage] = useState<string | undefined>()
 
-  // TODO: In production, get location_id from session/store
   const locationId = '00000000-0000-0000-0000-000000000001'
 
   const fetchConfig = useCallback(async () => {
@@ -46,7 +51,9 @@ export default function SmsConfigPage() {
         setIsActive(json.data.is_active ?? true)
         setNotifications(json.data.notifications ?? notifications)
 
-        const hasCredentials = json.data.account_sid && !json.data.account_sid.startsWith('****') || (json.data.account_sid?.length ?? 0) > 4
+        const hasCredentials =
+          (json.data.account_sid && !json.data.account_sid.startsWith('****')) ||
+          (json.data.account_sid?.length ?? 0) > 4
         setConnectionStatus(hasCredentials && json.data.is_active ? 'connected' : 'disconnected')
         setStatus('twilio', hasCredentials && json.data.is_active ? 'connected' : 'disconnected')
       }
@@ -56,6 +63,7 @@ export default function SmsConfigPage() {
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId, setStatus])
 
   useEffect(() => {
@@ -81,8 +89,9 @@ export default function SmsConfigPage() {
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       toast.success('SMS configuration saved')
-      setConnectionStatus(isActive && accountSid && authToken ? 'connected' : 'disconnected')
-      setStatus('twilio', isActive && accountSid && authToken ? 'connected' : 'disconnected')
+      const wasConnected = isActive && Boolean(accountSid) && Boolean(authToken)
+      setConnectionStatus(wasConnected ? 'connected' : 'disconnected')
+      setStatus('twilio', wasConnected ? 'connected' : 'disconnected')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     } finally {
@@ -117,7 +126,7 @@ export default function SmsConfigPage() {
         setErrorMessage(undefined)
         toast.success('Test SMS sent successfully!')
       }
-    } catch (err) {
+    } catch {
       setConnectionStatus('error')
       toast.error('Connection test failed')
     } finally {
@@ -126,68 +135,70 @@ export default function SmsConfigPage() {
   }
 
   const toggleNotification = (key: keyof typeof notifications) => {
-    setNotifications(prev => ({ ...prev, [key]: !prev[key] }))
+    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col gap-[var(--space-6)] max-w-2xl">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="flex max-w-2xl flex-col gap-[var(--space-6)]">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-[var(--space-3)]">
         <Link
           href="/settings/integrations"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+          className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+          aria-label="Back to integrations"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-foreground">SMS Configuration</h2>
-          <p className="text-sm text-muted-foreground">Configure Twilio for SMS notifications</p>
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            SMS Configuration
+          </h2>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Configure Twilio for SMS notifications
+          </p>
         </div>
         <ConnectionStatus status={connectionStatus} errorMessage={errorMessage} />
       </div>
 
       {/* Sub-nav */}
-      <div className="flex gap-2">
-        <Link
-          href="/settings/integrations/sms/templates"
-          className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
-        >
-          <FileText className="h-4 w-4" />
-          Templates
+      <div className="flex gap-[var(--space-2)]">
+        <Link href="/settings/integrations/sms/templates" className="block">
+          <Button variant="secondary" size="md" leadingIcon={<FileText className="h-4 w-4" />}>
+            Templates
+          </Button>
         </Link>
-        <Link
-          href="/settings/integrations/sms/log"
-          className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
-        >
-          <ScrollText className="h-4 w-4" />
-          Delivery Log
+        <Link href="/settings/integrations/sms/log" className="block">
+          <Button variant="secondary" size="md" leadingIcon={<ScrollText className="h-4 w-4" />}>
+            Delivery Log
+          </Button>
         </Link>
       </div>
 
       {/* Credentials */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white p-6 space-y-5">
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Twilio Credentials</h3>
+      <Card variant="flat" padding="default">
+        <h3 className="text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text)]">
+          Twilio Credentials
+        </h3>
 
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="sid" className="text-sm font-medium text-foreground">Account SID</label>
-            <input
-              id="sid"
-              type="text"
-              value={accountSid}
-              onChange={(e) => setAccountSid(e.target.value)}
-              placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
-            />
-          </div>
+        <div className="flex flex-col gap-[var(--space-4)]">
+          <Text
+            size="lg"
+            label="Account SID"
+            value={accountSid}
+            onChange={(e) => setAccountSid(e.target.value)}
+            placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            className="font-mono"
+          />
 
           <ApiKeyInput
             id="auth_token"
@@ -198,119 +209,87 @@ export default function SmsConfigPage() {
             helpText="Found in your Twilio Console under Account Info"
           />
 
-          <div className="space-y-1.5">
-            <label htmlFor="phone" className="text-sm font-medium text-foreground">Sending Phone Number</label>
-            <input
-              id="phone"
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="+15551234567"
-              className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
-            />
-            <p className="text-xs text-muted-foreground">E.164 format with country code</p>
-          </div>
+          <Text
+            size="lg"
+            label="Sending Phone Number"
+            type="tel"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            placeholder="+15551234567"
+            helper="E.164 format with country code"
+          />
 
-          <div className="space-y-1.5">
-            <label htmlFor="test_phone" className="text-sm font-medium text-foreground">Test Phone Number</label>
-            <div className="flex gap-2">
-              <input
+          <div className="flex flex-col gap-[var(--space-2)]">
+            <label
+              htmlFor="test_phone"
+              className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-text)]"
+            >
+              Test Phone Number
+            </label>
+            <div className="flex gap-[var(--space-2)]">
+              <Text
                 id="test_phone"
+                size="lg"
                 type="tel"
                 value={testPhone}
                 onChange={(e) => setTestPhone(e.target.value)}
                 placeholder="+15559876543"
-                className="flex h-11 flex-1 rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
+                className="flex-1"
               />
-              <button
+              <Button
+                variant="secondary"
+                size="lg"
                 onClick={handleTest}
-                disabled={testing || !accountSid || !authToken || !phoneNumber}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors touch-target',
-                  'bg-[var(--secondary)] text-foreground hover:bg-[var(--muted)]',
-                  'disabled:opacity-50 disabled:cursor-not-allowed'
-                )}
+                disabled={!accountSid || !authToken || !phoneNumber}
+                loading={testing}
+                leadingIcon={<Send className="h-4 w-4" />}
               >
-                {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Test
-              </button>
+              </Button>
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Notification Toggles */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white p-6 space-y-5">
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Notification Types</h3>
+      <Card variant="flat" padding="default">
+        <h3 className="text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text)]">
+          Notification Types
+        </h3>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-[var(--space-4)]">
           {[
             { key: 'order_ready' as const, label: 'Order Ready', desc: 'Notify customers when takeout/delivery orders are ready for pickup' },
             { key: 'reservation_reminder' as const, label: 'Reservation Reminders', desc: 'Send reminders 24 hours and 2 hours before reservations' },
             { key: 'waitlist_alert' as const, label: 'Waitlist Alerts', desc: 'Alert guests when their table is ready' },
             { key: 'marketing' as const, label: 'Marketing Campaigns', desc: 'Send promotional messages (requires opt-out language)' },
           ].map(({ key, label, desc }) => (
-            <div key={key} className="flex items-start justify-between gap-4 py-1">
-              <div>
-                <p className="text-sm font-medium text-foreground">{label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={notifications[key]}
-                onClick={() => toggleNotification(key)}
-                className={cn(
-                  'relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
-                  notifications[key] ? 'bg-[var(--primary)]' : 'bg-[var(--muted)]',
-                  'touch-target'
-                )}
-              >
-                <span
-                  className={cn(
-                    'pointer-events-none block h-6 w-6 rounded-full bg-white shadow-lg ring-0 transition-transform',
-                    notifications[key] ? 'translate-x-5' : 'translate-x-0'
-                  )}
-                />
-              </button>
-            </div>
+            <Toggle
+              key={key}
+              checked={notifications[key]}
+              onChange={() => toggleNotification(key)}
+              label={label}
+              helper={desc}
+            />
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* Active Toggle & Save */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isActive}
-            onClick={() => setIsActive(!isActive)}
-            className={cn(
-              'relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-              isActive ? 'bg-[var(--success)]' : 'bg-[var(--muted)]',
-              'touch-target'
-            )}
-          >
-            <span className={cn('pointer-events-none block h-6 w-6 rounded-full bg-white shadow-lg transition-transform', isActive ? 'translate-x-5' : 'translate-x-0')} />
-          </button>
-          <span className="text-sm font-medium text-foreground">Integration {isActive ? 'Active' : 'Inactive'}</span>
-        </div>
-
-        <button
+        <Toggle
+          checked={isActive}
+          onChange={setIsActive}
+          label={`Integration ${isActive ? 'Active' : 'Inactive'}`}
+        />
+        <Button
           onClick={handleSave}
-          disabled={saving}
-          className={cn(
-            'flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-colors',
-            'bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            'touch-target shadow-sm'
-          )}
+          loading={saving}
+          size="lg"
+          leadingIcon={<Save className="h-4 w-4" />}
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save Configuration
-        </button>
+        </Button>
       </div>
     </div>
   )

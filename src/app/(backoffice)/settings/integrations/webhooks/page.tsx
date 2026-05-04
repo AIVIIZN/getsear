@@ -3,11 +3,29 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, Plus, ScrollText, Loader2, Save, Trash2, Send, Copy, Check,
-  ChevronDown, ChevronUp, Code2,
+  ArrowLeft,
+  Plus,
+  ScrollText,
+  Save,
+  Trash2,
+  Send,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Code2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Text } from '@/components/ui-v2/inputs/Text'
+import { Toggle } from '@/components/ui-v2/inputs/Toggle'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { Badge } from '@/components/ui-v2/data/Badge'
+import { Alert } from '@/components/ui-v2/feedback/Alert'
+import { ConfirmDialog } from '@/components/ui-v2/feedback/ConfirmDialog'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { WEBHOOK_EVENTS, type WebhookEventType } from '@/lib/integrations/webhook-dispatcher'
 import { VERIFICATION_SAMPLES } from '@/lib/integrations/webhook-signature'
 
@@ -28,7 +46,6 @@ export default function WebhooksPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showDocs, setShowDocs] = useState(false)
 
-  // Create form
   const [newName, setNewName] = useState('')
   const [newUrl, setNewUrl] = useState('')
   const [newEvents, setNewEvents] = useState<WebhookEventType[]>([])
@@ -36,9 +53,10 @@ export default function WebhooksPage() {
   const [createdSecret, setCreatedSecret] = useState<string | null>(null)
   const [secretCopied, setSecretCopied] = useState(false)
 
-  // Test / delete
   const [testing, setTesting] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const locationId = '00000000-0000-0000-0000-000000000001'
 
@@ -55,7 +73,9 @@ export default function WebhooksPage() {
     }
   }, [locationId])
 
-  useEffect(() => { fetchEndpoints() }, [fetchEndpoints])
+  useEffect(() => {
+    fetchEndpoints()
+  }, [fetchEndpoints])
 
   const handleCreate = async () => {
     if (!newName || !newUrl || newEvents.length === 0) {
@@ -95,7 +115,9 @@ export default function WebhooksPage() {
       const res = await fetch(`/api/integrations/webhooks/${id}/test`, { method: 'POST' })
       const json = await res.json()
       if (json.data?.success) {
-        toast.success(`Test sent! Response: ${json.data.status_code} (${json.data.response_time_ms}ms)`)
+        toast.success(
+          `Test sent! Response: ${json.data.status_code} (${json.data.response_time_ms}ms)`,
+        )
       } else {
         toast.error(`Test failed: ${json.data?.error ?? 'Unknown error'}`)
       }
@@ -106,11 +128,18 @@ export default function WebhooksPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this webhook endpoint?')) return
-    setDeleting(id)
+  const requestDelete = (id: string) => {
+    setPendingDeleteId(id)
+    setDeleteOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!pendingDeleteId) return
+    setDeletingId(pendingDeleteId)
     try {
-      const res = await fetch(`/api/integrations/webhooks/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/integrations/webhooks/${pendingDeleteId}`, {
+        method: 'DELETE',
+      })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       toast.success('Webhook deleted')
@@ -118,7 +147,8 @@ export default function WebhooksPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete')
     } finally {
-      setDeleting(null)
+      setDeletingId(null)
+      setPendingDeleteId(null)
     }
   }
 
@@ -138,10 +168,8 @@ export default function WebhooksPage() {
   }
 
   const toggleEvent = (event: WebhookEventType) => {
-    setNewEvents(prev =>
-      prev.includes(event)
-        ? prev.filter(e => e !== event)
-        : [...prev, event]
+    setNewEvents((prev) =>
+      prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event],
     )
   }
 
@@ -160,112 +188,131 @@ export default function WebhooksPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col gap-[var(--space-6)]">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton variant="card" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[var(--space-3)]">
           <Link
             href="/settings/integrations"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+            className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+            aria-label="Back to integrations"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Webhooks</h2>
-            <p className="text-sm text-muted-foreground">{endpoints.length}/10 endpoints configured</p>
+            <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+              Webhooks
+            </h2>
+            <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+              {endpoints.length}/10 endpoints configured
+            </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href="/settings/integrations/webhooks/log"
-            className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
-          >
-            <ScrollText className="h-4 w-4" />
-            Delivery Log
+        <div className="flex gap-[var(--space-2)]">
+          <Link href="/settings/integrations/webhooks/log" className="block">
+            <Button variant="secondary" size="md" leadingIcon={<ScrollText className="h-4 w-4" />}>
+              Delivery Log
+            </Button>
           </Link>
-          <button
+          <Button
             onClick={() => setShowCreate(!showCreate)}
             disabled={endpoints.length >= 10}
-            className={cn(
-              'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors touch-target',
-              'bg-[var(--primary)] hover:bg-[var(--primary-hover)]',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
+            size="md"
+            leadingIcon={<Plus className="h-4 w-4" />}
           >
-            <Plus className="h-4 w-4" />
             Add Endpoint
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Secret display (after creation) */}
       {createdSecret && (
-        <div className="rounded-xl border border-[var(--success)]/30 bg-[var(--success-bg)] p-4 space-y-2">
-          <p className="text-sm font-semibold text-[#16a34a]">Webhook secret created</p>
-          <p className="text-xs text-muted-foreground">Copy this secret now. It won&apos;t be shown again.</p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-lg bg-white border border-[var(--border)] px-3 py-2 font-mono text-xs text-foreground overflow-x-auto">
+        <Alert variant="success" title="Webhook secret created">
+          <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+            Copy this secret now. It won&apos;t be shown again.
+          </p>
+          <div className="mt-[var(--space-2)] flex items-center gap-[var(--space-2)]">
+            <code className="flex-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-[var(--space-3)] py-[var(--space-2)] font-mono text-[length:var(--type-footnote-size)] text-[color:var(--color-text)]">
               {createdSecret}
             </code>
-            <button onClick={copySecret} className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] touch-target">
-              {secretCopied ? <Check className="h-4 w-4 text-[var(--success)]" /> : <Copy className="h-4 w-4" />}
-            </button>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={copySecret}
+              aria-label="Copy secret"
+            >
+              {secretCopied ? (
+                <Check className="h-4 w-4 text-[color:var(--color-success)]" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-          <button onClick={() => setCreatedSecret(null)} className="text-xs text-muted-foreground hover:text-foreground">Dismiss</button>
-        </div>
+          <button
+            onClick={() => setCreatedSecret(null)}
+            className="mt-[var(--space-2)] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]"
+          >
+            Dismiss
+          </button>
+        </Alert>
       )}
 
       {/* Create form */}
       {showCreate && (
-        <div className="rounded-2xl border border-[var(--border)] bg-white p-6 space-y-5">
-          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">New Webhook Endpoint</h3>
+        <Card variant="flat" padding="default">
+          <h3 className="text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text)]">
+            New Webhook Endpoint
+          </h3>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Name</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. Analytics Webhook"
-                className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">URL</label>
-              <input
-                type="url"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="https://example.com/webhook"
-                className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20 touch-target"
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-[var(--space-4)]">
+            <Text
+              size="lg"
+              label="Name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Analytics Webhook"
+            />
+            <Text
+              size="lg"
+              type="url"
+              label="URL"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              placeholder="https://example.com/webhook"
+              className="font-mono"
+            />
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-foreground">Subscribe to Events</p>
+          <div className="flex flex-col gap-[var(--space-3)]">
+            <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-text)]">
+              Subscribe to Events
+            </p>
             {Object.entries(groupedEvents).map(([category, events]) => (
               <div key={category}>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{category}</p>
-                <div className="flex flex-wrap gap-1.5">
+                <p className="mb-[var(--space-2)] text-[length:var(--type-footnote-size)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
+                  {category}
+                </p>
+                <div className="flex flex-wrap gap-[var(--space-1)]">
                   {events.map((e) => (
                     <button
                       key={e.value}
                       type="button"
                       onClick={() => toggleEvent(e.value)}
                       className={cn(
-                        'rounded-full px-3 py-1.5 text-xs font-medium transition-colors touch-target',
+                        'btn-press touch-target rounded-[var(--radius-pill)] px-[var(--space-3)] py-[var(--space-1)]',
+                        'text-[length:var(--type-footnote-size)] font-[var(--weight-medium)]',
+                        'transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]',
                         newEvents.includes(e.value)
-                          ? 'bg-[var(--primary)] text-white'
-                          : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--secondary)]'
+                          ? 'bg-[color:var(--color-primary)] text-[color:var(--color-text-on-primary)]'
+                          : 'bg-[color:var(--color-bg-muted)] text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-hover)]',
                       )}
                     >
                       {e.label}
@@ -276,150 +323,185 @@ export default function WebhooksPage() {
             ))}
           </div>
 
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setShowCreate(false)}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors touch-target"
-            >
+          <div className="flex justify-end gap-[var(--space-2)]">
+            <Button variant="ghost" size="md" onClick={() => setShowCreate(false)}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleCreate}
-              disabled={creating}
-              className={cn(
-                'flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-colors touch-target',
-                'bg-[var(--primary)] hover:bg-[var(--primary-hover)]',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
+              loading={creating}
+              size="lg"
+              leadingIcon={<Save className="h-4 w-4" />}
             >
-              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Create Endpoint
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Endpoints list */}
-      <div className="space-y-3">
+      <div className="flex flex-col gap-[var(--space-3)]">
         {endpoints.length === 0 && !showCreate && (
-          <div className="rounded-2xl border border-[var(--border)] bg-white p-12 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--muted)]">
-                <Code2 className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </div>
-            <h3 className="text-base font-semibold text-foreground">No webhooks configured</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Send real-time event notifications to your systems when orders, payments, and other events occur.
-            </p>
-          </div>
+          <EmptyState
+            icon={Code2}
+            title="No webhooks configured"
+            description="Send real-time event notifications to your systems when orders, payments, and other events occur."
+          />
         )}
 
         {endpoints.map((ep) => (
-          <div key={ep.id} className="rounded-xl border border-[var(--border)] bg-white overflow-hidden">
-            <div className="flex items-center gap-4 p-4">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={ep.is_active}
-                onClick={() => handleToggleActive(ep.id, ep.is_active)}
-                className={cn(
-                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors touch-target',
-                  ep.is_active ? 'bg-[var(--success)]' : 'bg-[var(--muted)]'
-                )}
-              >
-                <span className={cn('pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg transition-transform', ep.is_active ? 'translate-x-5' : 'translate-x-0')} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{ep.name}</p>
-                <p className="text-xs font-mono text-muted-foreground truncate">{ep.url}</p>
+          <Card key={ep.id} variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
+            <div className="flex items-center gap-[var(--space-4)] p-[var(--space-4)]">
+              <Toggle
+                checked={ep.is_active}
+                onChange={() => handleToggleActive(ep.id, ep.is_active)}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                  {ep.name}
+                </p>
+                <p className="truncate font-mono text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                  {ep.url}
+                </p>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">{ep.events.length} events</span>
-                <button
+              <div className="flex items-center gap-[var(--space-1)]">
+                <span className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                  {ep.events.length} events
+                </span>
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => handleTest(ep.id)}
-                  disabled={testing === ep.id}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--muted)] hover:text-foreground transition-colors touch-target"
-                  title="Send test"
+                  loading={testing === ep.id}
+                  aria-label="Send test"
                 >
-                  {testing === ep.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                </button>
-                <button
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => setExpandedId(expandedId === ep.id ? null : ep.id)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--muted)] hover:text-foreground transition-colors touch-target"
+                  aria-label={expandedId === ep.id ? 'Collapse' : 'Expand'}
                 >
-                  {expandedId === ep.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </button>
-                <button
-                  onClick={() => handleDelete(ep.id)}
-                  disabled={deleting === ep.id}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--error-bg)] hover:text-[var(--error)] transition-colors touch-target"
-                  title="Delete"
+                  {expandedId === ep.id ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => requestDelete(ep.id)}
+                  loading={deletingId === ep.id}
+                  aria-label="Delete"
+                  className="text-[color:var(--color-danger)]"
                 >
-                  {deleting === ep.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                </button>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
             {expandedId === ep.id && (
-              <div className="border-t border-[var(--border)] bg-[var(--secondary)] p-4 space-y-3">
+              <div className="flex flex-col gap-[var(--space-3)] border-t border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)] p-[var(--space-4)]">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Subscribed Events</p>
-                  <div className="flex flex-wrap gap-1">
+                  <p className="mb-[var(--space-1)] text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)]">
+                    Subscribed Events
+                  </p>
+                  <div className="flex flex-wrap gap-[var(--space-1)]">
                     {ep.events.map((e) => (
-                      <span key={e} className="rounded-full bg-[var(--muted)] px-2.5 py-0.5 text-xs font-mono text-muted-foreground">
+                      <Badge key={e} variant="default" shape="pill" className="font-mono">
                         {e}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Secret</p>
-                  <code className="text-xs font-mono text-foreground">{ep.secret}</code>
+                  <p className="mb-[var(--space-1)] text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)]">
+                    Secret
+                  </p>
+                  <code className="font-mono text-[length:var(--type-footnote-size)] text-[color:var(--color-text)]">
+                    {ep.secret}
+                  </code>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Created</p>
-                  <p className="text-xs text-foreground">
-                    {new Date(ep.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  <p className="mb-[var(--space-1)] text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)]">
+                    Created
+                  </p>
+                  <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text)]">
+                    {new Date(ep.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
                   </p>
                 </div>
               </div>
             )}
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Verification docs */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
+      <Card variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
         <button
           onClick={() => setShowDocs(!showDocs)}
-          className="flex w-full items-center justify-between p-4 text-left hover:bg-[var(--secondary)] transition-colors touch-target"
+          className={cn(
+            'btn-press touch-target flex w-full items-center justify-between p-[var(--space-4)] text-left',
+            'transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]',
+            'hover:bg-[color:var(--color-surface-hover)]',
+          )}
         >
-          <div className="flex items-center gap-3">
-            <Code2 className="h-5 w-5 text-muted-foreground" />
+          <div className="flex items-center gap-[var(--space-3)]">
+            <Code2 className="h-5 w-5 text-[color:var(--color-text-muted)]" />
             <div>
-              <p className="text-sm font-semibold text-foreground">Signature Verification</p>
-              <p className="text-xs text-muted-foreground">Sample code for verifying webhook signatures</p>
+              <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                Signature Verification
+              </p>
+              <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                Sample code for verifying webhook signatures
+              </p>
             </div>
           </div>
-          {showDocs ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          {showDocs ? (
+            <ChevronUp className="h-4 w-4 text-[color:var(--color-text-muted)]" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-[color:var(--color-text-muted)]" />
+          )}
         </button>
         {showDocs && (
-          <div className="border-t border-[var(--border)] p-4 space-y-4">
+          <div className="flex flex-col gap-[var(--space-4)] border-t border-[color:var(--color-border)] p-[var(--space-4)]">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Node.js</p>
-              <pre className="rounded-lg bg-[#1C1C1E] p-4 text-xs text-green-400 font-mono overflow-x-auto max-h-72">
+              <p className="mb-[var(--space-2)] text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
+                Node.js
+              </p>
+              <pre className="max-h-72 overflow-x-auto rounded-[var(--radius-md)] bg-[color:var(--gray-900)] p-[var(--space-4)] font-mono text-[length:var(--type-footnote-size)] text-[color:var(--color-success-strong)]">
                 {VERIFICATION_SAMPLES.node}
               </pre>
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Python</p>
-              <pre className="rounded-lg bg-[#1C1C1E] p-4 text-xs text-green-400 font-mono overflow-x-auto max-h-72">
+              <p className="mb-[var(--space-2)] text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
+                Python
+              </p>
+              <pre className="max-h-72 overflow-x-auto rounded-[var(--radius-md)] bg-[color:var(--gray-900)] p-[var(--space-4)] font-mono text-[length:var(--type-footnote-size)] text-[color:var(--color-success-strong)]">
                 {VERIFICATION_SAMPLES.python}
               </pre>
             </div>
           </div>
         )}
-      </div>
+      </Card>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this webhook endpoint?"
+        description="This action cannot be undone. The endpoint will stop receiving event notifications immediately."
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={Boolean(deletingId)}
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }
