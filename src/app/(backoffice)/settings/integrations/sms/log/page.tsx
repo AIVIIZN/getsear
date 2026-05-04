@@ -2,9 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import { DeliveryLogTable, type DeliveryLogEntry, type DeliveryStatus } from '@/components/integrations/DeliveryLogTable'
+import {
+  DeliveryLogTable,
+  type DeliveryLogEntry,
+  type DeliveryStatus,
+} from '@/components/integrations/DeliveryLogTable'
 
 export default function SmsDeliveryLogPage() {
   const [entries, setEntries] = useState<DeliveryLogEntry[]>([])
@@ -29,7 +33,9 @@ export default function SmsDeliveryLogPage() {
           timestamp: e.created_at,
           recipient: e.recipient_phone,
           templateType: e.template_type,
-          templateName: e.template_type?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          templateName: e.template_type
+            ?.replace(/_/g, ' ')
+            .replace(/\b\w/g, (c: string) => c.toUpperCase()),
           status: e.status,
           externalId: e.twilio_sid,
           error: e.error_message,
@@ -43,25 +49,31 @@ export default function SmsDeliveryLogPage() {
     }
   }, [locationId, statusFilter])
 
-  useEffect(() => { fetchLog() }, [fetchLog])
+  useEffect(() => {
+    fetchLog()
+  }, [fetchLog])
 
-  const handleRetry = async (id: string) => {
-    // In production, this would re-queue the SMS via BullMQ
+  const handleRetry = async (_id: string) => {
     toast.info('Retry queued — message will be re-sent shortly')
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-[var(--space-6)]">
+      <div className="flex items-center gap-[var(--space-3)]">
         <Link
           href="/settings/integrations/sms"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+          className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+          aria-label="Back to SMS integration"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h2 className="text-xl font-semibold text-foreground">SMS Delivery Log</h2>
-          <p className="text-sm text-muted-foreground">{total} total messages</p>
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            SMS Delivery Log
+          </h2>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            {total} total messages
+          </p>
         </div>
       </div>
 

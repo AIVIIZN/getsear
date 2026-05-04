@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Puzzle,
   Settings,
   Loader2,
   ShoppingCart,
@@ -17,12 +16,10 @@ import {
   CreditCard,
   Calendar,
   QrCode,
-  Smartphone,
   Globe,
   Store,
   Wallet,
   UserCheck,
-  Bell,
   type LucideIcon,
   Layers,
   ChefHat,
@@ -31,11 +28,11 @@ import {
   HeartHandshake,
   Building,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui-v2/Card";
+import { Button } from "@/components/ui-v2/Button";
+import { Toggle } from "@/components/ui-v2/inputs/Toggle";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
+import { Badge } from "@/components/ui-v2/data/Badge";
 import { cn } from "@/lib/utils";
 
 interface ModuleDefinition {
@@ -91,7 +88,6 @@ interface OrgModule {
   config: Record<string, unknown>;
 }
 
-// Map module names to their management page paths
 const MODULE_PAGES: Record<string, string> = {
   pos: "/orders",
   menu: "/menu",
@@ -146,7 +142,6 @@ export default function ModulesPage() {
   async function toggleModule(moduleName: string, enabled: boolean) {
     const def = ALL_MODULES.find((m) => m.name === moduleName);
 
-    // Check dependencies when enabling
     if (enabled && def?.dependencies) {
       const missingDeps = def.dependencies.filter((d) => !isModuleEnabled(d));
       if (missingDeps.length > 0) {
@@ -158,7 +153,6 @@ export default function ModulesPage() {
       }
     }
 
-    // Check dependents when disabling
     if (!enabled) {
       const dependents = ALL_MODULES.filter(
         (m) => m.dependencies?.includes(moduleName) && isModuleEnabled(m.name)
@@ -200,10 +194,12 @@ export default function ModulesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-[var(--space-8)]">
       <div>
-        <h2 className="page-title">Modules</h2>
-        <p className="page-subtitle">
+        <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+          Modules
+        </h2>
+        <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
           Enable features for your organization.{" "}
           {enabledModules.filter((m) => m.is_enabled).length} of {ALL_MODULES.length} modules active.
         </p>
@@ -213,11 +209,11 @@ export default function ModulesPage() {
         const categoryModules = ALL_MODULES.filter((m) => m.category === category);
 
         return (
-          <div key={category}>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          <div key={category} className="flex flex-col gap-[var(--space-3)]">
+            <h3 className="text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
               {category}
             </h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-[var(--space-4)] sm:grid-cols-2 lg:grid-cols-3">
               {categoryModules.map((mod) => {
                 const enabled = isModuleEnabled(mod.name);
                 const toggling = togglingModule === mod.name;
@@ -225,38 +221,36 @@ export default function ModulesPage() {
                 return (
                   <Card
                     key={mod.name}
+                    variant="flat"
+                    padding="default"
                     className={cn(
-                      "shadow-warm-sm transition-all",
+                      "transition-all",
                       enabled
-                        ? "ring-1 ring-primary/20 bg-accent/20"
-                        : "opacity-75 hover:opacity-100"
+                        ? "ring-1 ring-[color:var(--color-primary)]/20 bg-[color:var(--color-sidebar-active)]"
+                        : "opacity-75 hover:opacity-100",
                     )}
                   >
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-[var(--space-3)]">
+                        <div className="flex items-center gap-[var(--space-3)]">
                           <div
                             className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
+                              "flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] transition-colors",
                               enabled
-                                ? "bg-primary/10 text-primary"
-                                : "bg-muted text-muted-foreground"
+                                ? "bg-[color:var(--color-sidebar-active)] text-[color:var(--color-primary)]"
+                                : "bg-[color:var(--color-bg-muted)] text-[color:var(--color-text-muted)]",
                             )}
                           >
                             <mod.icon className="h-5 w-5" />
                           </div>
                           <div>
-                            <CardTitle className="text-sm leading-tight">
+                            <CardTitle className="text-[length:var(--type-subhead-size)]">
                               {mod.label}
                             </CardTitle>
                             {mod.dependencies && (
-                              <div className="mt-0.5 flex gap-1">
+                              <div className="mt-[2px] flex flex-wrap gap-[var(--space-1)]">
                                 {mod.dependencies.map((dep) => (
-                                  <Badge
-                                    key={dep}
-                                    variant="outline"
-                                    className="text-[10px] px-1.5 py-0"
-                                  >
+                                  <Badge key={dep} size="sm" variant="default">
                                     {ALL_MODULES.find((m) => m.name === dep)?.label ?? dep}
                                   </Badge>
                                 ))}
@@ -265,26 +259,24 @@ export default function ModulesPage() {
                           </div>
                         </div>
                         {toggling ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-primary mt-0.5" />
+                          <Loader2 className="h-4 w-4 animate-spin text-[color:var(--color-primary)]" />
                         ) : (
-                          <Switch
+                          <Toggle
                             checked={enabled}
-                            onCheckedChange={(checked) =>
-                              toggleModule(mod.name, checked)
-                            }
+                            onChange={(checked) => toggleModule(mod.name, checked)}
                           />
                         )}
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <CardDescription className="text-xs leading-relaxed">
+                    <CardBody>
+                      <CardDescription className="text-[length:var(--type-footnote-size)] leading-[var(--type-line-height-relaxed)]">
                         {mod.description}
                       </CardDescription>
                       {enabled && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-3 gap-1.5 text-xs text-muted-foreground hover:text-foreground btn-press"
+                          leadingIcon={<Settings className="h-4 w-4" />}
                           onClick={() => {
                             const page = MODULE_PAGES[mod.name];
                             if (page) {
@@ -294,11 +286,10 @@ export default function ModulesPage() {
                             }
                           }}
                         >
-                          <Settings className="h-3.5 w-3.5" />
                           Configure
                         </Button>
                       )}
-                    </CardContent>
+                    </CardBody>
                   </Card>
                 );
               })}
@@ -312,31 +303,18 @@ export default function ModulesPage() {
 
 function ModulesSkeleton() {
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-[var(--space-8)]">
       <div>
-        <Skeleton className="h-6 w-24" />
-        <Skeleton className="h-4 w-56 mt-2" />
+        <Skeleton className="h-7 w-32" />
+        <Skeleton className="mt-[var(--space-2)] h-4 w-72" />
       </div>
       {[1, 2, 3].map((cat) => (
-        <div key={cat}>
-          <Skeleton className="h-4 w-32 mb-3" />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="shadow-warm-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-xl" />
-                    <div>
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-3 w-16 mt-1" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-full" />
-                </CardContent>
-              </Card>
-            ))}
+        <div key={cat} className="flex flex-col gap-[var(--space-3)]">
+          <Skeleton className="h-4 w-32" />
+          <div className="grid gap-[var(--space-4)] sm:grid-cols-2 lg:grid-cols-3">
+            <Skeleton variant="card" />
+            <Skeleton variant="card" />
+            <Skeleton variant="card" />
           </div>
         </div>
       ))}

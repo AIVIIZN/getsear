@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Users } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs } from "@/components/ui-v2/navigation/Tabs";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
 import { StaffRoster } from "@/components/staff/StaffRoster";
 import { TimeClock } from "@/components/staff/TimeClock";
 import { PermissionsTab } from "@/components/staff/PermissionsTab";
@@ -13,9 +13,15 @@ import { ScheduleTab } from "@/components/staff/ScheduleTab";
 import { PayrollTab } from "@/components/staff/PayrollTab";
 import type { StaffMember } from "@/stores/staff-store";
 
-// ---------------------------------------------------------------------------
-// Staff Management Hub — 7 tabs
-// ---------------------------------------------------------------------------
+const TABS = [
+  { value: "roster", label: "Roster" },
+  { value: "time-clock", label: "Time Clock" },
+  { value: "permissions", label: "Permissions" },
+  { value: "tips", label: "Tips" },
+  { value: "cash-drawers", label: "Cash Drawers" },
+  { value: "schedule", label: "Schedule" },
+  { value: "payroll", label: "Payroll" },
+];
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -41,99 +47,61 @@ export default function StaffPage() {
     loadStaff();
   }, [loadStaff]);
 
+  const activeCount = staff.filter((s) => s.is_active).length;
+  const onDutyCount = staff.filter((s) => s.is_clocked_in).length;
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 px-6 pt-6 pb-4">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Users className="h-5 w-5 text-primary" />
+      <div className="flex items-center gap-[var(--space-3)] px-[var(--space-6)] pt-[var(--space-6)] pb-[var(--space-4)]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--color-sidebar-active)]">
+          <Users className="h-5 w-5 text-[color:var(--color-primary)]" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">
+          <h1 className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
             Staff & Labor
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {staff.filter((s) => s.is_active).length} active employees
-            {staff.filter((s) => s.is_clocked_in).length > 0 &&
-              ` — ${staff.filter((s) => s.is_clocked_in).length} on duty`}
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            {activeCount} active employee{activeCount !== 1 ? "s" : ""}
+            {onDutyCount > 0 && ` — ${onDutyCount} on duty`}
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="flex-1 flex flex-col"
-      >
-        <div className="border-b border-border px-6">
-          <TabsList variant="line" className="h-10">
-            <TabsTrigger value="roster" className="text-sm px-4">
-              Roster
-            </TabsTrigger>
-            <TabsTrigger value="time-clock" className="text-sm px-4">
-              Time Clock
-            </TabsTrigger>
-            <TabsTrigger value="permissions" className="text-sm px-4">
-              Permissions
-            </TabsTrigger>
-            <TabsTrigger value="tips" className="text-sm px-4">
-              Tips
-            </TabsTrigger>
-            <TabsTrigger value="cash-drawers" className="text-sm px-4">
-              Cash Drawers
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="text-sm px-4">
-              Schedule
-            </TabsTrigger>
-            <TabsTrigger value="payroll" className="text-sm px-4">
-              Payroll
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <div className="px-[var(--space-6)]">
+        <Tabs
+          variant="line"
+          size="md"
+          items={TABS}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          ariaLabel="Staff sections"
+        />
+      </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          <TabsContent value="roster">
-            <StaffRoster
-              staff={staff}
-              loading={loading}
-              onRefresh={loadStaff}
-            />
-          </TabsContent>
-
-          <TabsContent value="time-clock">
-            <TimeClock />
-          </TabsContent>
-
-          <TabsContent value="permissions">
-            {loading ? (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : (
-              <PermissionsTab staff={staff} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="tips">
-            <TipsTab staff={staff} />
-          </TabsContent>
-
-          <TabsContent value="cash-drawers">
-            <CashDrawersTab />
-          </TabsContent>
-
-          <TabsContent value="schedule">
-            <ScheduleTab staff={staff} />
-          </TabsContent>
-
-          <TabsContent value="payroll">
-            <PayrollTab />
-          </TabsContent>
-        </div>
-      </Tabs>
+      <div className="scroll-container flex-1 overflow-y-auto px-[var(--space-6)] py-[var(--space-6)]">
+        {activeTab === "roster" && (
+          <StaffRoster staff={staff} loading={loading} onRefresh={loadStaff} />
+        )}
+        {activeTab === "time-clock" && <TimeClock />}
+        {activeTab === "permissions" && (
+          loading ? (
+            <div className="flex flex-col gap-[var(--space-3)]">
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
+            </div>
+          ) : (
+            <PermissionsTab staff={staff} />
+          )
+        )}
+        {activeTab === "tips" && <TipsTab staff={staff} />}
+        {activeTab === "cash-drawers" && <CashDrawersTab />}
+        {activeTab === "schedule" && <ScheduleTab staff={staff} />}
+        {activeTab === "payroll" && <PayrollTab />}
+      </div>
     </div>
   );
 }

@@ -2,9 +2,22 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, BookOpen, Map, ScrollText, Loader2, ExternalLink, Unplug, RefreshCw } from 'lucide-react'
+import {
+  ArrowLeft,
+  BookOpen,
+  Map,
+  ScrollText,
+  ExternalLink,
+  Unplug,
+  RefreshCw,
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Toggle } from '@/components/ui-v2/inputs/Toggle'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { Badge } from '@/components/ui-v2/data/Badge'
+import { ConfirmDialog } from '@/components/ui-v2/feedback/ConfirmDialog'
 import { ConnectionStatus } from '@/components/integrations/ConnectionStatus'
 import { useIntegrationsStore } from '@/stores/integrations-store'
 
@@ -25,13 +38,13 @@ export default function QuickBooksPage() {
   const [syncing, setSyncing] = useState(false)
   const [connection, setConnection] = useState<QboConnectionData | null>(null)
   const [isSandbox, setIsSandbox] = useState(true)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
 
   const locationId = '00000000-0000-0000-0000-000000000001'
 
   const fetchConnection = useCallback(async () => {
     setLoading(true)
     try {
-      // Check for query params from OAuth callback
       const params = new URLSearchParams(window.location.search)
       if (params.get('connected') === 'true') {
         toast.success('QuickBooks connected successfully!')
@@ -42,7 +55,6 @@ export default function QuickBooksPage() {
         window.history.replaceState({}, '', window.location.pathname)
       }
 
-      // Fetch connection status from the accounting API that already exists
       const res = await fetch(`/api/accounting/status?location_id=${locationId}`)
       const json = await res.json()
       if (json.data?.is_active) {
@@ -60,7 +72,9 @@ export default function QuickBooksPage() {
     }
   }, [locationId, setStatus])
 
-  useEffect(() => { fetchConnection() }, [fetchConnection])
+  useEffect(() => {
+    fetchConnection()
+  }, [fetchConnection])
 
   const handleConnect = async () => {
     setConnecting(true)
@@ -84,7 +98,6 @@ export default function QuickBooksPage() {
   }
 
   const handleDisconnect = async () => {
-    if (!confirm('Disconnect QuickBooks? This will stop all automatic syncing.')) return
     setDisconnecting(true)
     try {
       const res = await fetch('/api/integrations/quickbooks/disconnect', {
@@ -129,25 +142,31 @@ export default function QuickBooksPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col gap-[var(--space-6)] max-w-2xl">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton variant="card" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="flex max-w-2xl flex-col gap-[var(--space-6)]">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-[var(--space-3)]">
         <Link
           href="/settings/integrations"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+          className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+          aria-label="Back to integrations"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-foreground">QuickBooks Online</h2>
-          <p className="text-sm text-muted-foreground">Sync daily sales to QuickBooks automatically</p>
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            QuickBooks Online
+          </h2>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Sync daily sales to QuickBooks automatically
+          </p>
         </div>
         <ConnectionStatus status={connection ? 'connected' : 'disconnected'} />
       </div>
@@ -155,123 +174,141 @@ export default function QuickBooksPage() {
       {connection ? (
         <>
           {/* Connected State */}
-          <div className="rounded-2xl border border-[var(--border)] bg-white p-6 space-y-5">
+          <Card variant="flat" padding="default">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2CA01C]/10">
-                  <BookOpen className="h-7 w-7 text-[#2CA01C]" />
+              <div className="flex items-center gap-[var(--space-4)]">
+                <div className="flex h-14 w-14 items-center justify-center rounded-[var(--radius-lg)] bg-[color:var(--color-success-bg)]">
+                  <BookOpen className="h-7 w-7 text-[color:var(--color-success)]" />
                 </div>
                 <div>
-                  <p className="text-base font-semibold text-foreground">{connection.company_name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Connected {new Date(connection.connected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {connection.is_sandbox && <span className="ml-2 rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-[10px] font-medium text-[#b45309]">Sandbox</span>}
+                  <p className="text-[length:var(--type-callout-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                    {connection.company_name}
                   </p>
+                  <div className="mt-[2px] flex items-center gap-[var(--space-2)] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                    <span>
+                      Connected{' '}
+                      {new Date(connection.connected_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                    {connection.is_sandbox && (
+                      <Badge variant="warning" size="sm">
+                        Sandbox
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={handleDisconnect}
-                disabled={disconnecting}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[var(--error)] hover:bg-[var(--error-bg)] transition-colors touch-target"
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={() => setConfirmDisconnect(true)}
+                leadingIcon={<Unplug className="h-4 w-4" />}
+                className="text-[color:var(--color-danger)]"
               >
-                {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
                 Disconnect
-              </button>
+              </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="rounded-xl bg-[var(--secondary)] p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Sync Frequency</p>
-                <p className="text-sm font-semibold text-foreground capitalize">{connection.sync_frequency} at 2:00 AM</p>
+            <div className="grid grid-cols-2 gap-[var(--space-4)]">
+              <div className="rounded-[var(--radius-md)] bg-[color:var(--color-bg-subtle)] p-[var(--space-4)]">
+                <p className="mb-[var(--space-1)] text-[length:var(--type-footnote-size)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
+                  Sync Frequency
+                </p>
+                <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] capitalize text-[color:var(--color-text)]">
+                  {connection.sync_frequency} at 2:00 AM
+                </p>
               </div>
-              <div className="rounded-xl bg-[var(--secondary)] p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Last Sync</p>
-                <p className="text-sm font-semibold text-foreground">
+              <div className="rounded-[var(--radius-md)] bg-[color:var(--color-bg-subtle)] p-[var(--space-4)]">
+                <p className="mb-[var(--space-1)] text-[length:var(--type-footnote-size)] uppercase tracking-wider text-[color:var(--color-text-muted)]">
+                  Last Sync
+                </p>
+                <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
                   {connection.last_sync_at
-                    ? new Date(connection.last_sync_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-                    : 'Never'
-                  }
+                    ? new Date(connection.last_sync_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })
+                    : 'Never'}
                 </p>
               </div>
             </div>
 
-            <button
+            <Button
               onClick={handleSyncNow}
-              disabled={syncing}
-              className={cn(
-                'flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-colors touch-target',
-                'bg-[#2CA01C] hover:bg-[#228B17]',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
+              loading={syncing}
+              size="lg"
+              className="w-full"
+              leadingIcon={<RefreshCw className="h-4 w-4" />}
             >
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Sync Now
-            </button>
-          </div>
+            </Button>
+          </Card>
 
           {/* Sub-nav */}
-          <div className="flex gap-2">
-            <Link
-              href="/settings/integrations/quickbooks/mapping"
-              className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
-            >
-              <Map className="h-4 w-4" />
-              Chart of Accounts Mapping
+          <div className="flex gap-[var(--space-2)]">
+            <Link href="/settings/integrations/quickbooks/mapping" className="block">
+              <Button variant="secondary" size="md" leadingIcon={<Map className="h-4 w-4" />}>
+                Chart of Accounts Mapping
+              </Button>
             </Link>
-            <Link
-              href="/settings/integrations/quickbooks/log"
-              className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
-            >
-              <ScrollText className="h-4 w-4" />
-              Sync Log
+            <Link href="/settings/integrations/quickbooks/log" className="block">
+              <Button
+                variant="secondary"
+                size="md"
+                leadingIcon={<ScrollText className="h-4 w-4" />}
+              >
+                Sync Log
+              </Button>
             </Link>
           </div>
         </>
       ) : (
         /* Disconnected State */
-        <div className="rounded-2xl border border-[var(--border)] bg-white p-8 text-center space-y-6">
-          <div className="flex justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#2CA01C]/10">
-              <BookOpen className="h-10 w-10 text-[#2CA01C]" />
-            </div>
+        <Card variant="flat" padding="spacious" className="items-center text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-[var(--radius-xl)] bg-[color:var(--color-success-bg)]">
+            <BookOpen className="h-10 w-10 text-[color:var(--color-success)]" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-foreground">Connect to QuickBooks Online</h3>
-            <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+            <h3 className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+              Connect to QuickBooks Online
+            </h3>
+            <p className="mx-auto mt-[var(--space-2)] max-w-md text-[length:var(--type-subhead-size)] leading-[var(--type-line-height-relaxed)] text-[color:var(--color-text-muted)]">
               Automatically sync your daily sales to QuickBooks. Food revenue, beverage revenue, tips, tax, and refunds are mapped to your chart of accounts as journal entries.
             </p>
           </div>
 
-          <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={!isSandbox}
-              onClick={() => setIsSandbox(!isSandbox)}
-              className={cn(
-                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors touch-target',
-                !isSandbox ? 'bg-[var(--primary)]' : 'bg-[var(--muted)]'
-              )}
-            >
-              <span className={cn('pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg transition-transform', !isSandbox ? 'translate-x-5' : 'translate-x-0')} />
-            </button>
-            <span className="text-xs text-muted-foreground">{isSandbox ? 'Sandbox Mode' : 'Production Mode'}</span>
-          </div>
+          <Toggle
+            checked={!isSandbox}
+            onChange={(v) => setIsSandbox(!v)}
+            label={isSandbox ? 'Sandbox Mode' : 'Production Mode'}
+          />
 
-          <button
+          <Button
             onClick={handleConnect}
-            disabled={connecting}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-sm font-semibold text-white transition-colors touch-target',
-              'bg-[#2CA01C] hover:bg-[#228B17] shadow-sm',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
+            loading={connecting}
+            size="xl"
+            leadingIcon={<ExternalLink className="h-4 w-4" />}
           >
-            {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
             Connect to QuickBooks
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
+
+      <ConfirmDialog
+        open={confirmDisconnect}
+        onOpenChange={setConfirmDisconnect}
+        title="Disconnect QuickBooks?"
+        description="This will stop all automatic syncing. Existing data in QuickBooks will not be affected. You can reconnect at any time."
+        confirmLabel="Disconnect"
+        variant="destructive"
+        loading={disconnecting}
+        onConfirm={handleDisconnect}
+      />
     </div>
   )
 }

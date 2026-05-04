@@ -2,8 +2,26 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import {
+  ArrowLeft,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+} from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Badge } from '@/components/ui-v2/data/Badge'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from '@/components/ui-v2/data/Table'
 import { cn } from '@/lib/utils'
 
 interface SyncLogEntry {
@@ -36,7 +54,9 @@ export default function QboSyncLogPage() {
     }
   }, [locationId])
 
-  useEffect(() => { fetchLog() }, [fetchLog])
+  useEffect(() => {
+    fetchLog()
+  }, [fetchLog])
 
   const handleResync = async (businessDate: string) => {
     setSyncing(businessDate)
@@ -59,129 +79,147 @@ export default function QboSyncLogPage() {
 
   const StatusIcon = ({ status }: { status: string }) => {
     switch (status) {
-      case 'success': return <CheckCircle2 className="h-4 w-4 text-[var(--success)]" />
-      case 'partial': return <AlertTriangle className="h-4 w-4 text-[var(--warning)]" />
-      case 'failed': return <XCircle className="h-4 w-4 text-[var(--error)]" />
-      default: return null
+      case 'success':
+        return <CheckCircle2 className="h-4 w-4 text-[color:var(--color-success)]" />
+      case 'partial':
+        return <AlertTriangle className="h-4 w-4 text-[color:var(--color-warning)]" />
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-[color:var(--color-danger)]" />
+      default:
+        return null
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col gap-[var(--space-6)]">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton variant="card" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[var(--space-3)]">
           <Link
             href="/settings/integrations/quickbooks"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white hover:bg-[var(--secondary)] transition-colors touch-target"
+            className="btn-press touch-target flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] hover:bg-[color:var(--color-surface-hover)]"
+            aria-label="Back to QuickBooks"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h2 className="text-xl font-semibold text-foreground">QuickBooks Sync Log</h2>
-            <p className="text-sm text-muted-foreground">{entries.length} sync attempts</p>
+            <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+              QuickBooks Sync Log
+            </h2>
+            <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+              {entries.length} sync attempts
+            </p>
           </div>
         </div>
-        <button
+        <Button
+          variant="secondary"
+          size="md"
           onClick={fetchLog}
-          className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--secondary)] transition-colors touch-target"
+          leadingIcon={<RefreshCw className="h-4 w-4" />}
         >
-          <RefreshCw className="h-4 w-4" />
           Refresh
-        </button>
+        </Button>
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[var(--border)] bg-[var(--secondary)]">
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Business Date</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Revenue</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">QBO Entry ID</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border)]">
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-5 py-16 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--muted)]">
-                      <RefreshCw className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium text-foreground">No sync attempts yet</p>
-                    <p className="text-xs text-muted-foreground">Sync logs will appear here once daily syncs run.</p>
-                  </div>
-                </td>
-              </tr>
-            )}
-            {entries.map((entry) => (
-              <tr key={entry.id}>
-                <td className="px-5 py-3">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  <span className="text-sm font-medium text-foreground">{entry.business_date}</span>
-                </td>
-                <td className="px-5 py-3 text-right">
-                  <span className="text-sm font-semibold text-foreground">
-                    ${Number(entry.total_revenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  {entry.qbo_journal_entry_id ? (
-                    <span className="font-mono text-xs text-[var(--info)]">{entry.qbo_journal_entry_id}</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                  )}
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <StatusIcon status={entry.status} />
-                    <span className={cn(
-                      'text-xs font-medium capitalize',
-                      entry.status === 'success' && 'text-[var(--success)]',
-                      entry.status === 'failed' && 'text-[var(--error)]',
-                      entry.status === 'partial' && 'text-[var(--warning)]'
-                    )}>
-                      {entry.status}
+      <Card variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
+        {entries.length === 0 ? (
+          <EmptyState
+            icon={RefreshCw}
+            title="No sync attempts yet"
+            description="Sync logs will appear here once daily syncs run."
+          />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableCell header>Date</TableCell>
+                <TableCell header>Business Date</TableCell>
+                <TableCell header align="right">Revenue</TableCell>
+                <TableCell header>QBO Entry ID</TableCell>
+                <TableCell header>Status</TableCell>
+                <TableCell header align="right">Actions</TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {entries.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell>
+                    <span className="font-mono text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                      {new Date(entry.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
                     </span>
-                  </div>
-                  {entry.error_message && (
-                    <p className="text-xs text-[var(--error)] mt-0.5">{entry.error_message}</p>
-                  )}
-                </td>
-                <td className="px-5 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {entry.status === 'failed' && (
-                      <button
-                        onClick={() => handleResync(entry.business_date)}
-                        disabled={syncing === entry.business_date}
-                        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-[var(--primary)] hover:bg-[var(--accent)] transition-colors touch-target"
-                      >
-                        {syncing === entry.business_date ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                        Re-sync
-                      </button>
+                  </TableCell>
+                  <TableCell className="font-[var(--weight-medium)]">
+                    {entry.business_date}
+                  </TableCell>
+                  <TableCell align="right" className="font-[var(--weight-semibold)] tabular-nums">
+                    ${Number(entry.total_revenue ?? 0).toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    {entry.qbo_journal_entry_id ? (
+                      <span className="font-mono text-[length:var(--type-footnote-size)] text-[color:var(--color-primary)]">
+                        {entry.qbo_journal_entry_id}
+                      </span>
+                    ) : (
+                      <span className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                        --
+                      </span>
                     )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-[var(--space-1)]">
+                      <StatusIcon status={entry.status} />
+                      <span
+                        className={cn(
+                          'text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] capitalize',
+                          entry.status === 'success' && 'text-[color:var(--color-success)]',
+                          entry.status === 'failed' && 'text-[color:var(--color-danger)]',
+                          entry.status === 'partial' && 'text-[color:var(--color-warning)]',
+                        )}
+                      >
+                        {entry.status}
+                      </span>
+                    </div>
+                    {entry.error_message && (
+                      <p className="mt-[2px] text-[length:var(--type-footnote-size)] text-[color:var(--color-danger)]">
+                        {entry.error_message}
+                      </p>
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    {entry.status === 'failed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleResync(entry.business_date)}
+                        loading={syncing === entry.business_date}
+                        leadingIcon={<RefreshCw className="h-3 w-3" />}
+                      >
+                        Re-sync
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
     </div>
   )
 }

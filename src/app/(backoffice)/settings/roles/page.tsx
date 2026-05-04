@@ -6,16 +6,15 @@ import {
   Shield,
   ChevronDown,
   ChevronRight,
-  Loader2,
   Save,
   Users,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { Card, CardBody } from "@/components/ui-v2/Card";
+import { Button } from "@/components/ui-v2/Button";
+import { Checkbox } from "@/components/ui-v2/inputs/Checkbox";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
+import { Badge } from "@/components/ui-v2/data/Badge";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
 import { cn } from "@/lib/utils";
 
 interface Permission {
@@ -32,7 +31,6 @@ interface RoleData {
   permission_count: number;
 }
 
-// Permission categories with labels
 const CATEGORY_LABELS: Record<string, string> = {
   pos: "Point of Sale",
   orders: "Orders",
@@ -45,20 +43,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   payments: "Payments",
   tables: "Tables",
   kds: "Kitchen Display",
-};
-
-const CATEGORY_ICONS: Record<string, string> = {
-  pos: "terminal",
-  orders: "receipt",
-  menu: "book",
-  staff: "users",
-  reports: "chart",
-  settings: "cog",
-  admin: "shield",
-  customers: "user",
-  payments: "credit-card",
-  tables: "layout",
-  kds: "monitor",
 };
 
 export default function RolesPage() {
@@ -77,7 +61,6 @@ export default function RolesPage() {
       setRoles(json.data.roles ?? []);
       setPermissions(json.data.permissions ?? []);
 
-      // Initialize edited permissions from server state
       const edited: Record<string, Set<string>> = {};
       for (const role of json.data.roles ?? []) {
         edited[role.value] = new Set(role.permission_ids);
@@ -94,7 +77,6 @@ export default function RolesPage() {
     fetchRoles();
   }, [fetchRoles]);
 
-  // Group permissions by category
   const permissionsByCategory = permissions.reduce<Record<string, Permission[]>>(
     (acc, perm) => {
       const cat = perm.category || "other";
@@ -102,7 +84,7 @@ export default function RolesPage() {
       acc[cat].push(perm);
       return acc;
     },
-    {}
+    {},
   );
 
   const categories = Object.keys(permissionsByCategory).sort();
@@ -185,124 +167,116 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Roles & Permissions</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+          Roles & Permissions
+        </h2>
+        <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
           Configure what each role can access. Click a role to edit its permissions.
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-[var(--space-3)]">
         {roles.map((role) => {
           const isExpanded = expandedRole === role.value;
           const rolePermSet = editedPermissions[role.value] ?? new Set();
           const changed = hasChanges(role.value);
 
           return (
-            <Card key={role.value} className="shadow-warm-sm overflow-hidden">
+            <Card key={role.value} variant="flat" padding="default" className="gap-0 p-0 overflow-hidden">
               {/* Role header — clickable */}
               <button
                 type="button"
-                className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-muted/30 touch-target"
+                className={cn(
+                  "btn-press touch-target flex w-full items-center justify-between p-[var(--space-4)] text-left",
+                  "transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]",
+                  "hover:bg-[color:var(--color-surface-hover)]",
+                  "focus-visible:outline-2 focus-visible:outline-[color:var(--color-border-focus)] focus-visible:outline-offset-2",
+                )}
                 onClick={() => setExpandedRole(isExpanded ? null : role.value)}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
-                    <Users className="h-4 w-4 text-accent-foreground" />
+                <div className="flex items-center gap-[var(--space-3)]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--color-sidebar-active)]">
+                    <Users className="h-4 w-4 text-[color:var(--color-primary)]" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{role.label}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                      {role.label}
+                    </p>
+                    <p className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                       {rolePermSet.size} permission{rolePermSet.size !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {changed && (
-                    <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
-                      Unsaved
-                    </Badge>
-                  )}
+                <div className="flex items-center gap-[var(--space-3)]">
+                  {changed && <Badge variant="primary">Unsaved</Badge>}
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 text-[color:var(--color-text-muted)]" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight className="h-4 w-4 text-[color:var(--color-text-muted)]" />
                   )}
                 </div>
               </button>
 
-              {/* Expanded permissions */}
               {isExpanded && (
                 <>
-                  <Separator />
-                  <CardContent className="pt-4">
+                  <div className="border-t border-[color:var(--color-border)]" />
+                  <CardBody className="p-[var(--space-5)]">
                     {permissions.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
+                      <p className="py-[var(--space-4)] text-center text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
                         No permissions defined in the system yet.
                       </p>
                     ) : (
-                      <div className="space-y-6">
+                      <div className="flex flex-col gap-[var(--space-6)]">
                         {categories.map((category) => {
                           const catPerms = permissionsByCategory[category];
-                          const allChecked = catPerms.every((p) =>
-                            rolePermSet.has(p.id)
-                          );
+                          const allChecked = catPerms.every((p) => rolePermSet.has(p.id));
                           const someChecked =
-                            !allChecked &&
-                            catPerms.some((p) => rolePermSet.has(p.id));
+                            !allChecked && catPerms.some((p) => rolePermSet.has(p.id));
 
                           return (
                             <div key={category}>
-                              <div className="mb-3 flex items-center gap-2">
-                                <input
-                                  type="checkbox"
+                              <div className="mb-[var(--space-3)] flex items-center gap-[var(--space-2)]">
+                                <Checkbox
                                   checked={allChecked}
-                                  ref={(el) => {
-                                    if (el) el.indeterminate = someChecked;
-                                  }}
+                                  indeterminate={someChecked}
                                   onChange={(e) =>
-                                    toggleCategory(
-                                      role.value,
-                                      category,
-                                      e.target.checked
-                                    )
+                                    toggleCategory(role.value, category, e.target.checked)
                                   }
-                                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                                 />
-                                <span className="text-sm font-semibold capitalize text-foreground">
+                                <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] capitalize text-[color:var(--color-text)]">
                                   {CATEGORY_LABELS[category] ?? category}
                                 </span>
-                                <Badge variant="outline" className="text-xs ml-1">
+                                <Badge variant="default" size="sm" className="ml-[var(--space-1)]">
                                   {catPerms.filter((p) => rolePermSet.has(p.id)).length}/
                                   {catPerms.length}
                                 </Badge>
                               </div>
-                              <div className="ml-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              <div className="ml-[var(--space-6)] grid gap-[var(--space-2)] sm:grid-cols-2 lg:grid-cols-3">
                                 {catPerms.map((perm) => (
                                   <label
                                     key={perm.id}
                                     className={cn(
-                                      "flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-colors touch-target",
+                                      "btn-press touch-target flex cursor-pointer items-start gap-[var(--space-2)]",
+                                      "rounded-[var(--radius-md)] border p-[var(--space-3)]",
+                                      "transition-colors duration-[var(--duration-quick)] ease-[var(--ease-out)]",
                                       rolePermSet.has(perm.id)
-                                        ? "border-primary/30 bg-accent/50"
-                                        : "border-border hover:border-border-hover hover:bg-muted/30"
+                                        ? "border-[color:var(--color-primary)]/30 bg-[color:var(--color-sidebar-active)]"
+                                        : "border-[color:var(--color-border)] hover:border-[color:var(--color-border-strong)] hover:bg-[color:var(--color-surface-hover)]",
                                     )}
                                   >
-                                    <input
-                                      type="checkbox"
+                                    <Checkbox
                                       checked={rolePermSet.has(perm.id)}
-                                      onChange={() =>
-                                        togglePermission(role.value, perm.id)
-                                      }
-                                      className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                      onChange={() => togglePermission(role.value, perm.id)}
+                                      fieldClassName="mt-[2px]"
                                     />
                                     <div>
-                                      <p className="text-sm font-medium text-foreground leading-tight">
+                                      <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] leading-tight text-[color:var(--color-text)]">
                                         {perm.name.replace(/_/g, " ")}
                                       </p>
                                       {perm.description && (
-                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                        <p className="mt-[2px] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
                                           {perm.description}
                                         </p>
                                       )}
@@ -316,24 +290,19 @@ export default function RolesPage() {
                       </div>
                     )}
 
-                    {/* Save button */}
                     {changed && (
-                      <div className="mt-6 flex justify-end">
+                      <div className="mt-[var(--space-6)] flex justify-end">
                         <Button
                           onClick={() => handleSave(role.value)}
-                          disabled={savingRole === role.value}
-                          className="h-11 gap-2 btn-press touch-target"
+                          loading={savingRole === role.value}
+                          size="lg"
+                          leadingIcon={<Save className="h-4 w-4" />}
                         >
-                          {savingRole === role.value ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Save className="h-4 w-4" />
-                          )}
                           Save Permissions
                         </Button>
                       </div>
                     )}
-                  </CardContent>
+                  </CardBody>
                 </>
               )}
             </Card>
@@ -346,23 +315,15 @@ export default function RolesPage() {
 
 function RolesSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       <div>
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-72 mt-2" />
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="mt-[var(--space-2)] h-4 w-72" />
       </div>
-      <div className="space-y-3">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Card key={i} className="shadow-warm-sm">
-            <div className="flex items-center gap-3 p-4">
-              <Skeleton className="h-9 w-9 rounded-lg" />
-              <div>
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-16 mt-1" />
-              </div>
-            </div>
-          </Card>
-        ))}
+      <div className="flex flex-col gap-[var(--space-3)]">
+        <Skeleton variant="card" className="h-16" />
+        <Skeleton variant="card" className="h-16" />
+        <Skeleton variant="card" className="h-16" />
       </div>
     </div>
   );

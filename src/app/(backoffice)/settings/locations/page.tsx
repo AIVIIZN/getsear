@@ -2,36 +2,24 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import {
-  MapPin,
-  Plus,
-  Phone,
-  Mail,
-  Loader2,
-  ChevronRight,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { MapPin, Plus, Phone, Mail, ChevronRight } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui-v2/Card";
+import { Button } from "@/components/ui-v2/Button";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { Email } from "@/components/ui-v2/inputs/Email";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
+import { Badge } from "@/components/ui-v2/data/Badge";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetBody,
   SheetFooter,
-} from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui-v2/Sheet";
 import type { Location } from "@/types/database";
 
 const TIMEZONES = [
@@ -43,6 +31,8 @@ const TIMEZONES = [
   "America/Anchorage",
   "Pacific/Honolulu",
 ] as const;
+
+const TZ_OPTIONS = TIMEZONES.map((tz) => ({ value: tz, label: tz.replace(/_/g, " ") }));
 
 export default function LocationsPage() {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -60,7 +50,7 @@ export default function LocationsPage() {
   const [formZip, setFormZip] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
-  const [formTimezone, setFormTimezone] = useState("America/New_York");
+  const [formTimezone, setFormTimezone] = useState<string>("America/New_York");
 
   const fetchLocations = useCallback(async () => {
     try {
@@ -168,17 +158,22 @@ export default function LocationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Locations</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+            Locations
+          </h2>
+          <p className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
             {locations.length} location{locations.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Button onClick={openCreate} className="h-11 gap-2 btn-press touch-target">
-          <Plus className="h-4 w-4" />
+        <Button
+          onClick={openCreate}
+          size="lg"
+          leadingIcon={<Plus className="h-4 w-4" />}
+        >
           Add Location
         </Button>
       </div>
@@ -189,49 +184,49 @@ export default function LocationsPage() {
           icon={MapPin}
           title="No locations yet"
           description="Add your first restaurant location to get started."
-          actionLabel="Add Location"
-          onAction={openCreate}
+          action={{ label: "Add Location", onClick: openCreate }}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-[var(--space-4)] sm:grid-cols-2">
           {locations.map((loc) => (
             <Card
               key={loc.id}
-              className="cursor-pointer shadow-warm-sm transition-shadow hover:shadow-warm-md"
+              variant="interactive"
+              padding="default"
               onClick={() => openEdit(loc)}
             >
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base">{loc.name}</CardTitle>
-                    <CardDescription className="mt-1">
+                <div className="flex items-start justify-between gap-[var(--space-3)]">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle>{loc.name}</CardTitle>
+                    <CardDescription className="mt-[var(--space-1)]">
                       {[loc.address_line1, loc.city, loc.state, loc.zip]
                         .filter(Boolean)
                         .join(", ") || "No address set"}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={loc.is_active ? "active" : "inactive"} />
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center gap-[var(--space-2)]">
+                    <Badge variant={loc.is_active ? "success" : "default"}>
+                      {loc.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    <ChevronRight className="h-4 w-4 text-[color:var(--color-text-muted)]" />
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  {loc.phone && (
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5" />
-                      {loc.phone}
-                    </span>
-                  )}
-                  {loc.email && (
-                    <span className="flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5" />
-                      {loc.email}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
+              <div className="flex flex-wrap items-center gap-x-[var(--space-4)] gap-y-[var(--space-1)] text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+                {loc.phone && (
+                  <span className="flex items-center gap-[var(--space-1)]">
+                    <Phone className="h-3.5 w-3.5" />
+                    {loc.phone}
+                  </span>
+                )}
+                {loc.email && (
+                  <span className="flex items-center gap-[var(--space-1)]">
+                    <Mail className="h-3.5 w-3.5" />
+                    {loc.email}
+                  </span>
+                )}
+              </div>
             </Card>
           ))}
         </div>
@@ -239,7 +234,7 @@ export default function LocationsPage() {
 
       {/* Create/Edit Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent side="right" width="lg">
           <SheetHeader>
             <SheetTitle>
               {editingLocation ? "Edit Location" : "New Location"}
@@ -251,128 +246,86 @@ export default function LocationsPage() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="space-y-5 px-4 py-6">
-            <div className="space-y-2">
-              <Label htmlFor="loc-name">Location Name *</Label>
-              <Input
-                id="loc-name"
-                className="h-12"
-                placeholder="Downtown"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
+          <SheetBody className="flex flex-col gap-[var(--space-5)]">
+            <Text
+              size="lg"
+              label="Location Name"
+              required
+              placeholder="Downtown"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+            />
+            <Text
+              size="lg"
+              label="Address Line 1"
+              placeholder="123 Main St"
+              value={formAddress}
+              onChange={(e) => setFormAddress(e.target.value)}
+            />
+            <Text
+              size="lg"
+              label="Address Line 2"
+              placeholder="Suite 100"
+              value={formAddress2}
+              onChange={(e) => setFormAddress2(e.target.value)}
+            />
+            <div className="grid gap-[var(--space-4)] grid-cols-3">
+              <Text
+                size="lg"
+                label="City"
+                placeholder="Austin"
+                value={formCity}
+                onChange={(e) => setFormCity(e.target.value)}
+              />
+              <Text
+                size="lg"
+                label="State"
+                placeholder="TX"
+                value={formState}
+                onChange={(e) => setFormState(e.target.value)}
+              />
+              <Text
+                size="lg"
+                label="ZIP"
+                placeholder="78701"
+                value={formZip}
+                onChange={(e) => setFormZip(e.target.value)}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="loc-addr">Address Line 1</Label>
-              <Input
-                id="loc-addr"
-                className="h-12"
-                placeholder="123 Main St"
-                value={formAddress}
-                onChange={(e) => setFormAddress(e.target.value)}
+            <div className="grid gap-[var(--space-4)] grid-cols-2">
+              <Text
+                size="lg"
+                label="Phone"
+                placeholder="(512) 555-0100"
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+              />
+              <Email
+                size="lg"
+                label="Email"
+                placeholder="downtown@example.com"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="loc-addr2">Address Line 2</Label>
-              <Input
-                id="loc-addr2"
-                className="h-12"
-                placeholder="Suite 100"
-                value={formAddress2}
-                onChange={(e) => setFormAddress2(e.target.value)}
-              />
-            </div>
-
-            <div className="grid gap-4 grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="loc-city">City</Label>
-                <Input
-                  id="loc-city"
-                  className="h-12"
-                  placeholder="Austin"
-                  value={formCity}
-                  onChange={(e) => setFormCity(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="loc-state">State</Label>
-                <Input
-                  id="loc-state"
-                  className="h-12"
-                  placeholder="TX"
-                  value={formState}
-                  onChange={(e) => setFormState(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="loc-zip">ZIP</Label>
-                <Input
-                  id="loc-zip"
-                  className="h-12"
-                  placeholder="78701"
-                  value={formZip}
-                  onChange={(e) => setFormZip(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="loc-phone">Phone</Label>
-                <Input
-                  id="loc-phone"
-                  className="h-12"
-                  placeholder="(512) 555-0100"
-                  value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="loc-email">Email</Label>
-                <Input
-                  id="loc-email"
-                  type="email"
-                  className="h-12"
-                  placeholder="downtown@example.com"
-                  value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Timezone</Label>
-              <Select value={formTimezone} onValueChange={(v) => v && setFormTimezone(v)}>
-                <SelectTrigger className="h-12 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {tz.replace(/_/g, " ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            <Select
+              size="lg"
+              label="Timezone"
+              options={TZ_OPTIONS}
+              value={formTimezone}
+              onChange={setFormTimezone}
+            />
+          </SheetBody>
 
           <SheetFooter>
             <Button
-              variant="outline"
+              variant="secondary"
+              size="lg"
               onClick={() => setSheetOpen(false)}
-              className="h-11 touch-target"
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="h-11 gap-2 btn-press touch-target"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button onClick={handleSave} size="lg" loading={saving}>
               {editingLocation ? "Save Changes" : "Create Location"}
             </Button>
           </SheetFooter>
@@ -384,23 +337,14 @@ export default function LocationsPage() {
 
 function LocationsSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-[var(--space-6)]">
       <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-24" />
+        <Skeleton className="h-7 w-32" />
         <Skeleton className="h-11 w-36" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {[1, 2].map((i) => (
-          <Card key={i} className="shadow-warm-sm">
-            <CardHeader>
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-4 w-48 mt-1" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-4 w-40" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-[var(--space-4)] sm:grid-cols-2">
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
       </div>
     </div>
   );
