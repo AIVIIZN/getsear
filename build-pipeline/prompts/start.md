@@ -12,13 +12,14 @@ After reading them, do this:
 1. Determine from STATE.yaml which task or batch is next pending.
 2. Read the corresponding build-pipeline/versions/V{N}_*.md file for the current version's full spec.
 3. Execute the next task or batch:
-   - For a parallel batch: spawn ALL tasks as background Agents in ONE message (run_in_background: true), each in its own git worktree under .claude/worktrees/v{N}-batch-{B}-{slug}/.
-   - For a sequential task: execute inline.
+   - For a parallel batch: spawn ALL tasks as background Agents in ONE message (run_in_background: true), each in its own git worktree under .claude/worktrees/v{N}-batch-{B}-{slug}/. **Use the project's specialist agents from .claude/agents/ via `subagent_type:` — see RUNNER.md "Project agent registry" table for the mapping.** Do not use `general-purpose` unless no specialist fits.
+   - For a sequential task: execute inline (or with a single `subagent_type` if the work matches a specialist).
 4. Wait for agents to complete (the system will notify you).
-5. Run build-pipeline/INTEGRATE.sh to merge worktrees and test (export BATCH_ID first).
-6. If integration passes: run build-pipeline/DEPLOY.sh.
-7. Update STATE.yaml: mark complete, advance pointer, append to logs/batch-runs.jsonl.
-8. Loop to step 1 immediately. Do not pause. Do not summarize. Do not ask.
+5. **Reviewer pass (Layer 1 self-check, MANDATORY):** spawn one `reviewer` sub-agent per completed worktree, in ONE parallel message. Wait for verdicts in `logs/reviews.jsonl`. Any FAIL → re-spawn the implementer with the reviewer's issues; max 3 fix cycles. All PASS / CONCERNS → continue.
+6. Run build-pipeline/INTEGRATE.sh to merge worktrees and test (export BATCH_ID first).
+7. If integration passes: run build-pipeline/DEPLOY.sh.
+8. Update STATE.yaml: mark complete, advance pointer, append to logs/batch-runs.jsonl.
+9. Loop to step 1 immediately. Do not pause. Do not summarize. Do not ask.
 
 ABSOLUTE RULES:
 - DO NOT ASK THE USER QUESTIONS. The user is not watching. Resolve every decision via DEFAULTS.md or by choosing the safer option and logging it in STATE.yaml decisions[].

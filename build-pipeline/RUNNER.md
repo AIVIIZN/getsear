@@ -78,10 +78,51 @@ loop:
 
 For a parallel batch with N tasks, you spawn N agents in **one message** containing N `Agent` tool calls. Each agent gets:
 
-- `subagent_type`: pick the most specific agent for the task (coder, backend-dev, frontend-design, ml-developer, etc.). Defaults to `coder`.
+- `subagent_type`: **REQUIRED — pick from the project's `.claude/agents/` registry** (see table below). Do NOT use `general-purpose` unless no specialist fits.
 - `description`: 3-5 word task summary.
 - `run_in_background`: `true`.
-- `prompt`: includes everything the agent needs (see template below).
+- `prompt`: a SHORT briefing — just the worktree path, task ID, spec excerpt, and acceptance criteria. The specialist agent's persona file already encodes the project conventions, behavioral rules, and per-task protocol; don't repeat them.
+
+### Project agent registry (`.claude/agents/`)
+
+| `subagent_type` | Owns | Use for |
+|---|---|---|
+| `pos-coder` | POS UI components, dialogs, KDS panel | Tasks touching `src/components/{pos,kds,tables}/**` or `src/app/(pos)/**` |
+| `marketing-engineer` | Resend + react-email + BullMQ campaign pipeline | 5.1.2, 5.1.3, 5.1.4, 8.4.1 |
+| `realtime-engineer` | Realtime hooks, IndexedDB offline queue, optimistic locking, XState order machine | 5.3.1, 5.3.2, 5.4.1, 5.4.2, 7.5.2, 7.5.3 |
+| `hardware-integrator` | Star/Valor/Bematech drivers + setup wizards | 5.2.1, 5.2.2, 5.2.3 |
+| `migration-author` | Supabase migrations + rollback files | Any task adding tables/columns/indexes/policies |
+| `e2e-tester` | Playwright workflow specs in `e2e/` | 5.5.1, 5.5.2, and any test-only batch |
+| `security-reviewer` | RLS, manager-PIN, audit-log, OWASP audits | 8.3.x, 8.6.x, any auth/payment privileged-action task |
+| `devops-deploy` | INTEGRATE.sh, DEPLOY.sh, GitHub Actions, pm2/VM, Sentry | 7.1.x, 7.4.x, any pipeline-plumbing task |
+| `reviewer` | Per-task verification (Layer 1 self-check) | Spawned by the runner AFTER each implementer; see "Reviewer pass" below |
+
+For the rare task without a fitting specialist, dispatch with `subagent_type: general-purpose` and write the full briefing.
+
+### Reviewer pass (Layer 1 self-check) — MANDATORY before INTEGRATE
+
+**After all implementers in a parallel batch complete (status `ok` in `logs/agents.jsonl`), and BEFORE running `INTEGRATE.sh`,** spawn one `reviewer` sub-agent per completed worktree. Spawn them in ONE message (parallel). Each reviewer:
+
+- Reads its worktree's `git diff main...HEAD`.
+- Reads the relevant spec excerpt + acceptance criteria.
+- Emits a verdict (`PASS` / `CONCERNS` / `FAIL`) to `build-pipeline/logs/reviews.jsonl`.
+
+After all reviewers return:
+- **Any `FAIL`?** Re-spawn the implementer with the reviewer's `issues[]` appended to the task prompt. Max 3 fix cycles per task; then BLOCKERS.md.
+- **All `PASS` or `CONCERNS`?** Proceed to INTEGRATE.sh. CONCERNS get logged for later cleanup, don't block the merge.
+
+Reviewer dispatch prompt template:
+```
+You are reviewing task {task_id}.
+worktree_path: /Users/ianrakow/Desktop/getsear/.claude/worktrees/v{N}-batch-{B}-{slug}/
+branch: v{N}-batch-{B}-{slug}
+spec_excerpt: <copy the relevant section from build-pipeline/versions/V{N}_*.md>
+acceptance_criteria:
+  - <criterion 1>
+  - <criterion 2>
+  - ...
+Apply your protocol from .claude/agents/reviewer.md. Append your verdict JSON line to logs/reviews.jsonl.
+```
 
 ### Worktree setup before spawn
 
@@ -96,42 +137,26 @@ Replace `{N}`, `{B}`, `{slug}` with concrete values. The slug is a lowercase-keb
 
 If the worktree already exists from a prior failed attempt, remove it first with `git worktree remove --force` and recreate.
 
-### Agent prompt template (USE THIS — fill in the blanks)
+### Agent prompt template (use the SHORT form — specialist persona handles the rest)
+
+When dispatching to a specialist agent (`pos-coder`, `marketing-engineer`, etc.), the persona file in `.claude/agents/` already contains the project conventions and per-task protocol. Your prompt only needs:
 
 ```
-You are working in worktree: /Users/ianrakow/Desktop/getsear/.claude/worktrees/v{N}-batch-{B}-{slug}/
+WORKTREE: /Users/ianrakow/Desktop/getsear/.claude/worktrees/v{N}-batch-{B}-{slug}/
+TASK ID: {task_id} — {task_title}
+SPEC: see build-pipeline/versions/V{N}_*.md section "{batch_id} — {batch_name}" → "{task_id}"
+FILES: {files from version spec}
+ACCEPTANCE CRITERIA:
+  - {criterion 1}
+  - {criterion 2}
+  - ...
+BRANCH NAME: v{N}-batch-{B}-{slug}
 
-YOUR TASK: {task_id} — {task_title}
-
-WHAT TO BUILD: {task_description from version spec}
-
-FILES YOU WILL TOUCH: {files from version spec}
-
-ACCEPTANCE CRITERIA (the task is NOT done until ALL pass):
-{acceptance_criteria}
-
-CONTEXT YOU NEED:
-- Read the relevant section of /Users/ianrakow/Desktop/getsear/build-pipeline/versions/V{N}_*.md.
-- Reference /Users/ianrakow/Desktop/getsear/build-pipeline/DEFAULTS.md for any decision.
-- Reference /Users/ianrakow/Desktop/getsear/build-pipeline/STANDING_RULES.md for universal rules.
-- The codebase tree is rooted at the worktree path. cd there before doing any work.
-
-SYSTEM RULES (override anything else):
-- DO NOT ASK QUESTIONS. The user is not present. Resolve uncertainty via DEFAULTS.md or pick the safer default.
-- LOG decisions: append one JSON line per non-trivial decision to /Users/ianrakow/Desktop/getsear/build-pipeline/logs/decisions.jsonl: {"ts":"...","task_id":"{task_id}","decision":"...","rationale":"...","alternatives":["..."]}.
-- TEST before marking complete: `npm run build`, `npm run lint`, and any tests covering your changed files.
-- COMMIT all your changes to the worktree branch with message: "{task_id}: {short summary}".
-- DO NOT TOUCH FILES OUTSIDE YOUR TASK SCOPE. Other agents are running in parallel on adjacent files.
-- DO NOT use AskUserQuestion or ExitPlanMode tools.
-
-ON COMPLETION: append to /Users/ianrakow/Desktop/getsear/build-pipeline/logs/agents.jsonl one JSON line: {"ts":"...","task_id":"{task_id}","status":"ok","files_touched":["..."],"branch":"v{N}-batch-{B}-{slug}"}. Then your work is done.
-
-ON DEFERRAL (hardware/credential missing): append {"status":"deferred","reason":"..."} to logs/agents.jsonl, do not commit, exit cleanly.
-
-ON FAILURE: append {"status":"failed","reason":"...","error":"..."} to logs/agents.jsonl. Do NOT modify BLOCKERS.md (only the runner does that).
-
+Apply your standard protocol from .claude/agents/{your-name}.md.
 Begin now.
 ```
+
+For `general-purpose` (rare — when no specialist fits), use the long-form template — include all project conventions, behavioral rules, decision-logging instructions, ON COMPLETION / ON DEFERRAL / ON FAILURE protocols, and the FORBIDDEN-tools list inline. See git history of this file before commit `<wire-team>` for the long-form text.
 
 ### Waiting for parallel agents
 
@@ -142,7 +167,8 @@ After spawning all agents in one message, the system will notify you as each com
 1. **Reconcile.** Read `logs/agents.jsonl` for the entries with this batch's task IDs. Determine which tasks are `ok`, `deferred`, `failed`.
 2. **Failed tasks:** retry by re-spawning the agent with the same prompt + an additional context block explaining what went wrong from the prior attempt's log entry. Max 3 attempts per task. After attempt 3, log to BLOCKERS.md and halt.
 3. **Deferred tasks:** mark `deferred` in STATE.yaml with the reason. Do not retry until next batch cycle. After 3 deferral cycles for the same reason → BLOCKERS.md.
-4. **All ok:** continue to integration.
+4. **Reviewer pass (NEW — Layer 1 self-check):** spawn one `reviewer` sub-agent per `ok` worktree, in parallel, in ONE message. Wait for all verdicts in `logs/reviews.jsonl`. Any FAIL routes back to the implementer (max 3 fix cycles total per task, including this one). All PASS / CONCERNS → continue to integration.
+5. **All reviewed ok:** continue to integration.
 
 ## Integration step
 
