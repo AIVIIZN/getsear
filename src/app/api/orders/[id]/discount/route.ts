@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
-import { assertVersion } from '@/lib/orders/concurrency'
+import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
 import { validateManagerPin } from '@/lib/auth/manager-pin'
 
@@ -180,8 +180,25 @@ export async function POST(
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
-  // — this UPDATE bumps the order version (V5.4.1).
-  await recalculateOrderTotals(supabase, orderId, user.org_id)
+  // — this UPDATE bumps the order version (V5.4.1). Only an INSERT into
+  // `order_discounts` ran above, so `orders.version` is still
+  // `check.expectedVersion`; thread it through so 5.99.2 catches a stale
+  // snapshot before it clobbers totals.
+  try {
+    await recalculateOrderTotals(supabase, orderId, user.org_id, check.expectedVersion)
+  } catch (err) {
+    if (err instanceof StaleVersionError) {
+      const stale = await checkUpdateAffectedRow(
+        supabase,
+        orderId,
+        user.org_id,
+        check.expectedVersion,
+        null
+      )
+      if (stale) return stale
+    }
+    throw err
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types cover orders.version chain
   const { data: refreshed } = await (supabase.from('orders') as any)

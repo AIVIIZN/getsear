@@ -3,14 +3,14 @@ import { z } from 'zod'
 import { compare } from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
+import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
 import {
   assertTransition,
   IllegalTransitionError,
   isPostClose,
   type OrderState,
 } from '@/lib/orders/state-machine'
-import { assertVersion } from '@/lib/orders/concurrency'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
 
 const compSchema = z.object({
@@ -197,7 +197,34 @@ export async function POST(
   }
 
   // ----- 6. Recalculate totals ----------------------------------------------
-  await recalculateOrderTotals(supabase, orderId, user.org_id)
+  // 5.99.2 — gate the totals UPDATE on `orders.version` so a concurrent
+  // writer can't clobber. Tricky case: when `isAfterClose` is true, step 3
+  // re-opened the order with an UPDATE on `orders` that fired the trigger,
+  // bumping `orders.version` to `expectedVersion + 1`. The pre-close path
+  // touched only `order_items`, so `orders.version` is still
+  // `expectedVersion`. If `versionCheck.expectedVersion` is null (legacy
+  // unconditional caller, e.g. offline replay), pass null straight through.
+  const recalcExpected =
+    versionCheck.expectedVersion === null
+      ? null
+      : isAfterClose
+        ? versionCheck.expectedVersion + 1
+        : versionCheck.expectedVersion
+  try {
+    await recalculateOrderTotals(supabase, orderId, user.org_id, recalcExpected)
+  } catch (err) {
+    if (err instanceof StaleVersionError) {
+      const stale = await checkUpdateAffectedRow(
+        supabase,
+        orderId,
+        user.org_id,
+        recalcExpected,
+        null
+      )
+      if (stale) return stale
+    }
+    throw err
+  }
 
   // ----- 7. If we re-opened for comp + balance_due is now 0, auto-close -----
   if (isAfterClose) {

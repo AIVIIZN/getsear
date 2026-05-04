@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
-import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
-import { assertVersion } from '@/lib/orders/concurrency'
+import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 
 const mergeSchema = z.object({
   source_order_id: z.string().uuid(),
@@ -89,8 +89,30 @@ export async function POST(
     .eq('id', source_order_id)
 
   // Recalculate target totals using the tax engine (no more hardcoded 8.5%)
-  // — this UPDATE bumps the order version (V5.4.1).
-  await recalculateOrderTotals(supabase, targetOrderId, user.org_id)
+  // — this UPDATE bumps the target order's version (V5.4.1). The mutations
+  // above touched `order_items`, `order_discounts`, and the *source* order;
+  // none bump the target's `orders.version`, so the target is still at
+  // `check.expectedVersion` when recalc runs (5.99.2).
+  try {
+    await recalculateOrderTotals(
+      supabase,
+      targetOrderId,
+      user.org_id,
+      check.expectedVersion
+    )
+  } catch (err) {
+    if (err instanceof StaleVersionError) {
+      const stale = await checkUpdateAffectedRow(
+        supabase,
+        targetOrderId,
+        user.org_id,
+        check.expectedVersion,
+        null
+      )
+      if (stale) return stale
+    }
+    throw err
+  }
 
   // Fetch the updated order
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

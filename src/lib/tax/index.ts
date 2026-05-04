@@ -16,4 +16,5 @@ export {
 export {
   fetchLocationTaxRates,
   recalculateOrderTotals,
+  StaleVersionError,
 } from './recalculate-order'
