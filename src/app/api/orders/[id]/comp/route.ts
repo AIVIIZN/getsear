@@ -10,7 +10,7 @@ import {
   isPostClose,
   type OrderState,
 } from '@/lib/orders/state-machine'
-import { assertVersion } from '@/lib/orders/concurrency'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
 
 const compSchema = z.object({
@@ -95,8 +95,23 @@ export async function POST(
   // Real impl loads the row, parses If-Match, and returns a NextResponse 409
   // with the current state on mismatch. We pass through that response so
   // the StaleOrderModal on the client renders the diff.
-  const versionCheck = await assertVersion(supabase, request, orderId, user.org_id)
+  //
+  // 5.99.4: previously this was decorative — the helper was called but the
+  // subsequent UPDATEs in this handler weren't gated on the version, so a
+  // refund + comp race could both "win". We now thread `expectedVersion`
+  // through every UPDATE and verify the affected-row count, returning a 409
+  // (via checkUpdateAffectedRow) when another writer slipped in.
+  const versionCheck = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, version',
+  })
   if (!versionCheck.ok) return versionCheck.response
+
+  // Tracks the version we expect for the *next* UPDATE in this handler. Each
+  // successful UPDATE bumps `orders.version` via the BEFORE-UPDATE trigger,
+  // so we increment locally as we go (or re-read from the row when we have
+  // an interleaved write through `recalculateOrderTotals`).
+  // `null` = legacy unconditional path (no If-Match header sent); skip gating.
+  let nextExpectedVersion: number | null = versionCheck.expectedVersion
 
   // ----- 3. Post-close path: validate manager PIN + re-open -----------------
   let approvedByManagerId: string | null = null
@@ -132,14 +147,38 @@ export async function POST(
     // Re-open the order. Clears closed_at; balance_due is recomputed below.
     // The BEFORE-UPDATE trigger from migration 20260504063720 auto-bumps
     // orders.version, so we just do the domain update.
+    //
+    // 5.99.4: gate on version (when caller asserted one) and verify the
+    // affected-row count via checkUpdateAffectedRow. A 0-row UPDATE means
+    // another writer (e.g. a refund route) raced us.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('orders') as any)
+    let reopenQuery = (supabase.from('orders') as any)
       .update({
         status: 'served',
         closed_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
+      .eq('org_id', user.org_id)
+    if (nextExpectedVersion !== null) {
+      reopenQuery = reopenQuery.eq('version', nextExpectedVersion)
+    }
+    const { data: reopenedRow } = await reopenQuery.select('version').maybeSingle()
+
+    const reopenStaleResp = await checkUpdateAffectedRow(
+      supabase,
+      orderId,
+      user.org_id,
+      nextExpectedVersion,
+      reopenedRow
+    )
+    if (reopenStaleResp) return reopenStaleResp
+
+    // Trigger bumped version. Track for the next gated UPDATE.
+    if (nextExpectedVersion !== null) {
+      const v = (reopenedRow as { version?: number } | null)?.version
+      nextExpectedVersion = typeof v === 'number' ? v : nextExpectedVersion + 1
+    }
   }
 
   // ----- 4. Capture before-state for audit ----------------------------------
@@ -201,13 +240,26 @@ export async function POST(
 
   // ----- 7. If we re-opened for comp + balance_due is now 0, auto-close -----
   if (isAfterClose) {
+    // recalculateOrderTotals UPDATEd `orders` (bumping version via trigger),
+    // so re-read the live version here. We use it to gate the auto-close
+    // UPDATE below — without this, a concurrent refund could land between
+    // recalc and close and we'd silently overwrite their state.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: refreshed } = await (supabase.from('orders') as any)
-      .select('total, amount_paid, balance_due')
+      .select('total, amount_paid, balance_due, version')
       .eq('id', orderId)
       .single()
 
     const newBalanceCents = Math.round(parseFloat(refreshed?.balance_due ?? '0') * 100)
+
+    if (nextExpectedVersion !== null) {
+      const v = (refreshed as { version?: number } | null)?.version
+      // If the re-read returned a version, that's our new gate. If it didn't
+      // (shouldn't happen — `single()` would have thrown), fall back to the
+      // tracked counter. We bias toward gating; a missing version surfaces
+      // as a 409 via the affected-row check rather than a silent bypass.
+      nextExpectedVersion = typeof v === 'number' ? v : nextExpectedVersion
+    }
 
     if (newBalanceCents <= 0) {
       // Drive it back through CLOSE.
@@ -221,13 +273,33 @@ export async function POST(
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('orders') as any)
+      let closeQuery = (supabase.from('orders') as any)
         .update({
           status: 'closed',
           closed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', orderId)
+        .eq('org_id', user.org_id)
+      if (nextExpectedVersion !== null) {
+        closeQuery = closeQuery.eq('version', nextExpectedVersion)
+      }
+      const { data: closedRow } = await closeQuery.select('version').maybeSingle()
+
+      const closeStaleResp = await checkUpdateAffectedRow(
+        supabase,
+        orderId,
+        user.org_id,
+        nextExpectedVersion,
+        closedRow
+      )
+      if (closeStaleResp) return closeStaleResp
+
+      // nextExpectedVersion would be advanced here for any subsequent gated
+      // UPDATEs, but the auto-close is the final write in the comp flow —
+      // downstream are non-orders writes (audit, order_modifications) and
+      // a final SELECT. Intentionally not reassigning to keep the linter
+      // happy without losing the invariant for future additions.
     }
     // If newBalanceCents > 0 the order legitimately still owes money
     // (e.g. comp was less than the refund the customer expected) — leave it
