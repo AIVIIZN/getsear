@@ -32,7 +32,7 @@
  * ---------
  * - "pos_terminal"  — 1-2 ramping VUs; each VU loops through:
  *     login → fetch menu → create order → add 3 items → send → pay → verify
- * - "kds_subscriber" — 1 steady VU; loops GET /api/kds/queue to simulate a
+ * - "kds_subscriber" — 1 steady VU; loops GET /api/kds/tickets to simulate a
  *     Kitchen Display System polling for new tickets.
  *
  * Run
@@ -45,6 +45,7 @@
 
 import http from 'k6/http'
 import { check, sleep } from 'k6'
+import exec from 'k6/execution'
 import { Counter, Trend, Rate } from 'k6/metrics'
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
 
@@ -54,9 +55,13 @@ import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
 
 const BASE_URL = __ENV.BASE_URL || 'https://getsear.com'
 
-// Demo tenant credentials (public, seeded — no secrets).
-const EMAIL = 'demo@getsear.com'
-const PASSWORD = 'demo1234'
+// Credentials come from env (no hardcoded literals — CLAUDE.md security rule).
+const DEMO_EMAIL = __ENV.DEMO_EMAIL || 'demo@getsear.com'
+const DEMO_PASSWORD = __ENV.DEMO_PASSWORD
+if (!DEMO_PASSWORD) {
+  throw new Error('DEMO_PASSWORD env var is required (e.g. -e DEMO_PASSWORD=demo1234 for the demo tenant).')
+}
+
 const PRIMARY_LOCATION_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901'
 
 // Chaos parameters.
@@ -73,8 +78,18 @@ const simulatedFailures = new Counter('chaos_simulated_failures')
 // Extra latency injected (ms) — tracks only the non-faulted 95 %.
 const simulatedLatencyMs = new Trend('chaos_simulated_latency_ms', true)
 
-// Whether each end-to-end order flow succeeded.
+// Whether each CHAOS-FREE end-to-end order flow succeeded. Flows where any
+// step was synthetically faulted are excluded from this rate (see runOrderFlow
+// returning {success, hadChaos}). With ~7 chaos-wrappable steps per flow at
+// 5 % each, the compound chaos-hit rate per flow is ~30 % — counting every
+// flow as "failed" when chaos fired would push the natural rate to ~0.70 and
+// trip the threshold every run, with no actual signal about server health.
+// We measure server resilience: did the steps that REACHED the server all
+// succeed end-to-end? That should be > 99 %.
 const orderFlowSuccess = new Rate('order_flow_success')
+
+// How many flows were excluded because chaos fired mid-flow.
+const chaosSkippedFlows = new Counter('chaos_skipped_flows')
 
 // ---------------------------------------------------------------------------
 // Thresholds
@@ -104,18 +119,24 @@ export const options = {
         { duration: '15s', target: 0 },  // ramp down
       ],
       gracefulRampDown: '10s',
+      exec: 'pos_terminal',
     },
     kds_subscriber: {
       executor: 'constant-vus',
       vus: 1,
       duration: '1m45s',
       startTime: '0s',
+      exec: 'kds_subscriber',
     },
   },
   thresholds: {
     // Real server calls: near-zero failure expected (lighter load + jitter).
     http_req_failed: ['rate<0.001'],
-    // At least 99 % of order flows that reached the server must succeed.
+    // CHAOS-FREE order flows: > 99 % must succeed. Flows where chaos fired
+    // mid-stream are excluded from this rate (counted in chaos_skipped_flows
+    // instead) — otherwise the natural compound rate (~0.70 with 6 chaos-
+    // wrapped steps × 5 % each) would unmeetably trip the threshold every
+    // run with no real signal.
     order_flow_success: ['rate>0.99'],
     // p95 latency including our injected jitter < 1500 ms.
     chaos_simulated_latency_ms: ['p(95)<1500'],
@@ -184,27 +205,55 @@ function chaosRequest(method, url, body, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Auth helper
+// Global setup — ONE login total. /api/auth/login is rate-limited to
+// 5/IP/15min AND 5/email/15min (src/lib/api/rate-limit.ts:32). Doing this
+// per-VU would self-429 within seconds and turn the run into noise.
 // ---------------------------------------------------------------------------
 
-/**
- * login — POST /api/auth/login and return the session cookie jar.
- * In k6, cookies from responses are automatically attached to subsequent
- * requests in the same VU as long as we use the same http.CookieJar.
- * Returns the auth cookie string for use in headers if needed.
- */
-function login() {
-  const res = http.post(
+export function setup() {
+  const loginRes = http.post(
     `${BASE_URL}/api/auth/login`,
-    JSON.stringify({ email: EMAIL, password: PASSWORD }),
+    JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
     { headers: { 'Content-Type': 'application/json' } }
   )
-  const ok = check(res, { 'login: status 200': (r) => r.status === 200 })
-  if (!ok) {
-    // Login failure is a hard blocker — cannot run order flow.
-    return false
+
+  if (loginRes.status !== 200) {
+    throw new Error(`setup login failed (status ${loginRes.status}). Check DEMO_EMAIL/DEMO_PASSWORD and that ${BASE_URL} is reachable.`)
   }
-  return true
+
+  // Build a Cookie header from Set-Cookie values; pass to every VU via data.
+  const cookieHeader = Object.entries(loginRes.cookies || {})
+    .map(([name, arr]) => `${name}=${arr[0].value}`)
+    .join('; ')
+
+  if (!cookieHeader) {
+    throw new Error('setup: login returned 200 but no cookies were set.')
+  }
+
+  // Discover KDS stations once (the actual KDS endpoint is /api/kds/tickets
+  // — not /api/kds/queue, which doesn't exist — and it requires station_id).
+  const stationsRes = http.get(
+    `${BASE_URL}/api/kds/stations?location_id=${PRIMARY_LOCATION_ID}`,
+    { headers: { Cookie: cookieHeader } }
+  )
+
+  let kdsStationIds = []
+  if (stationsRes.status === 200) {
+    try {
+      kdsStationIds = (stationsRes.json('data') || []).map((s) => s.id)
+    } catch (_) {
+      kdsStationIds = []
+    }
+  }
+
+  return { cookieHeader, kdsStationIds }
+}
+
+function authHeaders(cookieHeader, extra) {
+  return Object.assign(
+    { 'Content-Type': 'application/json', Cookie: cookieHeader },
+    extra || {}
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -239,12 +288,23 @@ function fetchMenuItems(cookieHeader) {
 
 /**
  * runOrderFlow — create one order, add 3 items, send to kitchen, pay with cash.
- * Returns true if the order reached `closed` status, false otherwise.
- * Uses chaosRequest for every step so ~5% of individual steps may fault.
+ * Returns { success, hadChaos } so callers can EXCLUDE chaos-faulted flows
+ * from the order_flow_success rate (otherwise the natural compound rate
+ * would be ~0.70 with 5 % per-step chaos and 6+ steps, making the > 0.99
+ * threshold unmeetable and meaningless).
+ *
+ * - hadChaos=true means at least one step was synthetically faulted; the
+ *   flow result is not a signal about server health.
+ * - hadChaos=false, success=true means every step reached the server and
+ *   succeeded.
+ * - hadChaos=false, success=false means a real server-side failure — this
+ *   is the signal we threshold on.
  */
-function runOrderFlow(menuItems) {
+function runOrderFlow(menuItems, cookieHeader) {
   // Pick 3 items deterministically by VU and iteration.
-  const pick = (offset) => menuItems[((__VU * 7 + __ITER * 3 + offset) % menuItems.length)]
+  const vuId = exec.vu.idInScenario
+  const iter = exec.scenario.iterationInTest
+  const pick = (offset) => menuItems[((vuId * 7 + iter * 3 + offset) % menuItems.length)]
   const item0 = pick(0)
   const item1 = pick(1)
   const item2 = pick(2)
@@ -252,6 +312,8 @@ function runOrderFlow(menuItems) {
   const selectedItems = [item0]
   if (item1.id !== item0.id) selectedItems.push(item1)
   if (item2.id !== item0.id && item2.id !== item1.id) selectedItems.push(item2)
+
+  const headers = authHeaders(cookieHeader)
 
   // Step 1: Create order.
   const { wasFault: f1, response: r1 } = chaosRequest(
@@ -262,17 +324,19 @@ function runOrderFlow(menuItems) {
       location_id: PRIMARY_LOCATION_ID,
       guest_count: 2,
       source: 'pos',
-    }
+    },
+    { headers }
   )
-  if (f1 || r1.status !== 201) return false
+  if (f1) return { success: false, hadChaos: true }
+  if (r1.status !== 201) return { success: false, hadChaos: false }
 
   let orderId
   try {
     orderId = r1.json().data.id
   } catch {
-    return false
+    return { success: false, hadChaos: false }
   }
-  if (!orderId) return false
+  if (!orderId) return { success: false, hadChaos: false }
 
   // Step 2: Add items.
   for (const item of selectedItems) {
@@ -287,35 +351,41 @@ function runOrderFlow(menuItems) {
         quantity: 1,
         course: 1,
         notes: '',
-      }
+      },
+      { headers }
     )
-    if (fi || ri.status !== 201) return false
+    if (fi) return { success: false, hadChaos: true }
+    if (ri.status !== 201) return { success: false, hadChaos: false }
   }
 
   // Step 3: Send to kitchen.
   const { wasFault: f3, response: r3 } = chaosRequest(
     'POST',
     `${BASE_URL}/api/orders/${orderId}/send`,
-    {}
+    {},
+    { headers }
   )
-  if (f3 || r3.status !== 200) return false
+  if (f3) return { success: false, hadChaos: true }
+  if (r3.status !== 200) return { success: false, hadChaos: false }
 
   // Step 4: Fetch total.
   const { wasFault: f4, response: r4 } = chaosRequest(
     'GET',
     `${BASE_URL}/api/orders/${orderId}`,
-    null
+    null,
+    { headers }
   )
-  if (f4 || r4.status !== 200) return false
+  if (f4) return { success: false, hadChaos: true }
+  if (r4.status !== 200) return { success: false, hadChaos: false }
 
   let totalCents = 0
   try {
     const total = parseFloat(r4.json().data.total || '0')
     totalCents = Math.round(total * 100)
   } catch {
-    return false
+    return { success: false, hadChaos: false }
   }
-  if (totalCents <= 0) return false
+  if (totalCents <= 0) return { success: false, hadChaos: false }
 
   // Step 5: Pay with cash (tendered = next $5 above total, no tip for speed).
   const tendered = Math.ceil(totalCents / 500) * 500
@@ -330,37 +400,35 @@ function runOrderFlow(menuItems) {
       tip_cents: 0,
       mode: 'sale',
       cash_tendered_cents: tendered,
-    }
+    },
+    { headers }
   )
-  if (f5 || r5.status !== 200) return false
+  if (f5) return { success: false, hadChaos: true }
+  if (r5.status !== 200) return { success: false, hadChaos: false }
 
   let payStatus
   try {
     payStatus = r5.json().data.status
   } catch {
-    return false
+    return { success: false, hadChaos: false }
   }
 
-  return payStatus === 'captured'
+  return { success: payStatus === 'captured', hadChaos: false }
 }
 
 // ---------------------------------------------------------------------------
 // POS terminal scenario
 // ---------------------------------------------------------------------------
 
-export function pos_terminal() {
-  // Login once per VU (k6 calls the default/scenario export per iteration;
-  // VU state (cookies) persists across iterations within the same VU).
-  if (__ITER === 0) {
-    const loggedIn = login()
-    if (!loggedIn) {
-      sleep(2)
-      return
-    }
+export function pos_terminal(data) {
+  const { cookieHeader } = data
+  if (!cookieHeader) {
+    sleep(1)
+    return
   }
 
   // Fetch the menu (chaos-wrapped — may be faulted).
-  const items = fetchMenuItems()
+  const items = fetchMenuItems(cookieHeader)
   if (!items || items.length < 3) {
     // Can't run order flow without at least 3 menu items.
     sleep(1)
@@ -368,30 +436,45 @@ export function pos_terminal() {
   }
 
   // Run one complete order flow.
-  const success = runOrderFlow(items)
-  orderFlowSuccess.add(success ? 1 : 0)
+  const result = runOrderFlow(items, cookieHeader)
+  if (result.hadChaos) {
+    chaosSkippedFlows.add(1)
+  } else {
+    orderFlowSuccess.add(result.success ? 1 : 0)
+  }
 
   // Think time between orders: 1-3 seconds (simulates cashier interacting).
   sleep(randomIntBetween(1, 3))
 }
 
 // ---------------------------------------------------------------------------
-// KDS subscriber scenario
+// KDS subscriber scenario — polls /api/kds/tickets every 2s
+// (NOT /api/kds/queue, which does not exist; reviewer cycle-1 P0).
+// /api/kds/tickets requires auth + station_id (verified at
+// src/app/api/kds/tickets/route.ts:103).
 // ---------------------------------------------------------------------------
 
-export function kds_subscriber() {
-  // KDS poll loop — GET /api/kds/queue every 2 seconds.
-  // This is a read-only endpoint; no auth required for demo tenant (or falls
-  // back gracefully). Use chaosRequest so it participates in the 5%/500ms mix.
+export function kds_subscriber(data) {
+  const { cookieHeader, kdsStationIds } = data
+
+  if (!cookieHeader || !kdsStationIds || kdsStationIds.length === 0) {
+    sleep(2)
+    return
+  }
+
+  const idx = (exec.vu.idInScenario - 1) % kdsStationIds.length
+  const stationId = kdsStationIds[idx]
+
   const { wasFault, response } = chaosRequest(
     'GET',
-    `${BASE_URL}/api/kds/queue?location_id=${PRIMARY_LOCATION_ID}&status=open`,
-    null
+    `${BASE_URL}/api/kds/tickets?station_id=${stationId}&location_id=${PRIMARY_LOCATION_ID}`,
+    null,
+    { headers: authHeaders(cookieHeader) }
   )
 
   if (!wasFault) {
     check(response, {
-      'kds queue: status 200 or 401': (r) => r.status === 200 || r.status === 401,
+      'kds tickets: status 200': (r) => r.status === 200,
     })
   }
 
