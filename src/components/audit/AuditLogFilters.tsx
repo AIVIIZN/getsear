@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * V5.4.3 — filters bar for the audit log back-office page.
+ * V6 — filters bar for the audit log back-office page.
  *
  * Filter axes:
  *   - date range (from/to, inclusive, ISO 8601)
@@ -16,16 +16,9 @@
 
 import * as React from "react"
 import { Search, X, Calendar as CalendarIcon } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Text } from "@/components/ui-v2/inputs/Text"
+import { Select } from "@/components/ui-v2/inputs/Select"
+import { Button } from "@/components/ui-v2/Button"
 
 export interface AuditFilterState {
   date_from: string | null
@@ -48,8 +41,7 @@ interface AuditLogFiltersProps {
   users: UserOption[]
   /** Subset of users with PIN set + manager-tier role. */
   managers: UserOption[]
-  /** Distinct action values that appear in this org's audit log; used to
-   * keep the action dropdown realistic instead of listing every theoretical action. */
+  /** Distinct action values that appear in this org's audit log. */
   knownActions: string[]
   loading?: boolean
 }
@@ -98,133 +90,118 @@ export function AuditLogFilters({
     if (!iso) return ""
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return ""
-    // Local-timezone slice in YYYY-MM-DDTHH:mm.
     const tzOffsetMs = d.getTimezoneOffset() * 60_000
     return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 16)
   }
 
+  const actorOptions = React.useMemo(
+    () => [
+      { value: SENTINEL_ALL, label: "All actors" },
+      ...users.map((u) => ({ value: u.id, label: u.label })),
+    ],
+    [users]
+  )
+  const managerOptions = React.useMemo(
+    () => [
+      { value: SENTINEL_ALL, label: "Any (or none)" },
+      ...managers.map((u) => ({ value: u.id, label: u.label })),
+    ],
+    [managers]
+  )
+  const actionOptions = React.useMemo(
+    () => [
+      { value: SENTINEL_ALL, label: "All actions" },
+      ...knownActions.map((a) => ({ value: a, label: a.replace(/_/g, " ") })),
+    ],
+    [knownActions]
+  )
+
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-[var(--space-4)]">
+      <div className="grid gap-[var(--space-3)] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {/* Search */}
-        <div className="space-y-1.5 xl:col-span-2">
-          <Label htmlFor="audit-search">Search</Label>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="audit-search"
-              placeholder="Description contains…"
-              className="pl-8"
-              value={value.search ?? ""}
-              onChange={(e) => update({ search: e.target.value || null })}
-              disabled={loading}
-            />
-          </div>
+        <div className="xl:col-span-2">
+          <Text
+            placeholder="Search description..."
+            value={value.search ?? ""}
+            onChange={(e) => update({ search: e.target.value || null })}
+            disabled={loading}
+            label="Search"
+            leadingIcon={<Search className="h-4 w-4" />}
+          />
         </div>
 
         {/* Date from */}
-        <div className="space-y-1.5">
-          <Label htmlFor="audit-from">From</Label>
-          <div className="relative">
-            <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="audit-from"
-              type="datetime-local"
-              className="pl-8"
-              value={fromIso(value.date_from)}
-              onChange={(e) => update({ date_from: toIso(e.target.value) })}
-              disabled={loading}
-            />
-          </div>
+        <div>
+          <Text
+            type="datetime-local"
+            value={fromIso(value.date_from)}
+            onChange={(e) => update({ date_from: toIso(e.target.value) })}
+            disabled={loading}
+            label="From"
+            leadingIcon={<CalendarIcon className="h-4 w-4" />}
+          />
         </div>
 
         {/* Date to */}
-        <div className="space-y-1.5">
-          <Label htmlFor="audit-to">To</Label>
-          <div className="relative">
-            <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="audit-to"
-              type="datetime-local"
-              className="pl-8"
-              value={fromIso(value.date_to)}
-              onChange={(e) => update({ date_to: toIso(e.target.value) })}
-              disabled={loading}
-            />
-          </div>
+        <div>
+          <Text
+            type="datetime-local"
+            value={fromIso(value.date_to)}
+            onChange={(e) => update({ date_to: toIso(e.target.value) })}
+            disabled={loading}
+            label="To"
+            leadingIcon={<CalendarIcon className="h-4 w-4" />}
+          />
         </div>
 
         {/* Actor */}
-        <div className="space-y-1.5">
-          <Label>Actor</Label>
+        <div>
           <Select
+            label="Actor"
+            options={actorOptions}
             value={value.actor_user_id ?? SENTINEL_ALL}
-            onValueChange={(v) => update({ actor_user_id: v === SENTINEL_ALL ? null : v })}
+            onChange={(v) =>
+              update({ actor_user_id: v === SENTINEL_ALL ? null : v })
+            }
             disabled={loading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All actors" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>All actors</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
 
         {/* Action */}
-        <div className="space-y-1.5">
-          <Label>Action</Label>
+        <div>
           <Select
+            label="Action"
+            options={actionOptions}
             value={value.action ?? SENTINEL_ALL}
-            onValueChange={(v) => update({ action: v === SENTINEL_ALL ? null : v })}
+            onChange={(v) => update({ action: v === SENTINEL_ALL ? null : v })}
             disabled={loading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All actions" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>All actions</SelectItem>
-              {knownActions.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a.replace(/_/g, " ")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
 
         {/* Manager PIN authorizer */}
-        <div className="space-y-1.5">
-          <Label>Manager PIN</Label>
+        <div>
           <Select
+            label="Manager PIN"
+            options={managerOptions}
             value={value.manager_pin_user_id ?? SENTINEL_ALL}
-            onValueChange={(v) => update({ manager_pin_user_id: v === SENTINEL_ALL ? null : v })}
+            onChange={(v) =>
+              update({ manager_pin_user_id: v === SENTINEL_ALL ? null : v })
+            }
             disabled={loading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Any (or none)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Any (or none)</SelectItem>
-              {managers.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
       </div>
 
       {hasAnyFilter && (
-        <div className="mt-4 flex justify-end">
-          <Button variant="ghost" size="sm" onClick={clearAll} disabled={loading}>
-            <X className="mr-1.5 h-3.5 w-3.5" />
+        <div className="mt-[var(--space-3)] flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearAll}
+            disabled={loading}
+            leadingIcon={<X className="h-3.5 w-3.5" />}
+          >
             Clear filters
           </Button>
         </div>

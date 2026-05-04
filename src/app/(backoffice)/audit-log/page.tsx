@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * V5.4.3 — back-office Audit Log page.
+ * V6 — back-office Audit Log page.
  *
  * Filterable history of every privileged action in the org (void, comp,
  * discount, cash drop, manager override, drawer-open, etc). Owners can
@@ -11,23 +11,25 @@
  *   - GET /api/audit-log              — paginated table
  *   - GET /api/audit-log/export       — CSV export (owner + PIN)
  *   - GET /api/staff/users (existing) — populate actor/manager dropdowns
+ *
+ * V6 visual: ConfirmDialog (ui-v2) + canonical ManagerPinDialog replaced
+ * the V5.4.3 inline DialogContent + raw <input> pattern.
  */
 
 import * as React from "react"
-import { Download, RefreshCw, ShieldAlert, Loader2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Download, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui-v2/Button"
+import { ConfirmDialog } from "@/components/ui-v2/feedback/ConfirmDialog"
+import { ManagerPinDialog } from "@/components/pos/ManagerPinDialog"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { AuditLogFilters, type AuditFilterState, type UserOption } from "@/components/audit/AuditLogFilters"
-import { AuditLogTable, type AuditTableRow } from "@/components/audit/AuditLogTable"
+  AuditLogFilters,
+  type AuditFilterState,
+  type UserOption,
+} from "@/components/audit/AuditLogFilters"
+import {
+  AuditLogTable,
+  type AuditTableRow,
+} from "@/components/audit/AuditLogTable"
 import { toast } from "sonner"
 
 const PAGE_SIZE = 50
@@ -61,7 +63,6 @@ export default function AuditLogPage() {
   const [knownActions, setKnownActions] = React.useState<string[]>([])
   const [currentRole, setCurrentRole] = React.useState<string | null>(null)
 
-  // Reset to page 0 when filters change.
   React.useEffect(() => {
     setPage(0)
   }, [filters])
@@ -72,7 +73,8 @@ export default function AuditLogPage() {
       if (filters.date_from) sp.set("date_from", filters.date_from)
       if (filters.date_to) sp.set("date_to", filters.date_to)
       if (filters.actor_user_id) sp.set("actor_user_id", filters.actor_user_id)
-      if (filters.manager_pin_user_id) sp.set("manager_pin_user_id", filters.manager_pin_user_id)
+      if (filters.manager_pin_user_id)
+        sp.set("manager_pin_user_id", filters.manager_pin_user_id)
       if (filters.action) sp.set("action", filters.action)
       if (filters.search) sp.set("search", filters.search)
       if (extra) {
@@ -83,7 +85,6 @@ export default function AuditLogPage() {
     [filters]
   )
 
-  // Load the audit rows whenever filters or page change.
   const fetchRows = React.useCallback(async () => {
     setLoading(true)
     try {
@@ -91,23 +92,27 @@ export default function AuditLogPage() {
         limit: String(PAGE_SIZE),
         offset: String(page * PAGE_SIZE),
       })
-      const res = await fetch(`/api/audit-log?${sp.toString()}`, { cache: "no-store" })
+      const res = await fetch(`/api/audit-log?${sp.toString()}`, {
+        cache: "no-store",
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      const json = (await res.json()) as { data: AuditTableRow[]; total: number }
+      const json = (await res.json()) as {
+        data: AuditTableRow[]
+        total: number
+      }
       setRows(json.data)
       setTotal(json.total)
-      // Build the known-actions list from what we just saw, merged with the
-      // existing set so the dropdown grows over time.
       setKnownActions((prev) => {
         const next = new Set(prev)
         for (const r of json.data) next.add(r.action)
         return Array.from(next).sort()
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load audit log"
+      const message =
+        err instanceof Error ? err.message : "Failed to load audit log"
       toast.error(message)
     } finally {
       setLoading(false)
@@ -118,9 +123,6 @@ export default function AuditLogPage() {
     void fetchRows()
   }, [fetchRows])
 
-  // Load org users for the filter dropdowns + current role for the
-  // export-button gate. Best-effort; failure here only disables the
-  // dropdowns, not the table.
   React.useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -160,21 +162,25 @@ export default function AuditLogPage() {
   }, [])
 
   return (
-    <div className="container mx-auto max-w-7xl space-y-6 p-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="container mx-auto max-w-7xl space-y-[var(--space-5)] p-[var(--space-6)]">
+      <header className="flex flex-wrap items-end justify-between gap-[var(--space-3)]">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Audit log</h1>
-          <p className="text-sm text-muted-foreground">
-            Every privileged action in your organization. Append-only and tenant-scoped.
+          <h1 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] tracking-tight text-[color:var(--color-text)]">
+            Audit log
+          </h1>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
+            Every privileged action in your organization. Append-only and
+            tenant-scoped.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void fetchRows()} disabled={loading}>
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
+        <div className="flex items-center gap-[var(--space-2)]">
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => void fetchRows()}
+            loading={loading}
+            leadingIcon={<RefreshCw className="h-4 w-4" />}
+          >
             Refresh
           </Button>
           <ExportButton filters={filters} currentRole={currentRole} />
@@ -203,8 +209,11 @@ export default function AuditLogPage() {
 }
 
 // ---------------------------------------------------------------------------
-// CSV export button — owner-only, manager-PIN-gated. The PIN modal is
-// inline so the button stays self-contained.
+// CSV export button — owner-only, manager-PIN-gated.
+// Two-step UX: ConfirmDialog explains the gate; ManagerPinDialog captures
+// + verifies the PIN. The verified PIN is then forwarded to the export
+// endpoint, which re-validates server-side and records an audit row of
+// the export itself.
 // ---------------------------------------------------------------------------
 function ExportButton({
   filters,
@@ -213,32 +222,23 @@ function ExportButton({
   filters: AuditFilterState
   currentRole: string | null
 }) {
-  const [open, setOpen] = React.useState(false)
-  const [pin, setPin] = React.useState("")
-  const [submitting, setSubmitting] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const [pinOpen, setPinOpen] = React.useState(false)
 
-  // Show the button to anyone who might be an owner; if currentRole is
-  // known and isn't 'owner', hide it. Server still gates either way.
   if (currentRole && currentRole !== "owner") return null
 
-  const onConfirm = async () => {
-    if (pin.length < 4) {
-      setError("Enter your PIN.")
-      return
-    }
-    setSubmitting(true)
-    setError(null)
-    try {
-      const sp = new URLSearchParams()
-      if (filters.date_from) sp.set("date_from", filters.date_from)
-      if (filters.date_to) sp.set("date_to", filters.date_to)
-      if (filters.actor_user_id) sp.set("actor_user_id", filters.actor_user_id)
-      if (filters.manager_pin_user_id) sp.set("manager_pin_user_id", filters.manager_pin_user_id)
-      if (filters.action) sp.set("action", filters.action)
-      if (filters.search) sp.set("search", filters.search)
-      sp.set("manager_pin", pin)
+  const downloadWithPin = async (pin: string) => {
+    const sp = new URLSearchParams()
+    if (filters.date_from) sp.set("date_from", filters.date_from)
+    if (filters.date_to) sp.set("date_to", filters.date_to)
+    if (filters.actor_user_id) sp.set("actor_user_id", filters.actor_user_id)
+    if (filters.manager_pin_user_id)
+      sp.set("manager_pin_user_id", filters.manager_pin_user_id)
+    if (filters.action) sp.set("action", filters.action)
+    if (filters.search) sp.set("search", filters.search)
+    sp.set("manager_pin", pin)
 
+    try {
       const res = await fetch(`/api/audit-log/export?${sp.toString()}`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -248,80 +248,59 @@ function ExportButton({
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      // Filename is set by the server's Content-Disposition; provide a
-      // local default in case the browser ignores it.
       a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       toast.success("Audit log exported.")
-      setOpen(false)
-      setPin("")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Export failed"
-      setError(message)
-    } finally {
-      setSubmitting(false)
+      toast.error(message)
     }
   }
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        <Download className="mr-2 h-4 w-4" />
+      <Button
+        size="md"
+        onClick={() => setConfirmOpen(true)}
+        leadingIcon={<Download className="h-4 w-4" />}
+      >
         Export CSV
       </Button>
 
-      <Dialog
-        open={open}
-        onOpenChange={(o) => {
-          setOpen(o)
-          if (!o) {
-            setPin("")
-            setError(null)
-          }
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Export audit log to CSV"
+        description={
+          <>
+            This export contains every privileged action matching your current
+            filters. It is owner-only and requires your manager PIN. The
+            export itself will be recorded in the audit log.
+          </>
+        }
+        confirmLabel="Continue"
+        onConfirm={async () => {
+          // Wait one animation frame so ConfirmDialog finishes its
+          // close transition before the PIN pad mounts; the two
+          // overlays must not fight for focus.
+          await new Promise((resolve) => requestAnimationFrame(resolve))
+          setPinOpen(true)
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-amber-600" />
-              Confirm owner PIN
-            </DialogTitle>
-            <DialogDescription>
-              Audit log exports are owner-only and require your PIN. The export is itself
-              recorded in the audit log.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="audit-export-pin">Owner PIN</Label>
-            <Input
-              id="audit-export-pin"
-              type="password"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              maxLength={10}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void onConfirm()
-              }}
-            />
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button onClick={onConfirm} disabled={submitting || pin.length < 4}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Download CSV
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      />
+
+      <ManagerPinDialog
+        open={pinOpen}
+        onOpenChange={setPinOpen}
+        title="Confirm owner PIN"
+        description="Enter your owner PIN to export the audit log."
+        returnPin
+        onVerified={(_managerId, _managerName, pin) => {
+          if (pin) void downloadWithPin(pin)
+        }}
+      />
     </>
   )
 }

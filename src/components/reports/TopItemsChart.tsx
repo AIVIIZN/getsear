@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 interface TopItemPoint {
   name: string
   quantity: number
@@ -36,11 +36,11 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 export function TopItemsChart({ data }: TopItemsChartProps) {
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Top 10 Items</CardTitle>
+        <CardTitle>Top 10 Items</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
@@ -65,11 +65,11 @@ export function TopItemsChart({ data }: TopItemsChartProps) {
                 width={110}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="revenue" fill="#16A34A" radius={[0, 4, 4, 0]} maxBarSize={28} />
+              <Bar dataKey="revenue" fill="var(--color-success)" radius={[0, 4, 4, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }

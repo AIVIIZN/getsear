@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 interface CategoryMixPoint {
   category: string
   sales: number
@@ -36,11 +36,11 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 export function CategoryMixChart({ data }: CategoryMixChartProps) {
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Category Mix</CardTitle>
+        <CardTitle>Category Mix</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -58,11 +58,11 @@ export function CategoryMixChart({ data }: CategoryMixChartProps) {
                 tickFormatter={(v: number) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="sales" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={48} />
+              <Bar dataKey="sales" fill="var(--color-primary-active)" radius={[4, 4, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }

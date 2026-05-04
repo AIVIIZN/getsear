@@ -1,7 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
+import { Button } from '@/components/ui-v2/Button'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui-v2/data/Table'
 import { DateRangePicker, type DatePreset } from '@/components/reports/DateRangePicker'
 import { FoodCostVarianceChart } from '@/components/reports/FoodCostVarianceChart'
 import { Download, Salad, AlertTriangle } from 'lucide-react'
@@ -37,10 +41,16 @@ export default function FoodCostPage() {
       if (res.ok) {
         const json = await res.json()
         if (json.data) setData(json.data)
-        else { setData(null); setIsEmpty(true) }
+        else {
+          setData(null)
+          setIsEmpty(true)
+        }
       }
-    } catch { setIsEmpty(true) }
-    finally { setLoading(false) }
+    } catch {
+      setIsEmpty(true)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -50,96 +60,114 @@ export default function FoodCostPage() {
   }, [fetchData])
 
   const costColor = data
-    ? data.food_cost_pct <= 28 ? 'var(--success)' : data.food_cost_pct <= 35 ? 'var(--warning)' : 'var(--error)'
-    : 'var(--foreground)'
+    ? data.food_cost_pct <= 28
+      ? 'var(--color-success)'
+      : data.food_cost_pct <= 35
+        ? 'var(--color-warning)'
+        : 'var(--color-danger)'
+    : 'var(--color-text)'
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-[var(--space-6)] max-w-7xl mx-auto space-y-[var(--space-5)]">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Food Cost</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">Theoretical vs actual food cost analysis</p>
+          <h1 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">Food Cost</h1>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
+            Theoretical vs actual food cost analysis
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[var(--space-2)]">
           <DateRangePicker onRangeChange={fetchData} initialPreset="this_month" />
-          <button type="button" onClick={() => window.open('/api/reports/export?type=food-cost', '_blank')} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium hover:bg-[var(--secondary)] transition-colors" style={{ height: 44 }}>
-            <Download className="h-4 w-4" /> Export PDF
-          </button>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => window.open('/api/reports/export?type=food-cost', '_blank')}
+            leadingIcon={<Download className="h-4 w-4" />}
+          >
+            Export PDF
+          </Button>
         </div>
       </div>
 
-      {loading && <div className="space-y-4">{[1, 2].map(i => <div key={i} className="h-48 rounded-xl bg-[var(--secondary)] animate-pulse" />)}</div>}
+      {loading && (
+        <div className="space-y-[var(--space-3)]">
+          {[1, 2].map(i => <Skeleton key={i} variant="card" />)}
+        </div>
+      )}
 
       {isEmpty && !loading && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Salad className="h-12 w-12 text-[var(--muted-foreground)] mb-4" />
-          <h3 className="text-lg font-medium mb-1">No food cost data</h3>
-          <p className="text-sm text-[var(--muted-foreground)]">Food cost data requires orders with menu items that have cost values configured.</p>
-        </div>
+        <EmptyState icon={Salad} title="No food cost data" description="Food cost data requires orders with menu items that have cost values configured." />
       )}
 
       {!loading && data && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="shadow-warm-sm"><CardContent className="p-5">
-              <p className="text-xs text-[var(--muted-foreground)] mb-1">Food Cost %</p>
-              <p className="text-3xl font-extrabold tabular-nums" style={{ color: costColor }}>{data.food_cost_pct.toFixed(1)}%</p>
-              <p className="text-xs text-[var(--muted-foreground)] mt-1">Target: 28-35%</p>
-            </CardContent></Card>
-            <Card className="shadow-warm-sm"><CardContent className="p-5">
-              <p className="text-xs text-[var(--muted-foreground)] mb-1">Theoretical Cost</p>
-              <p className="text-2xl font-bold tabular-nums">${data.total_theoretical.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-            </CardContent></Card>
-            <Card className="shadow-warm-sm"><CardContent className="p-5">
-              <p className="text-xs text-[var(--muted-foreground)] mb-1">Food Revenue</p>
-              <p className="text-2xl font-bold tabular-nums">${data.total_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-            </CardContent></Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--space-3)]">
+            <Card padding="default">
+              <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mb-[var(--space-1)]">Food Cost %</p>
+              <p className="text-[length:var(--type-title-1-size)] font-[var(--weight-bold)] tabular-nums" style={{ color: costColor }}>
+                {data.food_cost_pct.toFixed(1)}%
+              </p>
+              <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">Target: 28-35%</p>
+            </Card>
+            <Card padding="default">
+              <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mb-[var(--space-1)]">Theoretical Cost</p>
+              <p className="text-[length:var(--type-headline-size)] font-[var(--weight-bold)] tabular-nums">
+                ${data.total_theoretical.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+            </Card>
+            <Card padding="default">
+              <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mb-[var(--space-1)]">Food Revenue</p>
+              <p className="text-[length:var(--type-headline-size)] font-[var(--weight-bold)] tabular-nums">
+                ${data.total_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+            </Card>
           </div>
 
           <FoodCostVarianceChart data={data.items} />
 
-          {/* Flagged items table */}
-          <Card className="shadow-warm-sm">
-            <CardContent className="p-5">
-              <h3 className="text-base font-semibold mb-4">Item Variance Detail</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--border)]">
-                      <th className="text-left py-2 px-3 font-medium text-[var(--muted-foreground)]">Item</th>
-                      <th className="text-left py-2 px-3 font-medium text-[var(--muted-foreground)]">Category</th>
-                      <th className="text-right py-2 px-3 font-medium text-[var(--muted-foreground)]">Qty</th>
-                      <th className="text-right py-2 px-3 font-medium text-[var(--muted-foreground)]">Theoretical</th>
-                      <th className="text-right py-2 px-3 font-medium text-[var(--muted-foreground)]">Actual</th>
-                      <th className="text-right py-2 px-3 font-medium text-[var(--muted-foreground)]">Variance</th>
-                      <th className="text-right py-2 px-3 font-medium text-[var(--muted-foreground)]">Var %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.map(item => (
-                      <tr key={item.name} className={`border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--secondary)] ${item.is_flagged ? 'bg-red-50/50' : 'even:bg-[var(--secondary)]/30'}`}>
-                        <td className="py-2 px-3 font-medium">
-                          <span className="flex items-center gap-1.5">
-                            {item.is_flagged && <AlertTriangle className="h-3.5 w-3.5 text-[var(--error)]" />}
-                            {item.name}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-[var(--muted-foreground)]">{item.category}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">{item.qty_sold}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">${item.theoretical_cost.toFixed(2)}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">${item.actual_cost.toFixed(2)}</td>
-                        <td className="py-2 px-3 text-right tabular-nums" style={{ color: item.variance > 0 ? 'var(--error)' : 'var(--success)' }}>
-                          {item.variance >= 0 ? '+' : ''}{item.variance.toFixed(2)}
-                        </td>
-                        <td className="py-2 px-3 text-right tabular-nums font-medium" style={{ color: item.is_flagged ? 'var(--error)' : 'var(--foreground)' }}>
-                          {item.variance_pct >= 0 ? '+' : ''}{item.variance_pct.toFixed(1)}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
+          <Card>
+            <CardHeader>
+              <CardTitle>Item Variance Detail</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableCell header>Item</TableCell>
+                    <TableCell header>Category</TableCell>
+                    <TableCell header align="right">Qty</TableCell>
+                    <TableCell header align="right">Theoretical</TableCell>
+                    <TableCell header align="right">Actual</TableCell>
+                    <TableCell header align="right">Variance</TableCell>
+                    <TableCell header align="right">Var %</TableCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.items.map(item => (
+                    <TableRow key={item.name} className={item.is_flagged ? 'bg-[color:var(--color-danger-bg)]' : ''}>
+                      <TableCell className="font-[var(--weight-medium)]">
+                        <span className="flex items-center gap-[var(--space-1)]">
+                          {item.is_flagged && <AlertTriangle className="h-3.5 w-3.5 text-[color:var(--color-danger)]" />}
+                          {item.name}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[color:var(--color-text-muted)]">{item.category}</TableCell>
+                      <TableCell align="right" className="tabular-nums">{item.qty_sold}</TableCell>
+                      <TableCell align="right" className="tabular-nums">${item.theoretical_cost.toFixed(2)}</TableCell>
+                      <TableCell align="right" className="tabular-nums">${item.actual_cost.toFixed(2)}</TableCell>
+                      <TableCell align="right" className="tabular-nums" style={{ color: item.variance > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                        {item.variance >= 0 ? '+' : ''}
+                        {item.variance.toFixed(2)}
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums font-[var(--weight-medium)]" style={{ color: item.is_flagged ? 'var(--color-danger)' : 'var(--color-text)' }}>
+                        {item.variance_pct >= 0 ? '+' : ''}
+                        {item.variance_pct.toFixed(1)}%
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardBody>
           </Card>
         </>
       )}

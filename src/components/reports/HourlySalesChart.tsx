@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 interface HourlySalesPoint {
   hour: string
   sales: number
@@ -41,18 +41,18 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 export function HourlySalesChart({ data }: HourlySalesChartProps) {
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Hourly Sales</CardTitle>
+        <CardTitle>Hourly Sales</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#007AFF" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -73,14 +73,14 @@ export function HourlySalesChart({ data }: HourlySalesChartProps) {
               <Area
                 type="monotone"
                 dataKey="sales"
-                stroke="#007AFF"
+                stroke="var(--color-primary)"
                 strokeWidth={2}
                 fill="url(#salesGradient)"
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }

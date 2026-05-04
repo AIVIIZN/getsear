@@ -1,6 +1,7 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui-v2/data/Table'
 import { TOLERANCE_COLORS, type CashToleranceLevel } from '@/lib/reports/constants'
 
 interface CashDrawerRow {
@@ -34,64 +35,65 @@ function formatTime(isoStr: string): string {
   return new Date(isoStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
+function summaryToleranceColor(value: number): string {
+  const abs = Math.abs(value)
+  if (abs <= 5) return 'var(--color-success)'
+  if (abs <= 20) return 'var(--color-warning)'
+  return 'var(--color-danger)'
+}
+
 export function CashDrawerTable({ drawers, summary }: CashDrawerTableProps) {
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Cash Drawer Reconciliation</CardTitle>
+        <CardTitle>Cash Drawer Reconciliation</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left py-3 px-3 font-medium text-[var(--muted-foreground)]">Employee</th>
-                <th className="text-left py-3 px-3 font-medium text-[var(--muted-foreground)]">Shift</th>
-                <th className="text-right py-3 px-3 font-medium text-[var(--muted-foreground)]">Opening</th>
-                <th className="text-right py-3 px-3 font-medium text-[var(--muted-foreground)]">Cash Sales</th>
-                <th className="text-right py-3 px-3 font-medium text-[var(--muted-foreground)]">Payouts</th>
-                <th className="text-right py-3 px-3 font-medium text-[var(--muted-foreground)]">Expected</th>
-                <th className="text-right py-3 px-3 font-medium text-[var(--muted-foreground)]">Actual</th>
-                <th className="text-right py-3 px-3 font-medium text-[var(--muted-foreground)]">Over/Short</th>
-              </tr>
-            </thead>
-            <tbody>
-              {drawers.map((drawer) => (
-                <tr key={drawer.drawer_id} className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--secondary)] even:bg-[var(--secondary)]/30">
-                  <td className="py-3 px-3 font-medium">{drawer.employee_name}</td>
-                  <td className="py-3 px-3 text-[var(--muted-foreground)]">
-                    {formatTime(drawer.opened_at)}
-                    {drawer.closed_at ? ` - ${formatTime(drawer.closed_at)}` : ' (open)'}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums">${drawer.starting_cash.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right tabular-nums">${drawer.cash_sales.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right tabular-nums">${drawer.cash_payouts.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right tabular-nums">${drawer.expected_cash.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right tabular-nums">${drawer.actual_cash.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right tabular-nums font-semibold" style={{ color: TOLERANCE_COLORS[drawer.tolerance_level] }}>
-                    {drawer.over_short >= 0 ? '+' : ''}{drawer.over_short.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-[var(--foreground)] font-bold">
-                <td className="py-3 px-3" colSpan={2}>Total ({summary.drawer_count} drawers)</td>
-                <td className="py-3 px-3 text-right tabular-nums">${summary.total_starting.toFixed(2)}</td>
-                <td className="py-3 px-3 text-right tabular-nums">${summary.total_cash_sales.toFixed(2)}</td>
-                <td className="py-3 px-3 text-right tabular-nums">${summary.total_payouts.toFixed(2)}</td>
-                <td className="py-3 px-3 text-right tabular-nums">${summary.total_expected.toFixed(2)}</td>
-                <td className="py-3 px-3 text-right tabular-nums">${summary.total_actual.toFixed(2)}</td>
-                <td className="py-3 px-3 text-right tabular-nums font-bold" style={{
-                  color: Math.abs(summary.total_over_short) <= 5 ? '#16A34A' : Math.abs(summary.total_over_short) <= 20 ? '#D97706' : '#DC2626'
-                }}>
-                  {summary.total_over_short >= 0 ? '+' : ''}{summary.total_over_short.toFixed(2)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </CardContent>
+      <CardBody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableCell header>Employee</TableCell>
+              <TableCell header>Shift</TableCell>
+              <TableCell header align="right">Opening</TableCell>
+              <TableCell header align="right">Cash Sales</TableCell>
+              <TableCell header align="right">Payouts</TableCell>
+              <TableCell header align="right">Expected</TableCell>
+              <TableCell header align="right">Actual</TableCell>
+              <TableCell header align="right">Over/Short</TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {drawers.map((drawer) => (
+              <TableRow key={drawer.drawer_id}>
+                <TableCell className="font-[var(--weight-medium)]">{drawer.employee_name}</TableCell>
+                <TableCell className="text-[color:var(--color-text-muted)]">
+                  {formatTime(drawer.opened_at)}
+                  {drawer.closed_at ? ` - ${formatTime(drawer.closed_at)}` : ' (open)'}
+                </TableCell>
+                <TableCell align="right" className="tabular-nums">${drawer.starting_cash.toFixed(2)}</TableCell>
+                <TableCell align="right" className="tabular-nums">${drawer.cash_sales.toFixed(2)}</TableCell>
+                <TableCell align="right" className="tabular-nums">${drawer.cash_payouts.toFixed(2)}</TableCell>
+                <TableCell align="right" className="tabular-nums">${drawer.expected_cash.toFixed(2)}</TableCell>
+                <TableCell align="right" className="tabular-nums">${drawer.actual_cash.toFixed(2)}</TableCell>
+                <TableCell align="right" className="tabular-nums font-[var(--weight-semibold)]" style={{ color: TOLERANCE_COLORS[drawer.tolerance_level] }}>
+                  {drawer.over_short >= 0 ? '+' : ''}{drawer.over_short.toFixed(2)}
+                </TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="border-t-2 border-[color:var(--color-text)] font-[var(--weight-bold)]">
+              <TableCell colSpan={2}>Total ({summary.drawer_count} drawers)</TableCell>
+              <TableCell align="right" className="tabular-nums">${summary.total_starting.toFixed(2)}</TableCell>
+              <TableCell align="right" className="tabular-nums">${summary.total_cash_sales.toFixed(2)}</TableCell>
+              <TableCell align="right" className="tabular-nums">${summary.total_payouts.toFixed(2)}</TableCell>
+              <TableCell align="right" className="tabular-nums">${summary.total_expected.toFixed(2)}</TableCell>
+              <TableCell align="right" className="tabular-nums">${summary.total_actual.toFixed(2)}</TableCell>
+              <TableCell align="right" className="tabular-nums" style={{ color: summaryToleranceColor(summary.total_over_short) }}>
+                {summary.total_over_short >= 0 ? '+' : ''}{summary.total_over_short.toFixed(2)}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </CardBody>
     </Card>
   )
 }

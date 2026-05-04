@@ -12,7 +12,7 @@ import {
   Label,
   Cell,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 interface PMIXItem {
   name: string
   category: string
@@ -32,10 +32,10 @@ interface PMIXScatterProps {
 export type { PMIXItem }
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
-  Star: '#007AFF',
-  Plowhorse: '#2563EB',
+  Star: 'var(--color-primary)',
+  Plowhorse: 'var(--color-primary-active)',
   Puzzle: '#7C3AED',
-  Dog: '#9CA3AF',
+  Dog: 'var(--color-text-muted)',
 }
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: PMIXItem }> }) {
@@ -64,11 +64,11 @@ export function PMIXScatter({ data }: PMIXScatterProps) {
     : 50
 
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Menu Engineering Matrix</CardTitle>
+        <CardTitle>Menu Engineering Matrix</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
@@ -98,7 +98,7 @@ export function PMIXScatter({ data }: PMIXScatterProps) {
               <ReferenceLine x={avgPopularity} stroke="var(--border)" strokeDasharray="5 5" />
               <ReferenceLine y={avgProfitability} stroke="var(--border)" strokeDasharray="5 5" />
               <Tooltip content={<CustomTooltip />} />
-              <Scatter data={data} fill="#007AFF">
+              <Scatter data={data} fill="var(--color-primary)">
                 {data.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
@@ -134,7 +134,7 @@ export function PMIXScatter({ data }: PMIXScatterProps) {
             <span className="font-medium" style={{ color: CLASSIFICATION_COLORS.Plowhorse }}>Plowhorses</span> — High popularity, low profit
           </div>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }

@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Button } from '@/components/ui-v2/Button'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { DateRangePicker, type DatePreset } from '@/components/reports/DateRangePicker'
 import { CashDrawerTable } from '@/components/reports/CashDrawerTable'
 import { Download, Banknote } from 'lucide-react'
@@ -67,42 +70,39 @@ export default function CashReportPage() {
   }, [fetchData])
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-[var(--space-6)] max-w-7xl mx-auto space-y-[var(--space-5)]">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Cash Report</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">Drawer reconciliation and over/short analysis</p>
+          <h1 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">Cash Report</h1>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
+            Drawer reconciliation and over/short analysis
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[var(--space-2)]">
           <DateRangePicker onRangeChange={fetchData} initialPreset="today" />
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="md"
             onClick={() => window.open('/api/reports/export?type=cash', '_blank')}
-            className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium hover:bg-[var(--secondary)] transition-colors"
-            style={{ height: 44 }}
+            leadingIcon={<Download className="h-4 w-4" />}
           >
-            <Download className="h-4 w-4" />
             Export PDF
-          </button>
+          </Button>
         </div>
       </div>
 
       {loading && (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 rounded-xl bg-[var(--secondary)] animate-pulse" />
-          ))}
+        <div className="space-y-[var(--space-3)]">
+          {[1, 2, 3].map(i => <Skeleton key={i} variant="table-row" />)}
         </div>
       )}
 
       {isEmpty && !loading && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Banknote className="h-12 w-12 text-[var(--muted-foreground)] mb-4" />
-          <h3 className="text-lg font-medium mb-1">No cash drawer data</h3>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            No cash drawers were opened or closed for this date. Try selecting a different date.
-          </p>
-        </div>
+        <EmptyState
+          icon={Banknote}
+          title="No cash drawer data"
+          description="No cash drawers were opened or closed for this date. Try selecting a different date."
+        />
       )}
 
       {!loading && drawers.length > 0 && summary && (

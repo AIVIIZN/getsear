@@ -1,7 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
+import { Button } from '@/components/ui-v2/Button'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui-v2/data/Table'
 import { DateRangePicker, type DatePreset } from '@/components/reports/DateRangePicker'
 import { SpeedHeatmap } from '@/components/reports/SpeedHeatmap'
 import { Download, Timer } from 'lucide-react'
@@ -29,9 +33,8 @@ export default function SpeedOfServicePage() {
       const res = await fetch(`/api/reports/speed-of-service?date_from=${dateFrom}&date_to=${dateTo}`)
       if (res.ok) {
         const json = await res.json()
-        if (json.data) {
-          setData(json.data)
-        } else {
+        if (json.data) setData(json.data)
+        else {
           setData(null)
           setIsEmpty(true)
         }
@@ -51,112 +54,99 @@ export default function SpeedOfServicePage() {
   }, [fetchData])
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-[var(--space-6)] max-w-7xl mx-auto space-y-[var(--space-5)]">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Speed of Service</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">Kitchen ticket times by station and daypart</p>
+          <h1 className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">Speed of Service</h1>
+          <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">Kitchen ticket times by station and daypart</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[var(--space-2)]">
           <DateRangePicker onRangeChange={fetchData} initialPreset="this_week" />
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="md"
             onClick={() => window.open('/api/reports/export?type=speed-of-service', '_blank')}
-            className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium hover:bg-[var(--secondary)] transition-colors"
-            style={{ height: 44 }}
+            leadingIcon={<Download className="h-4 w-4" />}
           >
-            <Download className="h-4 w-4" />
             Export PDF
-          </button>
+          </Button>
         </div>
       </div>
 
       {loading && (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-48 rounded-xl bg-[var(--secondary)] animate-pulse" />
-          ))}
+        <div className="space-y-[var(--space-3)]">
+          {[1, 2, 3].map(i => <Skeleton key={i} variant="card" />)}
         </div>
       )}
 
       {isEmpty && !loading && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Timer className="h-12 w-12 text-[var(--muted-foreground)] mb-4" />
-          <h3 className="text-lg font-medium mb-1">No speed data available</h3>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            KDS ticket events will appear once orders are processed through kitchen stations.
-          </p>
-        </div>
+        <EmptyState icon={Timer} title="No speed data available" description="KDS ticket events will appear once orders are processed through kitchen stations." />
       )}
 
       {!loading && data && (
         <>
-          {/* Station Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-[var(--space-3)]">
             {data.by_station.map(station => (
-              <Card key={station.station} className="shadow-warm-sm">
-                <CardContent className="p-4">
-                  <p className="text-xs text-[var(--muted-foreground)] mb-1">{station.station}</p>
-                  <p className="text-2xl font-bold tabular-nums">{formatDuration(station.avg_seconds)}</p>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">{station.ticket_count} tickets</p>
-                </CardContent>
+              <Card key={station.station} padding="compact">
+                <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mb-[var(--space-1)]">{station.station}</p>
+                <p className="text-[length:var(--type-headline-size)] font-[var(--weight-bold)] tabular-nums">{formatDuration(station.avg_seconds)}</p>
+                <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">{station.ticket_count} tickets</p>
               </Card>
             ))}
           </div>
 
-          {/* Heatmap */}
           <SpeedHeatmap data={data.heatmap} overallAvg={data.overall_avg_seconds} />
 
-          {/* Daily Trend */}
-          <Card className="shadow-warm-sm">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-base">Daily Average Ticket Time</CardTitle>
+              <CardTitle>Daily Average Ticket Time</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardBody>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data.by_day.map(d => ({ ...d, date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }))} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={{ stroke: 'var(--border)' }} />
-                    <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatDuration(v)} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatDuration(v)} />
                     <Tooltip formatter={(v) => formatDuration(Number(v))} />
-                    <Line type="monotone" dataKey="avg_seconds" name="Avg Time" stroke="#007AFF" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="avg_seconds" name="Avg Time" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
 
-          {/* Outliers */}
           {data.outliers.length > 0 && (
-            <Card className="shadow-warm-sm">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-base">Outlier Tickets (&gt;2x Average)</CardTitle>
+                <CardTitle>Outlier Tickets (&gt;2x Average)</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[var(--border)]">
-                        <th className="text-left py-2 px-3 font-medium text-[var(--muted-foreground)]">Order</th>
-                        <th className="text-left py-2 px-3 font-medium text-[var(--muted-foreground)]">Station</th>
-                        <th className="text-right py-2 px-3 font-medium text-[var(--muted-foreground)]">Time</th>
-                        <th className="text-right py-2 px-3 font-medium text-[var(--muted-foreground)]">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.outliers.map(ticket => (
-                        <tr key={`${ticket.order_id}-${ticket.station}`} className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--secondary)]">
-                          <td className="py-2 px-3 font-medium">{ticket.order_number || ticket.order_id.slice(0, 8)}</td>
-                          <td className="py-2 px-3">{ticket.station}</td>
-                          <td className="py-2 px-3 text-right tabular-nums text-[var(--error)] font-medium">{formatDuration(ticket.seconds)}</td>
-                          <td className="py-2 px-3 text-right text-[var(--muted-foreground)]">{new Date(ticket.created_at).toLocaleDateString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
+              <CardBody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableCell header>Order</TableCell>
+                      <TableCell header>Station</TableCell>
+                      <TableCell header align="right">Time</TableCell>
+                      <TableCell header align="right">Date</TableCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.outliers.map(ticket => (
+                      <TableRow key={`${ticket.order_id}-${ticket.station}`}>
+                        <TableCell className="font-[var(--weight-medium)]">{ticket.order_number || ticket.order_id.slice(0, 8)}</TableCell>
+                        <TableCell>{ticket.station}</TableCell>
+                        <TableCell align="right" className="tabular-nums text-[color:var(--color-danger)] font-[var(--weight-medium)]">
+                          {formatDuration(ticket.seconds)}
+                        </TableCell>
+                        <TableCell align="right" className="text-[color:var(--color-text-muted)]">
+                          {new Date(ticket.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardBody>
             </Card>
           )}
         </>

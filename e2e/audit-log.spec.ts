@@ -100,12 +100,15 @@ test.describe('Audit Log Page', () => {
     })
   })
 
-  test('clicking Export CSV opens the PIN dialog', async ({ page }) => {
+  test('clicking Export CSV opens the ConfirmDialog then PIN pad', async ({ page }) => {
     await page.goto('/audit-log')
     const exportBtn = page.getByRole('button', { name: /Export CSV/i })
     await expect(exportBtn).toBeVisible({ timeout: 10000 })
     await exportBtn.click()
+    // V6: confirm step explains the gate before showing the numpad.
+    await expect(page.getByText(/Export audit log to CSV/i)).toBeVisible({ timeout: 5000 })
+    await page.getByRole('button', { name: /Continue/i }).click()
+    // Then the canonical ManagerPinDialog mounts with the numpad.
     await expect(page.getByText(/Confirm owner PIN/i)).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('#audit-export-pin')).toBeVisible()
   })
 })

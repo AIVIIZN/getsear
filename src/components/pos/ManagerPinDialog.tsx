@@ -9,7 +9,14 @@ interface ManagerPinDialogProps {
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
-  onVerified: (managerId: string, managerName: string) => void
+  onVerified: (managerId: string, managerName: string, pin?: string) => void
+  /**
+   * When true, the entered PIN string is passed as the third argument to
+   * `onVerified` after successful verification. Used by callers (e.g. the
+   * audit-log CSV export) that need to forward the PIN to a downstream
+   * endpoint that re-validates it server-side.
+   */
+  returnPin?: boolean
 }
 
 /**
@@ -23,6 +30,7 @@ export function ManagerPinDialog({
   title,
   description,
   onVerified,
+  returnPin = false,
 }: ManagerPinDialogProps) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +71,11 @@ export function ManagerPinDialog({
 
         if (res.ok) {
           const json = await res.json()
-          onVerified(json.data.user_id, json.data.display_name)
+          onVerified(
+            json.data.user_id,
+            json.data.display_name,
+            returnPin ? enteredPin : undefined,
+          )
           onOpenChange(false)
         } else {
           const json = await res.json().catch(() => ({ error: 'Invalid PIN' }))
@@ -79,7 +91,7 @@ export function ManagerPinDialog({
         setIsVerifying(false)
       }
     },
-    [onVerified, onOpenChange]
+    [onVerified, onOpenChange, returnPin]
   )
 
   const handleDigit = useCallback(

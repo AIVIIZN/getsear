@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui-v2/Card'
 import { ArrowUpRight, ArrowDownRight, type LucideIcon } from 'lucide-react'
 import { type HealthLevel, HEALTH_COLORS } from '@/lib/reports/constants'
 
@@ -20,31 +20,27 @@ export function KPICard({ label, value, change, icon: Icon, prefix = '', suffix 
   const isLaborMetric = label.toLowerCase().includes('labor')
   const isGood = isLaborMetric ? !isPositive : isPositive
 
-  const borderColor = health ? HEALTH_COLORS[health] : isGood ? 'var(--success)' : 'var(--error)'
+  const borderColor = health ? HEALTH_COLORS[health] : isGood ? 'var(--color-success)' : 'var(--color-danger)'
 
   return (
-    <Card className="shadow-warm-sm overflow-hidden">
+    <Card padding="default" className="overflow-hidden p-0">
       <div className="h-1" style={{ backgroundColor: borderColor }} />
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-[var(--muted-foreground)]">{label}</span>
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--secondary)]">
-            <Icon className="h-4 w-4 text-[var(--muted-foreground)]" />
+      <div className="p-[var(--space-5)]">
+        <div className="flex items-center justify-between mb-[var(--space-2)]">
+          <span className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">{label}</span>
+          <div className="flex items-center justify-center w-8 h-8 rounded-[var(--radius-sm)] bg-[color:var(--color-bg-muted)]">
+            <Icon className="h-4 w-4 text-[color:var(--color-text-muted)]" />
           </div>
         </div>
-        <div className="text-[28px] font-extrabold tabular-nums leading-tight">
+        <div className="text-[28px] font-[var(--weight-bold)] tabular-nums leading-tight">
           {prefix}{value}{suffix}
         </div>
-        <div className={`flex items-center gap-1 text-xs mt-2 ${isGood ? 'text-[var(--success)]' : 'text-[var(--error)]'}`}>
-          {isPositive ? (
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          ) : (
-            <ArrowDownRight className="h-3.5 w-3.5" />
-          )}
-          <span className="font-medium">{Math.abs(change).toFixed(1)}%</span>
-          <span className="text-[var(--muted-foreground)]">{comparisonLabel}</span>
+        <div className={`flex items-center gap-[var(--space-1)] text-[length:var(--type-caption-1-size)] mt-[var(--space-2)] ${isGood ? 'text-[color:var(--color-success)]' : 'text-[color:var(--color-danger)]'}`}>
+          {isPositive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+          <span className="font-[var(--weight-medium)]">{Math.abs(change).toFixed(1)}%</span>
+          <span className="text-[color:var(--color-text-muted)]">{comparisonLabel}</span>
         </div>
-      </CardContent>
+      </div>
     </Card>
   )
 }

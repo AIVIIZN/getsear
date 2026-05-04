@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { cn, formatMoney, formatDate } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui-v2/Button'
+import { Badge, type BadgeProps } from '@/components/ui-v2/data/Badge'
+import { Card } from '@/components/ui-v2/Card'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
+import { Textarea } from '@/components/ui-v2/inputs/Textarea'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -56,65 +60,59 @@ type StatusFilter = 'all' | 'open' | 'evidence_submitted' | 'won' | 'lost'
 // Status helpers
 // ---------------------------------------------------------------------------
 
-function getStatusBadge(status: string, isUrgent: boolean, isExpired: boolean) {
+function statusBadgeFor(
+  status: string,
+  isUrgent: boolean,
+  isExpired: boolean,
+): { variant: BadgeProps['variant']; icon: React.ReactNode; label: string } {
   if (isExpired) {
-    return (
-      <Badge className="bg-red-100 text-red-700 border-red-200">
-        <XCircle className="size-3 mr-1" />
-        Expired
-      </Badge>
-    )
+    return {
+      variant: 'danger',
+      icon: <XCircle className="h-3 w-3" />,
+      label: 'Expired',
+    }
   }
-
   switch (status) {
     case 'open':
-      return (
-        <Badge className={cn(
-          'border',
-          isUrgent
-            ? 'bg-amber-100 text-amber-700 border-amber-200'
-            : 'bg-blue-50 text-blue-700 border-blue-200'
-        )}>
-          {isUrgent ? (
-            <AlertTriangle className="size-3 mr-1" />
-          ) : (
-            <Clock className="size-3 mr-1" />
-          )}
-          {isUrgent ? 'Urgent' : 'Open'}
-        </Badge>
-      )
+      return {
+        variant: isUrgent ? 'warning' : 'info',
+        icon: isUrgent ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />,
+        label: isUrgent ? 'Urgent' : 'Open',
+      }
     case 'evidence_submitted':
-      return (
-        <Badge className="bg-purple-50 text-purple-700 border border-purple-200">
-          <FileText className="size-3 mr-1" />
-          Responded
-        </Badge>
-      )
+      return {
+        variant: 'primary',
+        icon: <FileText className="h-3 w-3" />,
+        label: 'Responded',
+      }
     case 'won':
-      return (
-        <Badge className="bg-green-50 text-green-700 border border-green-200">
-          <CheckCircle2 className="size-3 mr-1" />
-          Won
-        </Badge>
-      )
+      return {
+        variant: 'success',
+        icon: <CheckCircle2 className="h-3 w-3" />,
+        label: 'Won',
+      }
     case 'lost':
-      return (
-        <Badge className="bg-red-50 text-red-700 border border-red-200">
-          <XCircle className="size-3 mr-1" />
-          Lost
-        </Badge>
-      )
+      return {
+        variant: 'danger',
+        icon: <XCircle className="h-3 w-3" />,
+        label: 'Lost',
+      }
     default:
-      return (
-        <Badge className="bg-stone-100 text-stone-600 border border-stone-200">
-          {status}
-        </Badge>
-      )
+      return { variant: 'default', icon: null, label: status }
   }
 }
 
+function StatusBadge({ status, isUrgent, isExpired }: { status: string; isUrgent: boolean; isExpired: boolean }) {
+  const cfg = statusBadgeFor(status, isUrgent, isExpired)
+  return (
+    <Badge variant={cfg.variant}>
+      {cfg.icon}
+      {cfg.label}
+    </Badge>
+  )
+}
+
 function getRecommendedAction(reasonCode: string): { action: string; reasoning: string } {
-  // Common chargeback reason code categories
   const fraudCodes = ['10.1', '10.2', '10.3', '10.4', '4837', '4863']
   const authCodes = ['10.5', '4834']
 
@@ -139,6 +137,14 @@ function getRecommendedAction(reasonCode: string): { action: string; reasoning: 
 // ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'open', label: 'Open' },
+  { value: 'evidence_submitted', label: 'Responded' },
+  { value: 'won', label: 'Won' },
+  { value: 'lost', label: 'Lost' },
+]
 
 export default function ChargebacksPage() {
   const [chargebacks, setChargebacks] = useState<ChargebackCase[]>([])
@@ -172,7 +178,6 @@ export default function ChargebacksPage() {
     fetchChargebacks()
   }, [fetchChargebacks])
 
-  // Detail view
   if (selectedCase) {
     return (
       <ChargebackDetail
@@ -187,117 +192,88 @@ export default function ChargebacksPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-stone-200">
+      <div className="px-[var(--space-6)] py-[var(--space-3)] border-b border-[color:var(--color-border)]">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-stone-900">Chargebacks</h1>
-            <p className="text-sm text-stone-500 mt-0.5">
+            <h1 className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">Chargebacks</h1>
+            <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
               Manage disputes and submit evidence
             </p>
           </div>
-          <Shield className="size-6 text-stone-400" />
+          <Shield className="h-6 w-6 text-[color:var(--color-text-muted)]" />
         </div>
 
-        {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-            <StatCard
-              label="Open"
-              value={stats.open}
-              color="text-blue-600"
-            />
-            <StatCard
-              label="Won"
-              value={stats.won}
-              color="text-green-600"
-            />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--space-2)] mt-[var(--space-3)]">
+            <StatCard label="Open" value={stats.open} color="var(--color-primary)" />
+            <StatCard label="Won" value={stats.won} color="var(--color-success)" />
             <StatCard
               label="Lost"
               value={stats.lost}
               subValue={stats.total_lost_cents > 0 ? formatMoney(stats.total_lost_cents) : undefined}
-              color="text-red-600"
+              color="var(--color-danger)"
             />
-            <StatCard
-              label="Total Disputed"
-              value={formatMoney(stats.total_amount_cents)}
-              isMonetary
-              color="text-stone-700"
-            />
+            <StatCard label="Total Disputed" value={formatMoney(stats.total_amount_cents)} color="var(--color-text)" />
           </div>
         )}
       </div>
 
-      {/* Filters */}
-      <div className="px-6 py-3 border-b border-stone-100 flex gap-2 overflow-x-auto">
-        {(['all', 'open', 'evidence_submitted', 'won', 'lost'] as StatusFilter[]).map((filter) => (
-          <button
-            key={filter}
-            type="button"
-            onClick={() => setStatusFilter(filter)}
-            className={cn(
-              'px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
-              statusFilter === filter
-                ? 'bg-stone-900 text-white'
-                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-            )}
+      <div className="px-[var(--space-6)] py-[var(--space-2)] border-b border-[color:var(--color-border)] flex gap-[var(--space-2)] overflow-x-auto">
+        {STATUS_FILTERS.map((filter) => (
+          <Button
+            key={filter.value}
+            size="sm"
+            variant={statusFilter === filter.value ? 'primary' : 'secondary'}
+            onClick={() => setStatusFilter(filter.value)}
           >
-            {filter === 'all'
-              ? 'All'
-              : filter === 'evidence_submitted'
-                ? 'Responded'
-                : filter.charAt(0).toUpperCase() + filter.slice(1)}
-          </button>
+            {filter.label}
+          </Button>
         ))}
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-sm text-stone-500">Loading chargebacks...</div>
+          <div className="p-[var(--space-3)] space-y-[var(--space-2)]">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} variant="table-row" />)}
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-sm text-red-600">{error}</div>
-          </div>
+          <EmptyState icon={AlertTriangle} title="Couldn't load chargebacks" description={error} />
         ) : chargebacks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Shield className="size-10 text-stone-300 mb-3" />
-            <p className="text-sm text-stone-500">No chargebacks found</p>
-          </div>
+          <EmptyState icon={Shield} title="No chargebacks found" description="Disputes will appear here once your processor reports them." />
         ) : (
-          <div className="divide-y divide-stone-100">
+          <div className="divide-y divide-[color:var(--color-border)]">
             {chargebacks.map((cb) => (
               <button
                 key={cb.id}
                 type="button"
-                className="w-full px-6 py-4 flex items-center gap-4 hover:bg-stone-50 active:bg-stone-100 transition-colors text-left"
+                className={cn(
+                  'btn-press w-full px-[var(--space-6)] py-[var(--space-3)]',
+                  'flex items-center gap-[var(--space-3)] text-left',
+                  'hover:bg-[color:var(--color-surface-hover)] transition-colors',
+                )}
                 onClick={() => setSelectedCase(cb)}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {getStatusBadge(cb.status, cb.is_urgent, cb.is_expired)}
-                    <span className="text-xs text-stone-400">
-                      {cb.reason_code}
-                    </span>
+                  <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-1)]">
+                    <StatusBadge status={cb.status} isUrgent={cb.is_urgent} isExpired={cb.is_expired} />
+                    <span className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">{cb.reason_code}</span>
                   </div>
-                  <div className="text-sm font-medium text-stone-900 truncate">
+                  <div className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-text)] truncate">
                     {cb.reason_description ?? `Reason Code: ${cb.reason_code}`}
                   </div>
-                  <div className="text-xs text-stone-500 mt-0.5">
+                  <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
                     Received {formatDate(cb.received_at)}
                     {cb.status === 'open' && ` - ${cb.days_remaining} days to respond`}
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <div className="text-base font-semibold tabular-nums text-stone-900">
+                  <div className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] tabular-nums text-[color:var(--color-text)]">
                     {formatMoney(cb.amount_cents)}
                   </div>
                 </div>
 
-                <ChevronRight className="size-4 text-stone-400 shrink-0" />
+                <ChevronRight className="h-4 w-4 text-[color:var(--color-text-muted)] shrink-0" />
               </button>
             ))}
           </div>
@@ -316,24 +292,22 @@ function StatCard({
   value,
   subValue,
   color,
-  isMonetary,
 }: {
   label: string
   value: number | string
   subValue?: string
   color: string
-  isMonetary?: boolean
 }) {
   return (
-    <div className="bg-white rounded-lg border border-stone-200 p-3">
-      <div className="text-xs font-medium text-stone-500">{label}</div>
-      <div className={cn('text-lg font-bold tabular-nums mt-0.5', color)}>
-        {isMonetary ? value : value}
+    <Card padding="compact">
+      <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)]">{label}</div>
+      <div className="text-[length:var(--type-headline-size)] font-[var(--weight-bold)] tabular-nums mt-[var(--space-1)]" style={{ color }}>
+        {value}
       </div>
       {subValue && (
-        <div className="text-xs text-stone-400 mt-0.5">{subValue}</div>
+        <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">{subValue}</div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -387,187 +361,170 @@ function ChargebackDetail({
     }
   }
 
+  const recommendationBg =
+    recommendation.action === 'FIGHT'
+      ? 'var(--color-success-bg)'
+      : recommendation.action === 'ACCEPT'
+        ? 'var(--color-danger-bg)'
+        : 'var(--color-warning-bg)'
+  const recommendationFg =
+    recommendation.action === 'FIGHT'
+      ? 'var(--color-success)'
+      : recommendation.action === 'ACCEPT'
+        ? 'var(--color-danger)'
+        : 'var(--color-warning)'
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-stone-200">
-        <button
-          type="button"
+      <div className="px-[var(--space-6)] py-[var(--space-3)] border-b border-[color:var(--color-border)]">
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onBack}
-          className="flex items-center gap-1 text-sm text-stone-500 hover:text-stone-700 mb-2"
+          leadingIcon={<ArrowLeft className="h-4 w-4" />}
+          className="mb-[var(--space-2)]"
         >
-          <ArrowLeft className="size-4" />
           Back to chargebacks
-        </button>
+        </Button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-stone-900">
-              Chargeback Detail
-            </h2>
-            <p className="text-sm text-stone-500 mt-0.5">
+            <h2 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">Chargeback Detail</h2>
+            <p className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
               Dispute {chargebackCase.processor_dispute_id}
             </p>
           </div>
-          {getStatusBadge(
-            chargebackCase.status,
-            chargebackCase.is_urgent,
-            chargebackCase.is_expired
-          )}
+          <StatusBadge status={chargebackCase.status} isUrgent={chargebackCase.is_urgent} isExpired={chargebackCase.is_expired} />
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-        {/* Amount & Dates */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg border border-stone-200 p-4">
-            <div className="text-xs font-medium text-stone-500">Dispute Amount</div>
-            <div className="text-2xl font-bold tabular-nums text-stone-900 mt-1">
+      <div className="flex-1 overflow-y-auto px-[var(--space-6)] py-[var(--space-3)] space-y-[var(--space-4)]">
+        <div className="grid grid-cols-2 gap-[var(--space-3)]">
+          <Card padding="default">
+            <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)]">Dispute Amount</div>
+            <div className="text-[length:var(--type-title-2-size)] font-[var(--weight-bold)] tabular-nums text-[color:var(--color-text)] mt-[var(--space-1)]">
               {formatMoney(chargebackCase.amount_cents)}
             </div>
-          </div>
-          <div className="bg-white rounded-lg border border-stone-200 p-4">
-            <div className="text-xs font-medium text-stone-500">Respond By</div>
-            <div className={cn(
-              'text-lg font-semibold mt-1',
-              chargebackCase.is_urgent ? 'text-red-600' : 'text-stone-900'
-            )}>
+          </Card>
+          <Card padding="default">
+            <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)]">Respond By</div>
+            <div
+              className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] mt-[var(--space-1)]"
+              style={{ color: chargebackCase.is_urgent ? 'var(--color-danger)' : 'var(--color-text)' }}
+            >
               {formatDate(chargebackCase.respond_by)}
             </div>
-            <div className="text-xs text-stone-500 mt-0.5">
+            <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
               {chargebackCase.days_remaining} days remaining
             </div>
-          </div>
+          </Card>
         </div>
 
-        {/* Reason */}
-        <div className="bg-white rounded-lg border border-stone-200 p-4">
-          <div className="text-xs font-medium text-stone-500 mb-1">Reason</div>
-          <div className="text-sm font-medium text-stone-900">
-            {chargebackCase.reason_code}
-          </div>
+        <Card padding="default">
+          <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] mb-[var(--space-1)]">Reason</div>
+          <div className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-text)]">{chargebackCase.reason_code}</div>
           {chargebackCase.reason_description && (
-            <div className="text-sm text-stone-600 mt-1">
+            <div className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
               {chargebackCase.reason_description}
             </div>
           )}
-        </div>
+        </Card>
 
-        {/* Recommendation */}
-        <div className={cn(
-          'rounded-lg border p-4',
-          recommendation.action === 'FIGHT'
-            ? 'bg-green-50 border-green-200'
-            : recommendation.action === 'ACCEPT'
-              ? 'bg-red-50 border-red-200'
-              : 'bg-amber-50 border-amber-200'
-        )}>
-          <div className="text-xs font-medium text-stone-500 mb-1">
+        <div
+          className="rounded-[var(--radius-md)] border p-[var(--space-3)]"
+          style={{ backgroundColor: recommendationBg, borderColor: recommendationFg }}
+        >
+          <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] mb-[var(--space-1)]">
             Recommended Action
           </div>
-          <div className={cn(
-            'text-sm font-semibold',
-            recommendation.action === 'FIGHT'
-              ? 'text-green-700'
-              : recommendation.action === 'ACCEPT'
-                ? 'text-red-700'
-                : 'text-amber-700'
-          )}>
+          <div className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)]" style={{ color: recommendationFg }}>
             {recommendation.action}
           </div>
-          <div className="text-sm text-stone-600 mt-1">
+          <div className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
             {recommendation.reasoning}
           </div>
         </div>
 
-        {/* Evidence */}
         {chargebackCase.evidence && (chargebackCase.evidence as unknown[]).length > 0 && (
-          <div className="bg-white rounded-lg border border-stone-200 p-4">
-            <div className="text-xs font-medium text-stone-500 mb-2">
+          <Card padding="default">
+            <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] mb-[var(--space-2)]">
               Submitted Evidence
             </div>
-            <div className="space-y-2">
+            <div className="space-y-[var(--space-2)]">
               {(chargebackCase.evidence as Record<string, unknown>[]).map((ev, i) => (
                 <div
                   key={i}
-                  className="text-sm text-stone-600 p-2 bg-stone-50 rounded"
+                  className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)] p-[var(--space-2)] bg-[color:var(--color-bg-subtle)] rounded-[var(--radius-sm)]"
                 >
-                  <span className="font-medium">{ev.type as string}:</span>{' '}
+                  <span className="font-[var(--weight-medium)]">{ev.type as string}:</span>{' '}
                   {(ev.text as string) ?? (ev.url as string) ?? 'File uploaded'}
-                  <div className="text-xs text-stone-400 mt-0.5">
+                  <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
                     {ev.submitted_at ? formatDate(ev.submitted_at as string) : ''}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
-        {/* Submit Evidence */}
         {canRespond && (
-          <div className="bg-white rounded-lg border border-stone-200 p-4">
-            <div className="text-xs font-medium text-stone-500 mb-2">
+          <Card padding="default">
+            <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] mb-[var(--space-2)]">
               Submit Evidence
             </div>
 
             {submitSuccess && (
-              <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+              <div className="mb-[var(--space-3)] p-[var(--space-2)] bg-[color:var(--color-success-bg)] border border-[color:var(--color-success)] rounded-[var(--radius-sm)] text-[length:var(--type-subhead-size)] text-[color:var(--color-success)]">
                 Evidence submitted successfully.
               </div>
             )}
 
             {submitError && (
-              <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <div className="mb-[var(--space-3)] p-[var(--space-2)] bg-[color:var(--color-danger-bg)] border border-[color:var(--color-danger)] rounded-[var(--radius-sm)] text-[length:var(--type-subhead-size)] text-[color:var(--color-danger)]">
                 {submitError}
               </div>
             )}
 
-            <textarea
+            <Textarea
               value={evidenceText}
               onChange={(e) => setEvidenceText(e.target.value)}
               placeholder="Describe the evidence (transaction details, customer interactions, etc.)"
-              className="w-full h-24 p-3 text-sm border border-stone-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500"
+              rows={4}
             />
 
-            <div className="flex gap-2 mt-3">
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-11"
-                disabled
-              >
-                <Upload className="size-4 mr-1.5" />
+            <div className="flex gap-[var(--space-2)] mt-[var(--space-3)]">
+              <Button variant="secondary" size="lg" disabled leadingIcon={<Upload className="h-4 w-4" />}>
                 Upload File
               </Button>
               <Button
                 size="lg"
-                className="h-11 flex-1"
+                className="flex-1"
                 onClick={handleSubmitEvidence}
                 disabled={isSubmitting || !evidenceText.trim()}
+                loading={isSubmitting}
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Evidence'}
+                Submit Evidence
               </Button>
             </div>
-          </div>
+          </Card>
         )}
 
-        {/* Resolution */}
         {chargebackCase.resolution && (
-          <div className={cn(
-            'rounded-lg border p-4',
-            chargebackCase.resolution === 'won'
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
-          )}>
-            <div className="text-xs font-medium text-stone-500 mb-1">Resolution</div>
-            <div className={cn(
-              'text-sm font-semibold',
-              chargebackCase.resolution === 'won' ? 'text-green-700' : 'text-red-700'
-            )}>
+          <div
+            className="rounded-[var(--radius-md)] border p-[var(--space-3)]"
+            style={{
+              backgroundColor: chargebackCase.resolution === 'won' ? 'var(--color-success-bg)' : 'var(--color-danger-bg)',
+              borderColor: chargebackCase.resolution === 'won' ? 'var(--color-success)' : 'var(--color-danger)',
+            }}
+          >
+            <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] mb-[var(--space-1)]">Resolution</div>
+            <div
+              className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)]"
+              style={{ color: chargebackCase.resolution === 'won' ? 'var(--color-success)' : 'var(--color-danger)' }}
+            >
               {chargebackCase.resolution === 'won' ? 'Won - Funds returned' : 'Lost - Funds deducted'}
             </div>
             {chargebackCase.resolved_at && (
-              <div className="text-xs text-stone-500 mt-1">
+              <div className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)]">
                 Resolved {formatDate(chargebackCase.resolved_at)}
               </div>
             )}

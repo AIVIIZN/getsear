@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 interface PaymentMixPoint {
   method: string
   amount: number
@@ -56,11 +56,11 @@ function CustomLabel(props: {
 
 export function PaymentMixChart({ data }: PaymentMixChartProps) {
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Payment Mix</CardTitle>
+        <CardTitle>Payment Mix</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -90,7 +90,7 @@ export function PaymentMixChart({ data }: PaymentMixChartProps) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }
