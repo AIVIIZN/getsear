@@ -9,15 +9,27 @@
  * Resend response handling:
  *   200    → status='sent',     resend_message_id, sent_at=now()
  *   4xx    → status='bounced',  bounce_reason — no retry
- *   5xx/network → BullMQ retry (3x exp backoff: 5s / 30s / 5min);
+ *   5xx/network → manually re-enqueue with delay 5s / 30s / 5min;
  *                 after exhaustion → status='failed'.
+ *
+ * Retry strategy: Per fix-cycle-2 review (P0 #2), we cannot rely on
+ * BullMQ's built-in backoff because the sister-5.1.2 producer sets a
+ * generic `exponential` strategy that yields 5s/10s/20s — not the
+ * 5s/30s/5min the spec calls for. To keep the spec'd schedule regardless
+ * of producer config, on a transient (5xx/network) failure we re-enqueue
+ * the job ourselves with the correct delay and return success from the
+ * current attempt so BullMQ doesn't double-retry. The custom-named
+ * backoff strategy is also registered defensively — harmless if unused.
  *
  * Tenant scoping: every Supabase query filters by org_id (RLS is the
  * second line; we use the service-role client so first line is the where
  * clause itself).
  */
 
-import { Worker, type ConnectionOptions, type Job } from 'bullmq'
+// TODO(post-V5.1-merge): de-duplicate CampaignEmailJobData with
+// src/lib/queue/campaign-email-queue.ts (sister 5.1.2)
+
+import { Queue, Worker, type ConnectionOptions, type Job } from 'bullmq'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
@@ -36,13 +48,24 @@ export interface CampaignEmailJobData {
   recipient_id: string
   tracking_id: string
   org_id: string
+  /**
+   * Manual retry counter — incremented each time we re-enqueue ourselves
+   * after a transient failure. Independent of BullMQ's `attemptsMade` so
+   * the spec'd 5s/30s/5min schedule holds regardless of producer backoff
+   * config (see file header for context).
+   */
+  _manual_attempt?: number
 }
 
 export interface CampaignEmailJobResult {
-  status: 'sent' | 'bounced' | 'skipped'
+  status: 'sent' | 'bounced' | 'skipped' | 'retried' | 'failed'
   message_id?: string
   bounce_reason?: string
   reason?: string
+  /** Set when status='retried' — the next manual attempt number. */
+  next_attempt?: number
+  /** Set when status='retried' — delay until next attempt (ms). */
+  retry_delay_ms?: number
 }
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sear <noreply@getsear.com>'
@@ -120,6 +143,24 @@ function classifyResendError(err: unknown): ClassifiedError {
     return { kind: 'retry', reason: message }
   }
   return { kind: 'retry', reason: String(err) }
+}
+
+/**
+ * Manual retry schedule per spec: 5s / 30s / 5min between the 3 attempts.
+ * Indexed by `attempt` (0-based — the count of prior attempts already
+ * performed for this logical recipient).
+ */
+const MANUAL_RETRY_DELAYS_MS = [5_000, 30_000, 300_000]
+const MAX_MANUAL_ATTEMPTS = MANUAL_RETRY_DELAYS_MS.length
+
+let _queue: Queue<CampaignEmailJobData> | null = null
+function getQueue(): Queue<CampaignEmailJobData> {
+  if (!_queue) {
+    _queue = new Queue<CampaignEmailJobData>(CAMPAIGN_EMAIL_QUEUE, {
+      connection: getConnection(),
+    })
+  }
+  return _queue
 }
 
 // ---------------------------------------------------------------------------
@@ -282,8 +323,7 @@ async function processJob(job: Job<CampaignEmailJobData>): Promise<CampaignEmail
         })
         return { status: 'bounced', bounce_reason: classified.reason }
       }
-      // Transient — let BullMQ retry.
-      throw new Error(`resend transient: ${classified.reason}`)
+      return await handleTransient(sb, job, classified.reason)
     }
     messageId = result.data?.id
   } catch (err) {
@@ -295,8 +335,7 @@ async function processJob(job: Job<CampaignEmailJobData>): Promise<CampaignEmail
       })
       return { status: 'bounced', bounce_reason: classified.reason }
     }
-    // Re-throw → BullMQ retry pipeline handles backoff + final failure.
-    throw err
+    return await handleTransient(sb, job, classified.reason)
   }
 
   await markRecipient(sb, recipient_id, org_id, {
@@ -362,6 +401,67 @@ async function markRecipient(
   }
 }
 
+/**
+ * On a transient (5xx/network) failure, manually re-enqueue the job with
+ * the spec'd delay schedule (5s/30s/5min) and return success from the
+ * current attempt — this prevents BullMQ from also retrying with its own
+ * (possibly producer-misconfigured) backoff, which would double up.
+ *
+ * After exhausting MAX_MANUAL_ATTEMPTS, mark the recipient as 'failed'
+ * and return — the job ends successfully so BullMQ doesn't keep it in
+ * the `failed` set.
+ */
+async function handleTransient(
+  sb: ReturnType<typeof createAdminClient>,
+  job: Job<CampaignEmailJobData>,
+  reason: string,
+): Promise<CampaignEmailJobResult> {
+  const data = job.data
+  const priorAttempt = data._manual_attempt ?? 0
+  const nextAttempt = priorAttempt + 1
+
+  if (nextAttempt > MAX_MANUAL_ATTEMPTS) {
+    // Exhausted — mark recipient failed.
+    await markRecipient(sb, data.recipient_id, data.org_id, {
+      status: 'failed',
+      bounce_reason: `transient error after ${MAX_MANUAL_ATTEMPTS} retries: ${reason}`,
+    })
+    return {
+      status: 'failed',
+      bounce_reason: reason,
+    }
+  }
+
+  const delay = MANUAL_RETRY_DELAYS_MS[priorAttempt]
+  const queue = getQueue()
+  // Deterministic jobId per (campaign,recipient,attempt) for idempotency
+  // — even if BullMQ also tries to retry, the duplicate is dropped.
+  const retryJobId = `${data.campaign_id}:${data.recipient_id}:retry${nextAttempt}`
+  await queue.add(
+    job.name,
+    { ...data, _manual_attempt: nextAttempt },
+    {
+      delay,
+      jobId: retryJobId,
+      // Same lifecycle policy as the original — see CAMPAIGN_EMAIL_JOB_OPTS.
+      removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10_000 },
+      removeOnFail: { age: 30 * 24 * 60 * 60 },
+      // Single attempt for the manual-retry job — we own the retry loop.
+      attempts: 1,
+    },
+  )
+
+  console.log(
+    `[campaign-email-worker] re-enqueued ${data.recipient_id} attempt ${nextAttempt}/${MAX_MANUAL_ATTEMPTS} in ${delay}ms (${reason})`,
+  )
+  return {
+    status: 'retried',
+    next_attempt: nextAttempt,
+    retry_delay_ms: delay,
+    reason,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Worker factory
 // ---------------------------------------------------------------------------
@@ -396,8 +496,12 @@ export function startCampaignEmailWorker(): Worker<
       `[campaign-email-worker] job ${job?.id ?? '?'} failed (attempt ${attempts}/${max}): ${err.message}`,
     )
 
-    // After all retries exhausted → mark recipient 'failed'. Best-effort:
-    // do not throw out of the listener.
+    // Defensive net: handleTransient owns the manual-retry loop and
+    // marks recipients failed when MAX_MANUAL_ATTEMPTS is exhausted.
+    // We only land here if the processor threw an *unexpected* error
+    // (e.g. fetch query crashed) — in that case, after BullMQ exhausts
+    // its own attempts, mark the recipient failed so it isn't stuck in
+    // limbo. Best-effort: do not throw out of the listener.
     if (data && attempts >= max) {
       const sb = createAdminClient()
       void markRecipient(sb, data.recipient_id, data.org_id, {
@@ -424,17 +528,16 @@ export function startCampaignEmailWorker(): Worker<
 /**
  * Recommended job options for producers — exposed so sister task 5.1.2
  * can apply consistent retry semantics.
- *   attempt 1 fails → wait  5s
- *   attempt 2 fails → wait 30s   (~ 6x)
- *   attempt 3 fails → wait  5min (~10x)
- * Total: 3 attempts before giving up.
+ *
+ * Retry schedule (5s / 30s / 5min) is owned by the WORKER via
+ * `handleTransient` + manual re-enqueue, not by BullMQ — see file
+ * header. Producers should set `attempts: 1` so BullMQ does not
+ * double-retry on top of the manual loop. The worker still registers a
+ * `campaignEmailBackoff` strategy defensively (see `settings.backoffStrategy`)
+ * for any producer that does set `backoff: { type: 'campaignEmailBackoff' }`.
  */
 export const CAMPAIGN_EMAIL_JOB_OPTS = {
-  attempts: 3,
-  backoff: {
-    type: 'custom' as const,
-    delay: 5_000,
-  },
+  attempts: 1,
   removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10_000 },
   removeOnFail: { age: 30 * 24 * 60 * 60 },
 }
