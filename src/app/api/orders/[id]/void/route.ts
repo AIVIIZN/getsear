@@ -53,9 +53,8 @@ export async function POST(
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
-  // Manager+ to void anything beyond a draft.
-  // (Draft voids by anyone are handled by DELETE /api/orders/[id]; this route
-  // is the explicit "void with reason + audit" flow.)
+  // Manager+ to void anything beyond a draft. This route is the canonical
+  // "void with reason + audit" flow (5.99.3 closed the DELETE side-door).
   const roleErr = requireRole(user, ['owner', 'admin', 'manager'])
   if (roleErr) return roleErr
 

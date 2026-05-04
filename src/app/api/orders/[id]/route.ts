@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 import {
@@ -20,10 +20,6 @@ const updateOrderSchema = z.object({
   notes: z.string().max(2000).optional(),
   /** Explicit for-here / to-go toggle. Affects tax calculation. */
   for_here: z.boolean().optional(),
-})
-
-const voidOrderSchema = z.object({
-  void_reason: z.string().min(1).max(500),
 })
 
 /**
@@ -202,69 +198,7 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
   })
 })
 
-/**
- * DELETE /api/orders/[id] -- void order
- */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const user = await getAuthUser()
-  if (user instanceof NextResponse) return user
-
-  const { id } = await params
-
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const parsed = voidOrderSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'void_reason is required', details: parsed.error.issues },
-      { status: 400 }
-    )
-  }
-
-  const supabase = createAdminClient()
-
-  // Check if order has sent items -- requires manager
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('status')
-    .eq('id', id)
-    .eq('org_id', user.org_id)
-    .single()
-
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-  }
-
-  if (order.status !== 'draft') {
-    const roleErr = requireRole(user, ['owner', 'admin', 'manager'])
-    if (roleErr) return roleErr
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('orders') as any)
-    .update({
-      status: 'voided',
-      voided_at: new Date().toISOString(),
-      voided_by: user.id,
-      void_reason: parsed.data.void_reason,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .eq('org_id', user.org_id)
-    .select()
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: 'Failed to void order' }, { status: 500 })
-  }
-
-  return NextResponse.json({ data })
-}
+// DELETE /api/orders/[id] was removed in 5.99.3 — it was a side-door void
+// that bypassed assertVersion / assertTransition / withIdempotency / audit.
+// All voids now go through POST /api/orders/[id]/void (the canonical path
+// with state-machine guards, optimistic-locking, and full audit trail).
