@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-04T07:35:00Z
+last_updated_at: 2026-05-04T09:30:00Z
 current_version: V5
-current_batch: 5.4
+current_batch: 5.5
 status: awaiting_user_advance
 deferred_tasks:
   - { task_id: 5.0.4, reason: "needs_hardware (Star + Valor + Bematech), no human present", defer_count: 1 }
@@ -68,9 +68,9 @@ versions:
         type: parallel
         status: pending
         tasks:
-          "5.4.1": { status: pending, agent: backend-dev, eta_hours: 3 }
-          "5.4.2": { status: pending, agent: backend-dev, eta_hours: 4 }
-          "5.4.3": { status: pending, agent: backend-dev, eta_hours: 4 }
+          "5.4.1": { status: complete, agent: realtime-engineer, eta_hours: 3, review: "CONCERNS (P1 TOCTOU window in 7 routes — tracked) + design FAIL→fixed inline (touch targets + tokens)" }
+          "5.4.2": { status: complete, agent: realtime-engineer, eta_hours: 4, review: "FAIL→cycle2 PASS (sister-API alignment)", cycles: 2 }
+          "5.4.3": { status: complete, agent: security-reviewer, eta_hours: 4, review: "FAIL on cross-task → fixed via 5.4.2 cycle 2; design CONCERNS (custom PIN dialog vs canonical — tracked)" }
           # Inserted 2026-05-03: bucket B lint debt — staff dialogs/tabs (5 files). Remove from eslint.config.mjs bucketBLintDebt as each is fixed.
           "5.4.4": { status: pending, agent: coder, eta_hours: 2, name: "lint debt: staff dialogs (ScheduleTemplateDialog, PayrollTab, ScheduleTab, CashDrawerDetail, CashDrawersTab)" }
       "5.5":
