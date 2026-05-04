@@ -4,14 +4,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { EmptyState } from '@/components/shared/EmptyState'
+import { Button } from '@/components/ui-v2/Button'
+import { Card } from '@/components/ui-v2/Card'
+import { Tabs, type TabItem } from '@/components/ui-v2/navigation/Tabs'
+import { Badge } from '@/components/ui-v2/data/Badge'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
+import { NumberInput } from '@/components/ui-v2/inputs/Number'
 import { SplitCheckView, type SplitItem } from '@/components/pos/SplitCheckView'
 import { MultiTenderPayment } from '@/components/pos/MultiTenderPayment'
 import { useOrderStore } from '@/stores/order-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import type { TaxRate } from '@/lib/tax/tax-engine'
 import {
   Receipt,
   SplitSquareHorizontal,
@@ -20,12 +25,7 @@ import {
   CreditCard,
   Printer,
   Merge,
-  ChevronRight,
 } from 'lucide-react'
-
-// ---------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------
 
 interface OrderItem {
   id: string
@@ -75,7 +75,7 @@ interface CheckPaymentTarget {
 }
 
 // ---------------------------------------------------------------
-// Custom amount split (preserved from original)
+// Custom amount split — uses ui-v2 NumberInput + Button.
 // ---------------------------------------------------------------
 
 function CustomAmountSplit({
@@ -117,39 +117,36 @@ function CustomAmountSplit({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-headline font-semibold text-muted-foreground">
-          $
-        </span>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          placeholder="0.00"
-          value={amountStr}
-          onChange={(e) => setAmountStr(e.target.value)}
-          className="h-14 w-full rounded-xl border-0 bg-[var(--secondary)] pl-8 pr-4 text-title-2 font-bold text-foreground tabular-nums focus:ring-2 focus:ring-[var(--ring)]/20"
-        />
-      </div>
-      {isValid && (
-        <p className="text-footnote text-muted-foreground">
-          Remainder:{' '}
-          <MoneyDisplay
-            cents={remainderCents}
-            className="text-footnote font-semibold"
-          />
-        </p>
-      )}
-      <button
-        type="button"
+    <div className="flex flex-col gap-[var(--space-3)]">
+      <NumberInput
+        size="lg"
+        step="0.01"
+        min="0"
+        placeholder="0.00"
+        value={amountStr}
+        onChange={(e) => setAmountStr(e.target.value)}
+        leadingIcon={<span className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)]">$</span>}
+        helper={
+          isValid ? (
+            <>
+              Remainder:{' '}
+              <span className="font-[var(--weight-semibold)]">
+                <MoneyDisplay cents={remainderCents} className="text-[length:var(--type-footnote-size)]" />
+              </span>
+            </>
+          ) : undefined
+        }
+      />
+      <Button
+        variant="primary"
+        size="xl"
+        loading={splitting}
+        disabled={!isValid}
         onClick={handleSplit}
-        disabled={!isValid || splitting}
-        className="btn-press touch-target-xl w-full rounded-xl bg-[var(--primary)] text-headline font-semibold text-white transition-all hover:bg-[var(--primary-hover)] disabled:opacity-40"
-        style={{ height: 56 }}
+        className="w-full"
       >
-        {splitting ? 'Splitting...' : 'Split Amount'}
-      </button>
+        {splitting ? 'Splitting' : 'Split Amount'}
+      </Button>
     </div>
   )
 }
@@ -160,8 +157,16 @@ function CustomAmountSplit({
 
 type SplitMode = 'equal' | 'seat' | 'custom' | 'drag'
 
+const SPLIT_MODE_TABS: TabItem[] = [
+  { value: 'drag', label: 'Drag & Drop', icon: <SplitSquareHorizontal /> },
+  { value: 'equal', label: 'Equal Split', icon: <Users /> },
+  { value: 'seat', label: 'By Seat', icon: <Users /> },
+  { value: 'custom', label: 'Custom', icon: <ArrowRightLeft /> },
+]
+
 export default function ChecksPage() {
   const router = useRouter()
+  void router
   const taxRates = useOrderStore((s) => s.taxRates)
   const activeLocationId = useAuthStore((s) => s.activeLocationId)
 
@@ -175,7 +180,6 @@ export default function ChecksPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [paymentTarget, setPaymentTarget] = useState<CheckPaymentTarget | null>(null)
 
-  // Fetch open orders
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch('/api/orders?status=open,fired,ready,served')
@@ -194,7 +198,6 @@ export default function ChecksPage() {
     fetchOrders()
   }, [fetchOrders])
 
-  // Fetch order details when selected
   useEffect(() => {
     if (!selectedOrderId) {
       setSelectedOrder(null)
@@ -214,7 +217,6 @@ export default function ChecksPage() {
     fetchOrderDetail()
   }, [selectedOrderId])
 
-  // Handle equal split
   const handleEqualSplit = useCallback(
     async (count: number) => {
       if (!selectedOrderId) return
@@ -248,7 +250,6 @@ export default function ChecksPage() {
     [selectedOrderId, fetchOrders]
   )
 
-  // Handle seat split
   const handleSeatSplit = useCallback(async () => {
     if (!selectedOrderId) return
     setIsSplitting(true)
@@ -276,7 +277,6 @@ export default function ChecksPage() {
     }
   }, [selectedOrderId, fetchOrders])
 
-  // Handle print check
   const handlePrintCheck = useCallback(async () => {
     if (!selectedOrderId) return
     try {
@@ -291,7 +291,6 @@ export default function ChecksPage() {
     }
   }, [selectedOrderId])
 
-  // Navigate to payment for selected order
   const handleProcessPayment = useCallback(() => {
     if (!selectedOrder) return
     const totalCents = Math.round(
@@ -311,7 +310,6 @@ export default function ChecksPage() {
     setViewMode('payment')
   }, [selectedOrder])
 
-  // Open drag-and-drop split view
   const handleDragSplit = useCallback(() => {
     if (!selectedOrder?.order_items) {
       toast.error('No items to split')
@@ -320,12 +318,10 @@ export default function ChecksPage() {
     setViewMode('split')
   }, [selectedOrder])
 
-  // Handle drag-and-drop split confirm
   const handleSplitConfirm = useCallback(
     async (checks: Array<{ id: string; label: string; items: SplitItem[]; is_paid: boolean }>) => {
       if (!selectedOrderId) return
 
-      // Build item assignments for the API
       const itemAssignments = checks.flatMap((check, i) =>
         check.items.map((item) => ({
           item_id: item.original_item_id,
@@ -358,14 +354,12 @@ export default function ChecksPage() {
     [selectedOrderId, fetchOrders]
   )
 
-  // Handle paying a single check from split view
   const handlePaySplitCheck = useCallback(
     (_checkIndex: number, checkData: { id: string; items: SplitItem[] }) => {
       const subtotalCents = checkData.items.reduce(
         (sum, item) => sum + Math.round(item.line_total_cents * item.split_fraction),
         0
       )
-      // Rough tax estimate (will be properly calculated by payment flow)
       const taxCents = Math.round(subtotalCents * 0.08)
       const totalCents = subtotalCents + taxCents
 
@@ -381,9 +375,9 @@ export default function ChecksPage() {
     [selectedOrderId]
   )
 
-  // Merge orders
   const [mergeMode, setMergeMode] = useState(false)
   const [mergeTargetId, setMergeTargetId] = useState<string | null>(null)
+  void mergeTargetId
 
   const handleMerge = useCallback(async () => {
     if (!selectedOrderId) return
@@ -406,9 +400,7 @@ export default function ChecksPage() {
           fetchOrders()
           setSelectedOrderId(null)
         } else {
-          const err = await res
-            .json()
-            .catch(() => ({ error: 'Merge failed' }))
+          const err = await res.json().catch(() => ({ error: 'Merge failed' }))
           toast.error(err.error ?? 'Failed to merge checks')
         }
       } catch {
@@ -425,9 +417,7 @@ export default function ChecksPage() {
     ? Math.round(parseFloat(selectedOrder.total) * 100)
     : 0
   const balanceDueCents = selectedOrder
-    ? Math.round(
-        parseFloat(selectedOrder.balance_due || selectedOrder.total) * 100
-      )
+    ? Math.round(parseFloat(selectedOrder.balance_due || selectedOrder.total) * 100)
     : 0
   const amountPaidCents = selectedOrder
     ? Math.round(parseFloat(selectedOrder.amount_paid || '0') * 100)
@@ -448,9 +438,7 @@ export default function ChecksPage() {
         seat_number: item.seat_number,
         modifiers: item.modifiers.map((m) => ({
           name: m.name,
-          price_adjustment_cents: Math.round(
-            parseFloat(m.price_adjustment) * 100
-          ),
+          price_adjustment_cents: Math.round(parseFloat(m.price_adjustment) * 100),
         })),
         is_voided: item.is_voided,
         is_comped: item.is_comped,
@@ -463,9 +451,7 @@ export default function ChecksPage() {
     return (
       <SplitCheckView
         orderId={selectedOrder.id}
-        orderNumber={
-          selectedOrder.display_number || String(selectedOrder.order_number)
-        }
+        orderNumber={selectedOrder.display_number || String(selectedOrder.order_number)}
         tableName={selectedOrder.table_name}
         orderType={selectedOrder.order_type}
         forHere={selectedOrder.for_here ?? null}
@@ -509,8 +495,19 @@ export default function ChecksPage() {
   // ---------------------------------------------------------------
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-2 border-[var(--primary)] border-t-transparent rounded-full" />
+      <div className="flex h-full">
+        <div
+          className="w-80 flex flex-col bg-[var(--color-surface)] p-[var(--space-3)] gap-[var(--space-2)]"
+          style={{ borderRight: '0.5px solid var(--color-border)' }}
+        >
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+        </div>
+        <div className="flex-1 p-[var(--space-6)] flex flex-col gap-[var(--space-4)]">
+          <Skeleton variant="text" lines={3} />
+          <Skeleton variant="chart" />
+        </div>
       </div>
     )
   }
@@ -522,24 +519,24 @@ export default function ChecksPage() {
     <div className="flex h-full gap-0 no-select">
       {/* Left: Order list */}
       <div
-        className="w-80 flex flex-col bg-white"
-        style={{ borderRight: '0.5px solid var(--separator)' }}
+        className="w-80 flex flex-col bg-[var(--color-surface)]"
+        style={{ borderRight: '0.5px solid var(--color-border)' }}
       >
         <div
-          className="shrink-0 px-4 py-3"
-          style={{ borderBottom: '0.5px solid var(--separator)' }}
+          className="shrink-0 px-[var(--space-4)] py-[var(--space-3)]"
+          style={{ borderBottom: '0.5px solid var(--color-border)' }}
         >
-          <h2 className="text-headline text-foreground">
+          <h2 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">
             {mergeMode ? 'Select Check to Merge' : 'Open Checks'}
           </h2>
-          <p className="text-footnote text-muted-foreground mt-0.5">
+          <p className="mt-[var(--space-1)] text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
             {mergeMode
               ? 'Tap a check to merge into the selected one'
               : `${orders.length} active order${orders.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-2 space-y-1.5">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-[var(--space-2)] flex flex-col gap-[var(--space-2)]">
           {orders.length === 0 ? (
             <EmptyState
               icon={Receipt}
@@ -550,62 +547,54 @@ export default function ChecksPage() {
             orders.map((order) => {
               const orderTotal = Math.round(parseFloat(order.total) * 100)
               const isSelected = selectedOrderId === order.id
-              const orderPaid = Math.round(
-                parseFloat(order.amount_paid || '0') * 100
-              )
+              const orderPaid = Math.round(parseFloat(order.amount_paid || '0') * 100)
               const isPartiallyPaid = orderPaid > 0 && orderPaid < orderTotal
               return (
-                <button
+                <Card
                   key={order.id}
-                  type="button"
+                  variant={isSelected ? 'flat' : 'interactive'}
+                  padding="compact"
                   onClick={() => {
-                    if (
-                      mergeMode &&
-                      selectedOrderId &&
-                      order.id !== selectedOrderId
-                    ) {
+                    if (mergeMode && selectedOrderId && order.id !== selectedOrderId) {
                       handleMergeTarget(order.id)
                     } else {
                       setSelectedOrderId(isSelected ? null : order.id)
                     }
                   }}
                   className={cn(
-                    'btn-press w-full rounded-xl border p-3 text-left transition-all duration-150',
+                    'touch-target gap-[var(--space-2)]',
                     isSelected
-                      ? 'border-[var(--primary)] bg-[var(--accent)] shadow-warm-md'
-                      : 'border-border bg-white shadow-warm-sm hover:shadow-warm-md'
+                      ? 'border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]'
+                      : ''
                   )}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-sm text-foreground">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">
                       #{order.display_number || order.order_number}
                     </span>
                     <StatusBadge status={order.status} />
                   </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      {order.table_name ?? order.order_type.replace('_', ' ')}
-                    </span>
+                  <div className="flex items-center justify-between text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
+                    <span>{order.table_name ?? order.order_type.replace('_', ' ')}</span>
                     <span>{order.server_name ?? 'Unknown'}</span>
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-muted-foreground">
-                      {order.guest_count} guest
-                      {order.guest_count !== 1 ? 's' : ''}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
+                      {order.guest_count} guest{order.guest_count !== 1 ? 's' : ''}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-[var(--space-2)]">
                       {isPartiallyPaid && (
-                        <span className="text-[10px] font-bold text-[var(--warning)] bg-[var(--warning-bg)] px-1.5 py-0.5 rounded">
+                        <Badge variant="warning" size="sm">
                           PARTIAL
-                        </span>
+                        </Badge>
                       )}
                       <MoneyDisplay
                         cents={orderTotal}
-                        className="font-bold text-sm"
+                        className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[var(--color-text)] tabular-nums"
                       />
                     </div>
                   </div>
-                </button>
+                </Card>
               )
             })
           )}
@@ -613,7 +602,7 @@ export default function ChecksPage() {
       </div>
 
       {/* Right: Check actions */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-[var(--background)]">
+      <div className="flex-1 flex flex-col overflow-hidden bg-[var(--color-bg)]">
         {!selectedOrder ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyState
@@ -623,264 +612,194 @@ export default function ChecksPage() {
             />
           </div>
         ) : (
-          <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-4">
-            {/* Check summary */}
-            <div className="rounded-xl border border-border bg-white p-4 shadow-warm-sm">
-              <div className="flex items-center justify-between mb-3">
+          <div className="flex-1 flex flex-col overflow-y-auto p-[var(--space-4)] gap-[var(--space-4)]">
+            {/* Check summary card */}
+            <Card variant="elevated" padding="default">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    #
-                    {selectedOrder.display_number ||
-                      selectedOrder.order_number}
+                  <h3 className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">
+                    #{selectedOrder.display_number || selectedOrder.order_number}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedOrder.table_name ??
-                      selectedOrder.order_type.replace('_', ' ')}
-                    {' \u00B7 '}
+                  <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
+                    {selectedOrder.table_name ?? selectedOrder.order_type.replace('_', ' ')}
+                    {' · '}
                     {selectedOrder.server_name ?? 'Unknown'}
                   </p>
                 </div>
                 <StatusBadge status={selectedOrder.status} />
               </div>
 
-              {/* Order items */}
-              {selectedOrder.order_items &&
-                selectedOrder.order_items.length > 0 && (
-                  <div className="mb-3 divide-y divide-border/50">
-                    {selectedOrder.order_items
-                      .filter((i) => !i.is_voided)
-                      .map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-start justify-between py-2"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm text-foreground">
-                                {item.quantity > 1 && (
-                                  <span className="font-bold mr-1">
-                                    {item.quantity}x
-                                  </span>
-                                )}
-                                {item.name}
-                              </span>
-                              {item.seat_number && (
-                                <span className="text-[10px] text-muted-foreground bg-[var(--muted)] px-1 rounded">
-                                  S{item.seat_number}
-                                </span>
+              {selectedOrder.order_items && selectedOrder.order_items.length > 0 && (
+                <div className="divide-y divide-[var(--color-border)]">
+                  {selectedOrder.order_items
+                    .filter((i) => !i.is_voided)
+                    .map((item) => (
+                      <div key={item.id} className="flex items-start justify-between py-[var(--space-2)]">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-[var(--space-2)] flex-wrap">
+                            <span className="text-[length:var(--type-subhead-size)] text-[var(--color-text)]">
+                              {item.quantity > 1 && (
+                                <span className="font-[var(--weight-semibold)] mr-1">{item.quantity}x</span>
                               )}
-                              {item.is_comped && (
-                                <span className="text-[10px] text-[var(--warning)] bg-[var(--warning-bg)] px-1 rounded font-bold">
-                                  COMP
-                                </span>
-                              )}
-                            </div>
-                            {item.modifiers.length > 0 && (
-                              <p className="text-xs text-muted-foreground pl-2">
-                                {item.modifiers
-                                  .map((m) => m.name)
-                                  .join(', ')}
-                              </p>
+                              {item.name}
+                            </span>
+                            {item.seat_number && (
+                              <Badge variant="default" size="sm">
+                                S{item.seat_number}
+                              </Badge>
+                            )}
+                            {item.is_comped && (
+                              <Badge variant="warning" size="sm">
+                                COMP
+                              </Badge>
                             )}
                           </div>
-                          <MoneyDisplay
-                            cents={Math.round(
-                              parseFloat(item.line_total) * 100
-                            )}
-                            className={cn(
-                              'text-sm shrink-0',
-                              item.is_comped &&
-                                'line-through text-muted-foreground'
-                            )}
-                          />
+                          {item.modifiers.length > 0 && (
+                            <p className="pl-[var(--space-2)] text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
+                              {item.modifiers.map((m) => m.name).join(', ')}
+                            </p>
+                          )}
                         </div>
-                      ))}
-                  </div>
-                )}
+                        <MoneyDisplay
+                          cents={Math.round(parseFloat(item.line_total) * 100)}
+                          className={cn(
+                            'shrink-0 text-[length:var(--type-subhead-size)]',
+                            item.is_comped && 'line-through text-[var(--color-text-muted)]'
+                          )}
+                        />
+                      </div>
+                    ))}
+                </div>
+              )}
 
               {/* Totals */}
-              <div className="border-t border-border pt-3 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
+              <div className="border-t border-[var(--color-border)] pt-[var(--space-3)] flex flex-col gap-[var(--space-1)]">
+                <div className="flex justify-between text-[length:var(--type-subhead-size)]">
+                  <span className="text-[var(--color-text-muted)]">Subtotal</span>
                   <MoneyDisplay
-                    cents={Math.round(
-                      parseFloat(selectedOrder.subtotal) * 100
-                    )}
-                    className="font-medium"
+                    cents={Math.round(parseFloat(selectedOrder.subtotal) * 100)}
+                    className="font-[var(--weight-medium)]"
                   />
                 </div>
                 {parseFloat(selectedOrder.discount_total) > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[var(--success)]">Discount</span>
+                  <div className="flex justify-between text-[length:var(--type-subhead-size)]">
+                    <span className="text-[var(--color-success)]">Discount</span>
                     <MoneyDisplay
-                      cents={
-                        -Math.round(
-                          parseFloat(selectedOrder.discount_total) * 100
-                        )
-                      }
-                      className="text-[var(--success)] font-medium"
+                      cents={-Math.round(parseFloat(selectedOrder.discount_total) * 100)}
+                      className="text-[var(--color-success)] font-[var(--weight-medium)]"
                     />
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
+                <div className="flex justify-between text-[length:var(--type-subhead-size)]">
+                  <span className="text-[var(--color-text-muted)]">Tax</span>
                   <MoneyDisplay
-                    cents={Math.round(
-                      parseFloat(selectedOrder.tax_total) * 100
-                    )}
-                    className="font-medium"
+                    cents={Math.round(parseFloat(selectedOrder.tax_total) * 100)}
+                    className="font-[var(--weight-medium)]"
                   />
                 </div>
-                <div className="flex justify-between border-t border-border pt-2 mt-2">
-                  <span className="text-base font-bold">Total</span>
+                <div className="flex justify-between border-t border-[var(--color-border)] pt-[var(--space-2)] mt-[var(--space-2)]">
+                  <span className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)]">Total</span>
                   <MoneyDisplay
                     cents={totalCents}
-                    className="text-lg font-bold"
+                    className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)]"
                   />
                 </div>
                 {amountPaidCents > 0 && (
                   <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[var(--success)]">Paid</span>
+                    <div className="flex justify-between text-[length:var(--type-subhead-size)]">
+                      <span className="text-[var(--color-success)]">Paid</span>
                       <MoneyDisplay
                         cents={amountPaidCents}
-                        className="text-[var(--success)] font-medium"
+                        className="text-[var(--color-success)] font-[var(--weight-medium)]"
                       />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="font-semibold text-[var(--error)]">
-                        Balance Due
-                      </span>
+                    <div className="flex justify-between text-[length:var(--type-subhead-size)]">
+                      <span className="font-[var(--weight-semibold)] text-[var(--color-danger)]">Balance Due</span>
                       <MoneyDisplay
                         cents={balanceDueCents}
-                        className="font-bold text-[var(--error)]"
+                        className="font-[var(--weight-semibold)] text-[var(--color-danger)]"
                       />
                     </div>
                   </>
                 )}
               </div>
-            </div>
+            </Card>
 
             {/* Split Options */}
-            <div className="rounded-xl border border-border bg-white p-4 shadow-warm-sm">
-              <h4 className="text-sm font-bold text-foreground mb-3">
+            <Card variant="elevated" padding="default">
+              <h4 className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">
                 Split Check
               </h4>
 
-              {/* Split mode tabs */}
-              <div className="flex gap-1.5 mb-4">
-                {(
-                  [
-                    {
-                      key: 'drag' as const,
-                      icon: SplitSquareHorizontal,
-                      label: 'Drag & Drop',
-                    },
-                    {
-                      key: 'equal' as const,
-                      icon: Users,
-                      label: 'Equal Split',
-                    },
-                    {
-                      key: 'seat' as const,
-                      icon: Users,
-                      label: 'By Seat',
-                    },
-                    {
-                      key: 'custom' as const,
-                      icon: ArrowRightLeft,
-                      label: 'Custom',
-                    },
-                  ] as const
-                ).map(({ key, icon: Icon, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      if (key === 'drag') {
-                        handleDragSplit()
-                      } else {
-                        setSplitMode(key)
-                      }
-                    }}
-                    className={cn(
-                      'btn-press flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-xs font-semibold transition-all',
-                      splitMode === key && key !== 'drag'
-                        ? 'border-[var(--primary)] bg-[var(--accent)] text-[var(--primary)]'
-                        : key === 'drag'
-                          ? 'border-[var(--primary)]/50 bg-[var(--primary-subtle)] text-[var(--primary)]'
-                          : 'border-border bg-white text-muted-foreground hover:bg-[var(--secondary)]'
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <Tabs
+                variant="segmented"
+                size="lg"
+                items={SPLIT_MODE_TABS}
+                value={splitMode}
+                onValueChange={(v) => {
+                  if (v === 'drag') {
+                    handleDragSplit()
+                  } else {
+                    setSplitMode(v as SplitMode)
+                  }
+                }}
+                ariaLabel="Split mode"
+                fullWidth
+              />
 
-              {/* Equal split: number grid */}
               {splitMode === 'equal' && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">
+                <div className="flex flex-col gap-[var(--space-3)]">
+                  <p className="text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
                     Split the total evenly across checks
                   </p>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-[var(--space-2)]">
                     {[2, 3, 4, 5, 6, 7, 8].map((n) => (
-                      <button
+                      <Button
                         key={n}
-                        type="button"
+                        variant={splitCount === n && isSplitting ? 'primary' : 'secondary'}
+                        size="lg"
                         onClick={() => handleEqualSplit(n)}
-                        disabled={isSplitting}
-                        className={cn(
-                          'btn-press flex flex-col items-center justify-center h-16 rounded-xl border text-center transition-all',
-                          splitCount === n && isSplitting
-                            ? 'border-[var(--primary)] bg-[var(--accent)]'
-                            : 'border-border bg-white hover:bg-[var(--secondary)]',
-                          isSplitting &&
-                            splitCount !== n &&
-                            'opacity-40'
-                        )}
+                        disabled={isSplitting && splitCount !== n}
+                        loading={splitCount === n && isSplitting}
+                        className="h-[64px] flex flex-col items-center justify-center gap-0"
                       >
-                        <span className="text-lg font-bold text-foreground">
+                        <span className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)]">
                           {n}
                         </span>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
                           <MoneyDisplay
                             cents={Math.round(totalCents / n)}
-                            className="text-[10px]"
+                            className="text-[length:var(--type-caption-1-size)]"
                           />{' '}
                           ea
                         </span>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Seat split */}
               {splitMode === 'seat' && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Each seat becomes a separate check. Items assigned to a
-                    seat go on that check.
+                <div className="flex flex-col gap-[var(--space-3)]">
+                  <p className="text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
+                    Each seat becomes a separate check. Items assigned to a seat go on that check.
                   </p>
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    size="xl"
+                    loading={isSplitting}
                     onClick={handleSeatSplit}
-                    disabled={isSplitting}
-                    className="btn-press touch-target-lg w-full h-14 rounded-xl bg-[var(--primary)] text-white text-base font-semibold transition-all hover:bg-[var(--primary-hover)] disabled:opacity-40"
+                    className="w-full"
                   >
-                    {isSplitting ? 'Splitting...' : 'Split by Seat'}
-                  </button>
+                    {isSplitting ? 'Splitting' : 'Split by Seat'}
+                  </Button>
                 </div>
               )}
 
-              {/* Custom split -- equal with custom amount */}
               {splitMode === 'custom' && (
-                <div>
-                  <p className="text-footnote text-muted-foreground mb-3">
-                    Split a specific dollar amount to a new check. The
-                    remainder stays on this check.
+                <div className="flex flex-col gap-[var(--space-3)]">
+                  <p className="text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
+                    Split a specific dollar amount to a new check. The remainder stays on this check.
                   </p>
                   <CustomAmountSplit
                     totalCents={totalCents}
@@ -892,37 +811,37 @@ export default function ChecksPage() {
                   />
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Action buttons */}
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                type="button"
+            <div className="grid grid-cols-3 gap-[var(--space-3)]">
+              <Button
+                variant="secondary"
+                size="xl"
                 onClick={handlePrintCheck}
-                className="btn-press touch-target-xl flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-white text-footnote font-semibold text-foreground shadow-warm-sm transition-all hover:shadow-warm-md"
-                style={{ height: 72 }}
+                leadingIcon={<Printer />}
+                className="h-[72px] flex-col"
               >
-                <Printer className="h-5 w-5 text-muted-foreground" />
                 Print
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="xl"
                 onClick={handleMerge}
-                className="btn-press touch-target-xl flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-white text-footnote font-semibold text-foreground shadow-warm-sm transition-all hover:shadow-warm-md"
-                style={{ height: 72 }}
+                leadingIcon={<Merge />}
+                className="h-[72px] flex-col"
               >
-                <Merge className="h-5 w-5 text-muted-foreground" />
                 Merge
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
+                size="xl"
                 onClick={handleProcessPayment}
-                className="btn-press touch-target-xl flex flex-col items-center justify-center gap-1.5 rounded-xl bg-[var(--success)] text-white text-footnote font-semibold shadow-warm-md transition-all hover:bg-green-600"
-                style={{ height: 72 }}
+                leadingIcon={<CreditCard />}
+                className="h-[72px] flex-col bg-[var(--color-success)] hover:bg-[color-mix(in_srgb,var(--color-success)_85%,black)] active:bg-[color-mix(in_srgb,var(--color-success)_75%,black)]"
               >
-                <CreditCard className="h-5 w-5" />
                 Pay
-              </button>
+              </Button>
             </div>
           </div>
         )}

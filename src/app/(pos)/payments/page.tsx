@@ -3,6 +3,8 @@
 import { useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui-v2/Button'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { PaymentMethodGrid, type PaymentMethodChoice } from '@/components/payments/PaymentMethodGrid'
 import { CashTender } from '@/components/payments/CashTender'
@@ -15,7 +17,6 @@ import { HouseAccountFlow } from '@/components/payments/HouseAccountFlow'
 import { useOrderStore } from '@/stores/order-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 
 type FlowState =
   | 'method_select'
@@ -38,9 +39,21 @@ interface PaymentResult {
   paymentId?: string
 }
 
+function PaymentsLoadingSkeleton() {
+  return (
+    <div className="flex h-full flex-col p-[var(--space-6)] gap-[var(--space-5)]">
+      <Skeleton variant="text" lines={1} className="w-1/3" />
+      <div className="mx-auto w-full max-w-md space-y-[var(--space-4)]">
+        <Skeleton variant="text" lines={2} />
+        <Skeleton variant="card" />
+      </div>
+    </div>
+  )
+}
+
 export default function PaymentsPageWrapper() {
   return (
-    <Suspense fallback={<div className="flex h-full items-center justify-center"><div className="animate-spin h-8 w-8 border-2 border-[var(--primary)] border-t-transparent rounded-full" /></div>}>
+    <Suspense fallback={<PaymentsLoadingSkeleton />}>
       <PaymentsPage />
     </Suspense>
   )
@@ -53,7 +66,6 @@ function PaymentsPage() {
   const { clearCurrentOrder } = useOrderStore((s) => s.actions)
   const activeLocationId = useAuthStore((s) => s.activeLocationId)
 
-  // Allow overriding total via query param
   const paramTotal = searchParams.get('total_cents')
   const orderTotalCents = paramTotal
     ? parseInt(paramTotal, 10)
@@ -73,8 +85,6 @@ function PaymentsPage() {
   const shouldShowTip = useMemo(() => {
     return selectedMethod === 'credit_card' || selectedMethod === 'digital_wallet'
   }, [selectedMethod])
-
-  // -- Handlers --
 
   const handleMethodSelect = useCallback(
     (method: PaymentMethodChoice) => {
@@ -198,7 +208,6 @@ function PaymentsPage() {
   )
 
   const handleReceiptChoice = useCallback(async (choice: ReceiptChoice) => {
-    // Call receipt API based on choice
     if (choice === 'email' || choice === 'text') {
       try {
         await fetch(`/api/orders/${orderId}/receipt`, {
@@ -238,46 +247,50 @@ function PaymentsPage() {
   }, [flowState, router])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background">
-      {/* Header */}
+    <div className="flex h-full flex-col overflow-hidden bg-[var(--color-bg)]">
       {flowState !== 'complete' && (
         <div
-          className="flex items-center gap-3 px-4"
-          style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--separator)' }}
+          className="flex items-center gap-[var(--space-3)] px-[var(--space-4)]"
+          style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--color-border)' }}
         >
-          <button
+          <Button
+            variant="ghost"
+            size="lg"
+            leadingIcon={<ArrowLeft />}
             onClick={handleBack}
-            className="btn-press touch-target flex items-center gap-2 rounded-xl px-3 py-2 text-subhead font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <ArrowLeft className="size-5" />
             {flowState === 'method_select' ? 'Back to Order' : 'Back'}
-          </button>
+          </Button>
 
           <div className="ml-auto text-right">
-            <p className="text-footnote text-muted-foreground">Order Total</p>
-            <MoneyDisplay cents={orderTotalCents} className="text-title-2 font-bold text-foreground tabular-nums" />
+            <p className="text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
+              Order Total
+            </p>
+            <MoneyDisplay
+              cents={orderTotalCents}
+              className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[var(--color-text)] tabular-nums"
+            />
           </div>
         </div>
       )}
 
-      {/* Content area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-[var(--space-4)] py-[var(--space-6)]">
         <div className="mx-auto max-w-md">
-          {/* METHOD SELECT */}
           {flowState === 'method_select' && (
-            <div className="flex flex-col gap-8 animate-fade-in">
+            <div className="flex flex-col gap-[var(--space-8)] animate-fade-in">
               <div className="text-center">
                 <MoneyDisplay
                   cents={orderTotalCents}
-                  className="text-large-title font-bold text-foreground tabular-nums"
+                  className="text-[length:var(--type-large-title-size)] font-[var(--weight-semibold)] text-[var(--color-text)] tabular-nums"
                 />
-                <p className="mt-2 text-callout text-muted-foreground">Select Payment Method</p>
+                <p className="mt-[var(--space-2)] text-[length:var(--type-callout-size)] text-[var(--color-text-muted)]">
+                  Select Payment Method
+                </p>
               </div>
               <PaymentMethodGrid onSelect={handleMethodSelect} />
             </div>
           )}
 
-          {/* CARD PROCESSING */}
           {flowState === 'processing_card' && (
             <div className="animate-slide-in-right">
               <CardProcessing
@@ -294,14 +307,12 @@ function PaymentsPage() {
             </div>
           )}
 
-          {/* CASH PROCESSING */}
           {flowState === 'processing_cash' && (
             <div className="animate-slide-in-right">
               <CashTender totalCents={orderTotalCents} onComplete={handleCashComplete} />
             </div>
           )}
 
-          {/* GIFT CARD PROCESSING */}
           {flowState === 'processing_gift_card' && (
             <div className="animate-slide-in-right">
               <GiftCardFlow
@@ -314,7 +325,6 @@ function PaymentsPage() {
             </div>
           )}
 
-          {/* HOUSE ACCOUNT PROCESSING */}
           {flowState === 'processing_house_account' && (
             <div className="animate-slide-in-right">
               <HouseAccountFlow
@@ -327,21 +337,18 @@ function PaymentsPage() {
             </div>
           )}
 
-          {/* TIP PROMPT */}
           {flowState === 'tip_prompt' && (
             <div className="animate-slide-in-right">
               <TipSelector subtotalCents={orderTotalCents} onSelect={handleTipSelected} />
             </div>
           )}
 
-          {/* RECEIPT PROMPT */}
           {flowState === 'receipt_prompt' && (
             <div className="animate-slide-in-right">
               <ReceiptOptions onSelect={handleReceiptChoice} />
             </div>
           )}
 
-          {/* COMPLETE */}
           {flowState === 'complete' && (
             <div className="animate-fade-in">
               <PaymentComplete
