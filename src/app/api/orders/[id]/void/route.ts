@@ -12,6 +12,7 @@ import {
 } from '@/lib/orders/state-machine'
 import { assertVersion } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
+import { getReqLoggerFromRequest } from '@/lib/observability/req-context'
 
 const VOID_REASONS = [
   'customer_request',
@@ -50,15 +51,40 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t0 = Date.now()
+  const rlog = getReqLoggerFromRequest(request, {
+    route: '/api/orders/[id]/void',
+    method: 'POST',
+  })
+
   const user = await getAuthUser()
-  if (user instanceof NextResponse) return user
+  if (user instanceof NextResponse) {
+    rlog.warn('orders.void.unauthorized', {
+      status: user.status,
+      duration_ms: Date.now() - t0,
+    })
+    return user
+  }
 
   // Manager+ to void anything beyond a draft. This route is the canonical
   // "void with reason + audit" flow (5.99.3 closed the DELETE side-door).
   const roleErr = requireRole(user, ['owner', 'admin', 'manager'])
-  if (roleErr) return roleErr
+  if (roleErr) {
+    rlog.warn('orders.void.forbidden', {
+      user_id: user.id,
+      org_id: user.org_id,
+      status: 403,
+      duration_ms: Date.now() - t0,
+    })
+    return roleErr
+  }
 
   const { id: orderId } = await params
+  rlog.info('orders.void.start', {
+    user_id: user.id,
+    org_id: user.org_id,
+    order_id: orderId,
+  })
 
   let body: unknown
   try {
@@ -235,6 +261,16 @@ export async function POST(
     reason: isAfterClose ? `${reason} (after close)` : reason,
     location_id: order.location_id,
     request,
+  })
+
+  rlog.info('orders.void.ok', {
+    user_id: user.id,
+    org_id: user.org_id,
+    order_id: orderId,
+    reason,
+    after_close: isAfterClose,
+    status: 200,
+    duration_ms: Date.now() - t0,
   })
 
   return NextResponse.json({

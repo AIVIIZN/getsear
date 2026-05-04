@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit, applyRateLimitHeaders, getClientIp } from '@/lib/api/rate-limit'
 import { audit } from '@/lib/audit/log'
+import { getReqLoggerFromRequest } from '@/lib/observability/req-context'
 import type { User } from '@/types/database'
 
 /**
@@ -41,11 +42,21 @@ const GENERIC_AUTH_ERROR = 'Invalid email or password.'
  *   - On rate-limit, returns 429 with Retry-After header.
  */
 export async function POST(request: NextRequest) {
+  const t0 = Date.now()
+  const rlog = getReqLoggerFromRequest(request, {
+    route: '/api/auth/login',
+    method: 'POST',
+  })
+
   try {
     // 1. Per-IP rate limit (5 attempts / 15 min — auth tier).
     const ip = getClientIp(request)
     const ipRl = await checkRateLimit('auth', `login:ip:${ip}`)
     if (!ipRl.allowed) {
+      rlog.warn('auth.login.rate_limited_ip', {
+        status: 429,
+        duration_ms: Date.now() - t0,
+      })
       // Best-effort audit: we don't know the email yet (rate-limit fired BEFORE
       // body parse). Record an anonymous-tenant-skipped row carrying just IP.
       // recordSystem will silently skip if it can't resolve org_id.
@@ -81,6 +92,10 @@ export async function POST(request: NextRequest) {
     const emailNormalised = email.toLowerCase().trim()
     const emailRl = await checkRateLimit('auth', `login:email:${emailNormalised}`)
     if (!emailRl.allowed) {
+      rlog.warn('auth.login.rate_limited_email', {
+        status: 429,
+        duration_ms: Date.now() - t0,
+      })
       // Audit: now we know the email — recordSystem will resolve the user's
       // org_id by email so the row lands in the correct tenant's audit feed.
       // The full email is NOT stored; only the redacted form + IP.
@@ -110,6 +125,11 @@ export async function POST(request: NextRequest) {
       await supabase.auth.signInWithPassword({ email, password })
 
     if (authError || !authData.user) {
+      rlog.warn('auth.login.failed', {
+        status: 401,
+        reason: 'invalid_credentials',
+        duration_ms: Date.now() - t0,
+      })
       const res = NextResponse.json(
         { error: GENERIC_AUTH_ERROR },
         { status: 401 }
@@ -131,6 +151,11 @@ export async function POST(request: NextRequest) {
     if (profileError || !profile) {
       // Sign out — generic error (no enumeration)
       await supabase.auth.signOut()
+      rlog.warn('auth.login.failed', {
+        status: 401,
+        reason: 'profile_not_found',
+        duration_ms: Date.now() - t0,
+      })
       const res = NextResponse.json(
         { error: GENERIC_AUTH_ERROR },
         { status: 401 }
@@ -144,6 +169,13 @@ export async function POST(request: NextRequest) {
       // Return the SAME generic error as wrong-password to prevent
       // attackers from enumerating active vs deactivated emails.
       await supabase.auth.signOut()
+      rlog.warn('auth.login.failed', {
+        user_id: profile.id,
+        org_id: profile.org_id,
+        status: 401,
+        reason: 'inactive_account',
+        duration_ms: Date.now() - t0,
+      })
       const res = NextResponse.json(
         { error: GENERIC_AUTH_ERROR },
         { status: 401 }
@@ -157,6 +189,13 @@ export async function POST(request: NextRequest) {
       [profile.first_name, profile.last_name].filter(Boolean).join(' ') ||
       profile.email ||
       'User'
+
+    rlog.info('auth.login.ok', {
+      user_id: profile.id,
+      org_id: profile.org_id,
+      status: 200,
+      duration_ms: Date.now() - t0,
+    })
 
     const res = NextResponse.json({
       user: {
@@ -172,7 +211,12 @@ export async function POST(request: NextRequest) {
     applyRateLimitHeaders(res.headers, ipRl)
     return res
   } catch (err) {
-    console.error('[auth/login] failed:', err)
+    rlog.error('auth.login.unhandled', {
+      err: err instanceof Error ? err.message : String(err),
+      err_stack: err instanceof Error ? err.stack : undefined,
+      status: 500,
+      duration_ms: Date.now() - t0,
+    })
     return NextResponse.json(
       { error: 'An unexpected error occurred. Please try again.' },
       { status: 500 }
