@@ -6,51 +6,45 @@ import {
   Building2,
   Plus,
   Search,
-  DollarSign,
-  CreditCard,
-  AlertTriangle,
   Loader2,
   ChevronUp,
   ChevronDown,
-  X,
-  Receipt,
   ArrowDownCircle,
   ArrowUpCircle,
   FileText,
-  Mail,
 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Text } from "@/components/ui-v2/inputs/Text"
+import { NumberInput } from "@/components/ui-v2/inputs/Number"
+import { Email } from "@/components/ui-v2/inputs/Email"
+import { Toggle } from "@/components/ui-v2/inputs/Toggle"
+import { Field } from "@/components/ui-v2/inputs/Field"
+import { Button } from "@/components/ui-v2/Button"
+import { Badge } from "@/components/ui-v2/data/Badge"
 import {
   Table,
   TableHeader,
   TableBody,
   TableRow,
-  TableHead,
   TableCell,
-} from "@/components/ui/table"
+} from "@/components/ui-v2/data/Table"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet"
+  SheetBody,
+} from "@/components/ui-v2/Sheet"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Switch } from "@/components/ui/switch"
-import { EmptyState } from "@/components/shared/EmptyState"
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+} from "@/components/ui-v2/Modal"
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -120,6 +114,10 @@ interface Pagination {
   total_pages: number
 }
 
+type SortKey = "account_name" | "current_balance" | "credit_limit"
+
+type BadgeVariant = "default" | "primary" | "success" | "warning" | "danger" | "info"
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -156,16 +154,25 @@ function getUtilization(balance: string, limit: string): number {
   return Math.round((b / l) * 100)
 }
 
-function getUtilizationColor(pct: number): string {
-  if (pct >= 80) return "text-destructive"
-  if (pct >= 50) return "text-warning"
-  return "text-success"
+function getUtilizationVariant(pct: number): BadgeVariant {
+  if (pct >= 80) return "danger"
+  if (pct >= 50) return "warning"
+  return "success"
 }
 
-function getUtilizationBadge(pct: number): string {
-  if (pct >= 80) return "bg-red-100 text-red-800 border-red-200"
-  if (pct >= 50) return "bg-amber-100 text-amber-800 border-amber-200"
-  return "bg-green-100 text-green-800 border-green-200"
+function txTypeVariant(type: string): BadgeVariant {
+  switch (type) {
+    case "charge":
+      return "danger"
+    case "payment":
+      return "success"
+    case "adjustment":
+      return "info"
+    case "credit":
+      return "success"
+    default:
+      return "default"
+  }
 }
 
 function todayISO(): string {
@@ -176,13 +183,6 @@ function todayISO(): string {
 function firstOfMonthISO(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
-}
-
-const TX_TYPE_COLORS: Record<string, string> = {
-  charge: "bg-red-100 text-red-800 border-red-200",
-  payment: "bg-green-100 text-green-800 border-green-200",
-  adjustment: "bg-blue-100 text-blue-800 border-blue-200",
-  credit: "bg-emerald-100 text-emerald-800 border-emerald-200",
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ export default function HouseAccountsPage() {
   })
   const [search, setSearch] = React.useState("")
   const [loading, setLoading] = React.useState(true)
-  const [sortBy, setSortBy] = React.useState<"account_name" | "current_balance" | "credit_limit">("account_name")
+  const [sortBy, setSortBy] = React.useState<SortKey>("account_name")
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("asc")
 
   // -- Detail state --
@@ -397,7 +397,7 @@ export default function HouseAccountsPage() {
   }
 
   // ---- Sort handler ----
-  function handleSort(col: typeof sortBy) {
+  function handleSort(col: SortKey) {
     if (sortBy === col) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     } else {
@@ -423,7 +423,7 @@ export default function HouseAccountsPage() {
     return sorted
   }, [accounts, sortBy, sortDir])
 
-  function SortIcon({ col }: { col: typeof sortBy }) {
+  function SortIcon({ col }: { col: SortKey }) {
     if (sortBy !== col) return null
     return sortDir === "asc" ? (
       <ChevronUp className="ml-1 inline h-3.5 w-3.5" />
@@ -442,8 +442,11 @@ export default function HouseAccountsPage() {
             Manage charge accounts for corporate clients and trusted guests
           </p>
         </div>
-        <Button className="btn-press touch-target" onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
+        <Button
+          size="md"
+          leadingIcon={<Plus />}
+          onClick={() => setCreateOpen(true)}
+        >
           Add Account
         </Button>
       </div>
@@ -452,59 +455,75 @@ export default function HouseAccountsPage() {
       <AccountDashboard />
 
       {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
+      <div className="max-w-sm">
+        <Text
           placeholder="Search accounts..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-10 pl-9"
+          leadingIcon={<Search className="h-4 w-4" />}
         />
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-6 w-6 animate-spin text-[var(--color-text-muted)]" />
           </div>
         ) : sortedAccounts.length === 0 ? (
           <EmptyState
             icon={Building2}
             title="No house accounts"
             description="Create a house account for corporate clients or regular guests."
-            actionLabel="Add Account"
-            onAction={() => setCreateOpen(true)}
+            action={{ label: "Add Account", onClick: () => setCreateOpen(true) }}
           />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort("account_name")}
+                <TableCell
+                  header
+                  sortable
+                  sortDirection={sortBy === "account_name" ? sortDir : null}
+                  onSort={() => handleSort("account_name")}
                 >
                   Account Name
                   <SortIcon col="account_name" />
-                </TableHead>
-                <TableHead className="w-[120px]">Status</TableHead>
-                <TableHead
-                  className="w-[140px] cursor-pointer select-none text-right"
-                  onClick={() => handleSort("credit_limit")}
+                </TableCell>
+                <TableCell header className="w-[120px]">
+                  Status
+                </TableCell>
+                <TableCell
+                  header
+                  align="right"
+                  className="w-[140px]"
+                  sortable
+                  sortDirection={sortBy === "credit_limit" ? sortDir : null}
+                  onSort={() => handleSort("credit_limit")}
                 >
                   Credit Limit
                   <SortIcon col="credit_limit" />
-                </TableHead>
-                <TableHead
-                  className="w-[140px] cursor-pointer select-none text-right"
-                  onClick={() => handleSort("current_balance")}
+                </TableCell>
+                <TableCell
+                  header
+                  align="right"
+                  className="w-[140px]"
+                  sortable
+                  sortDirection={sortBy === "current_balance" ? sortDir : null}
+                  onSort={() => handleSort("current_balance")}
                 >
                   Balance
                   <SortIcon col="current_balance" />
-                </TableHead>
-                <TableHead className="w-[120px] text-center">Utilization</TableHead>
-                <TableHead className="w-[140px]">Terms</TableHead>
-                <TableHead className="w-[120px]">Auto-Pay</TableHead>
+                </TableCell>
+                <TableCell header align="center" className="w-[120px]">
+                  Utilization
+                </TableCell>
+                <TableCell header className="w-[140px]">
+                  Terms
+                </TableCell>
+                <TableCell header className="w-[120px]">
+                  Auto-Pay
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -513,43 +532,32 @@ export default function HouseAccountsPage() {
                 return (
                   <TableRow
                     key={a.id}
-                    className="cursor-pointer hover:bg-muted/50"
+                    interactive
                     onClick={() => openDetail(a)}
                   >
-                    <TableCell className="font-medium">{a.account_name}</TableCell>
+                    <TableCell className="font-[var(--weight-medium)]">{a.account_name}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          a.is_active
-                            ? "bg-green-100 text-green-800 border-green-200"
-                            : "bg-gray-100 text-gray-700 border-gray-200"
-                        }
-                      >
+                      <Badge variant={a.is_active ? "success" : "default"}>
                         {a.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell align="right" className="tabular-nums">
                       {formatCurrency(a.credit_limit)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">
+                    <TableCell align="right" className="tabular-nums font-[var(--weight-medium)]">
                       {formatCurrency(a.current_balance)}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className={getUtilizationBadge(util)}>
-                        {util}%
-                      </Badge>
+                    <TableCell align="center">
+                      <Badge variant={getUtilizationVariant(util)}>{util}%</Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-[var(--color-text-muted)]">
                       Net {a.payment_terms_days}
                     </TableCell>
                     <TableCell>
                       {a.auto_pay ? (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          Auto
-                        </Badge>
+                        <Badge variant="info">Auto</Badge>
                       ) : (
-                        <span className="text-sm text-muted-foreground">Manual</span>
+                        <span className="text-[var(--color-text-muted)]">Manual</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -561,16 +569,16 @@ export default function HouseAccountsPage() {
 
         {/* Pagination */}
         {pagination.total_pages > 1 && (
-          <div className="flex items-center justify-between border-t px-4 py-3">
-            <p className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between border-t border-[var(--color-border)] px-[var(--space-4)] py-[var(--space-3)]">
+            <p className="text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">
               Showing {(pagination.page - 1) * pagination.limit + 1}
               &ndash;
               {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
               {pagination.total}
             </p>
-            <div className="flex gap-1">
+            <div className="flex gap-[var(--space-1)]">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={pagination.page <= 1}
                 onClick={() =>
@@ -580,7 +588,7 @@ export default function HouseAccountsPage() {
                 Previous
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={pagination.page >= pagination.total_pages}
                 onClick={() =>
@@ -594,103 +602,85 @@ export default function HouseAccountsPage() {
         )}
       </div>
 
-      {/* ========================== CREATE ACCOUNT DIALOG ========================== */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>New House Account</DialogTitle>
-            <DialogDescription>
+      {/* ========================== CREATE ACCOUNT MODAL ========================== */}
+      <Modal open={createOpen} onOpenChange={setCreateOpen}>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>New House Account</ModalTitle>
+            <ModalDescription>
               Create a charge account for a corporate client or trusted guest.
-            </DialogDescription>
-          </DialogHeader>
+            </ModalDescription>
+          </ModalHeader>
 
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="acct-name">Account Name *</Label>
-              <Input
-                id="acct-name"
+          <form onSubmit={handleCreate} className="contents">
+            <ModalBody>
+              <Text
+                label="Account Name"
                 placeholder="Company or individual name"
+                required
                 value={createForm.account_name}
                 onChange={(e) => setCreateForm((f) => ({ ...f, account_name: e.target.value }))}
-                className="h-12"
-                required
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="acct-limit">Credit Limit ($)</Label>
-                <Input
-                  id="acct-limit"
-                  type="number"
+              <div className="grid grid-cols-2 gap-[var(--space-3)]">
+                <NumberInput
+                  label="Credit Limit ($)"
                   min={0}
                   step="0.01"
                   value={createForm.credit_limit}
                   onChange={(e) => setCreateForm((f) => ({ ...f, credit_limit: e.target.value }))}
-                  className="h-12"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="acct-terms">Payment Terms (days)</Label>
-                <Input
-                  id="acct-terms"
-                  type="number"
+                <NumberInput
+                  label="Payment Terms (days)"
                   min={0}
                   max={120}
                   value={createForm.payment_terms_days}
                   onChange={(e) => setCreateForm((f) => ({ ...f, payment_terms_days: e.target.value }))}
-                  className="h-12"
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="acct-email">Billing Email</Label>
-              <Input
-                id="acct-email"
-                type="email"
+              <Email
+                label="Billing Email"
                 placeholder="billing@company.com"
                 value={createForm.billing_email}
                 onChange={(e) => setCreateForm((f) => ({ ...f, billing_email: e.target.value }))}
-                className="h-12"
               />
-            </div>
 
-            <div className="flex items-center gap-3">
-              <Switch
-                id="acct-autopay"
+              <Toggle
+                label="Enable auto-pay"
                 checked={createForm.auto_pay}
-                onCheckedChange={(checked) =>
-                  setCreateForm((f) => ({ ...f, auto_pay: !!checked }))
+                onChange={(checked) =>
+                  setCreateForm((f) => ({ ...f, auto_pay: checked }))
                 }
               />
-              <Label htmlFor="acct-autopay">Enable auto-pay</Label>
-            </div>
 
-            {createError && (
-              <p className="text-sm text-destructive">{createError}</p>
-            )}
+              {createError && (
+                <p className="text-[length:var(--type-footnote-size)] text-[var(--color-danger)]">
+                  {createError}
+                </p>
+              )}
+            </ModalBody>
 
-            <DialogFooter>
+            <ModalFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
+                size="md"
                 onClick={() => setCreateOpen(false)}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createLoading} className="btn-press">
-                {createLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button type="submit" size="md" loading={createLoading}>
                 Create Account
               </Button>
-            </DialogFooter>
+            </ModalFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ModalContent>
+      </Modal>
 
       {/* ========================== DETAIL SHEET ========================== */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-full sm:max-w-lg">
+        <SheetContent width="lg">
           <SheetHeader>
             <SheetTitle>Account Details</SheetTitle>
             <SheetDescription>
@@ -698,32 +688,24 @@ export default function HouseAccountsPage() {
             </SheetDescription>
           </SheetHeader>
 
-          {detailLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : selectedAccount ? (
-            <ScrollArea className="mt-4 h-[calc(100vh-120px)] pr-4">
+          <SheetBody>
+            {detailLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--color-text-muted)]" />
+              </div>
+            ) : selectedAccount ? (
               <div className="space-y-6">
                 {/* Account header */}
                 <div>
-                  <h3 className="text-lg font-semibold">
+                  <h3 className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">
                     {selectedAccount.account_name}
                   </h3>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={
-                        selectedAccount.is_active
-                          ? "bg-green-100 text-green-800 border-green-200"
-                          : "bg-gray-100 text-gray-700 border-gray-200"
-                      }
-                    >
+                  <div className="mt-[var(--space-2)] flex items-center gap-[var(--space-2)]">
+                    <Badge variant={selectedAccount.is_active ? "success" : "default"}>
                       {selectedAccount.is_active ? "Active" : "Inactive"}
                     </Badge>
                     <Badge
-                      variant="outline"
-                      className={getUtilizationBadge(
+                      variant={getUtilizationVariant(
                         getUtilization(selectedAccount.current_balance, selectedAccount.credit_limit)
                       )}
                     >
@@ -733,72 +715,74 @@ export default function HouseAccountsPage() {
                 </div>
 
                 {/* Balance summary */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg border bg-card p-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="grid grid-cols-2 gap-[var(--space-4)]">
+                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-[var(--space-4)]">
+                    <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)] uppercase tracking-wider">
                       Current Balance
                     </p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                    <p className="mt-[var(--space-1)] text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] tabular-nums">
                       {formatCurrency(selectedAccount.current_balance)}
                     </p>
                   </div>
-                  <div className="rounded-lg border bg-card p-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-[var(--space-4)]">
+                    <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)] uppercase tracking-wider">
                       Credit Limit
                     </p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                    <p className="mt-[var(--space-1)] text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] tabular-nums">
                       {formatCurrency(selectedAccount.credit_limit)}
                     </p>
                   </div>
                 </div>
 
                 {/* Quick actions */}
-                <div className="flex gap-2">
+                <div className="flex gap-[var(--space-2)]">
                   <Button
-                    variant="outline"
-                    className="btn-press touch-target flex-1"
+                    variant="secondary"
+                    size="lg"
+                    className="flex-1"
+                    leadingIcon={<ArrowUpCircle className="text-[var(--color-danger)]" />}
                     onClick={() => {
                       setChargeForm({ amount: "", description: "" })
                       setChargeOpen(true)
                     }}
                   >
-                    <ArrowUpCircle className="mr-1.5 h-4 w-4 text-destructive" />
                     Add Charge
                   </Button>
                   <Button
-                    variant="outline"
-                    className="btn-press touch-target flex-1"
+                    variant="secondary"
+                    size="lg"
+                    className="flex-1"
+                    leadingIcon={<ArrowDownCircle className="text-[var(--color-success)]" />}
                     onClick={() => {
                       setPaymentForm({ amount: "", description: "" })
                       setPaymentOpen(true)
                     }}
                   >
-                    <ArrowDownCircle className="mr-1.5 h-4 w-4 text-success" />
                     Record Payment
                   </Button>
                 </div>
 
-                <Separator />
+                <div className="border-t border-[var(--color-border)]" />
 
                 {/* Account info */}
-                <div className="space-y-2 text-sm">
+                <div className="space-y-[var(--space-2)] text-[length:var(--type-subhead-size)]">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Payment Terms</span>
+                    <span className="text-[var(--color-text-muted)]">Payment Terms</span>
                     <span>Net {selectedAccount.payment_terms_days}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Auto-Pay</span>
+                    <span className="text-[var(--color-text-muted)]">Auto-Pay</span>
                     <span>{selectedAccount.auto_pay ? "Enabled" : "Disabled"}</span>
                   </div>
                   {selectedAccount.billing_email && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Billing Email</span>
+                      <span className="text-[var(--color-text-muted)]">Billing Email</span>
                       <span>{selectedAccount.billing_email}</span>
                     </div>
                   )}
                   {selectedAccount.billing_address && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Address</span>
+                      <span className="text-[var(--color-text-muted)]">Address</span>
                       <span className="text-right">
                         {[
                           selectedAccount.billing_address.line1,
@@ -813,93 +797,84 @@ export default function HouseAccountsPage() {
                   )}
                 </div>
 
-                <Separator />
+                <div className="border-t border-[var(--color-border)]" />
 
                 {/* Statement generation */}
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-muted-foreground">
+                  <h4 className="mb-[var(--space-3)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
                     Generate Statement
                   </h4>
-                  <div className="flex items-end gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">From</Label>
-                      <Input
+                  <div className="flex items-end gap-[var(--space-2)]">
+                    <Field id="stmt-from" label="From" className="flex-1">
+                      <Text
+                        id="stmt-from"
                         type="date"
                         value={statementDateFrom}
                         onChange={(e) => setStatementDateFrom(e.target.value)}
-                        className="h-9"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">To</Label>
-                      <Input
+                    </Field>
+                    <Field id="stmt-to" label="To" className="flex-1">
+                      <Text
+                        id="stmt-to"
                         type="date"
                         value={statementDateTo}
                         onChange={(e) => setStatementDateTo(e.target.value)}
-                        className="h-9"
                       />
-                    </div>
+                    </Field>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      className="touch-target"
-                      disabled={statementLoading}
+                      variant="secondary"
+                      size="md"
+                      loading={statementLoading}
+                      leadingIcon={<FileText />}
                       onClick={handleGenerateStatement}
                     >
-                      {statementLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <FileText className="mr-1 h-4 w-4" />
-                      )}
                       Generate
                     </Button>
                   </div>
                 </div>
 
-                <Separator />
+                <div className="border-t border-[var(--color-border)]" />
 
                 {/* Transactions */}
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-muted-foreground">
+                  <h4 className="mb-[var(--space-3)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
                     Recent Transactions
                   </h4>
                   {selectedAccount.transactions.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-muted-foreground">
+                    <p className="py-[var(--space-4)] text-center text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
                       No transactions yet
                     </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-[var(--space-2)]">
                       {selectedAccount.transactions.map((tx) => (
                         <div
                           key={tx.id}
-                          className="flex items-center justify-between rounded-lg border p-3"
+                          className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--color-border)] p-[var(--space-3)]"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-[var(--space-3)]">
                             {tx.type === "charge" ? (
-                              <ArrowUpCircle className="h-5 w-5 text-destructive" />
+                              <ArrowUpCircle className="h-5 w-5 text-[var(--color-danger)]" />
                             ) : (
-                              <ArrowDownCircle className="h-5 w-5 text-success" />
+                              <ArrowDownCircle className="h-5 w-5 text-[var(--color-success)]" />
                             )}
                             <div>
-                              <p className="text-sm font-medium">{tx.description}</p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)]">
+                                {tx.description}
+                              </p>
+                              <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
                                 {formatDateTime(tx.created_at)}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={TX_TYPE_COLORS[tx.type] ?? ""}
-                            >
-                              {tx.type}
-                            </Badge>
+                          <div className="flex items-center gap-[var(--space-2)]">
+                            <Badge variant={txTypeVariant(tx.type)}>{tx.type}</Badge>
                             <span
-                              className={`tabular-nums font-medium ${
-                                parseFloat(tx.amount) >= 0
-                                  ? "text-destructive"
-                                  : "text-success"
-                              }`}
+                              className={
+                                "tabular-nums font-[var(--weight-medium)] " +
+                                (parseFloat(tx.amount) >= 0
+                                  ? "text-[var(--color-danger)]"
+                                  : "text-[var(--color-success)]")
+                              }
                             >
                               {parseFloat(tx.amount) >= 0 ? "+" : ""}
                               {formatCurrency(tx.amount)}
@@ -910,253 +885,238 @@ export default function HouseAccountsPage() {
                     </div>
                   )}
                 </div>
-
-                <div className="pb-8" />
               </div>
-            </ScrollArea>
-          ) : null}
+            ) : null}
+          </SheetBody>
         </SheetContent>
       </Sheet>
 
-      {/* ========================== CHARGE DIALOG ========================== */}
-      <Dialog open={chargeOpen} onOpenChange={setChargeOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Add Charge</DialogTitle>
-            <DialogDescription>
+      {/* ========================== CHARGE MODAL ========================== */}
+      <Modal open={chargeOpen} onOpenChange={setChargeOpen}>
+        <ModalContent size="sm">
+          <ModalHeader>
+            <ModalTitle>Add Charge</ModalTitle>
+            <ModalDescription>
               Charge to {selectedAccount?.account_name}
-            </DialogDescription>
-          </DialogHeader>
+            </ModalDescription>
+          </ModalHeader>
 
-          <form onSubmit={handleCharge} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="charge-amount">Amount ($) *</Label>
-              <Input
-                id="charge-amount"
-                type="number"
+          <form onSubmit={handleCharge} className="contents">
+            <ModalBody>
+              <NumberInput
+                label="Amount ($)"
+                required
                 min={0.01}
                 step="0.01"
                 placeholder="0.00"
+                size="lg"
                 value={chargeForm.amount}
                 onChange={(e) => setChargeForm((f) => ({ ...f, amount: e.target.value }))}
-                className="h-12 text-lg tabular-nums"
-                required
+                className="text-[length:var(--type-title-3-size)] tabular-nums"
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="charge-desc">Description</Label>
-              <Input
-                id="charge-desc"
+              <Text
+                label="Description"
                 placeholder="Order #, meal, etc."
                 value={chargeForm.description}
                 onChange={(e) => setChargeForm((f) => ({ ...f, description: e.target.value }))}
-                className="h-12"
               />
-            </div>
 
-            {selectedAccount && (
-              <div className="rounded-lg bg-muted p-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Current Balance</span>
-                  <span className="tabular-nums font-medium">
-                    {formatCurrency(selectedAccount.current_balance)}
-                  </span>
+              {selectedAccount && (
+                <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] p-[var(--space-3)] text-[length:var(--type-subhead-size)] space-y-[var(--space-1)]">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-muted)]">Current Balance</span>
+                    <span className="tabular-nums font-[var(--weight-medium)]">
+                      {formatCurrency(selectedAccount.current_balance)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-muted)]">Credit Limit</span>
+                    <span className="tabular-nums">
+                      {formatCurrency(selectedAccount.credit_limit)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-muted)]">Available</span>
+                    <span className="tabular-nums font-[var(--weight-medium)] text-[var(--color-success)]">
+                      {formatCurrency(
+                        parseFloat(selectedAccount.credit_limit) -
+                          parseFloat(selectedAccount.current_balance)
+                      )}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Credit Limit</span>
-                  <span className="tabular-nums">
-                    {formatCurrency(selectedAccount.credit_limit)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Available</span>
-                  <span className="tabular-nums font-medium text-success">
-                    {formatCurrency(
-                      parseFloat(selectedAccount.credit_limit) -
-                        parseFloat(selectedAccount.current_balance)
-                    )}
-                  </span>
-                </div>
-              </div>
-            )}
+              )}
+            </ModalBody>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setChargeOpen(false)}>
+            <ModalFooter>
+              <Button type="button" variant="secondary" size="md" onClick={() => setChargeOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={chargeLoading} className="btn-press">
-                {chargeLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button type="submit" size="md" loading={chargeLoading}>
                 Add Charge
               </Button>
-            </DialogFooter>
+            </ModalFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ModalContent>
+      </Modal>
 
-      {/* ========================== PAYMENT DIALOG ========================== */}
-      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
-            <DialogDescription>
+      {/* ========================== PAYMENT MODAL ========================== */}
+      <Modal open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <ModalContent size="sm">
+          <ModalHeader>
+            <ModalTitle>Record Payment</ModalTitle>
+            <ModalDescription>
               Record a payment for {selectedAccount?.account_name}
-            </DialogDescription>
-          </DialogHeader>
+            </ModalDescription>
+          </ModalHeader>
 
-          <form onSubmit={handlePayment} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="payment-amount">Amount ($) *</Label>
-              <Input
-                id="payment-amount"
-                type="number"
+          <form onSubmit={handlePayment} className="contents">
+            <ModalBody>
+              <NumberInput
+                label="Amount ($)"
+                required
                 min={0.01}
                 step="0.01"
                 placeholder="0.00"
+                size="lg"
                 value={paymentForm.amount}
                 onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))}
-                className="h-12 text-lg tabular-nums"
-                required
+                className="text-[length:var(--type-title-3-size)] tabular-nums"
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="payment-desc">Description</Label>
-              <Input
-                id="payment-desc"
+              <Text
+                label="Description"
                 placeholder="Check #, wire, cash, etc."
                 value={paymentForm.description}
                 onChange={(e) => setPaymentForm((f) => ({ ...f, description: e.target.value }))}
-                className="h-12"
               />
-            </div>
 
-            {selectedAccount && (
-              <div className="rounded-lg bg-muted p-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Current Balance</span>
-                  <span className="tabular-nums font-medium">
-                    {formatCurrency(selectedAccount.current_balance)}
-                  </span>
+              {selectedAccount && (
+                <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] p-[var(--space-3)] text-[length:var(--type-subhead-size)]">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-muted)]">Current Balance</span>
+                    <span className="tabular-nums font-[var(--weight-medium)]">
+                      {formatCurrency(selectedAccount.current_balance)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </ModalBody>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setPaymentOpen(false)}>
+            <ModalFooter>
+              <Button type="button" variant="secondary" size="md" onClick={() => setPaymentOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={paymentLoading} className="btn-press">
-                {paymentLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button type="submit" size="md" loading={paymentLoading}>
                 Record Payment
               </Button>
-            </DialogFooter>
+            </ModalFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ModalContent>
+      </Modal>
 
-      {/* ========================== STATEMENT DIALOG ========================== */}
-      <Dialog open={statementOpen} onOpenChange={setStatementOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Account Statement</DialogTitle>
-            <DialogDescription>
+      {/* ========================== STATEMENT MODAL ========================== */}
+      <Modal open={statementOpen} onOpenChange={setStatementOpen}>
+        <ModalContent size="lg">
+          <ModalHeader>
+            <ModalTitle>Account Statement</ModalTitle>
+            <ModalDescription>
               {statementData
                 ? `${statementData.account.account_name} — ${statementData.period.date_from} to ${statementData.period.date_to}`
                 : ""}
-            </DialogDescription>
-          </DialogHeader>
+            </ModalDescription>
+          </ModalHeader>
 
           {statementData && (
-            <div className="space-y-4">
-              {/* Summary */}
-              <div className="rounded-lg border p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Beginning Balance</span>
-                  <span className="tabular-nums font-medium">
-                    {formatCurrency(statementData.beginning_balance)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Charges</span>
-                  <span className="tabular-nums text-destructive">
-                    +{formatCurrency(statementData.charges_total)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Payments</span>
-                  <span className="tabular-nums text-success">
-                    -{formatCurrency(statementData.payments_total)}
-                  </span>
-                </div>
-                {statementData.adjustments_total !== 0 && (
+            <>
+              <ModalBody>
+                {/* Summary */}
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-[var(--space-4)] space-y-[var(--space-2)] text-[length:var(--type-subhead-size)]">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Adjustments</span>
-                    <span className="tabular-nums">
-                      {formatCurrency(statementData.adjustments_total)}
+                    <span className="text-[var(--color-text-muted)]">Beginning Balance</span>
+                    <span className="tabular-nums font-[var(--weight-medium)]">
+                      {formatCurrency(statementData.beginning_balance)}
                     </span>
                   </div>
-                )}
-                <Separator />
-                <div className="flex justify-between font-semibold">
-                  <span>Ending Balance</span>
-                  <span className="tabular-nums">
-                    {formatCurrency(statementData.ending_balance)}
-                  </span>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-muted)]">Charges</span>
+                    <span className="tabular-nums text-[var(--color-danger)]">
+                      +{formatCurrency(statementData.charges_total)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-muted)]">Payments</span>
+                    <span className="tabular-nums text-[var(--color-success)]">
+                      -{formatCurrency(statementData.payments_total)}
+                    </span>
+                  </div>
+                  {statementData.adjustments_total !== 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--color-text-muted)]">Adjustments</span>
+                      <span className="tabular-nums">
+                        {formatCurrency(statementData.adjustments_total)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="border-t border-[var(--color-border)]" />
+                  <div className="flex justify-between font-[var(--weight-semibold)]">
+                    <span>Ending Balance</span>
+                    <span className="tabular-nums">
+                      {formatCurrency(statementData.ending_balance)}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Transaction list */}
-              {statementData.transactions.length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-sm font-medium text-muted-foreground">
-                    Transactions
-                  </h4>
-                  <ScrollArea className="max-h-[300px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {statementData.transactions.map((tx) => (
-                          <TableRow key={tx.id}>
-                            <TableCell className="text-xs tabular-nums">
-                              {formatDate(tx.created_at)}
-                            </TableCell>
-                            <TableCell className="text-sm">{tx.description}</TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={TX_TYPE_COLORS[tx.type] ?? ""}
-                              >
-                                {tx.type}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums font-medium">
-                              {formatCurrency(tx.amount)}
+                {/* Transaction list */}
+                {statementData.transactions.length > 0 && (
+                  <div>
+                    <h4 className="mb-[var(--space-2)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
+                      Transactions
+                    </h4>
+                    <div className="max-h-[300px] overflow-auto rounded-[var(--radius-md)] border border-[var(--color-border)]">
+                      <Table responsive={false}>
+                        <TableHeader>
+                          <TableRow>
+                            <TableCell header>Date</TableCell>
+                            <TableCell header>Description</TableCell>
+                            <TableCell header>Type</TableCell>
+                            <TableCell header align="right">
+                              Amount
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              )}
+                        </TableHeader>
+                        <TableBody>
+                          {statementData.transactions.map((tx) => (
+                            <TableRow key={tx.id}>
+                              <TableCell className="text-[length:var(--type-caption-1-size)] tabular-nums">
+                                {formatDate(tx.created_at)}
+                              </TableCell>
+                              <TableCell>{tx.description}</TableCell>
+                              <TableCell>
+                                <Badge variant={txTypeVariant(tx.type)}>{tx.type}</Badge>
+                              </TableCell>
+                              <TableCell align="right" className="tabular-nums font-[var(--weight-medium)]">
+                                {formatCurrency(tx.amount)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </ModalBody>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setStatementOpen(false)}>
+              <ModalFooter>
+                <Button variant="secondary" size="md" onClick={() => setStatementOpen(false)}>
                   Close
                 </Button>
-              </DialogFooter>
-            </div>
+              </ModalFooter>
+            </>
           )}
-        </DialogContent>
-      </Dialog>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }

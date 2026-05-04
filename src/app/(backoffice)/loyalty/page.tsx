@@ -5,8 +5,6 @@ import { toast } from "sonner";
 import {
   Award,
   Plus,
-  Loader2,
-  Check,
   Search,
   Users,
   TrendingUp,
@@ -21,53 +19,47 @@ import {
   Activity,
   LayoutDashboard,
   Crown,
+  Check,
 } from "lucide-react";
 import { LoyaltyDashboard } from "@/components/loyalty/LoyaltyDashboard";
 import { TierEditor } from "@/components/loyalty/TierEditor";
 import { RewardsCatalog } from "@/components/loyalty/RewardsCatalog";
 import { MemberLookup } from "@/components/loyalty/MemberLookup";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui-v2/Card";
+import { Button } from "@/components/ui-v2/Button";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { NumberInput } from "@/components/ui-v2/inputs/Number";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Toggle } from "@/components/ui-v2/inputs/Toggle";
+import { Textarea } from "@/components/ui-v2/inputs/Textarea";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
+import { Badge, type BadgeProps } from "@/components/ui-v2/data/Badge";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/components/ui-v2/data/Table";
+import { Tabs } from "@/components/ui-v2/navigation/Tabs";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
+  SheetBody,
+} from "@/components/ui-v2/Sheet";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+} from "@/components/ui-v2/Modal";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,6 +104,9 @@ interface LoyaltyTransaction {
   created_at: string;
 }
 
+type ProgramType = "points" | "visits" | "spend";
+type BadgeVariant = NonNullable<BadgeProps["variant"]>;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -148,33 +143,33 @@ function programTypeLabel(type: string): string {
   }
 }
 
-function tierColor(tier: string): string {
+function tierVariant(tier: string): BadgeVariant {
   switch (tier.toLowerCase()) {
     case "bronze":
-      return "bg-amber-600/10 text-amber-700 border-amber-600/20";
+      return "warning";
     case "silver":
-      return "bg-gray-400/10 text-gray-600 border-gray-400/20";
+      return "default";
     case "gold":
-      return "bg-yellow-500/10 text-yellow-700 border-yellow-500/20";
+      return "warning";
     case "platinum":
-      return "bg-indigo-500/10 text-indigo-600 border-indigo-500/20";
+      return "primary";
     default:
-      return "bg-muted text-muted-foreground";
+      return "default";
   }
 }
 
 function txTypeIcon(type: string) {
   switch (type) {
     case "earn":
-      return <ArrowUpRight className="h-4 w-4 text-success" />;
+      return <ArrowUpRight className="h-4 w-4 text-[var(--color-success)]" />;
     case "redeem":
-      return <ArrowDownRight className="h-4 w-4 text-info" />;
+      return <ArrowDownRight className="h-4 w-4 text-[var(--color-primary)]" />;
     case "adjust":
-      return <Activity className="h-4 w-4 text-warning" />;
+      return <Activity className="h-4 w-4 text-[var(--color-warning)]" />;
     case "expire":
-      return <ArrowDownRight className="h-4 w-4 text-destructive" />;
+      return <ArrowDownRight className="h-4 w-4 text-[var(--color-danger)]" />;
     default:
-      return <Hash className="h-4 w-4 text-muted-foreground" />;
+      return <Hash className="h-4 w-4 text-[var(--color-text-muted)]" />;
   }
 }
 
@@ -201,7 +196,7 @@ export default function LoyaltyPage() {
   const [creating, setCreating] = useState(false);
   const [programForm, setProgramForm] = useState({
     name: "",
-    type: "points" as "points" | "visits" | "spend",
+    type: "points" as ProgramType,
     points_per_dollar: 1,
     points_per_visit: 10,
     redemption_threshold: 100,
@@ -213,7 +208,7 @@ export default function LoyaltyPage() {
   const [editProgram, setEditProgram] = useState<LoyaltyProgram | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
-    type: "points" as "points" | "visits" | "spend",
+    type: "points" as ProgramType,
     points_per_dollar: 1,
     points_per_visit: 10,
     redemption_threshold: 100,
@@ -230,10 +225,14 @@ export default function LoyaltyPage() {
 
   // Analytics (computed from accounts)
   const totalMembers = accounts.length;
-  const totalPointsOutstanding = accounts.reduce((sum, a) => sum + (a.points_balance ?? 0), 0);
+  const totalPointsOutstanding = accounts.reduce(
+    (sum, a) => sum + (a.points_balance ?? 0),
+    0,
+  );
   const totalEarned = accounts.reduce((sum, a) => sum + (a.total_earned ?? 0), 0);
   const totalRedeemed = accounts.reduce((sum, a) => sum + (a.total_redeemed ?? 0), 0);
-  const redemptionRate = totalEarned > 0 ? ((totalRedeemed / totalEarned) * 100).toFixed(1) : "0.0";
+  const redemptionRate =
+    totalEarned > 0 ? ((totalRedeemed / totalEarned) * 100).toFixed(1) : "0.0";
 
   // ---------- Fetch Programs ----------
   const fetchPrograms = useCallback(async () => {
@@ -401,7 +400,7 @@ export default function LoyaltyPage() {
     ? accounts.filter(
         (a) =>
           a.customer_id.toLowerCase().includes(accountSearch.toLowerCase()) ||
-          a.id.toLowerCase().includes(accountSearch.toLowerCase())
+          a.id.toLowerCase().includes(accountSearch.toLowerCase()),
       )
     : accounts;
 
@@ -413,80 +412,68 @@ export default function LoyaltyPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="page-title">
-          Loyalty Program
-        </h1>
+        <h1 className="page-title">Loyalty Program</h1>
         <p className="page-subtitle">
           Manage loyalty programs, member accounts, and analytics
         </p>
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)}>
-        <div className="overflow-x-auto -mx-1 px-1">
-          <TabsList className="w-max">
-            <TabsTrigger value="dashboard" className="touch-target-lg gap-2">
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="programs" className="touch-target-lg gap-2">
-              <Award className="h-4 w-4" />
-              Programs
-            </TabsTrigger>
-            <TabsTrigger value="members" className="touch-target-lg gap-2">
-              <Users className="h-4 w-4" />
-              Members
-            </TabsTrigger>
-            <TabsTrigger value="rewards" className="touch-target-lg gap-2">
-              <Gift className="h-4 w-4" />
-              Rewards
-            </TabsTrigger>
-            <TabsTrigger value="tiers" className="touch-target-lg gap-2">
-              <Crown className="h-4 w-4" />
-              Tiers
-            </TabsTrigger>
-            <TabsTrigger value="accounts" className="touch-target-lg gap-2">
-              <Users className="h-4 w-4" />
-              Accounts
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="touch-target-lg gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Analytics
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <div className="overflow-x-auto -mx-1 px-1">
+        <Tabs
+          variant="line"
+          size="md"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          ariaLabel="Loyalty sections"
+          items={[
+            { value: "dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
+            { value: "programs", label: "Programs", icon: <Award /> },
+            { value: "members", label: "Members", icon: <Users /> },
+            { value: "rewards", label: "Rewards", icon: <Gift /> },
+            { value: "tiers", label: "Tiers", icon: <Crown /> },
+            { value: "accounts", label: "Accounts", icon: <Users /> },
+            { value: "analytics", label: "Analytics", icon: <TrendingUp /> },
+          ]}
+        />
+      </div>
 
-        {/* ==================== DASHBOARD ==================== */}
-        <TabsContent value="dashboard" className="space-y-4">
+      {/* ==================== DASHBOARD ==================== */}
+      {activeTab === "dashboard" && (
+        <div role="tabpanel" aria-label="Dashboard" className="space-y-4">
           <LoyaltyDashboard />
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== MEMBERS ==================== */}
-        <TabsContent value="members" className="space-y-4">
+      {/* ==================== MEMBERS ==================== */}
+      {activeTab === "members" && (
+        <div role="tabpanel" aria-label="Members" className="space-y-4">
           <MemberLookup />
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== REWARDS ==================== */}
-        <TabsContent value="rewards" className="space-y-4">
+      {/* ==================== REWARDS ==================== */}
+      {activeTab === "rewards" && (
+        <div role="tabpanel" aria-label="Rewards" className="space-y-4">
           <RewardsCatalog />
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== TIERS ==================== */}
-        <TabsContent value="tiers" className="space-y-4">
+      {/* ==================== TIERS ==================== */}
+      {activeTab === "tiers" && (
+        <div role="tabpanel" aria-label="Tiers" className="space-y-4">
           <TierEditor />
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== PROGRAMS ==================== */}
-        <TabsContent value="programs" className="space-y-4">
+      {/* ==================== PROGRAMS ==================== */}
+      {activeTab === "programs" && (
+        <div role="tabpanel" aria-label="Programs" className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
               {programs.length} program{programs.length !== 1 ? "s" : ""}
             </p>
-            <Button
-              className="touch-target-lg btn-press"
-              onClick={() => setShowCreateProgram(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
+            <Button size="md" leadingIcon={<Plus />} onClick={() => setShowCreateProgram(true)}>
               New Program
             </Button>
           </div>
@@ -494,7 +481,7 @@ export default function LoyaltyPage() {
           {programsLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                <Skeleton key={i} className="h-24 w-full rounded-[var(--radius-md)]" />
               ))}
             </div>
           ) : programs.length === 0 ? (
@@ -502,28 +489,26 @@ export default function LoyaltyPage() {
               icon={Award}
               title="No loyalty programs"
               description="Create a loyalty program to start rewarding customers."
+              action={{ label: "New Program", onClick: () => setShowCreateProgram(true) }}
             />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {programs.map((program) => (
-                <Card
-                  key={program.id}
-                  className="shadow-warm-sm hover:shadow-warm-md transition-shadow"
-                >
-                  <CardHeader className="pb-2">
+                <Card key={program.id} variant="elevated" padding="compact">
+                  <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Star className="h-4 w-4 text-primary" />
+                      <CardTitle className="text-[length:var(--type-headline-size)] flex items-center gap-[var(--space-2)]">
+                        <Star className="h-4 w-4 text-[var(--color-primary)]" />
                         {program.name}
                       </CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={program.is_active ? "default" : "secondary"}>
+                      <div className="flex items-center gap-[var(--space-2)]">
+                        <Badge variant={program.is_active ? "success" : "default"}>
                           {program.is_active ? "Active" : "Inactive"}
                         </Badge>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="sm"
+                          aria-label="Edit program"
                           onClick={() => openEditProgram(program)}
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -531,61 +516,73 @@ export default function LoyaltyPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pb-4">
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                  <CardBody>
+                    <div className="grid grid-cols-2 gap-[var(--space-3)] text-[length:var(--type-subhead-size)]">
                       <div>
-                        <p className="text-xs text-muted-foreground">Type</p>
-                        <p className="font-medium">{programTypeLabel(program.type)}</p>
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Type
+                        </p>
+                        <p className="font-[var(--weight-medium)]">
+                          {programTypeLabel(program.type)}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Earn Rate</p>
-                        <p className="font-medium tabular-nums">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Earn Rate
+                        </p>
+                        <p className="font-[var(--weight-medium)] tabular-nums">
                           {program.type === "visits"
                             ? `${program.points_per_visit} pts/visit`
                             : `${program.points_per_dollar} pts/$`}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Redeem At</p>
-                        <p className="font-medium tabular-nums">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Redeem At
+                        </p>
+                        <p className="font-[var(--weight-medium)] tabular-nums">
                           {program.redemption_threshold} pts
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Reward Value</p>
-                        <p className="font-medium tabular-nums">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Reward Value
+                        </p>
+                        <p className="font-[var(--weight-medium)] tabular-nums">
                           ${program.reward_value.toFixed(2)}
                         </p>
                       </div>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               ))}
             </div>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== ACCOUNTS ==================== */}
-        <TabsContent value="accounts" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+      {/* ==================== ACCOUNTS ==================== */}
+      {activeTab === "accounts" && (
+        <div role="tabpanel" aria-label="Accounts" className="space-y-4">
+          <div className="flex items-center gap-[var(--space-3)]">
+            <div className="flex-1 max-w-sm">
+              <Text
+                aria-label="Search accounts"
                 placeholder="Search by customer or account ID..."
-                className="pl-10 touch-target-lg"
                 value={accountSearch}
                 onChange={(e) => setAccountSearch(e.target.value)}
+                leadingIcon={<Search className="h-4 w-4" />}
               />
             </div>
             <Button
-              variant="outline"
-              size="icon"
+              variant="secondary"
+              size="md"
+              aria-label="Refresh"
               onClick={fetchAccounts}
-              className="touch-target-lg"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <div className="ml-auto text-sm text-muted-foreground">
+            <div className="ml-auto text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
               {filteredAccounts.length} account{filteredAccounts.length !== 1 ? "s" : ""}
             </div>
           </div>
@@ -593,7 +590,7 @@ export default function LoyaltyPage() {
           {accountsLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+                <Skeleton key={i} variant="table-row" />
               ))}
             </div>
           ) : filteredAccounts.length === 0 ? (
@@ -607,48 +604,52 @@ export default function LoyaltyPage() {
               }
             />
           ) : (
-            <div className="rounded-lg border overflow-hidden">
+            <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Tier</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
-                    <TableHead className="text-right">Total Earned</TableHead>
-                    <TableHead className="text-right">Redeemed</TableHead>
-                    <TableHead>Enrolled</TableHead>
-                    <TableHead className="w-[100px]" />
+                    <TableCell header>Customer</TableCell>
+                    <TableCell header>Tier</TableCell>
+                    <TableCell header align="right">
+                      Balance
+                    </TableCell>
+                    <TableCell header align="right">
+                      Total Earned
+                    </TableCell>
+                    <TableCell header align="right">
+                      Redeemed
+                    </TableCell>
+                    <TableCell header>Enrolled</TableCell>
+                    <TableCell header className="w-[100px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAccounts.map((account) => (
-                    <TableRow key={account.id} className="touch-target-lg">
-                      <TableCell className="font-medium">
+                    <TableRow key={account.id}>
+                      <TableCell className="font-[var(--weight-medium)]">
                         {account.customer_id.slice(0, 8)}...
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={tierColor(account.tier)}>
-                          {account.tier}
-                        </Badge>
+                        <Badge variant={tierVariant(account.tier)}>{account.tier}</Badge>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold">
+                      <TableCell align="right" className="tabular-nums font-[var(--weight-semibold)]">
                         {(account.points_balance ?? 0).toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell align="right" className="tabular-nums">
                         {(account.total_earned ?? 0).toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell align="right" className="tabular-nums">
                         {(account.total_redeemed ?? 0).toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-[var(--color-text-muted)]">
                         {formatDate(account.enrolled_at)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1 justify-end">
+                        <div className="flex items-center gap-[var(--space-1)] justify-end">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8"
+                            aria-label="View account"
                             onClick={() => fetchAccountDetail(account.id)}
                           >
                             <ChevronRight className="h-4 w-4" />
@@ -656,7 +657,7 @@ export default function LoyaltyPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8"
+                            aria-label="Adjust points"
                             onClick={() => {
                               setAdjustAccount(account);
                               setAdjustPoints("");
@@ -681,228 +682,225 @@ export default function LoyaltyPage() {
               if (!open) setSelectedAccount(null);
             }}
           >
-            <SheetContent className="sm:max-w-lg">
+            <SheetContent width="lg">
               <SheetHeader>
                 <SheetTitle>Account Details</SheetTitle>
                 <SheetDescription>
                   Customer {selectedAccount?.customer_id.slice(0, 8)}...
                 </SheetDescription>
               </SheetHeader>
-              {accountDetailLoading ? (
-                <div className="space-y-3 mt-4">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
-                  ))}
-                </div>
-              ) : selectedAccount ? (
-                <div className="mt-4 space-y-4">
-                  {/* Summary */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <Card className="shadow-warm-sm">
-                      <CardContent className="p-3">
-                        <p className="text-xs text-muted-foreground">Balance</p>
-                        <p className="text-xl font-semibold tabular-nums">
+              <SheetBody>
+                {accountDetailLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton
+                        key={i}
+                        className="h-12 w-full rounded-[var(--radius-md)]"
+                      />
+                    ))}
+                  </div>
+                ) : selectedAccount ? (
+                  <div className="space-y-4">
+                    {/* Summary */}
+                    <div className="grid grid-cols-2 gap-[var(--space-3)]">
+                      <Card variant="elevated" padding="compact">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Balance
+                        </p>
+                        <p className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] tabular-nums">
                           {selectedAccount.points_balance.toLocaleString()}
                         </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="shadow-warm-sm">
-                      <CardContent className="p-3">
-                        <p className="text-xs text-muted-foreground">Tier</p>
+                      </Card>
+                      <Card variant="elevated" padding="compact">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Tier
+                        </p>
                         <Badge
-                          variant="outline"
-                          className={`mt-1 ${tierColor(selectedAccount.tier)}`}
+                          variant={tierVariant(selectedAccount.tier)}
+                          className="mt-[var(--space-1)]"
                         >
                           {selectedAccount.tier}
                         </Badge>
-                      </CardContent>
-                    </Card>
-                    <Card className="shadow-warm-sm">
-                      <CardContent className="p-3">
-                        <p className="text-xs text-muted-foreground">Total Earned</p>
-                        <p className="text-lg font-semibold tabular-nums">
+                      </Card>
+                      <Card variant="elevated" padding="compact">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Total Earned
+                        </p>
+                        <p className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] tabular-nums">
                           {selectedAccount.total_earned.toLocaleString()}
                         </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="shadow-warm-sm">
-                      <CardContent className="p-3">
-                        <p className="text-xs text-muted-foreground">Redeemed</p>
-                        <p className="text-lg font-semibold tabular-nums">
+                      </Card>
+                      <Card variant="elevated" padding="compact">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Redeemed
+                        </p>
+                        <p className="text-[length:var(--type-headline-size)] font-[var(--weight-semibold)] tabular-nums">
                           {selectedAccount.total_redeemed.toLocaleString()}
                         </p>
-                      </CardContent>
-                    </Card>
-                  </div>
+                      </Card>
+                    </div>
 
-                  <Separator />
+                    <div className="border-t border-[var(--color-border)]" />
 
-                  {/* Transactions */}
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">
-                      Recent Transactions
-                    </h3>
-                    {selectedAccount.transactions.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
-                        No transactions yet
-                      </p>
-                    ) : (
-                      <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                        {selectedAccount.transactions.map((tx) => (
-                          <div
-                            key={tx.id}
-                            className="flex items-center justify-between p-2 rounded-lg border"
-                          >
-                            <div className="flex items-center gap-2">
-                              {txTypeIcon(tx.type)}
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {tx.description}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatDateTime(tx.created_at)}
-                                </p>
-                              </div>
-                            </div>
-                            <span
-                              className={`text-sm font-semibold tabular-nums ${
-                                tx.points > 0
-                                  ? "text-success"
-                                  : tx.points < 0
-                                  ? "text-destructive"
-                                  : "text-muted-foreground"
-                              }`}
+                    {/* Transactions */}
+                    <div>
+                      <h3 className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] mb-[var(--space-2)]">
+                        Recent Transactions
+                      </h3>
+                      {selectedAccount.transactions.length === 0 ? (
+                        <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)] py-4 text-center">
+                          No transactions yet
+                        </p>
+                      ) : (
+                        <div className="space-y-[var(--space-2)] max-h-[400px] overflow-y-auto">
+                          {selectedAccount.transactions.map((tx) => (
+                            <div
+                              key={tx.id}
+                              className="flex items-center justify-between p-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--color-border)]"
                             >
-                              {tx.points > 0 ? "+" : ""}
-                              {tx.points}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              <div className="flex items-center gap-[var(--space-2)]">
+                                {txTypeIcon(tx.type)}
+                                <div>
+                                  <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)]">
+                                    {tx.description}
+                                  </p>
+                                  <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                                    {formatDateTime(tx.created_at)}
+                                  </p>
+                                </div>
+                              </div>
+                              <span
+                                className={
+                                  "text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] tabular-nums " +
+                                  (tx.points > 0
+                                    ? "text-[var(--color-success)]"
+                                    : tx.points < 0
+                                      ? "text-[var(--color-danger)]"
+                                      : "text-[var(--color-text-muted)]")
+                                }
+                              >
+                                {tx.points > 0 ? "+" : ""}
+                                {tx.points}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
+              </SheetBody>
             </SheetContent>
           </Sheet>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== ANALYTICS ==================== */}
-        <TabsContent value="analytics" className="space-y-6">
+      {/* ==================== ANALYTICS ==================== */}
+      {activeTab === "analytics" && (
+        <div role="tabpanel" aria-label="Analytics" className="space-y-6">
           {accountsLoading ? (
             <div className="grid gap-4 md:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 w-full rounded-lg" />
+                <Skeleton key={i} className="h-28 w-full rounded-[var(--radius-md)]" />
               ))}
             </div>
           ) : (
             <>
               {/* Stat cards */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="shadow-warm-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="rounded-full p-2 bg-primary/10">
-                        <Users className="h-4 w-4 text-primary" />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        Total Members
-                      </span>
+                <Card variant="elevated" padding="compact">
+                  <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-2)]">
+                    <div className="rounded-full p-[var(--space-2)] bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)]">
+                      <Users className="h-4 w-4 text-[var(--color-primary)]" />
                     </div>
-                    <p className="text-2xl font-semibold tabular-nums">
-                      {totalMembers.toLocaleString()}
-                    </p>
-                  </CardContent>
+                    <span className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                      Total Members
+                    </span>
+                  </div>
+                  <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] tabular-nums">
+                    {totalMembers.toLocaleString()}
+                  </p>
                 </Card>
 
-                <Card className="shadow-warm-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="rounded-full p-2 bg-warning/10">
-                        <Star className="h-4 w-4 text-warning" />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        Points Outstanding
-                      </span>
+                <Card variant="elevated" padding="compact">
+                  <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-2)]">
+                    <div className="rounded-full p-[var(--space-2)] bg-[var(--color-warning-bg)]">
+                      <Star className="h-4 w-4 text-[var(--color-warning)]" />
                     </div>
-                    <p className="text-2xl font-semibold tabular-nums">
-                      {totalPointsOutstanding.toLocaleString()}
-                    </p>
-                  </CardContent>
+                    <span className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                      Points Outstanding
+                    </span>
+                  </div>
+                  <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] tabular-nums">
+                    {totalPointsOutstanding.toLocaleString()}
+                  </p>
                 </Card>
 
-                <Card className="shadow-warm-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="rounded-full p-2 bg-success/10">
-                        <TrendingUp className="h-4 w-4 text-success" />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        Total Earned
-                      </span>
+                <Card variant="elevated" padding="compact">
+                  <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-2)]">
+                    <div className="rounded-full p-[var(--space-2)] bg-[var(--color-success-bg)]">
+                      <TrendingUp className="h-4 w-4 text-[var(--color-success)]" />
                     </div>
-                    <p className="text-2xl font-semibold tabular-nums">
-                      {totalEarned.toLocaleString()}
-                    </p>
-                  </CardContent>
+                    <span className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                      Total Earned
+                    </span>
+                  </div>
+                  <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] tabular-nums">
+                    {totalEarned.toLocaleString()}
+                  </p>
                 </Card>
 
-                <Card className="shadow-warm-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="rounded-full p-2 bg-info/10">
-                        <Gift className="h-4 w-4 text-info" />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        Redemption Rate
-                      </span>
+                <Card variant="elevated" padding="compact">
+                  <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-2)]">
+                    <div className="rounded-full p-[var(--space-2)] bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)]">
+                      <Gift className="h-4 w-4 text-[var(--color-primary)]" />
                     </div>
-                    <p className="text-2xl font-semibold tabular-nums">
-                      {redemptionRate}%
-                    </p>
-                  </CardContent>
+                    <span className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                      Redemption Rate
+                    </span>
+                  </div>
+                  <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] tabular-nums">
+                    {redemptionRate}%
+                  </p>
                 </Card>
               </div>
 
-              <Separator />
+              <div className="border-t border-[var(--color-border)]" />
 
               {/* Tier Distribution */}
-              <Card className="shadow-warm-sm">
+              <Card variant="elevated" padding="default">
                 <CardHeader>
-                  <CardTitle className="text-base">Tier Distribution</CardTitle>
+                  <CardTitle className="text-[length:var(--type-headline-size)]">
+                    Tier Distribution
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardBody>
                   {accounts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
+                    <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)] text-center py-8">
                       No members yet to show distribution
                     </p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-[var(--space-3)]">
                       {["bronze", "silver", "gold", "platinum"].map((tier) => {
                         const count = accounts.filter(
-                          (a) => (a.tier ?? "bronze").toLowerCase() === tier
+                          (a) => (a.tier ?? "bronze").toLowerCase() === tier,
                         ).length;
                         const pct =
                           accounts.length > 0
                             ? ((count / accounts.length) * 100).toFixed(1)
                             : "0.0";
                         return (
-                          <div key={tier} className="flex items-center gap-3">
-                            <Badge
-                              variant="outline"
-                              className={`w-20 justify-center ${tierColor(tier)}`}
-                            >
+                          <div key={tier} className="flex items-center gap-[var(--space-3)]">
+                            <Badge variant={tierVariant(tier)} className="w-20 justify-center">
                               {tier}
                             </Badge>
-                            <div className="flex-1 h-3 rounded-full bg-muted overflow-hidden">
+                            <div className="flex-1 h-3 rounded-full bg-[var(--color-bg-muted)] overflow-hidden">
                               <div
-                                className="h-full rounded-full bg-primary transition-all"
-                                style={{
-                                  width: `${Math.max(parseFloat(pct), 0)}%`,
-                                }}
+                                className="h-full rounded-full bg-[var(--color-primary)] transition-all"
+                                style={{ width: `${Math.max(parseFloat(pct), 0)}%` }}
                               />
                             </div>
-                            <span className="text-sm tabular-nums w-16 text-right text-muted-foreground">
+                            <span className="text-[length:var(--type-subhead-size)] tabular-nums w-16 text-right text-[var(--color-text-muted)]">
                               {count} ({pct}%)
                             </span>
                           </div>
@@ -910,89 +908,67 @@ export default function LoyaltyPage() {
                       })}
                     </div>
                   )}
-                </CardContent>
+                </CardBody>
               </Card>
 
               {/* Earned vs Redeemed */}
               <div className="grid gap-4 md:grid-cols-2">
-                <Card className="shadow-warm-sm">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">
-                      Total Points Issued
-                    </p>
-                    <p className="text-3xl font-semibold tabular-nums mt-1">
-                      {totalEarned.toLocaleString()}
-                    </p>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                    Total Points Issued
+                  </p>
+                  <p className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] tabular-nums mt-[var(--space-1)]">
+                    {totalEarned.toLocaleString()}
+                  </p>
                 </Card>
-                <Card className="shadow-warm-sm">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">
-                      Total Points Redeemed
-                    </p>
-                    <p className="text-3xl font-semibold tabular-nums mt-1">
-                      {totalRedeemed.toLocaleString()}
-                    </p>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                    Total Points Redeemed
+                  </p>
+                  <p className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] tabular-nums mt-[var(--space-1)]">
+                    {totalRedeemed.toLocaleString()}
+                  </p>
                 </Card>
               </div>
             </>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* ==================== CREATE PROGRAM SHEET ==================== */}
       <Sheet open={showCreateProgram} onOpenChange={setShowCreateProgram}>
-        <SheetContent className="sm:max-w-md">
+        <SheetContent width="md">
           <SheetHeader>
             <SheetTitle>New Loyalty Program</SheetTitle>
             <SheetDescription>
               Configure how customers earn and redeem rewards
             </SheetDescription>
           </SheetHeader>
-          <div className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="prog-name">Program Name</Label>
-              <Input
-                id="prog-name"
+          <SheetBody>
+            <div className="space-y-4">
+              <Text
+                label="Program Name"
                 placeholder="e.g. Sear Rewards"
                 value={programForm.name}
                 onChange={(e) =>
                   setProgramForm((p) => ({ ...p, name: e.target.value }))
                 }
-                className="touch-target-lg"
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label>Program Type</Label>
-              <Select
+              <Select<ProgramType>
+                label="Program Type"
                 value={programForm.type}
-                onValueChange={(v) =>
-                  v &&
-                  setProgramForm((p) => ({
-                    ...p,
-                    type: v as "points" | "visits" | "spend",
-                  }))
-                }
-              >
-                <SelectTrigger className="touch-target-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="points">Points per Dollar</SelectItem>
-                  <SelectItem value="visits">Points per Visit</SelectItem>
-                  <SelectItem value="spend">Spend-based</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                onChange={(v) => setProgramForm((p) => ({ ...p, type: v }))}
+                options={[
+                  { value: "points", label: "Points per Dollar" },
+                  { value: "visits", label: "Points per Visit" },
+                  { value: "spend", label: "Spend-based" },
+                ]}
+              />
 
-            {programForm.type === "visits" ? (
-              <div className="space-y-2">
-                <Label htmlFor="ppv">Points per Visit</Label>
-                <Input
-                  id="ppv"
-                  type="number"
+              {programForm.type === "visits" ? (
+                <NumberInput
+                  label="Points per Visit"
                   min={1}
                   value={programForm.points_per_visit}
                   onChange={(e) =>
@@ -1001,15 +977,10 @@ export default function LoyaltyPage() {
                       points_per_visit: parseInt(e.target.value, 10) || 1,
                     }))
                   }
-                  className="touch-target-lg"
                 />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="ppd">Points per Dollar</Label>
-                <Input
-                  id="ppd"
-                  type="number"
+              ) : (
+                <NumberInput
+                  label="Points per Dollar"
                   min={0}
                   step={0.1}
                   value={programForm.points_per_dollar}
@@ -1019,18 +990,13 @@ export default function LoyaltyPage() {
                       points_per_dollar: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="touch-target-lg"
                 />
-              </div>
-            )}
+              )}
 
-            <Separator />
+              <div className="border-t border-[var(--color-border)]" />
 
-            <div className="space-y-2">
-              <Label htmlFor="threshold">Redemption Threshold (points)</Label>
-              <Input
-                id="threshold"
-                type="number"
+              <NumberInput
+                label="Redemption Threshold (points)"
                 min={1}
                 value={programForm.redemption_threshold}
                 onChange={(e) =>
@@ -1039,15 +1005,10 @@ export default function LoyaltyPage() {
                     redemption_threshold: parseInt(e.target.value, 10) || 1,
                   }))
                 }
-                className="touch-target-lg"
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="reward-val">Reward Value ($)</Label>
-              <Input
-                id="reward-val"
-                type="number"
+              <NumberInput
+                label="Reward Value ($)"
                 min={0}
                 step={0.01}
                 value={programForm.reward_value}
@@ -1057,156 +1018,117 @@ export default function LoyaltyPage() {
                     reward_value: parseFloat(e.target.value) || 0,
                   }))
                 }
-                className="touch-target-lg"
               />
-            </div>
 
-            <div className="flex items-center justify-between">
-              <Label>Active</Label>
-              <Switch
+              <Toggle
+                label="Active"
                 checked={programForm.is_active}
-                onCheckedChange={(checked) =>
+                onChange={(checked) =>
                   setProgramForm((p) => ({ ...p, is_active: checked }))
                 }
               />
             </div>
-          </div>
-          <SheetFooter className="mt-6">
+          </SheetBody>
+          <div className="border-t border-[var(--color-border)] px-[var(--space-6)] py-[var(--space-4)] [padding-bottom:max(var(--space-4),env(safe-area-inset-bottom))]">
             <Button
-              className="w-full touch-target-lg btn-press"
+              size="lg"
+              className="w-full"
+              loading={creating}
+              disabled={!programForm.name.trim()}
+              leadingIcon={<Plus />}
               onClick={handleCreateProgram}
-              disabled={creating || !programForm.name.trim()}
             >
-              {creating ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" />
-              )}
               Create Program
             </Button>
-          </SheetFooter>
+          </div>
         </SheetContent>
       </Sheet>
 
-      {/* ==================== EDIT PROGRAM DIALOG ==================== */}
-      <Dialog
+      {/* ==================== EDIT PROGRAM MODAL ==================== */}
+      <Modal
         open={!!editProgram}
         onOpenChange={(open) => {
           if (!open) setEditProgram(null);
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Program</DialogTitle>
-            <DialogDescription>
-              Update {editProgram?.name} settings
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                value={editForm.name}
-                onChange={(e) =>
-                  setEditForm((p) => ({ ...p, name: e.target.value }))
-                }
-                className="touch-target-lg"
-              />
-            </div>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>Edit Program</ModalTitle>
+            <ModalDescription>Update {editProgram?.name} settings</ModalDescription>
+          </ModalHeader>
+          <ModalBody>
+            <Text
+              label="Name"
+              value={editForm.name}
+              onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+            />
 
-            <div className="space-y-2">
-              <Label>Type</Label>
-              <Select
-                value={editForm.type}
-                onValueChange={(v) =>
-                  v &&
+            <Select<ProgramType>
+              label="Type"
+              value={editForm.type}
+              onChange={(v) => setEditForm((p) => ({ ...p, type: v }))}
+              options={[
+                { value: "points", label: "Points per Dollar" },
+                { value: "visits", label: "Points per Visit" },
+                { value: "spend", label: "Spend-based" },
+              ]}
+            />
+
+            <div className="grid grid-cols-2 gap-[var(--space-3)]">
+              <NumberInput
+                label="Redemption Threshold"
+                min={1}
+                value={editForm.redemption_threshold}
+                onChange={(e) =>
                   setEditForm((p) => ({
                     ...p,
-                    type: v as "points" | "visits" | "spend",
+                    redemption_threshold: parseInt(e.target.value, 10) || 1,
                   }))
                 }
-              >
-                <SelectTrigger className="touch-target-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="points">Points per Dollar</SelectItem>
-                  <SelectItem value="visits">Points per Visit</SelectItem>
-                  <SelectItem value="spend">Spend-based</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Redemption Threshold</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={editForm.redemption_threshold}
-                  onChange={(e) =>
-                    setEditForm((p) => ({
-                      ...p,
-                      redemption_threshold: parseInt(e.target.value, 10) || 1,
-                    }))
-                  }
-                  className="touch-target-lg"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Reward Value ($)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={editForm.reward_value}
-                  onChange={(e) =>
-                    setEditForm((p) => ({
-                      ...p,
-                      reward_value: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  className="touch-target-lg"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label>Active</Label>
-              <Switch
-                checked={editForm.is_active}
-                onCheckedChange={(checked) =>
-                  setEditForm((p) => ({ ...p, is_active: checked }))
+              />
+              <NumberInput
+                label="Reward Value ($)"
+                min={0}
+                step={0.01}
+                value={editForm.reward_value}
+                onChange={(e) =>
+                  setEditForm((p) => ({
+                    ...p,
+                    reward_value: parseFloat(e.target.value) || 0,
+                  }))
                 }
               />
             </div>
-          </div>
-          <DialogFooter>
+
+            <Toggle
+              label="Active"
+              checked={editForm.is_active}
+              onChange={(checked) => setEditForm((p) => ({ ...p, is_active: checked }))}
+            />
+          </ModalBody>
+          <ModalFooter>
             <Button
-              variant="outline"
+              variant="secondary"
+              size="md"
               onClick={() => setEditProgram(null)}
-              className="touch-target-lg"
             >
               Cancel
             </Button>
             <Button
+              size="md"
+              loading={saving}
+              disabled={!editForm.name.trim()}
+              leadingIcon={<Check />}
               onClick={handleEditProgram}
-              disabled={saving || !editForm.name.trim()}
-              className="touch-target-lg btn-press"
             >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Check className="h-4 w-4 mr-2" />
-              )}
               Save Changes
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-      {/* ==================== ADJUST POINTS DIALOG ==================== */}
-      <Dialog
+      {/* ==================== ADJUST POINTS MODAL ==================== */}
+      <Modal
         open={!!adjustAccount}
         onOpenChange={(open) => {
           if (!open) {
@@ -1216,66 +1138,52 @@ export default function LoyaltyPage() {
           }
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manual Points Adjustment</DialogTitle>
-            <DialogDescription>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>Manual Points Adjustment</ModalTitle>
+            <ModalDescription>
               Current balance:{" "}
               {(adjustAccount?.points_balance ?? 0).toLocaleString()} points
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="adjust-pts">Points (positive to add, negative to deduct)</Label>
-              <Input
-                id="adjust-pts"
-                type="number"
-                placeholder="e.g. 50 or -25"
-                value={adjustPoints}
-                onChange={(e) => setAdjustPoints(e.target.value)}
-                className="touch-target-lg"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="adjust-reason">Reason</Label>
-              <Textarea
-                id="adjust-reason"
-                placeholder="e.g. Goodwill credit, correction..."
-                value={adjustReason}
-                onChange={(e) => setAdjustReason(e.target.value)}
-                className="touch-target-lg"
-              />
-            </div>
-          </div>
-          <DialogFooter>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalBody>
+            <NumberInput
+              label="Points (positive to add, negative to deduct)"
+              placeholder="e.g. 50 or -25"
+              value={adjustPoints}
+              onChange={(e) => setAdjustPoints(e.target.value)}
+            />
+            <Textarea
+              label="Reason"
+              placeholder="e.g. Goodwill credit, correction..."
+              value={adjustReason}
+              onChange={(e) => setAdjustReason(e.target.value)}
+            />
+          </ModalBody>
+          <ModalFooter>
             <Button
-              variant="outline"
+              variant="secondary"
+              size="md"
               onClick={() => {
                 setAdjustAccount(null);
                 setAdjustPoints("");
                 setAdjustReason("");
               }}
-              className="touch-target-lg"
             >
               Cancel
             </Button>
             <Button
+              size="md"
+              loading={adjusting}
+              disabled={!adjustPoints || !adjustReason.trim() || adjustPoints === "0"}
+              leadingIcon={<Check />}
               onClick={handleAdjust}
-              disabled={
-                adjusting || !adjustPoints || !adjustReason.trim() || adjustPoints === "0"
-              }
-              className="touch-target-lg btn-press"
             >
-              {adjusting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Check className="h-4 w-4 mr-2" />
-              )}
               Adjust Points
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
