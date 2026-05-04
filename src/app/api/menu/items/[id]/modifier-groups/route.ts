@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 const linkModifierGroupsSchema = z.object({
   modifier_group_ids: z.array(z.string().uuid()),
@@ -70,6 +72,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Failed to link modifier groups' }, { status: 500 })
     }
   }
+
+  // The list endpoint embeds menu_item_modifier_groups, so the menu list
+  // payload is now stale. Invalidate both list + per-id tags.
+  revalidateTag(cacheTags.menu(user.org_id), CACHE_REVALIDATE_PROFILE)
+  revalidateTag(cacheTags.menuItem(user.org_id, menuItemId), CACHE_REVALIDATE_PROFILE)
 
   return NextResponse.json({ data: { success: true } })
 }

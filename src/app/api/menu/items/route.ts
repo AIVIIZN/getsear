@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 const createItemSchema = z.object({
   category_id: z.string().uuid(),
@@ -25,6 +27,57 @@ const createItemSchema = z.object({
   barcode: z.string().max(50).optional().nullable(),
 })
 
+/**
+ * Org-scoped, tag-revalidated SWR cache for the menu items list.
+ *
+ * Key tuple includes org_id + filters so cross-tenant bleed is impossible.
+ * `revalidate: 60` triggers a stale-while-revalidate refresh in the background
+ * after 60s; explicit `revalidateTag(cacheTags.menu(orgId))` from any mutation
+ * route invalidates immediately for instant cross-terminal propagation.
+ */
+function fetchMenuItemsList(
+  orgId: string,
+  filters: { categoryId: string | null; locationId: string | null; search: string | null }
+) {
+  return unstable_cache(
+    async () => {
+      const supabase = createAdminClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query = (supabase.from('menu_items') as any)
+        .select('*, menu_item_modifier_groups(modifier_group_id)')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
+
+      if (filters.categoryId) {
+        query = query.eq('category_id', filters.categoryId)
+      }
+
+      if (filters.locationId) {
+        query = query.or(`location_id.eq.${filters.locationId},location_id.is.null`)
+      }
+
+      if (filters.search) {
+        query = query.or(
+          `name.ilike.%${filters.search}%,short_name.ilike.%${filters.search}%,plu_code.ilike.%${filters.search}%`
+        )
+      }
+
+      const { data, error } = await query
+      if (error) return { error: 'Failed to fetch items' as const, data: null }
+      return { error: null, data: data ?? [] }
+    },
+    [
+      'menu-items-list',
+      orgId,
+      filters.categoryId ?? '',
+      filters.locationId ?? '',
+      filters.search ?? '',
+    ],
+    { tags: [cacheTags.menu(orgId)], revalidate: 60 }
+  )()
+}
+
 export async function GET(request: NextRequest) {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
@@ -33,33 +86,17 @@ export async function GET(request: NextRequest) {
   const locationId = request.nextUrl.searchParams.get('location_id')
   const search = request.nextUrl.searchParams.get('search')
 
-  const supabase = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('menu_items') as any)
-    .select('*, menu_item_modifier_groups(modifier_group_id)')
-    .eq('org_id', user.org_id)
-    .is('deleted_at', null)
-    .order('sort_order', { ascending: true })
+  const result = await fetchMenuItemsList(user.org_id, {
+    categoryId,
+    locationId,
+    search,
+  })
 
-  if (categoryId) {
-    query = query.eq('category_id', categoryId)
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: 500 })
   }
 
-  if (locationId) {
-    query = query.or(`location_id.eq.${locationId},location_id.is.null`)
-  }
-
-  if (search) {
-    query = query.or(`name.ilike.%${search}%,short_name.ilike.%${search}%,plu_code.ilike.%${search}%`)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
-  }
-
-  return NextResponse.json({ data: data ?? [] })
+  return NextResponse.json({ data: result.data })
 }
 
 export async function POST(request: NextRequest) {
@@ -113,6 +150,9 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: 'Failed to create item' }, { status: 500 })
   }
+
+  // Invalidate the menu list cache so the new item appears on next read.
+  revalidateTag(cacheTags.menu(user.org_id), CACHE_REVALIDATE_PROFILE)
 
   return NextResponse.json({ data }, { status: 201 })
 }

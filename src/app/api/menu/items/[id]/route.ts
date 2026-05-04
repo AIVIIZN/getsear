@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 const updateItemSchema = z.object({
   category_id: z.string().uuid().optional(),
@@ -66,6 +68,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to update item' }, { status: 500 })
   }
 
+  // Invalidate both the list and per-id cache entries.
+  revalidateTag(cacheTags.menu(user.org_id), CACHE_REVALIDATE_PROFILE)
+  revalidateTag(cacheTags.menuItem(user.org_id, id), CACHE_REVALIDATE_PROFILE)
+
   return NextResponse.json({ data })
 }
 
@@ -88,6 +94,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   if (error) {
     return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 })
   }
+
+  revalidateTag(cacheTags.menu(user.org_id), CACHE_REVALIDATE_PROFILE)
+  revalidateTag(cacheTags.menuItem(user.org_id, id), CACHE_REVALIDATE_PROFILE)
 
   return NextResponse.json({ data: { success: true } })
 }

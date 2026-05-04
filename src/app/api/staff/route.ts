@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 const createStaffSchema = z.object({
   first_name: z.string().min(1).max(100),
@@ -22,6 +24,45 @@ const createStaffSchema = z.object({
 })
 
 /**
+ * Org-scoped, tag-revalidated SWR cache for the staff list.
+ *
+ * Only the static `users` row data is cached — clock-in state is derived from
+ * `time_entries` on every request because that table is high-churn and would
+ * produce stale "is_clocked_in" values if cached.
+ */
+function fetchStaffList(
+  orgId: string,
+  filters: { roleFilter: string | null; statusFilter: string | null }
+) {
+  return unstable_cache(
+    async () => {
+      const supabase = createAdminClient()
+      let query = supabase.from('users')
+        .select('id, org_id, email, phone, first_name, last_name, display_name, avatar_url, role, location_ids, hire_date, hourly_rate, is_active, created_at, updated_at')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .order('first_name', { ascending: true })
+
+      if (filters.roleFilter) {
+        query = query.eq('role', filters.roleFilter)
+      }
+
+      if (filters.statusFilter === 'active') {
+        query = query.eq('is_active', true)
+      } else if (filters.statusFilter === 'inactive') {
+        query = query.eq('is_active', false)
+      }
+
+      const { data, error } = await query
+      if (error) return { error: 'Failed to fetch staff' as const, data: null }
+      return { error: null, data: data ?? [] }
+    },
+    ['staff-list', orgId, filters.roleFilter ?? '', filters.statusFilter ?? ''],
+    { tags: [cacheTags.staff(orgId)], revalidate: 60 }
+  )()
+}
+
+/**
  * GET /api/staff — list staff for org (with role, status, last clock-in)
  */
 export async function GET(request: NextRequest) {
@@ -31,35 +72,18 @@ export async function GET(request: NextRequest) {
   const roleErr = requireRole(user, ['owner', 'admin', 'manager'])
   if (roleErr) return roleErr
 
-  const supabase = createAdminClient()
-
   const { searchParams } = new URL(request.url)
   const roleFilter = searchParams.get('role')
   const statusFilter = searchParams.get('status')
 
-  let query = supabase.from('users')
-    .select('id, org_id, email, phone, first_name, last_name, display_name, avatar_url, role, location_ids, hire_date, hourly_rate, is_active, created_at, updated_at')
-    .eq('org_id', user.org_id)
-    .is('deleted_at', null)
-    .order('first_name', { ascending: true })
-
-  if (roleFilter) {
-    query = query.eq('role', roleFilter)
+  const result = await fetchStaffList(user.org_id, { roleFilter, statusFilter })
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: 500 })
   }
+  const staff = result.data
 
-  if (statusFilter === 'active') {
-    query = query.eq('is_active', true)
-  } else if (statusFilter === 'inactive') {
-    query = query.eq('is_active', false)
-  }
-
-  const { data: staff, error } = await query
-
-  if (error) {
-    return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
-  }
-
-  // Fetch active time entries to determine who is clocked in
+  // High-churn: NEVER cache. Always fresh.
+  const supabase = createAdminClient()
   const { data: activeEntries } = await supabase.from('time_entries')
     .select('id, user_id, clock_in')
     .eq('org_id', user.org_id)
@@ -72,7 +96,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const enriched = (staff ?? []).map((s: { id: string; [key: string]: unknown }) => ({
+  const enriched = staff.map((s: { id: string; [key: string]: unknown }) => ({
     ...s,
     is_clocked_in: clockedInMap.has(s.id),
     last_clock_in: clockedInMap.get(s.id) ?? null,
@@ -149,6 +173,8 @@ export async function POST(request: NextRequest) {
     console.error('[staff/POST]', error.message, error.details, error.hint)
     return NextResponse.json({ error: 'Failed to create staff member', details: error.message }, { status: 500 })
   }
+
+  revalidateTag(cacheTags.staff(user.org_id), CACHE_REVALIDATE_PROFILE)
 
   return NextResponse.json({ data }, { status: 201 })
 }

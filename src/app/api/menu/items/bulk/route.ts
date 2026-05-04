@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 const bulkActionSchema = z.object({
   action: z.enum(['move', '86', 'restore', 'delete', 'price_change']),
@@ -39,6 +41,15 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
   const now = new Date().toISOString()
 
+  // Invalidate the menu list + every per-id entry that any of these items
+  // map to. Any successful bulk operation must propagate to other terminals.
+  const invalidateMenuCache = () => {
+    revalidateTag(cacheTags.menu(user.org_id), CACHE_REVALIDATE_PROFILE)
+    for (const itemId of item_ids) {
+      revalidateTag(cacheTags.menuItem(user.org_id, itemId), CACHE_REVALIDATE_PROFILE)
+    }
+  }
+
   switch (action) {
     case 'move': {
       if (!category_id) {
@@ -55,6 +66,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to move items' }, { status: 500 })
       }
 
+      invalidateMenuCache()
       return NextResponse.json({ success: true, affected: item_ids.length })
     }
 
@@ -69,6 +81,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to 86 items' }, { status: 500 })
       }
 
+      invalidateMenuCache()
       return NextResponse.json({ success: true, affected: item_ids.length })
     }
 
@@ -83,6 +96,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to restore items' }, { status: 500 })
       }
 
+      invalidateMenuCache()
       return NextResponse.json({ success: true, affected: item_ids.length })
     }
 
@@ -98,6 +112,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to delete items' }, { status: 500 })
       }
 
+      invalidateMenuCache()
       return NextResponse.json({ success: true, affected: item_ids.length })
     }
 
@@ -144,6 +159,7 @@ export async function POST(request: NextRequest) {
         if (!updateError) updatedCount++
       }
 
+      if (updatedCount > 0) invalidateMenuCache()
       return NextResponse.json({ success: true, affected: updatedCount })
     }
 
