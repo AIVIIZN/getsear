@@ -1,11 +1,13 @@
 'use client'
 
+import Image from 'next/image'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, ImageIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { FALLBACK_BLUR } from './ItemCard'
 import type { MenuItem } from './ItemGrid'
 
 interface ItemListRowProps {
@@ -104,9 +106,17 @@ export function ItemListRow({
       )}
 
       {/* Photo */}
-      <div className="size-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+      <div className="relative size-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
         {item.image_url ? (
-          <img src={item.image_url} alt={item.name} className="size-full object-cover" />
+          <Image
+            src={item.image_url}
+            alt={item.name}
+            fill
+            sizes="40px"
+            placeholder="blur"
+            blurDataURL={FALLBACK_BLUR}
+            className="object-cover"
+          />
         ) : (
           <div className="size-full flex items-center justify-center">
             <ImageIcon className="size-4 text-muted-foreground/40" strokeWidth={1.5} />
