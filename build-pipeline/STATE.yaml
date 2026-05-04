@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-04T01:50:00Z
+last_updated_at: 2026-05-04T05:30:00Z
 current_version: V5
-current_batch: 5.2
+current_batch: "5.2 (5.2.1/2/3 awaiting hardware)"
 status: awaiting_user_advance
 deferred_tasks:
   - { task_id: 5.0.4, reason: "needs_hardware (Star + Valor + Bematech), no human present", defer_count: 1 }
@@ -53,7 +53,7 @@ versions:
         # hardware drivers register against it. Then 5.2.1/2/3 run in
         # parallel against that framework.
         tasks:
-          "5.2.0": { status: pending, agent: backend-dev+migration-author+pos-coder, eta_hours: 6, name: "processor-binding lock + auto-detect framework + UI surface (3-layer defense in depth)" }
+          "5.2.0": { status: complete, agent: "migration-author+hardware-integrator+pos-coder ×3 parallel", eta_hours: 6, completed_at: "2026-05-04T05:30:00Z", review: "PASS×3 + design CONCERNS", name: "processor-binding lock + auto-detect framework + UI surface (3-layer defense in depth)" }
           "5.2.1": { status: pending, agent: hardware-integrator, eta_hours: 4, needs_hardware: star-printer, depends_on: "5.2.0" }
           "5.2.2": { status: pending, agent: hardware-integrator, eta_hours: 5, needs_credential: VALOR_API_KEY, needs_hardware: valor-reader, depends_on: "5.2.0" }
           "5.2.3": { status: pending, agent: hardware-integrator, eta_hours: 2, needs_hardware: bematech-drawer, depends_on: "5.2.0" }
