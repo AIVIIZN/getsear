@@ -1,10 +1,10 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-04T22:30:00Z
-current_version: V6
-current_batch: "6.3 SHIPPED — 6.3.2 (illustrations + EmptyState) deployed @ f17d985; 6.3.1 deferred (needs OPENAI_API_KEY)"
+last_updated_at: 2026-05-05T00:00:00Z
+current_version: V7
+current_batch: "V6 SHIPPED (tag v6.0.0 @ 1567304); ready for V7.1 observability"
 in_flight: {}
-status: ready_for_v6.4
+status: ready_for_v7
 deferred_tasks:
   - { task_id: 5.0.4, reason: "needs_hardware (Star + Valor + Bematech), no human present", defer_count: 1 }
 blockers: []
