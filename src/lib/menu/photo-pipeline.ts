@@ -32,7 +32,6 @@ export interface GeneratePhotoParams {
 
 export interface GeneratePhotoResult {
   url: string
-  prompt: string
   cost_cents: number
   storage_path: string
 }
@@ -78,9 +77,10 @@ export async function generateMenuPhoto(
     .from(BUCKET_NAME)
     .getPublicUrl(storagePath)
 
+  // The prompt itself is intentionally NOT returned — keep it internal so
+  // future callers can't accidentally log it (V6.3.1 reviewer concern).
   return {
     url: urlData.publicUrl,
-    prompt,
     cost_cents: APPROX_COST_CENTS,
     storage_path: storagePath,
   }

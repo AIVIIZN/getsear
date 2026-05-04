@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import {
   DndContext,
@@ -227,12 +228,16 @@ export function PhotosTab({
               className="overflow-hidden rounded-lg border border-border bg-muted"
             >
               {/* Inline preview of the freshly generated photo */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={generatedPreviewUrl}
-                alt="Generated preview"
-                className="aspect-square w-full object-cover"
-              />
+              <div className="relative aspect-square w-full">
+                <Image
+                  src={generatedPreviewUrl}
+                  alt="Generated preview"
+                  fill
+                  sizes="(max-width: 640px) 100vw, 480px"
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
             </motion.div>
           )}
         </div>
