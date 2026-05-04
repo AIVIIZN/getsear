@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-04T11:20:00Z
+last_updated_at: 2026-05-04T13:05:00Z
 current_version: V6
-current_batch: "6.0"
+current_batch: "6.2"
 status: awaiting_user_advance
 deferred_tasks:
   - { task_id: 5.0.4, reason: "needs_hardware (Star + Valor + Bematech), no human present", defer_count: 1 }
@@ -114,21 +114,23 @@ versions:
     batches:
       "6.0":
         type: sequential
-        status: pending
+        status: complete
+        completed_at: "2026-05-04T12:00:00Z"
         tasks:
-          "6.0.1": { status: pending, agent: main, eta_hours: 2 }
-          "6.0.2": { status: pending, agent: main, eta_hours: 2 }
-          "6.0.3": { status: pending, agent: main, eta_hours: 2 }
+          "6.0.1": { status: complete, agent: main, eta_hours: 2, name: "ui-ux-pro-max skill — output saved to docs/design/SKILL_AUTO_RECOMMENDATION.md (used as reference; auto-suggested #2563EB primary not adopted, kept shipped #007AFF)" }
+          "6.0.2": { status: complete, agent: main, eta_hours: 2, name: "design spec — docs/design/UI_V2_COMPONENT_SPEC.md (canonical contract for 6.1 agents; replaces frontend-design skill invocation)" }
+          "6.0.3": { status: complete, agent: main, eta_hours: 2, name: "src/styles/tokens.css (color/space/type/shadow/radius/z/animation/blur + KDS dark override + utilities) + src/components/ui-v2/ scaffold + globals.css import" }
       "6.1":
         type: parallel
-        status: pending
+        status: complete
+        completed_at: "2026-05-04T13:00:00Z"
         tasks:
-          "6.1.1": { status: pending, agent: coder, eta_hours: 2 }
-          "6.1.2": { status: pending, agent: coder, eta_hours: 3 }
-          "6.1.3": { status: pending, agent: coder, eta_hours: 3 }
-          "6.1.4": { status: pending, agent: coder, eta_hours: 2 }
-          "6.1.5": { status: pending, agent: coder, eta_hours: 3 }
-          "6.1.6": { status: pending, agent: coder, eta_hours: 2 }
+          "6.1.1": { status: complete, agent: pos-coder, eta_hours: 2, name: "Button (4 variants × 4 sizes × 6 states + stories)" }
+          "6.1.2": { status: complete, agent: pos-coder, eta_hours: 3, name: "inputs family — 11 files (Text/Email/Number/Select/Textarea/Checkbox/Radio/Toggle/Segmented/Slider + Field)" }
+          "6.1.3": { status: complete, agent: pos-coder, eta_hours: 3, name: "Card/Modal/Sheet/Popover with frosted backdrop + iOS spring (base-ui primitives)" }
+          "6.1.4": { status: complete, agent: pos-coder, eta_hours: 2, name: "data — Table/Badge/Pill/Avatar/Stat/Progress/Skeleton(5 shape variants)" }
+          "6.1.5": { status: complete, agent: pos-coder, eta_hours: 3, name: "navigation — Sidebar/Topbar/Breadcrumbs/Tabs(line+segmented)/SegmentedControl" }
+          "6.1.6": { status: complete, agent: pos-coder, eta_hours: 2, name: "feedback — Toast(stack)/Alert/EmptyState/ConfirmDialog" }
       "6.2":
         type: parallel
         status: pending
