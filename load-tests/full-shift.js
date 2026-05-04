@@ -20,15 +20,20 @@
 
 import http from 'k6/http'
 import { check, group, sleep } from 'k6'
+import exec from 'k6/execution'
 import { Counter, Rate, Trend } from 'k6/metrics'
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
 
 // ---------------------------------------------------------------------------
 // Configuration — all secrets come from env, never hardcoded.
+// DEMO_PASSWORD is required (no default literal — see CLAUDE.md security rule).
 // ---------------------------------------------------------------------------
 const BASE_URL = __ENV.BASE_URL || 'https://getsear.com'
 const DEMO_EMAIL = __ENV.DEMO_EMAIL || 'demo@getsear.com'
-const DEMO_PASSWORD = __ENV.DEMO_PASSWORD || 'demo1234'
+const DEMO_PASSWORD = __ENV.DEMO_PASSWORD
+if (!DEMO_PASSWORD) {
+  throw new Error('DEMO_PASSWORD env var is required (e.g. -e DEMO_PASSWORD=demo1234 for the demo tenant). Refusing to run without explicit credentials.')
+}
 
 // Demo tenant constants (verified 2026-05-03; matches e2e/helpers.ts)
 const PRIMARY_LOCATION_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901'
@@ -90,11 +95,15 @@ export const options = {
 }
 
 // ---------------------------------------------------------------------------
-// Per-VU setup: login once, fetch menu items to populate the item pool.
+// Global setup: ONE login total for the entire test (across all VUs).
+//
+// Why: /api/auth/login is rate-limited to 5/IP/15min AND 5/email/15min
+// (src/lib/api/rate-limit.ts:32 — auth tier). A naive "login per VU" pattern
+// with 12 VUs from a single CI runner IP would trip the limit, all subsequent
+// VU logins would 429, and every downstream request would 401. We take the
+// cookie header from one global login and pass it to every VU via setup data.
 // ---------------------------------------------------------------------------
 export function setup() {
-  // Each scenario will login inside its own VU init section, but we use
-  // setup() here to validate reachability and return the menu item pool.
   const loginRes = http.post(
     `${BASE_URL}/api/auth/login`,
     JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
@@ -109,14 +118,24 @@ export function setup() {
   })
 
   if (loginRes.status !== 200) {
-    // Return minimal fallback — tests will hit auth errors and fail their checks
-    return { menuItems: [] }
+    throw new Error(`setup login failed (status ${loginRes.status}). Check DEMO_EMAIL/DEMO_PASSWORD and that ${BASE_URL} is reachable. Aborting test rather than producing meaningless 401-noise.`)
   }
 
-  // Use the session cookie established by login to fetch menu items.
+  // Build a Cookie header string from the login response's Set-Cookie headers.
+  // VUs cannot share a CookieJar (each VU has its own), so we serialize cookies
+  // into a string and have every request attach it explicitly via headers.
+  const cookieHeader = Object.entries(loginRes.cookies || {})
+    .map(([name, arr]) => `${name}=${arr[0].value}`)
+    .join('; ')
+
+  if (!cookieHeader) {
+    throw new Error('setup: login returned 200 but no cookies were set. Auth flow may have changed.')
+  }
+
+  // Use the session cookie to fetch menu items.
   const menuRes = http.get(
     `${BASE_URL}/api/menu/items?location_id=${PRIMARY_LOCATION_ID}`,
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers: { 'Content-Type': 'application/json', Cookie: cookieHeader } }
   )
 
   check(menuRes, {
@@ -133,41 +152,32 @@ export function setup() {
     }
   }
 
-  // Return menu pool for use in per-VU scenarios.
-  // If the menu fetch failed (e.g., no active session in setup context)
-  // fall back to an empty list — tests will use the fallback item path.
-  return { menuItems }
+  // Discover KDS stations once globally (avoids ~360 station lookups/VU/run).
+  const stationsRes = http.get(
+    `${BASE_URL}/api/kds/stations?location_id=${PRIMARY_LOCATION_ID}`,
+    { headers: { Cookie: cookieHeader } }
+  )
+
+  let kdsStationIds = []
+  if (stationsRes.status === 200) {
+    try {
+      kdsStationIds = (stationsRes.json('data') || []).map((s) => s.id)
+    } catch (_) {
+      kdsStationIds = []
+    }
+  }
+
+  return { menuItems, cookieHeader, kdsStationIds }
 }
 
 // ---------------------------------------------------------------------------
-// Helper: login a single VU and return the session cookie jar.
-// k6 persists cookies per VU automatically when using http.cookieJar().
+// Auth header builder — every VU request attaches the cookie set in setup().
 // ---------------------------------------------------------------------------
-function loginVU() {
-  const jar = http.cookieJar()
-
-  const loginRes = http.post(
-    `${BASE_URL}/api/auth/login`,
-    JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-    {
-      headers: { 'Content-Type': 'application/json' },
-      tags: { type: 'auth' },
-    }
+function authHeaders(cookieHeader, extra) {
+  return Object.assign(
+    { 'Content-Type': 'application/json', Cookie: cookieHeader },
+    extra || {}
   )
-
-  const ok = check(loginRes, {
-    'login: status 200': (r) => r.status === 200,
-    'login: has user': (r) => {
-      try { return Boolean(r.json('user.id')) } catch { return false }
-    },
-  })
-
-  if (!ok) {
-    // Non-fatal: subsequent API calls will return 401 and be counted in checks.
-    return jar
-  }
-
-  return jar
 }
 
 // ---------------------------------------------------------------------------
@@ -199,12 +209,10 @@ function idempotencyKey(prefix) {
 // TERMINAL scenario — default export (runs for the "terminal" executor)
 // ---------------------------------------------------------------------------
 export default function terminalScenario(data) {
-  const { menuItems } = data
+  const { menuItems, cookieHeader } = data
 
-  // Login once per VU (k6 calls this function in a loop per VU iteration,
-  // but cookies persist on the VU's jar across iterations, so subsequent
-  // login calls will be fast no-ops if the session is still valid).
-  loginVU()
+  // Auth via cookie set in setup() — see top-of-file comment on rate-limit
+  // motivation. No per-VU login.
 
   // -------------------------------------------------------------------------
   // 1. Create order
@@ -224,10 +232,9 @@ export default function terminalScenario(data) {
       `${BASE_URL}/api/orders`,
       JSON.stringify(body),
       {
-        headers: {
-          'Content-Type': 'application/json',
+        headers: authHeaders(cookieHeader, {
           'Idempotency-Key': idempotencyKey('order-create'),
-        },
+        }),
         tags: { type: 'order_create' },
       }
     )
@@ -288,10 +295,9 @@ export default function terminalScenario(data) {
         `${BASE_URL}/api/orders/${orderId}/items`,
         JSON.stringify(body),
         {
-          headers: {
-            'Content-Type': 'application/json',
+          headers: authHeaders(cookieHeader, {
             'Idempotency-Key': idempotencyKey('add-item'),
-          },
+          }),
           tags: { type: 'add_item' },
         }
       )
@@ -333,10 +339,9 @@ export default function terminalScenario(data) {
       `${BASE_URL}/api/payments/process`,
       JSON.stringify(body),
       {
-        headers: {
-          'Content-Type': 'application/json',
+        headers: authHeaders(cookieHeader, {
           'Idempotency-Key': idempotencyKey('payment'),
-        },
+        }),
         tags: { type: 'payment' },
       }
     )
@@ -367,42 +372,23 @@ export default function terminalScenario(data) {
 
 // ---------------------------------------------------------------------------
 // KDS scenario — polls /api/kds/tickets every 2s
-// Requires a real kds_station id. We use /api/kds/stations to discover one,
-// then poll tickets for it.
+// Stations are discovered ONCE in setup() and shared via data.kdsStationIds.
+// Each VU picks one by round-robin on its scenario-local index.
 // ---------------------------------------------------------------------------
 export function kdsScenario(data) {
-  // Login the KDS VU
-  loginVU()
+  const { cookieHeader, kdsStationIds } = data
 
-  // Discover a KDS station for this location
-  let stationId = null
-
-  const stationsRes = http.get(
-    `${BASE_URL}/api/kds/stations?location_id=${PRIMARY_LOCATION_ID}`,
-    { tags: { type: 'kds_setup' } }
-  )
-
-  check(stationsRes, {
-    'kds: stations fetch ok': (r) => r.status === 200,
-  })
-
-  if (stationsRes.status === 200) {
-    try {
-      const stations = stationsRes.json('data') || []
-      if (stations.length > 0) {
-        // Each KDS VU picks a different station by VU index (round-robin)
-        // __VU is the 1-based VU index within this executor
-        const idx = (__VU - 1) % stations.length
-        stationId = stations[idx].id
-      }
-    } catch (_) { /* fall through */ }
-  }
-
-  if (!stationId) {
-    // No stations seeded — KDS VUs will spin without polling
+  if (!kdsStationIds || kdsStationIds.length === 0) {
+    // No stations seeded — KDS VUs will idle without polling.
     sleep(2)
     return
   }
+
+  // exec.vu.idInScenario is the 1-based VU index local to THIS scenario
+  // (whereas __VU is global across scenarios — with 8 terminal VUs running
+  // first, kds VUs would have __VU values 9-12, breaking the modulo math).
+  const idx = (exec.vu.idInScenario - 1) % kdsStationIds.length
+  const stationId = kdsStationIds[idx]
 
   // Poll loop: 2s interval for the duration of the scenario
   // k6 will keep calling this function; we do one poll per call + sleep.
@@ -410,6 +396,7 @@ export function kdsScenario(data) {
     const url = `${BASE_URL}/api/kds/tickets?station_id=${stationId}&location_id=${PRIMARY_LOCATION_ID}`
 
     const res = http.get(url, {
+      headers: authHeaders(cookieHeader),
       tags: { type: 'kds_poll' },
     })
 

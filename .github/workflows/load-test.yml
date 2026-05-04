@@ -115,14 +115,25 @@ jobs:
       # ---------------------------------------------------------------------------
       # Run the full-shift load test
       # ---------------------------------------------------------------------------
+      - name: Verify required secrets
+        run: |
+          if [[ -z "${{ secrets.LOAD_TEST_DEMO_PASSWORD }}" ]]; then
+            echo "::error::LOAD_TEST_DEMO_PASSWORD secret not set. Configure it in repo Settings → Secrets → Actions."
+            exit 1
+          fi
+
       - name: Run k6 load test
         id: k6
+        env:
+          BASE_URL: ${{ steps.base_url.outputs.url }}
+          DEMO_EMAIL: ${{ secrets.LOAD_TEST_DEMO_EMAIL || 'demo@getsear.com' }}
+          DEMO_PASSWORD: ${{ secrets.LOAD_TEST_DEMO_PASSWORD }}
         run: |
           k6 run load-tests/full-shift.js \
             --summary-export=load-tests/summary.json \
-            -e BASE_URL=${{ steps.base_url.outputs.url }} \
-            -e DEMO_EMAIL=${{ secrets.LOAD_TEST_DEMO_EMAIL || 'demo@getsear.com' }} \
-            -e DEMO_PASSWORD=${{ secrets.LOAD_TEST_DEMO_PASSWORD || 'demo1234' }}
+            -e BASE_URL="$BASE_URL" \
+            -e DEMO_EMAIL="$DEMO_EMAIL" \
+            -e DEMO_PASSWORD="$DEMO_PASSWORD"
 
       # ---------------------------------------------------------------------------
       # Upload artifacts — summary JSON + stdout captured by the runner
