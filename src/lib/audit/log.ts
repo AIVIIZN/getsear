@@ -90,6 +90,8 @@ export type AuditAction =
   | 'org_settings_changed'
   | 'terminal_registered'
   | 'terminal_removed'
+  // Menu
+  | 'menu_photo_generated'
 
 export type EntityType =
   | 'payment'

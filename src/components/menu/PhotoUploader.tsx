@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react'
 import { Upload, X, Crop as CropIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+
+export interface PhotoUploaderHandle {
+  openFilePicker: () => void
+}
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
@@ -123,12 +127,17 @@ async function cropImage(
   })
 }
 
-export function PhotoUploader({ onUpload, isUploading }: PhotoUploaderProps) {
+export const PhotoUploader = forwardRef<PhotoUploaderHandle, PhotoUploaderProps>(
+  function PhotoUploader({ onUpload, isUploading }, ref) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cropState, setCropState] = useState<CropState | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    openFilePicker: () => fileInputRef.current?.click(),
+  }), [])
 
   const validateFile = useCallback((file: File): string | null => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -366,4 +375,4 @@ export function PhotoUploader({ onUpload, isUploading }: PhotoUploaderProps) {
       )}
     </div>
   )
-}
+})

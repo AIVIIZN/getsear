@@ -66,6 +66,8 @@ export function MenuBuilder() {
   const [isItemsLoading, setIsItemsLoading] = useState(true)
   const [photos, setPhotos] = useState<MenuItemPhoto[]>([])
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const [isGeneratingPhoto, setIsGeneratingPhoto] = useState(false)
+  const [generatedPhotoPreviewUrl, setGeneratedPhotoPreviewUrl] = useState<string | null>(null)
 
   // --- Drag state ---
   const [activeDragItem, setActiveDragItem] = useState<MenuItem | null>(null)
@@ -169,6 +171,7 @@ export function MenuBuilder() {
     } else {
       setPhotos([])
     }
+    setGeneratedPhotoPreviewUrl(null)
   }, [editingItem?.id, fetchPhotos])
 
   // --- Filtered items ---
@@ -444,6 +447,33 @@ export function MenuBuilder() {
       await fetchItems()
     }
   }, [editingItem?.id, fetchPhotos, fetchItems])
+
+  const handleGeneratePhoto = useCallback(async (itemId: string): Promise<{ url: string } | null> => {
+    setIsGeneratingPhoto(true)
+    try {
+      const res = await fetch(`/api/menu/items/${itemId}/photo/generate`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        let message = 'Photo generation failed'
+        try {
+          const body = await res.json()
+          if (typeof body?.error === 'string') message = body.error
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(message)
+      }
+      const json = await res.json()
+      const url = json?.data?.url as string | undefined
+      if (!url) throw new Error('Generation returned no URL')
+      setGeneratedPhotoPreviewUrl(url)
+      await fetchItems()
+      return { url }
+    } finally {
+      setIsGeneratingPhoto(false)
+    }
+  }, [fetchItems])
 
   const handleReorderPhotos = useCallback(async (itemId: string, photoIds: string[]) => {
     await fetch(`/api/menu/photos/${photoIds[0]}`, {
@@ -881,8 +911,11 @@ export function MenuBuilder() {
               onUploadPhoto={handleUploadPhoto}
               onDeletePhoto={handleDeletePhoto}
               onReorderPhotos={handleReorderPhotos}
+              onGeneratePhoto={handleGeneratePhoto}
               photos={photos}
               isUploadingPhoto={isUploadingPhoto}
+              isGeneratingPhoto={isGeneratingPhoto}
+              generatedPhotoPreviewUrl={generatedPhotoPreviewUrl}
             />
           </DndContext>
         </TabsContent>

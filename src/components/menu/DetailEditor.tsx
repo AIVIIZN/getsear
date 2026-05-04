@@ -36,8 +36,11 @@ interface DetailEditorProps {
   onUploadPhoto: (itemId: string, file: File) => Promise<void>
   onDeletePhoto: (photoId: string) => Promise<void>
   onReorderPhotos: (itemId: string, photoIds: string[]) => Promise<void>
+  onGeneratePhoto?: (itemId: string) => Promise<{ url: string } | null>
   photos: MenuItemPhoto[]
   isUploadingPhoto: boolean
+  isGeneratingPhoto?: boolean
+  generatedPhotoPreviewUrl?: string | null
 }
 
 function createEmptyForm(categories: MenuCategory[]): GeneralFormData {
@@ -93,8 +96,11 @@ export function DetailEditor({
   onUploadPhoto,
   onDeletePhoto,
   onReorderPhotos,
+  onGeneratePhoto,
   photos,
   isUploadingPhoto,
+  isGeneratingPhoto,
+  generatedPhotoPreviewUrl,
 }: DetailEditorProps) {
   const [generalForm, setGeneralForm] = useState<GeneralFormData>(createEmptyForm(categories))
   const [priceStr, setPriceStr] = useState('')
@@ -188,6 +194,14 @@ export function DetailEditor({
       await onReorderPhotos(item.id, photoIds)
     },
     [item, onReorderPhotos]
+  )
+
+  const handlePhotoGenerate = useCallback(
+    async () => {
+      if (!item?.id || !onGeneratePhoto) return null
+      return onGeneratePhoto(item.id)
+    },
+    [item, onGeneratePhoto]
   )
 
   const isValid = generalForm.name.trim() && priceStr.trim() && generalForm.category_id
@@ -317,7 +331,10 @@ export function DetailEditor({
                 onUpload={handlePhotoUpload}
                 onDelete={onDeletePhoto}
                 onReorder={handlePhotoReorder}
+                onGenerate={onGeneratePhoto ? handlePhotoGenerate : undefined}
                 isUploading={isUploadingPhoto}
+                isGenerating={isGeneratingPhoto}
+                generatedPreviewUrl={generatedPhotoPreviewUrl}
               />
             </TabsContent>
           </div>
