@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -66,6 +68,11 @@ export async function PATCH(_request: NextRequest, { params }: RouteParams) {
     .then(() => {
       // Fire-and-forget, don't block response
     })
+
+  // Invalidate cached menu list + per-id entry so other terminals see the
+  // 86 change on their next read (alongside the realtime broadcast below).
+  revalidateTag(cacheTags.menu(user.org_id), CACHE_REVALIDATE_PROFILE)
+  revalidateTag(cacheTags.menuItem(user.org_id, id), CACHE_REVALIDATE_PROFILE)
 
   // Broadcast via Realtime for instant terminal propagation
   if (item.location_id) {

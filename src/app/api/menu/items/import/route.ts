@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 const importRowSchema = z.object({
   name: z.string().min(1),
@@ -185,6 +187,11 @@ export async function POST(request: NextRequest) {
     } else {
       skipped++
     }
+  }
+
+  // Bulk-imports always change menu list shape; single tag invalidation is enough.
+  if (imported > 0 || updated > 0) {
+    revalidateTag(cacheTags.menu(org_id), CACHE_REVALIDATE_PROFILE)
   }
 
   return NextResponse.json({

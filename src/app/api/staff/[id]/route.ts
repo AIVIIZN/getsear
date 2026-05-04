@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { cacheTags, CACHE_REVALIDATE_PROFILE } from '@/lib/cache/keys'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -24,6 +26,29 @@ const updateStaffSchema = z.object({
 })
 
 /**
+ * Org-scoped, tag-revalidated SWR cache for a single staff member's profile.
+ * Time entries are fetched fresh on every request (high-churn).
+ */
+function fetchStaffMember(orgId: string, id: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createAdminClient()
+      const { data, error } = await supabase.from('users')
+        .select('id, org_id, email, phone, first_name, last_name, display_name, avatar_url, role, location_ids, hire_date, hourly_rate, is_active, settings, created_at, updated_at')
+        .eq('id', id)
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .single()
+
+      if (error || !data) return { error: 'Staff member not found' as const, data: null }
+      return { error: null, data }
+    },
+    ['staff-member', orgId, id],
+    { tags: [cacheTags.staffMember(orgId, id)], revalidate: 60 }
+  )()
+}
+
+/**
  * GET /api/staff/[id] — get single staff member with recent time entries
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
@@ -31,20 +56,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   if (user instanceof NextResponse) return user
 
   const { id } = await params
-  const supabase = createAdminClient()
 
-  const { data: staff, error } = await supabase.from('users')
-    .select('id, org_id, email, phone, first_name, last_name, display_name, avatar_url, role, location_ids, hire_date, hourly_rate, is_active, settings, created_at, updated_at')
-    .eq('id', id)
-    .eq('org_id', user.org_id)
-    .is('deleted_at', null)
-    .single()
-
-  if (error || !staff) {
+  const result = await fetchStaffMember(user.org_id, id)
+  if (result.error || !result.data) {
     return NextResponse.json({ error: 'Staff member not found' }, { status: 404 })
   }
 
-  // Fetch recent time entries
+  // High-churn: NEVER cache. Always fresh.
+  const supabase = createAdminClient()
   const { data: timeEntries } = await supabase.from('time_entries')
     .select('*')
     .eq('user_id', id)
@@ -54,7 +73,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   return NextResponse.json({
     data: {
-      ...staff,
+      ...result.data,
       time_entries: timeEntries ?? [],
     },
   })
@@ -136,6 +155,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to update staff member' }, { status: 500 })
   }
 
+  revalidateTag(cacheTags.staff(user.org_id), CACHE_REVALIDATE_PROFILE)
+  revalidateTag(cacheTags.staffMember(user.org_id, id), CACHE_REVALIDATE_PROFILE)
+
   return NextResponse.json({ data })
 }
 
@@ -169,6 +191,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   if (error) {
     return NextResponse.json({ error: 'Failed to deactivate staff member' }, { status: 500 })
   }
+
+  revalidateTag(cacheTags.staff(user.org_id), CACHE_REVALIDATE_PROFILE)
+  revalidateTag(cacheTags.staffMember(user.org_id, id), CACHE_REVALIDATE_PROFILE)
 
   return NextResponse.json({ data: { success: true } })
 }
