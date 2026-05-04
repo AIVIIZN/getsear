@@ -40,10 +40,37 @@ export async function POST(request: NextRequest) {
   const { user_id, date, location_id, cash_tips_declared_cents, starting_cash_cents } = parsed.data
   const supabase = createAdminClient()
 
+  // V5.99.7: Verify the supplied user_id belongs to caller's org BEFORE any
+  // cross-table query — defends against another tenant's user_id+location_id
+  // being supplied (UUIDs sometimes leak via tickets/screenshots).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: targetUser } = await (supabase.from('users') as any)
+    .select('id, org_id')
+    .eq('id', user_id)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+
+  if (!targetUser) {
+    return NextResponse.json({ error: 'Employee not found in your organization' }, { status: 404 })
+  }
+
+  // Verify location_id belongs to caller's org
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: targetLocation } = await (supabase.from('locations') as any)
+    .select('id, org_id')
+    .eq('id', location_id)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+
+  if (!targetLocation) {
+    return NextResponse.json({ error: 'Location not found in your organization' }, { status: 404 })
+  }
+
   // Get the time entry for this shift
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: timeEntry } = await (supabase.from('time_entries') as any)
     .select('*')
+    .eq('org_id', user.org_id)
     .eq('user_id', user_id)
     .eq('location_id', location_id)
     .gte('clock_in', `${date}T00:00:00Z`)
@@ -67,6 +94,7 @@ export async function POST(request: NextRequest) {
       guest_count,
       payments:payments(payment_method, amount, tip_amount, auto_gratuity)
     `)
+    .eq('org_id', user.org_id)
     .eq('server_id', user_id)
     .eq('location_id', location_id)
     .gte('created_at', `${date}T00:00:00Z`)

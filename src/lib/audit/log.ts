@@ -77,8 +77,11 @@ export type AuditAction =
   // Staff / auth
   | 'manager_override'
   | 'manager_pin_changed'
+  | 'manager_pin_verify_failed'
+  | 'manager_pin_lockout'
   | 'staff_role_changed'
   | 'staff_clocked_out_by_manager'
+  | 'auth_login_rate_limited'
   // Customers
   | 'customer_merged'
   | 'customer_data_exported'
