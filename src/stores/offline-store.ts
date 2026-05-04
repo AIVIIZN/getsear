@@ -1,7 +1,17 @@
 'use client'
 
 import { create } from 'zustand'
-import type { SyncEntityType, CachedConflict } from '@/lib/offline/db'
+import type { SyncEntityType, CachedConflict, QueuedMutation } from '@/lib/offline/db'
+import {
+  enqueue as enqueueMutation,
+  getPending as getPendingMutations,
+  getPendingCount as getMutationPendingCount,
+  retry as retryMutation,
+  discard as discardMutation,
+  onChange as onMutationQueueChange,
+  type EnqueueInput,
+} from '@/lib/offline/queue'
+import { replayQueue, installOnlineReplayHook } from '@/lib/offline/sync'
 
 export type ConnectionState = 'online' | 'offline' | 'syncing' | 'reconnecting'
 export type BannerState = 'hidden' | 'offline' | 'syncing' | 'synced' | 'conflict' | 'stale'
@@ -24,6 +34,10 @@ interface OfflineState {
   syncTotal: number
   syncCompleted: number
   pendingOps: PendingOps
+  /** V5.3.1 — count of HTTP mutations queued in IndexedDB awaiting replay. */
+  pendingCount: number
+  /** V5.3.1 — most-recently-loaded snapshot of pending mutations (for the offline drawer). */
+  pendingMutations: QueuedMutation[]
   conflicts: CachedConflict[]
   lastSyncAt: string | null
   offlineSince: string | null
@@ -53,6 +67,16 @@ interface OfflineState {
     setCacheWarmProgress: (progress: number, stage: string) => void
     setStoreForwardCount: (count: number, totalCents: number) => void
     setQuota: (percent: number, warning: boolean) => void
+    /** V5.3.1 — refresh `pendingCount` + `pendingMutations` from IndexedDB. */
+    refreshMutationQueue: () => Promise<void>
+    /** V5.3.1 — buffer a mutation. Returns the UUIDv4 idempotency key. */
+    enqueueMutation: (input: EnqueueInput) => Promise<string>
+    /** V5.3.1 — manually trigger a replay (called by online listener too). */
+    replayQueue: () => Promise<void>
+    /** V5.3.1 — manual retry of one failed mutation (offline UI button). */
+    retryMutation: (id: string) => Promise<void>
+    /** V5.3.1 — discard a pending/failed mutation (offline UI abandon). */
+    discardMutation: (id: string) => Promise<void>
     reset: () => void
   }
 }
@@ -73,6 +97,8 @@ export const useOfflineStore = create<OfflineState>()((set) => ({
   syncTotal: 0,
   syncCompleted: 0,
   pendingOps: { ...INITIAL_PENDING },
+  pendingCount: 0,
+  pendingMutations: [],
   conflicts: [],
   lastSyncAt: null,
   offlineSince: null,
@@ -179,6 +205,54 @@ export const useOfflineStore = create<OfflineState>()((set) => ({
     setQuota: (percent, warning) =>
       set({ quotaPercent: percent, quotaWarning: warning }),
 
+    refreshMutationQueue: async () => {
+      const [pending, count] = await Promise.all([
+        getPendingMutations(),
+        getMutationPendingCount(),
+      ])
+      set({ pendingMutations: pending, pendingCount: count })
+    },
+
+    enqueueMutation: async (input) => {
+      // CRITICAL: this MUST resolve before the caller applies its optimistic
+      // UI update. The IndexedDB write completes before the returned promise
+      // resolves (Dexie's put() awaits the transaction commit).
+      const id = await enqueueMutation(input)
+      const [pending, count] = await Promise.all([
+        getPendingMutations(),
+        getMutationPendingCount(),
+      ])
+      set({ pendingMutations: pending, pendingCount: count })
+      return id
+    },
+
+    replayQueue: async () => {
+      await replayQueue()
+      const [pending, count] = await Promise.all([
+        getPendingMutations(),
+        getMutationPendingCount(),
+      ])
+      set({ pendingMutations: pending, pendingCount: count })
+    },
+
+    retryMutation: async (id) => {
+      await retryMutation(id)
+      const [pending, count] = await Promise.all([
+        getPendingMutations(),
+        getMutationPendingCount(),
+      ])
+      set({ pendingMutations: pending, pendingCount: count })
+    },
+
+    discardMutation: async (id) => {
+      await discardMutation(id)
+      const [pending, count] = await Promise.all([
+        getPendingMutations(),
+        getMutationPendingCount(),
+      ])
+      set({ pendingMutations: pending, pendingCount: count })
+    },
+
     reset: () =>
       set({
         connectionState: 'online',
@@ -190,6 +264,8 @@ export const useOfflineStore = create<OfflineState>()((set) => ({
         syncTotal: 0,
         syncCompleted: 0,
         pendingOps: { ...INITIAL_PENDING },
+        pendingCount: 0,
+        pendingMutations: [],
         conflicts: [],
         lastSyncAt: null,
         offlineSince: null,
@@ -204,3 +280,48 @@ export const useOfflineStore = create<OfflineState>()((set) => ({
       }),
   },
 }))
+
+// ─── Browser-side wiring (V5.3.1) ───────────────────────────────────
+//
+// Module-level side effects so consumers don't have to remember to install
+// the listeners. Guarded by `typeof window !== 'undefined'` to keep SSR safe.
+
+if (typeof window !== 'undefined') {
+  // Mirror navigator.onLine into the store on online/offline events.
+  const updateOnline = () => {
+    useOfflineStore.getState().actions.setOnline(navigator.onLine)
+  }
+  window.addEventListener('online', updateOnline)
+  window.addEventListener('offline', updateOnline)
+  // Initial sync in case we mount while offline.
+  if (typeof navigator !== 'undefined' && navigator.onLine !== undefined) {
+    useOfflineStore.setState({ isOnline: navigator.onLine })
+  }
+
+  // Replay on reconnect — pulls + reconciles store state after each replay.
+  installOnlineReplayHook({
+    onResult: () => {
+      void useOfflineStore.getState().actions.refreshMutationQueue()
+    },
+  })
+
+  // Cross-tab queue change subscription — if another tab enqueues, refresh.
+  onMutationQueueChange(() => {
+    void useOfflineStore.getState().actions.refreshMutationQueue()
+  })
+
+  // Initial population of pendingCount on first load.
+  void useOfflineStore.getState().actions.refreshMutationQueue()
+
+  // Test-harness exposure (non-production only). The V5.3.1 Playwright spec
+  // drives the queue directly via these globals because the offline UI
+  // surfaces are owned by sister task 5.3.2. Stripped from prod builds.
+  if (process.env.NODE_ENV !== 'production') {
+    const w = window as unknown as Record<string, unknown>
+    w.useOfflineStore = useOfflineStore
+    // Lazy-import to avoid circular evaluation cost.
+    void import('@/lib/offline/db').then((mod) => {
+      w.offlineDB = mod.offlineDB
+    })
+  }
+}

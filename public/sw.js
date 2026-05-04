@@ -1,181 +1,187 @@
 /**
- * Sear POS Service Worker
- * Hand-written using Workbox libraries from CDN.
- * Handles: precaching app shell, runtime caching, navigation fallback,
- * background sync trigger, update notification.
+ * Sear POS Service Worker (V5.3.1).
+ *
+ * Caching policy (per V5.3.1 spec — strict):
+ *   - Caches the app shell + critical static assets only.
+ *   - NEVER caches /api/* responses (would leak stale order/payment data
+ *     across terminals and break realtime invariants).
+ *   - NEVER caches Next.js RSC/data requests (same staleness reason).
+ *   - Mutations (POST/PUT/PATCH/DELETE) bypass the SW entirely — those go
+ *     through src/lib/offline/queue.ts which buffers them in IndexedDB.
+ *
+ * Hand-written (no Workbox) to make the API-bypass invariant audit-friendly.
  */
 
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.0.0/workbox-sw.js')
+const SHELL_CACHE = 'sear-shell-v2'
+const STATIC_CACHE = 'sear-static-v2'
+const IMAGE_CACHE = 'sear-images-v2'
 
-// Configure Workbox
-workbox.setConfig({ debug: false })
+// Critical assets to precache on install. These are app-shell paths that
+// every authenticated user hits on cold start. Keep this list short — the SW
+// will runtime-cache other static assets on first use.
+const PRECACHE_URLS = [
+  '/',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/favicon.ico',
+]
 
-const { precaching, routing, strategies, expiration, cacheableResponse } = workbox
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) =>
+        // addAll fails atomically if any URL 404s. Use individual adds with
+        // catch so a missing icon doesn't kill the install.
+        Promise.all(
+          PRECACHE_URLS.map((url) =>
+            cache.add(url).catch((err) => {
+              console.warn('[SW] precache miss for', url, err)
+            })
+          )
+        )
+      )
+      .then(() => self.skipWaiting())
+  )
+})
 
-// ─── Cache names ────────────────────────────────────────────────────
-const APP_SHELL_CACHE = 'sear-app-shell-v1'
-const API_CACHE = 'sear-api-v1'
-const STATIC_CACHE = 'sear-static-v1'
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Drop any cache that doesn't match the current version names.
+      caches.keys().then((names) =>
+        Promise.all(
+          names
+            .filter((name) => name.startsWith('sear-') &&
+              name !== SHELL_CACHE &&
+              name !== STATIC_CACHE &&
+              name !== IMAGE_CACHE)
+            .map((name) => caches.delete(name))
+        )
+      ),
+    ])
+  )
+})
 
-// ─── Precache the app shell ─────────────────────────────────────────
-// These are injected at build time or manually listed.
-// For Next.js App Router, we cache the navigation shell.
-precaching.precacheAndRoute([
-  { url: '/', revision: Date.now().toString() },
-])
+// ─── Fetch routing ─────────────────────────────────────────────────
+//
+// Strict policy. Any request that doesn't match a known cache rule falls
+// through to the network with no cache interaction.
 
-// ─── Navigation requests → serve cached app shell ───────────────────
-// For any navigation request (user types URL or clicks link),
-// try network first, fall back to cached shell.
-routing.registerRoute(
-  ({ request }) => request.mode === 'navigate',
-  new strategies.NetworkFirst({
-    cacheName: APP_SHELL_CACHE,
-    plugins: [
-      new cacheableResponse.CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      new expiration.ExpirationPlugin({
-        maxEntries: 50,
-        maxAgeSeconds: 24 * 60 * 60, // 24 hours
-      }),
-    ],
-    networkTimeoutSeconds: 3,
-  })
-)
+self.addEventListener('fetch', (event) => {
+  const { request } = event
+  const url = new URL(request.url)
 
-// ─── API requests → Network-First ───────────────────────────────────
-// Try server, fall back to cached response if offline.
-routing.registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
-  new strategies.NetworkFirst({
-    cacheName: API_CACHE,
-    plugins: [
-      new cacheableResponse.CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      new expiration.ExpirationPlugin({
-        maxEntries: 100,
-        maxAgeSeconds: 5 * 60, // 5 minutes
-      }),
-    ],
-    networkTimeoutSeconds: 5,
-  })
-)
+  // 1. Mutations — never touch the cache. The IndexedDB queue handles offline.
+  if (request.method !== 'GET') return
 
-// ─── Next.js static assets → Cache-First ────────────────────────────
-routing.registerRoute(
-  ({ url }) =>
+  // 2. Cross-origin — bypass entirely.
+  if (url.origin !== self.location.origin) return
+
+  // 3. /api/* — NEVER CACHE. Always go to network. If offline, fail through
+  //    so the caller (e.g. fetch() in a route handler) sees the network error
+  //    and falls back to its own offline strategy.
+  if (url.pathname.startsWith('/api/')) return
+
+  // 4. Next.js RSC/data — NEVER CACHE (same staleness rationale as /api).
+  if (
+    url.pathname.includes('/_next/data') ||
+    url.searchParams.has('_rsc')
+  ) {
+    return
+  }
+
+  // 5. Navigation requests — network-first, fall back to cached shell.
+  if (request.mode === 'navigate') {
+    event.respondWith(handleNavigation(request))
+    return
+  }
+
+  // 6. Static assets — cache-first.
+  if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/fonts/') ||
-    url.pathname.startsWith('/icons/'),
-  new strategies.CacheFirst({
-    cacheName: STATIC_CACHE,
-    plugins: [
-      new cacheableResponse.CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      new expiration.ExpirationPlugin({
-        maxEntries: 200,
-        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-      }),
-    ],
-  })
-)
+    url.pathname.startsWith('/icons/') ||
+    url.pathname === '/manifest.json' ||
+    url.pathname === '/favicon.ico'
+  ) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE))
+    return
+  }
 
-// ─── Images → Cache-First with longer expiry ────────────────────────
-routing.registerRoute(
-  ({ request }) => request.destination === 'image',
-  new strategies.CacheFirst({
-    cacheName: 'sear-images-v1',
-    plugins: [
-      new cacheableResponse.CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      new expiration.ExpirationPlugin({
-        maxEntries: 50,
-        maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
-      }),
-    ],
-  })
-)
+  // 7. Images — cache-first with the image cache.
+  if (request.destination === 'image') {
+    event.respondWith(cacheFirst(request, IMAGE_CACHE))
+    return
+  }
 
-// ─── Next.js data/RSC requests → Network-First ─────────────────────
-routing.registerRoute(
-  ({ url }) =>
-    url.pathname.includes('_next/data') ||
-    url.searchParams.has('_rsc'),
-  new strategies.NetworkFirst({
-    cacheName: API_CACHE,
-    plugins: [
-      new cacheableResponse.CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      new expiration.ExpirationPlugin({
-        maxEntries: 50,
-        maxAgeSeconds: 5 * 60,
-      }),
-    ],
-    networkTimeoutSeconds: 3,
-  })
-)
+  // 8. Anything else — pass through.
+})
 
-// ─── Skip waiting on message ────────────────────────────────────────
+async function handleNavigation(request) {
+  try {
+    const networkResponse = await fetch(request)
+    // Cache successful navigation responses against the shell cache. We key
+    // on '/' so an offline navigation to any route returns the shell — the
+    // client-side router takes over from there.
+    if (networkResponse && networkResponse.ok) {
+      const cache = await caches.open(SHELL_CACHE)
+      cache.put('/', networkResponse.clone()).catch(() => {})
+    }
+    return networkResponse
+  } catch {
+    // Offline — serve the cached shell. If the shell isn't cached, return
+    // a synthetic offline page (no API calls embedded).
+    const cache = await caches.open(SHELL_CACHE)
+    const cached = await cache.match('/')
+    if (cached) return cached
+    return new Response(
+      '<!doctype html><meta charset=utf-8><title>Sear POS — Offline</title>' +
+        '<style>body{font-family:system-ui;padding:48px;text-align:center;color:#1d1d1f}</style>' +
+        '<h1>Sear POS</h1><p>You are offline. Reconnect to continue.</p>',
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' }, status: 200 }
+    )
+  }
+}
+
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName)
+  const cached = await cache.match(request)
+  if (cached) return cached
+  try {
+    const response = await fetch(request)
+    if (response && response.ok && response.status !== 206) {
+      cache.put(request, response.clone()).catch(() => {})
+    }
+    return response
+  } catch (err) {
+    // No cached copy and offline — propagate the error so the page can react.
+    throw err
+  }
+}
+
+// ─── Messaging ─────────────────────────────────────────────────────
+
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting()
   }
 })
 
-// ─── Claim clients immediately ──────────────────────────────────────
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    Promise.all([
-      // Take control of all open tabs
-      self.clients.claim(),
-      // Clean up old caches
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((name) => {
-              return (
-                name.startsWith('sear-') &&
-                name !== APP_SHELL_CACHE &&
-                name !== API_CACHE &&
-                name !== STATIC_CACHE &&
-                name !== 'sear-images-v1'
-              )
-            })
-            .map((name) => caches.delete(name))
-        )
-      }),
-    ])
-  )
-})
-
-// ─── Background sync (if supported) ────────────────────────────────
+// ─── Background sync (queue replay trigger) ────────────────────────
+//
+// When the browser fires a 'sync' event for our tag, ping every open client
+// so the page-level replayer (src/lib/offline/sync.ts) can drain the queue.
 self.addEventListener('sync', (event) => {
-  if (event.tag === 'sear-sync-queue') {
+  if (event.tag === 'sear-mutation-queue') {
     event.waitUntil(
-      // Notify the client to process the sync queue
       self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: 'PROCESS_SYNC_QUEUE' })
-        })
+        clients.forEach((client) => client.postMessage({ type: 'REPLAY_MUTATION_QUEUE' }))
       })
     )
   }
 })
 
-// ─── Notify clients about updates ───────────────────────────────────
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    self.clients.matchAll().then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({ type: 'SW_UPDATE_AVAILABLE' })
-      })
-    })
-  )
-})
-
-console.log('[SW] Sear POS Service Worker loaded')
+console.log('[SW] Sear POS Service Worker loaded — API responses will NOT be cached.')
