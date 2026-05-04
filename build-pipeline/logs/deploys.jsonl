@@ -5,3 +5,11 @@
 {"ts":"2026-05-04T07:12:04Z","batch":"batch-5.4","commit":"9bf38d79f71db71cdadd69384b7ea7dba568618b","http":302,"status":"ok"}
 {"ts":"2026-05-04T07:52:27Z","batch":"batch-5.5","commit":"04e627f3cdb90fd3ecb8f880a98f98cd2851caa8","http":302,"status":"ok"}
 {"ts":"2026-05-04T08:15:24Z","batch":"batch-6.1","commit":"726ad02fa9bc0c126372c4ee168cbb35a357ff41","http":302,"status":"ok"}
+{"ts":"2026-05-04T11:57:01Z","batch":"batch-5.99-cross-cutting-fixes","commit":"7c96fb994b53b6fe8ebb2ee5a5adc84910f1423b","http":302,"status":"ok"}
+{"ts":"2026-05-04T18:23:08Z","batch":"batch-6.3","commit":"f17d985347c3b00a4943d807a835a80c955ef127","http":"000000","status":"smoke_failed_rollback_failed","rollback_exit_code":255}
+{"ts":"2026-05-04T18:47:18Z","batch":"batch-6.4","commit":"b50aaa58425000fffd9d6a4e6c202252c84dee32","http":302,"status":"ok"}
+{"ts":"2026-05-04T18:59:58Z","batch":"batch-6.5","commit":"1567304507bd8a1ae776e2b585c944e2cbe1c1c5","http":302,"status":"ok"}
+{"ts":"2026-05-04T19:20:10Z","batch":"batch-7.1","commit":"14d7094b09f074e950446cc95e845078dcdabce2","http":302,"status":"ok"}
+{"ts":"2026-05-04T19:48:01Z","batch":"batch-7.2","commit":"56275d8ea490f77ede3b7ea2b982c695027d4a31","http":302,"status":"ok"}
+{"ts":"2026-05-04T21:28:35Z","batch":"batch-6.3.1","commit":"e6b632c93ad2db23b62d5ba36073bd3640fa3982","http":302,"status":"ok"}
+{"ts":"2026-05-04T23:32:06Z","batch":"7.3","commit":"0df8610595f56bed7815d6e88d818ab8db370f86","http":302,"status":"ok"}
