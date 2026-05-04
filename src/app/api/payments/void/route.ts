@@ -3,7 +3,9 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { getValorClient } from '@/lib/payments/valor-client-loader'
-import { compare } from 'bcryptjs'
+import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { audit } from '@/lib/audit/log'
+import { checkRateLimit, applyRateLimitHeaders, getClientIp } from '@/lib/api/rate-limit'
 
 const VOID_REASON_CODES = [
   'customer_request',
@@ -17,18 +19,25 @@ const voidSchema = z.object({
   payment_id: z.string().uuid(),
   reason: z.enum(VOID_REASON_CODES),
   reason_detail: z.string().max(500).optional(),
-  manager_pin: z.string().min(4).max(8).optional(),
+  // PIN is REQUIRED for every actor — see SECURITY note on the route handler.
+  manager_pin: z.string().min(4).max(8),
 })
 
 /**
  * POST /api/payments/void — void a transaction before batch settlement
  *
- * Business rules:
- * - Can only void transactions from the current unsettled batch
- * - Voids over $100 (configurable) require manager PIN
- * - Releases card hold immediately — no interchange cost
- * - Updates payment status to 'voided' and reopens the order
- * - Full audit trail
+ * SECURITY (V5.99.7 + cycle-2):
+ *   - Manager-PIN ALWAYS required for EVERY actor — including managers, admins,
+ *     owners, and platform_admins. There is NO self-authorise path. A stolen
+ *     manager session must still satisfy the PIN gate. This produces a uniform
+ *     audit-log shape: `manager_pin_user_id` is always populated, downstream
+ *     dashboards can pivot on it without a NULL branch.
+ *   - The PIN can be the manager's own — they pass their own PIN through the
+ *     same `validateManagerPin` path. The verified user_id is recorded in
+ *     `audit_log.manager_pin_user_id`.
+ *   - Replaces legacy `audit_log.details:` insert with audit.record(...) so the
+ *     before/after_state and manager_pin_user_id are captured.
+ *   - Rate-limited at the payment tier (20/min per actor).
  */
 export async function POST(request: NextRequest) {
   const user = await getAuthUser()
@@ -38,6 +47,20 @@ export async function POST(request: NextRequest) {
   const allowedRoles = ['server', 'bartender', 'cashier', 'manager', 'admin', 'owner', 'platform_admin']
   const roleCheck = requireRole(user, allowedRoles)
   if (roleCheck) return roleCheck
+
+  // Rate-limit payment-mutating endpoints
+  const rl = await checkRateLimit('payment', user.id)
+  if (!rl.allowed) {
+    const res = NextResponse.json(
+      { error: 'Too many payment operations. Slow down.' },
+      { status: 429 }
+    )
+    applyRateLimitHeaders(res.headers, rl)
+    res.headers.set('Retry-After', String(rl.retryAfterSeconds))
+    return res
+  }
+  // Per-IP secondary limit so a compromised account can't be a single-source DoS
+  await checkRateLimit('payment', `ip:${getClientIp(request)}`)
 
   let body: unknown
   try {
@@ -88,58 +111,19 @@ export async function POST(request: NextRequest) {
 
   const totalCents = Math.round(parseFloat(paymentData.total_amount as string) * 100)
 
-  // Get void threshold from location settings (default $100 = 10000 cents)
-  let voidThresholdCents = 10000
-  const { data: locationSettings } = await (supabase.from('location_settings') as ReturnType<typeof supabase.from>)
-    .select('settings')
-    .eq('location_id', paymentData.location_id as string)
-    .single()
-
-  if (locationSettings) {
-    const settings = (locationSettings as Record<string, unknown>).settings as Record<string, unknown>
-    if (typeof settings?.void_threshold_cents === 'number') {
-      voidThresholdCents = settings.void_threshold_cents as number
-    }
-  }
-
-  // Manager PIN required for voids over threshold (unless user is already manager+)
-  const isManagerRole = ['manager', 'admin', 'owner', 'platform_admin'].includes(user.role)
-  if (totalCents > voidThresholdCents && !isManagerRole) {
-    if (!manager_pin) {
-      return NextResponse.json(
-        {
-          error: `Void over $${(voidThresholdCents / 100).toFixed(2)} requires manager PIN`,
-          requires_manager_pin: true,
-        },
-        { status: 403 }
-      )
-    }
-
-    // Validate manager PIN
-    const { data: managers } = await (supabase.from('users') as ReturnType<typeof supabase.from>)
-      .select('id, pin_hash')
-      .eq('org_id', user.org_id)
-      .in('role', ['manager', 'admin', 'owner'])
-
-    let pinValid = false
-    if (managers) {
-      for (const mgr of managers as Record<string, unknown>[]) {
-        if (mgr.pin_hash && typeof mgr.pin_hash === 'string') {
-          const matches = await compare(manager_pin, mgr.pin_hash)
-          if (matches) {
-            pinValid = true
-            break
-          }
-        }
-      }
-    }
-
-    if (!pinValid) {
-      return NextResponse.json(
-        { error: 'Invalid manager PIN' },
-        { status: 403 }
-      )
-    }
+  // -------- Manager-PIN ALWAYS required (no self-authorise) ----------------
+  // Even managers/owners must enter a PIN — that produces a uniformly
+  // populated `manager_pin_user_id` for downstream audit queries and means a
+  // stolen manager session can't be used to void without the second factor.
+  // The PIN may be the manager's own; verifyManagerPin returns the matching
+  // active-manager user id which is recorded as the authoriser.
+  // (Zod has already enforced manager_pin presence + 4-8 digit length.)
+  const managerPinUserId = await validateManagerPin(supabase, user.org_id, manager_pin)
+  if (!managerPinUserId) {
+    return NextResponse.json(
+      { error: 'Invalid manager PIN' },
+      { status: 403 }
+    )
   }
 
   // Call Valor void API for card payments
@@ -161,21 +145,31 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // -------- Capture before-state ----------------------------------------
+  const beforeState = {
+    id: payment_id,
+    status: paymentData.status,
+    total_amount: paymentData.total_amount,
+    payment_method: paymentData.payment_method,
+    order_id: paymentData.order_id,
+  }
+
   // Update payment status
+  const voidedAt = new Date().toISOString()
   const { data: updated, error: updateErr } = await (supabase.from('payments') as ReturnType<typeof supabase.from>)
     .update({
       status: 'voided',
       refund_reason: `${reason}${reason_detail ? ': ' + reason_detail : ''}`,
       refunded_by: user.id,
-      refunded_at: new Date().toISOString(),
+      refunded_at: voidedAt,
       processor_response: {
         ...(paymentData.processor_response as Record<string, unknown>),
         void: {
           reason,
           reason_detail: reason_detail ?? null,
           voided_by: user.id,
-          voided_at: new Date().toISOString(),
-          required_manager_pin: totalCents > voidThresholdCents && !isManagerRole,
+          voided_at: voidedAt,
+          authorised_by_manager_id: managerPinUserId,
         },
       },
     })
@@ -191,6 +185,7 @@ export async function POST(request: NextRequest) {
   const { data: order } = await (supabase.from('orders') as ReturnType<typeof supabase.from>)
     .select('amount_paid, balance_due, total_cents')
     .eq('id', paymentData.order_id)
+    .eq('org_id', user.org_id)
     .single()
 
   if (order) {
@@ -208,25 +203,30 @@ export async function POST(request: NextRequest) {
         status: 'open',
       })
       .eq('id', paymentData.order_id)
+      .eq('org_id', user.org_id)
   }
 
-  // Create audit trail
-  await (supabase.from('audit_log') as ReturnType<typeof supabase.from>)
-    .insert({
-      org_id: user.org_id,
-      location_id: paymentData.location_id,
-      user_id: user.id,
-      action: 'payment_voided',
-      entity_type: 'payment',
-      entity_id: payment_id,
-      details: {
-        amount_cents: totalCents,
-        reason,
-        reason_detail: reason_detail ?? null,
-        payment_method: paymentData.payment_method,
-        order_id: paymentData.order_id,
-      },
-    })
+  // -------- Audit (canonical) -------------------------------------------
+  await audit.record({
+    actor: user,
+    manager_pin_user_id: managerPinUserId,
+    action: 'payment_voided',
+    entity_type: 'payment',
+    entity_id: payment_id,
+    description: `Voided $${(totalCents / 100).toFixed(2)} payment (${reason})`,
+    before_state: beforeState,
+    after_state: {
+      status: 'voided',
+      refund_reason: `${reason}${reason_detail ? ': ' + reason_detail : ''}`,
+      voided_at: voidedAt,
+      total_amount: paymentData.total_amount,
+    },
+    reason: reason_detail ?? reason,
+    location_id: (paymentData.location_id as string | null) ?? null,
+    request,
+  })
 
-  return NextResponse.json({ data: updated })
+  const res = NextResponse.json({ data: updated })
+  applyRateLimitHeaders(res.headers, rl)
+  return res
 }

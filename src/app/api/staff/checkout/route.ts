@@ -40,10 +40,37 @@ export async function POST(request: NextRequest) {
   const { user_id, date, location_id, cash_tips_declared_cents, starting_cash_cents } = parsed.data
   const supabase = createAdminClient()
 
+  // V5.99.7: Verify the supplied user_id belongs to caller's org BEFORE any
+  // cross-table query — defends against another tenant's user_id+location_id
+  // being supplied (UUIDs sometimes leak via tickets/screenshots).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types fully cover the users table chain
+  const { data: targetUser } = await (supabase.from('users') as any)
+    .select('id, org_id')
+    .eq('id', user_id)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+
+  if (!targetUser) {
+    return NextResponse.json({ error: 'Employee not found in your organization' }, { status: 404 })
+  }
+
+  // Verify location_id belongs to caller's org
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types fully cover the locations table chain
+  const { data: targetLocation } = await (supabase.from('locations') as any)
+    .select('id, org_id')
+    .eq('id', location_id)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+
+  if (!targetLocation) {
+    return NextResponse.json({ error: 'Location not found in your organization' }, { status: 404 })
+  }
+
   // Get the time entry for this shift
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types cover time_entries chain
   const { data: timeEntry } = await (supabase.from('time_entries') as any)
     .select('*')
+    .eq('org_id', user.org_id)
     .eq('user_id', user_id)
     .eq('location_id', location_id)
     .gte('clock_in', `${date}T00:00:00Z`)
@@ -57,7 +84,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Get orders closed by this server during the shift
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types cover the orders→payments embed chain
   const { data: orders } = await (supabase.from('orders') as any)
     .select(`
       id,
@@ -67,36 +94,50 @@ export async function POST(request: NextRequest) {
       guest_count,
       payments:payments(payment_method, amount, tip_amount, auto_gratuity)
     `)
+    .eq('org_id', user.org_id)
     .eq('server_id', user_id)
     .eq('location_id', location_id)
     .gte('created_at', `${date}T00:00:00Z`)
     .lte('created_at', `${date}T23:59:59Z`)
     .in('status', ['closed', 'settled'])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const orderData = (orders ?? []).map((o: any) => {
-     
+  // V5.99.7 cycle-2: replaces a cluster of `any` casts with explicit local
+  // interfaces shaped exactly like the columns we selected above.
+  interface OrderPaymentRow {
+    payment_method: string | null
+    amount: string | number | null
+    tip_amount: string | number | null
+    auto_gratuity: string | number | null
+  }
+  interface OrderRow {
+    id: string
+    subtotal: string | number | null
+    tax: string | number | null
+    total: string | number | null
+    guest_count: number | null
+    payments: OrderPaymentRow[] | null
+  }
+
+  const orderRows = (orders ?? []) as OrderRow[]
+  const orderData = orderRows.map((o) => {
     const payments = o.payments ?? []
     const tipCents = Math.round(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      payments.reduce((s: number, p: any) => s + parseFloat(p.tip_amount ?? '0') * 100, 0)
+      payments.reduce((s, p) => s + parseFloat(String(p.tip_amount ?? '0')) * 100, 0)
     )
     const autoGratCents = Math.round(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      payments.reduce((s: number, p: any) => s + parseFloat(p.auto_gratuity ?? '0') * 100, 0)
+      payments.reduce((s, p) => s + parseFloat(String(p.auto_gratuity ?? '0')) * 100, 0)
     )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cashReceived = payments.filter((p: any) => p.payment_method === 'cash')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .reduce((s: number, p: any) => s + Math.round(parseFloat(p.amount ?? '0') * 100), 0)
-     
-    const paymentMethod = payments.length > 0 ? payments[0].payment_method : 'cash'
+    const cashReceived = payments
+      .filter((p) => p.payment_method === 'cash')
+      .reduce((s, p) => s + Math.round(parseFloat(String(p.amount ?? '0')) * 100), 0)
+
+    const paymentMethod = payments.length > 0 ? payments[0].payment_method ?? 'cash' : 'cash'
 
     return {
       orderId: o.id,
-      subtotalCents: Math.round(parseFloat(o.subtotal ?? '0') * 100),
-      taxCents: Math.round(parseFloat(o.tax ?? '0') * 100),
-      totalCents: Math.round(parseFloat(o.total ?? '0') * 100),
+      subtotalCents: Math.round(parseFloat(String(o.subtotal ?? '0')) * 100),
+      taxCents: Math.round(parseFloat(String(o.tax ?? '0')) * 100),
+      totalCents: Math.round(parseFloat(String(o.total ?? '0')) * 100),
       guestCount: o.guest_count ?? 1,
       paymentMethod,
       tipCents,

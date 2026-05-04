@@ -77,8 +77,11 @@ export type AuditAction =
   // Staff / auth
   | 'manager_override'
   | 'manager_pin_changed'
+  | 'manager_pin_verify_failed'
+  | 'manager_pin_lockout'
   | 'staff_role_changed'
   | 'staff_clocked_out_by_manager'
+  | 'auth_login_rate_limited'
   // Customers
   | 'customer_merged'
   | 'customer_data_exported'
@@ -235,6 +238,97 @@ async function record(input: AuditRecordInput): Promise<{ id: string | null; err
 }
 
 // ---------------------------------------------------------------------------
+// System (pre-auth) audit — for events that fire BEFORE we know which user
+// the request belongs to (e.g., login rate-limit, signup abuse, password
+// reset throttle). We attempt to resolve the org_id by email so the row
+// lands in the correct tenant; if the email matches no user we skip the
+// insert (we can't guess which tenant to attribute a stranger's action to).
+// ---------------------------------------------------------------------------
+export interface SystemAuditInput {
+  action: AuditAction
+  entity_type: EntityType
+  entity_id?: string | null
+  /** Plaintext email the request was attempted with — used to resolve org_id. */
+  email_attempted?: string | null
+  /** Pre-redacted/hashed email to store in the audit row metadata. */
+  email_redacted?: string | null
+  /** Override the resolved org_id. Use only when caller already knows it. */
+  org_id?: string | null
+  description?: string
+  reason?: string | null
+  before_state?: Record<string, unknown> | null
+  after_state?: Record<string, unknown> | null
+  request?: NextRequest | Request
+}
+
+/**
+ * Audit a system-level (pre-auth) event. Best-effort: returns silently if
+ * org_id cannot be resolved. The audit_log row carries user_id=null.
+ */
+async function recordSystem(input: SystemAuditInput): Promise<{ id: string | null; error: string | null }> {
+  try {
+    const admin = createAdminClient()
+
+    let orgId = input.org_id ?? null
+    if (!orgId && input.email_attempted) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): tighten Supabase generated-types coverage so we can drop the `any` cast
+      const { data } = await (admin.from('users') as any)
+        .select('org_id')
+        .eq('email', input.email_attempted.toLowerCase().trim())
+        .maybeSingle()
+      orgId = (data as { org_id?: string } | null)?.org_id ?? null
+    }
+
+    if (!orgId) {
+      // No tenant attribution possible — skip silently. The 4xx response
+      // already returned to the client is the security boundary.
+      return { id: null, error: null }
+    }
+
+    const description =
+      input.description ||
+      `${input.action.replace(/_/g, ' ')} (system event)`
+
+    const row = {
+      org_id: orgId,
+      location_id: null,
+      user_id: null,
+      user_name: input.email_redacted ?? null,
+      user_role: null as never,
+      action: input.action,
+      entity_type: input.entity_type,
+      entity_id: input.entity_id ?? null,
+      description,
+      previous_state: input.before_state ?? null,
+      new_state: input.after_state ?? null,
+      before_state: input.before_state ?? null,
+      after_state: input.after_state ?? null,
+      reason: input.reason ?? null,
+      manager_pin_user_id: null,
+      ip_address: extractIp(input.request),
+      user_agent: extractUserAgent(input.request),
+      terminal_id: null,
+    }
+
+    const { data, error } = await admin
+      .from('audit_log')
+      .insert(row as never)
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('[audit] system insert failed', { action: input.action, error: error.message })
+      return { id: null, error: error.message }
+    }
+    return { id: (data as { id: string } | null)?.id ?? null, error: null }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown audit error'
+    console.error('[audit] system unexpected error', { action: input.action, message })
+    return { id: null, error: message }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Query API — used by the back-office page + CSV export
 // ---------------------------------------------------------------------------
 export interface AuditListFilters {
@@ -364,6 +458,7 @@ function toCsv(rows: AuditListRow[]): string {
 // ---------------------------------------------------------------------------
 export const audit = {
   record,
+  recordSystem,
   list,
   toCsv,
 }

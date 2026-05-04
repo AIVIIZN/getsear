@@ -1,17 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'node:crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit, applyRateLimitHeaders, getClientIp } from '@/lib/api/rate-limit'
+import { audit } from '@/lib/audit/log'
 import type { User } from '@/types/database'
+
+/**
+ * Redact an email for audit storage. Keeps the first 2 chars of the local
+ * part + the domain + an 8-char SHA-256 prefix so an investigator can match
+ * "the same attacker hit alice@x.com 50 times" without storing the full PII.
+ *   alice@example.com -> al***@example.com (h:1a2b3c4d)
+ */
+function redactEmail(raw: string): string {
+  const trimmed = raw.toLowerCase().trim()
+  const at = trimmed.indexOf('@')
+  const hash = createHash('sha256').update(trimmed).digest('hex').slice(0, 8)
+  if (at <= 0) return `(invalid) (h:${hash})`
+  const local = trimmed.slice(0, at)
+  const domain = trimmed.slice(at + 1)
+  const prefix = local.slice(0, Math.min(2, local.length))
+  return `${prefix}***@${domain} (h:${hash})`
+}
 
 type UserProfile = Pick<
   User,
   'id' | 'org_id' | 'email' | 'first_name' | 'last_name' | 'display_name' | 'role' | 'location_ids' | 'avatar_url' | 'is_active'
 >
 
+const GENERIC_AUTH_ERROR = 'Invalid email or password.'
+
+/**
+ * POST /api/auth/login
+ *
+ * SECURITY (V5.99.7):
+ *   - Rate-limited per IP AND per email (5 attempts / 15 min) to prevent
+ *     credential-stuffing.
+ *   - Returns identical 401 for "no such user", "wrong password", and
+ *     "deactivated account" branches to prevent user-enumeration.
+ *   - On rate-limit, returns 429 with Retry-After header.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { email?: string; password?: string }
+    // 1. Per-IP rate limit (5 attempts / 15 min — auth tier).
+    const ip = getClientIp(request)
+    const ipRl = await checkRateLimit('auth', `login:ip:${ip}`)
+    if (!ipRl.allowed) {
+      // Best-effort audit: we don't know the email yet (rate-limit fired BEFORE
+      // body parse). Record an anonymous-tenant-skipped row carrying just IP.
+      // recordSystem will silently skip if it can't resolve org_id.
+      await audit.recordSystem({
+        action: 'auth_login_rate_limited',
+        entity_type: 'user',
+        entity_id: null,
+        description: `Login throttled at IP layer for ${ip}`,
+        reason: 'rate_limit_ip',
+        after_state: { scope: 'ip', client_ip: ip },
+        request,
+      })
+      const res = NextResponse.json(
+        { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
+        { status: 429 }
+      )
+      applyRateLimitHeaders(res.headers, ipRl)
+      res.headers.set('Retry-After', String(ipRl.retryAfterSeconds))
+      return res
+    }
 
+    const body = (await request.json()) as { email?: string; password?: string }
     const { email, password } = body
 
     if (!email || !password) {
@@ -21,16 +77,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 2. Per-email rate limit (defends against attacker rotating IPs).
+    const emailNormalised = email.toLowerCase().trim()
+    const emailRl = await checkRateLimit('auth', `login:email:${emailNormalised}`)
+    if (!emailRl.allowed) {
+      // Audit: now we know the email — recordSystem will resolve the user's
+      // org_id by email so the row lands in the correct tenant's audit feed.
+      // The full email is NOT stored; only the redacted form + IP.
+      await audit.recordSystem({
+        action: 'auth_login_rate_limited',
+        entity_type: 'user',
+        entity_id: null,
+        email_attempted: emailNormalised,
+        email_redacted: redactEmail(emailNormalised),
+        description: `Login throttled at per-email layer (${redactEmail(emailNormalised)})`,
+        reason: 'rate_limit_email',
+        after_state: { scope: 'email', client_ip: ip, email_redacted: redactEmail(emailNormalised) },
+        request,
+      })
+      const res = NextResponse.json(
+        { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
+        { status: 429 }
+      )
+      applyRateLimitHeaders(res.headers, emailRl)
+      res.headers.set('Retry-After', String(emailRl.retryAfterSeconds))
+      return res
+    }
+
     // Sign in via Supabase Auth
     const supabase = await createClient()
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({ email, password })
 
     if (authError || !authData.user) {
-      return NextResponse.json(
-        { error: 'Invalid email or password.' },
+      const res = NextResponse.json(
+        { error: GENERIC_AUTH_ERROR },
         { status: 401 }
       )
+      applyRateLimitHeaders(res.headers, ipRl)
+      return res
     }
 
     // Fetch full user profile from the users table
@@ -44,19 +129,27 @@ export async function POST(request: NextRequest) {
     const profile = data as UserProfile | null
 
     if (profileError || !profile) {
-      return NextResponse.json(
-        { error: 'User profile not found. Contact your administrator.' },
+      // Sign out — generic error (no enumeration)
+      await supabase.auth.signOut()
+      const res = NextResponse.json(
+        { error: GENERIC_AUTH_ERROR },
         { status: 401 }
       )
+      applyRateLimitHeaders(res.headers, ipRl)
+      return res
     }
 
     if (!profile.is_active) {
-      // Sign them back out — they shouldn't have a session
+      // Sign them back out — they shouldn't have a session.
+      // Return the SAME generic error as wrong-password to prevent
+      // attackers from enumerating active vs deactivated emails.
       await supabase.auth.signOut()
-      return NextResponse.json(
-        { error: 'Your account has been deactivated. Contact your administrator.' },
+      const res = NextResponse.json(
+        { error: GENERIC_AUTH_ERROR },
         { status: 401 }
       )
+      applyRateLimitHeaders(res.headers, ipRl)
+      return res
     }
 
     const displayName =
@@ -65,7 +158,7 @@ export async function POST(request: NextRequest) {
       profile.email ||
       'User'
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       user: {
         id: profile.id,
         email: profile.email,
@@ -76,6 +169,8 @@ export async function POST(request: NextRequest) {
         avatar_url: profile.avatar_url,
       },
     })
+    applyRateLimitHeaders(res.headers, ipRl)
+    return res
   } catch (err) {
     console.error('[auth/login] failed:', err)
     return NextResponse.json(
