@@ -2,7 +2,21 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui-v2/Button'
+import { Tabs } from '@/components/ui-v2/navigation/Tabs'
+import { Segmented } from '@/components/ui-v2/inputs/Segmented'
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalBody,
+  ModalFooter,
+} from '@/components/ui-v2/Modal'
+import { Text } from '@/components/ui-v2/inputs/Text'
+import { NumberInput } from '@/components/ui-v2/inputs/Number'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { useTableStore } from '@/stores/table-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { useRealtimeTables } from '@/hooks/use-realtime'
@@ -14,8 +28,7 @@ import { WaitlistPanel } from '@/components/tables/WaitlistPanel'
 import { ReservationSeatingFlow } from '@/components/tables/ReservationSeatingFlow'
 import { SectionFilter } from '@/components/tables/SectionFilter'
 import { StatusSummary } from '@/components/tables/StatusSummary'
-import { cn } from '@/lib/utils'
-import { LayoutGrid, List, BarChart3, Users2 } from 'lucide-react'
+import { LayoutGrid, List, BarChart3, Users2, Minus, Plus, LayoutDashboard } from 'lucide-react'
 
 type ViewMode = 'floor' | 'list' | 'capacity'
 
@@ -64,14 +77,12 @@ interface TableData {
   check_total?: number
 }
 
-// Seat dialog state
 interface SeatDialogState {
   open: boolean
   tableId: string | null
   guestCount: number
 }
 
-// Add table dialog state
 interface AddTableDialogState {
   open: boolean
   name: string
@@ -79,7 +90,6 @@ interface AddTableDialogState {
   shape: ShapeType
 }
 
-// Reservation seating flow state
 interface SeatingFlowState {
   open: boolean
   reservation: {
@@ -91,6 +101,20 @@ interface SeatingFlowState {
     status: string
   } | null
 }
+
+const VIEW_MODE_TABS = [
+  { value: 'floor', label: 'Floor Plan', icon: <LayoutGrid /> },
+  { value: 'list', label: 'List', icon: <List /> },
+  { value: 'capacity', label: 'Capacity', icon: <BarChart3 /> },
+] as const
+
+const SHAPE_OPTIONS = [
+  { value: 'square' as const, label: 'Square' },
+  { value: 'round' as const, label: 'Round' },
+  { value: 'rectangle' as const, label: 'Rect' },
+  { value: 'booth' as const, label: 'Booth' },
+  { value: 'bar' as const, label: 'Bar' },
+]
 
 export default function TablesPage() {
   const router = useRouter()
@@ -123,11 +147,10 @@ export default function TablesPage() {
     open: false,
     reservation: null,
   })
+  const [creatingFloorPlan, setCreatingFloorPlan] = useState(false)
 
-  // Track pending position/size changes for bulk save
   const pendingChanges = useRef<Map<string, { pos_x: number; pos_y: number; width?: number; height?: number }>>(new Map())
 
-  // Load floor plans
   useEffect(() => {
     async function loadFloorPlans() {
       try {
@@ -140,14 +163,13 @@ export default function TablesPage() {
           setActiveFloorPlanId(plans[0].id)
         }
       } catch {
-        // silently fail
+        // silent
       }
     }
     loadFloorPlans()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Load tables + status summary when floor plan changes
   useEffect(() => {
     if (!activeFloorPlanId) {
       setLoading(false)
@@ -172,7 +194,7 @@ export default function TablesPage() {
           setStatusCounts(summaryJson.data.counts ?? {})
         }
       } catch {
-        // silently fail
+        // silent
       } finally {
         setLoading(false)
       }
@@ -181,7 +203,6 @@ export default function TablesPage() {
     loadFloorPlan()
   }, [activeFloorPlanId])
 
-  // Sync to zustand store
   useEffect(() => {
     actions.setTables(
       tables.map((t) => ({
@@ -203,7 +224,6 @@ export default function TablesPage() {
     )
   }, [tables, actions])
 
-  // Real-time table updates
   const handleRealtimeUpdate = useCallback(
     (record: Record<string, unknown>) => {
       setTables((prev) =>
@@ -226,7 +246,6 @@ export default function TablesPage() {
         })
       )
 
-      // Update status counts
       const newStatus = record.status as string | undefined
       if (newStatus) {
         setStatusCounts((prev) => {
@@ -246,20 +265,16 @@ export default function TablesPage() {
 
   useRealtimeTables(activeFloorPlanId ?? '', handleRealtimeUpdate)
 
-  // Get unique sections from current tables
   const sections = [...new Set(tables.map((t) => t.section).filter(Boolean))].sort()
 
-  // Filter tables by section
   const filteredTables = activeSectionFilter
     ? tables.filter((t) => t.section === activeSectionFilter)
     : tables
 
-  // Get active floor plan canvas dimensions
   const activeFloorPlan = floorPlans.find((fp) => fp.id === activeFloorPlanId)
   const canvasWidth = activeFloorPlan?.canvas_width ?? 1200
   const canvasHeight = activeFloorPlan?.canvas_height ?? 800
 
-  // Handle table position change (edit mode drag)
   const handleTablePositionChange = useCallback(
     (tableId: string, x: number, y: number) => {
       setTables((prev) =>
@@ -271,7 +286,6 @@ export default function TablesPage() {
     []
   )
 
-  // Handle table size change (edit mode resize)
   const handleTableSizeChange = useCallback(
     (tableId: string, width: number, height: number, x: number, y: number) => {
       setTables((prev) =>
@@ -283,7 +297,6 @@ export default function TablesPage() {
     []
   )
 
-  // Save layout changes
   const handleSaveLayout = useCallback(async () => {
     if (pendingChanges.current.size === 0) {
       setEditMode(false)
@@ -313,13 +326,12 @@ export default function TablesPage() {
         setEditMode(false)
       }
     } catch {
-      // silently fail
+      // silent
     } finally {
       setSaving(false)
     }
   }, [])
 
-  // Seat guests at table
   const handleSeatTable = useCallback((tableId: string) => {
     setSeatDialog({ open: true, tableId, guestCount: 2 })
   }, [])
@@ -341,12 +353,11 @@ export default function TablesPage() {
         )
       }
     } catch {
-      // silently fail
+      // silent
     }
     setSeatDialog({ open: false, tableId: null, guestCount: 2 })
   }, [seatDialog])
 
-  // Clear table
   const handleClearTable = useCallback(async (tableId: string) => {
     try {
       const table = tables.find((t) => t.id === tableId)
@@ -363,11 +374,10 @@ export default function TablesPage() {
         )
       }
     } catch {
-      // silently fail
+      // silent
     }
   }, [tables])
 
-  // New order for table
   const handleNewOrder = useCallback(
     (tableId: string) => {
       router.push(`/orders?table_id=${tableId}`)
@@ -375,7 +385,6 @@ export default function TablesPage() {
     [router]
   )
 
-  // View order
   const handleViewOrder = useCallback(
     (_tableId: string, orderId: string) => {
       router.push(`/orders?order_id=${orderId}`)
@@ -383,7 +392,6 @@ export default function TablesPage() {
     [router]
   )
 
-  // Add table in edit mode
   const handleAddTableConfirm = useCallback(async () => {
     if (!activeFloorPlanId || !addTableDialog.name) return
 
@@ -405,16 +413,24 @@ export default function TablesPage() {
 
       if (res.ok) {
         const json = await res.json()
-        setTables((prev) => [...prev, { ...json.data, current_server_name: null, section_color: null, assigned_server_id: null, assigned_server_name: null }])
+        setTables((prev) => [
+          ...prev,
+          {
+            ...json.data,
+            current_server_name: null,
+            section_color: null,
+            assigned_server_id: null,
+            assigned_server_name: null,
+          },
+        ])
       }
     } catch {
-      // silently fail
+      // silent
     }
 
     setAddTableDialog({ open: false, name: '', capacity: 4, shape: 'square' })
   }, [activeFloorPlanId, addTableDialog])
 
-  // Delete table in edit mode
   const handleDeleteTable = useCallback(async (tableId: string) => {
     if (!confirm('Delete this table?')) return
 
@@ -424,11 +440,10 @@ export default function TablesPage() {
         setTables((prev) => prev.filter((t) => t.id !== tableId))
       }
     } catch {
-      // silently fail
+      // silent
     }
   }, [])
 
-  // Handle reservation seating from capacity dashboard
   const handleSeatReservation = useCallback(
     (reservation: { id: string; customer_name: string; party_size: number; reservation_time: string; table_id: string | null; status: string }) => {
       setSeatingFlow({ open: true, reservation })
@@ -436,7 +451,6 @@ export default function TablesPage() {
     []
   )
 
-  // Reload tables after section assignment
   const handleSectionAssignmentChanged = useCallback(() => {
     if (activeFloorPlanId) {
       fetch(`/api/tables/floor-plans/${activeFloorPlanId}`)
@@ -446,65 +460,68 @@ export default function TablesPage() {
     }
   }, [activeFloorPlanId])
 
+  const handleCreateFloorPlan = useCallback(async () => {
+    if (creatingFloorPlan) return
+    setCreatingFloorPlan(true)
+    try {
+      const res = await fetch('/api/tables/floor-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Main Dining', location_id: activeLocationId }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        setFloorPlans([json.data])
+        setActiveFloorPlanId(json.data.id)
+      }
+    } catch {
+      // silent
+    } finally {
+      setCreatingFloorPlan(false)
+    }
+  }, [activeLocationId, creatingFloorPlan])
+
+  // Suppress unused-warning for delete handler retained for future inline-edit hookup
+  void handleDeleteTable
+
+  const floorPlanTabs = floorPlans.map((fp) => ({ value: fp.id, label: fp.name }))
+
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background">
+    <div className="flex h-full flex-col overflow-hidden bg-[var(--color-bg)]">
       {/* Top bar */}
       <div
-        className="flex flex-shrink-0 items-center gap-3 px-4"
-        style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--separator)' }}
+        className="flex flex-shrink-0 items-center gap-[var(--space-3)] px-[var(--space-4)]"
+        style={{ height: 'var(--topbar-height)', borderBottom: '0.5px solid var(--color-border)' }}
       >
-        {/* View mode tabs */}
-        <div className="flex items-center rounded-xl bg-secondary p-0.5">
-          {([
-            { mode: 'floor' as ViewMode, icon: LayoutGrid, label: 'Floor Plan' },
-            { mode: 'list' as ViewMode, icon: List, label: 'List' },
-            { mode: 'capacity' as ViewMode, icon: BarChart3, label: 'Capacity' },
-          ]).map(({ mode, icon: Icon, label }) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setViewMode(mode)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
-                viewMode === mode
-                  ? 'bg-background text-foreground shadow-warm-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          ariaLabel="View mode"
+          options={VIEW_MODE_TABS.map((t) => ({
+            value: t.value,
+            label: t.label,
+            icon: t.icon,
+          }))}
+          value={viewMode}
+          onChange={(v) => setViewMode(v as ViewMode)}
+          size="md"
+        />
 
-        {/* Separator */}
-        <div className="h-6 w-px bg-border" />
+        <div className="h-6 w-px bg-[var(--color-border)]" />
 
-        {/* Floor plan tabs (only in floor plan view) */}
-        {viewMode === 'floor' && (
-          <div className="flex items-center gap-1.5">
-            {floorPlans.map((fp) => (
-              <button
-                key={fp.id}
-                type="button"
-                onClick={() => setActiveFloorPlanId(fp.id)}
-                className={cn(
-                  'btn-press touch-target rounded-xl px-4 py-2 text-subhead font-semibold transition-colors',
-                  activeFloorPlanId === fp.id
-                    ? 'bg-primary text-primary-foreground shadow-warm-sm'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-                )}
-              >
-                {fp.name}
-              </button>
-            ))}
-          </div>
+        {viewMode === 'floor' && floorPlanTabs.length > 0 && (
+          <Tabs
+            variant="line"
+            size="md"
+            items={floorPlanTabs}
+            value={activeFloorPlanId ?? floorPlanTabs[0].value}
+            onValueChange={(v) => setActiveFloorPlanId(v)}
+            ariaLabel="Floor plans"
+            className="self-end"
+          />
         )}
 
-        {/* Section filter (floor plan & list views) */}
         {viewMode !== 'capacity' && sections.length > 0 && (
           <>
-            <div className="h-6 w-px bg-border" />
+            <div className="h-6 w-px bg-[var(--color-border)]" />
             <SectionFilter
               sections={sections}
               activeSection={activeSectionFilter}
@@ -513,43 +530,35 @@ export default function TablesPage() {
           </>
         )}
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Status summary (floor plan & list views) */}
         {viewMode !== 'capacity' && <StatusSummary counts={statusCounts} />}
 
-        {/* Separator */}
-        <div className="h-6 w-px bg-border" />
+        <div className="h-6 w-px bg-[var(--color-border)]" />
 
-        {/* Section assignment button (manager action) */}
         <Button
           size="sm"
-          variant="outline"
-          className="h-8 text-xs"
+          variant="secondary"
+          leadingIcon={<Users2 />}
           onClick={() => setShowSectionPanel(true)}
         >
-          <Users2 className="mr-1 h-3.5 w-3.5" />
           Sections
         </Button>
 
-        {/* Edit mode toggle (floor plan view only) */}
         {viewMode === 'floor' && (
           <>
             {editMode ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-[var(--space-2)]">
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
+                  variant="secondary"
                   onClick={() => setAddTableDialog({ open: true, name: '', capacity: 4, shape: 'square' })}
                 >
                   Add Table
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="h-8 text-xs text-destructive"
+                  variant="ghost"
                   onClick={() => {
                     pendingChanges.current.clear()
                     setEditMode(false)
@@ -565,20 +574,15 @@ export default function TablesPage() {
                 </Button>
                 <Button
                   size="sm"
-                  className="h-8 text-xs"
-                  disabled={saving}
+                  variant="primary"
+                  loading={saving}
                   onClick={handleSaveLayout}
                 >
-                  {saving ? 'Saving...' : 'Save Layout'}
+                  {saving ? 'Saving' : 'Save Layout'}
                 </Button>
               </div>
             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={() => setEditMode(true)}
-              >
+              <Button size="sm" variant="secondary" onClick={() => setEditMode(true)}>
                 Edit Layout
               </Button>
             )}
@@ -588,32 +592,23 @@ export default function TablesPage() {
 
       {/* Main content area */}
       <div className="relative flex flex-1 overflow-hidden">
-        {/* Left: View content */}
         <div className="flex-1 overflow-hidden">
           {loading ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-sm text-muted-foreground">Loading...</div>
+            <div className="flex h-full flex-col gap-[var(--space-4)] p-[var(--space-6)]">
+              <Skeleton variant="chart" className="h-[60%]" />
+              <Skeleton variant="text" lines={3} />
             </div>
           ) : floorPlans.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3">
-              <p className="text-sm text-muted-foreground">No floor plans yet.</p>
-              <Button
-                size="sm"
-                onClick={async () => {
-                  const res = await fetch('/api/tables/floor-plans', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: 'Main Dining', location_id: activeLocationId }),
-                  })
-                  if (res.ok) {
-                    const json = await res.json()
-                    setFloorPlans([json.data])
-                    setActiveFloorPlanId(json.data.id)
-                  }
+            <div className="flex h-full items-center justify-center">
+              <EmptyState
+                icon={LayoutDashboard}
+                title="No floor plans yet"
+                description="Create a floor plan to start arranging tables and seating guests."
+                action={{
+                  label: creatingFloorPlan ? 'Creating' : 'Create Floor Plan',
+                  onClick: handleCreateFloorPlan,
                 }}
-              >
-                Create Floor Plan
-              </Button>
+              />
             </div>
           ) : viewMode === 'floor' ? (
             <FloorPlanCanvas
@@ -635,169 +630,165 @@ export default function TablesPage() {
                 section_color: t.section_color ?? null,
                 assigned_server_name: t.assigned_server_name ?? null,
               }))}
-              onTableSelect={(id) => {
-                // Switch to floor plan view and select the table
+              onTableSelect={() => {
                 setViewMode('floor')
               }}
               onSeatTable={handleSeatTable}
               onClearTable={handleClearTable}
             />
           ) : (
-            <div className="h-full overflow-auto p-4">
-              <CapacityDashboard
-                tables={tables}
-                onSeatReservation={handleSeatReservation}
-              />
+            <div className="h-full overflow-auto p-[var(--space-4)]">
+              <CapacityDashboard tables={tables} onSeatReservation={handleSeatReservation} />
             </div>
           )}
         </div>
 
-        {/* Right sidebar: Waitlist (visible in floor/list views) */}
         {viewMode !== 'capacity' && (
-          <div className="w-80 flex-shrink-0 overflow-auto border-l border-border bg-card p-3">
+          <div
+            className="w-80 flex-shrink-0 overflow-auto bg-[var(--color-surface)] p-[var(--space-3)]"
+            style={{ borderLeft: '0.5px solid var(--color-border)' }}
+          >
             <WaitlistPanel onSeatEntry={() => handleSectionAssignmentChanged()} />
           </div>
         )}
       </div>
 
-      {/* Seat guests dialog */}
-      {seatDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-backdrop">
-          <div className="w-80 rounded-2xl bg-card p-6 shadow-warm-xl animate-fade-in">
-            <h3 className="mb-4 text-headline text-foreground">Seat Guests</h3>
-
-            <div className="mb-4">
-              <label className="mb-1 block text-xs text-muted-foreground">Number of guests</label>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="touch-target flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-lg font-bold"
+      {/* Seat guests modal */}
+      <Modal
+        open={seatDialog.open}
+        onOpenChange={(open) =>
+          setSeatDialog((s) => ({ ...s, open: open === true }))
+        }
+      >
+        <ModalContent size="sm">
+          <ModalHeader>
+            <ModalTitle>Seat Guests</ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            <div className="flex flex-col gap-[var(--space-2)]">
+              <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text)]">
+                Number of guests
+              </span>
+              <div className="flex items-center justify-center gap-[var(--space-4)] py-[var(--space-2)]">
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  aria-label="Decrease guests"
                   onClick={() =>
                     setSeatDialog((s) => ({
                       ...s,
                       guestCount: Math.max(1, s.guestCount - 1),
                     }))
                   }
+                  className="h-[44px] w-[44px] p-0"
                 >
-                  -
-                </button>
-                <span className="w-8 text-center text-xl font-bold tabular-nums">
+                  <Minus />
+                </Button>
+                <span className="min-w-[3ch] text-center text-[length:var(--type-large-title-size)] font-[var(--weight-semibold)] tabular-nums text-[var(--color-text)]">
                   {seatDialog.guestCount}
                 </span>
-                <button
-                  type="button"
-                  className="touch-target flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-lg font-bold"
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  aria-label="Increase guests"
                   onClick={() =>
                     setSeatDialog((s) => ({
                       ...s,
                       guestCount: Math.min(50, s.guestCount + 1),
                     }))
                   }
+                  className="h-[44px] w-[44px] p-0"
                 >
-                  +
-                </button>
+                  <Plus />
+                </Button>
               </div>
             </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => setSeatDialog({ open: false, tableId: null, guestCount: 2 })}
+            >
+              Cancel
+            </Button>
+            <Button variant="primary" size="lg" onClick={handleSeatConfirm}>
+              Seat
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => setSeatDialog({ open: false, tableId: null, guestCount: 2 })}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" className="flex-1" onClick={handleSeatConfirm}>
-                Seat
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add table dialog (edit mode) */}
-      {addTableDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-80 rounded-xl bg-card p-5 shadow-warm-xl">
-            <h3 className="mb-4 text-sm font-bold text-foreground">Add Table</h3>
-
-            <div className="mb-3">
-              <label className="mb-1 block text-xs text-muted-foreground">Table name</label>
-              <input
-                type="text"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                placeholder="e.g., T1, B3"
-                value={addTableDialog.name}
-                onChange={(e) =>
-                  setAddTableDialog((s) => ({ ...s, name: e.target.value }))
+      {/* Add table modal */}
+      <Modal
+        open={addTableDialog.open}
+        onOpenChange={(open) =>
+          setAddTableDialog((s) => ({ ...s, open: open === true }))
+        }
+      >
+        <ModalContent size="sm">
+          <ModalHeader>
+            <ModalTitle>Add Table</ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            <Text
+              size="lg"
+              label="Table name"
+              placeholder="e.g., T1, B3"
+              value={addTableDialog.name}
+              onChange={(e) => setAddTableDialog((s) => ({ ...s, name: e.target.value }))}
+            />
+            <NumberInput
+              size="lg"
+              label="Capacity"
+              min={1}
+              max={50}
+              value={addTableDialog.capacity}
+              onChange={(e) =>
+                setAddTableDialog((s) => ({
+                  ...s,
+                  capacity: parseInt(e.target.value, 10) || 4,
+                }))
+              }
+            />
+            <div className="flex flex-col gap-[var(--space-2)]">
+              <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text)]">
+                Shape
+              </span>
+              <Segmented
+                ariaLabel="Table shape"
+                options={SHAPE_OPTIONS}
+                value={addTableDialog.shape}
+                onChange={(v) =>
+                  setAddTableDialog((s) => ({ ...s, shape: v as ShapeType }))
                 }
+                size="lg"
+                fullWidth
               />
             </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() =>
+                setAddTableDialog({ open: false, name: '', capacity: 4, shape: 'square' })
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              disabled={!addTableDialog.name}
+              onClick={handleAddTableConfirm}
+            >
+              Add
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-            <div className="mb-3">
-              <label className="mb-1 block text-xs text-muted-foreground">Capacity</label>
-              <input
-                type="number"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                min={1}
-                max={50}
-                value={addTableDialog.capacity}
-                onChange={(e) =>
-                  setAddTableDialog((s) => ({
-                    ...s,
-                    capacity: parseInt(e.target.value, 10) || 4,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="mb-1 block text-xs text-muted-foreground">Shape</label>
-              <div className="flex gap-1.5">
-                {(['square', 'round', 'rectangle', 'booth', 'bar'] as const).map((shape) => (
-                  <button
-                    key={shape}
-                    type="button"
-                    onClick={() => setAddTableDialog((s) => ({ ...s, shape }))}
-                    className={cn(
-                      'touch-target flex-1 rounded-md px-2 py-1.5 text-xs font-medium capitalize transition-colors',
-                      addTableDialog.shape === shape
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground',
-                    )}
-                  >
-                    {shape}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() =>
-                  setAddTableDialog({ open: false, name: '', capacity: 4, shape: 'square' })
-                }
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1"
-                disabled={!addTableDialog.name}
-                onClick={handleAddTableConfirm}
-              >
-                Add
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Server Section Panel */}
       {showSectionPanel && (
         <ServerSectionPanel
           tables={tables.map((t) => ({
@@ -812,7 +803,6 @@ export default function TablesPage() {
         />
       )}
 
-      {/* Reservation Seating Flow */}
       {seatingFlow.open && seatingFlow.reservation && (
         <ReservationSeatingFlow
           reservation={seatingFlow.reservation}
@@ -825,7 +815,7 @@ export default function TablesPage() {
           }))}
           onSeated={() => {
             setSeatingFlow({ open: false, reservation: null })
-            handleSectionAssignmentChanged() // reload tables
+            handleSectionAssignmentChanged()
           }}
           onClose={() => setSeatingFlow({ open: false, reservation: null })}
         />
