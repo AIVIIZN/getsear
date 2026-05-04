@@ -95,20 +95,24 @@ For a parallel batch with N tasks, you spawn N agents in **one message** contain
 | `e2e-tester` | Playwright workflow specs in `e2e/` | 5.5.1, 5.5.2, and any test-only batch |
 | `security-reviewer` | RLS, manager-PIN, audit-log, OWASP audits | 8.3.x, 8.6.x, any auth/payment privileged-action task |
 | `devops-deploy` | INTEGRATE.sh, DEPLOY.sh, GitHub Actions, pm2/VM, Sentry | 7.1.x, 7.4.x, any pipeline-plumbing task |
-| `reviewer` | Per-task verification (Layer 1 self-check) | Spawned by the runner AFTER each implementer; see "Reviewer pass" below |
+| `reviewer` | Per-task verification (Layer 1 self-check — correctness, criteria, scope) | Spawned by the runner AFTER each implementer; see "Reviewer pass" below |
+| `design-reviewer` | Premium-feel design audit (Layer 1 self-check — visual quality) | Spawned IN PARALLEL with `reviewer` for any task touching `src/components/**`, `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/styles/**`, `src/app/globals.css` |
 
 For the rare task without a fitting specialist, dispatch with `subagent_type: general-purpose` and write the full briefing.
 
 ### Reviewer pass (Layer 1 self-check) — MANDATORY before INTEGRATE
 
-**After all implementers in a parallel batch complete (status `ok` in `logs/agents.jsonl`), and BEFORE running `INTEGRATE.sh`,** spawn one `reviewer` sub-agent per completed worktree. Spawn them in ONE message (parallel). Each reviewer:
+**After all implementers in a parallel batch complete (status `ok` in `logs/agents.jsonl`), and BEFORE running `INTEGRATE.sh`,** spawn TWO classes of reviewer in ONE parallel message:
 
-- Reads its worktree's `git diff main...HEAD`.
-- Reads the relevant spec excerpt + acceptance criteria.
-- Emits a verdict (`PASS` / `CONCERNS` / `FAIL`) to `build-pipeline/logs/reviews.jsonl`.
+1. **Always:** one `reviewer` sub-agent per completed worktree (correctness, criteria, scope, project rules).
+2. **For UI-touching worktrees:** one `design-reviewer` sub-agent per worktree whose diff includes `src/components/**`, `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/styles/**`, or `src/app/globals.css` (premium-feel audit, design tokens, sidebar/contrast/touch-targets, Rule-18 lying buttons). To detect: `git -C <worktree> diff main...HEAD --name-only | grep -E '^(src/components/|src/app/.*\.(page|layout)\.tsx?$|src/styles/|src/app/globals\.css$)'` — non-empty → spawn design-reviewer.
+
+Each reviewer writes its verdict to its own log:
+- `reviewer` → `build-pipeline/logs/reviews.jsonl`
+- `design-reviewer` → `build-pipeline/logs/design-reviews.jsonl`
 
 After all reviewers return:
-- **Any `FAIL`?** Re-spawn the implementer with the reviewer's `issues[]` appended to the task prompt. Max 3 fix cycles per task; then BLOCKERS.md.
+- **Any `FAIL` from EITHER reviewer class?** Re-spawn the implementer with the failed reviewer's `issues[]` appended to the task prompt. Max 3 fix cycles per task (counted across both reviewer classes); then BLOCKERS.md.
 - **All `PASS` or `CONCERNS`?** Proceed to INTEGRATE.sh. CONCERNS get logged for later cleanup, don't block the merge.
 
 Reviewer dispatch prompt template:
@@ -167,7 +171,7 @@ After spawning all agents in one message, the system will notify you as each com
 1. **Reconcile.** Read `logs/agents.jsonl` for the entries with this batch's task IDs. Determine which tasks are `ok`, `deferred`, `failed`.
 2. **Failed tasks:** retry by re-spawning the agent with the same prompt + an additional context block explaining what went wrong from the prior attempt's log entry. Max 3 attempts per task. After attempt 3, log to BLOCKERS.md and halt.
 3. **Deferred tasks:** mark `deferred` in STATE.yaml with the reason. Do not retry until next batch cycle. After 3 deferral cycles for the same reason → BLOCKERS.md.
-4. **Reviewer pass (NEW — Layer 1 self-check):** spawn one `reviewer` sub-agent per `ok` worktree, in parallel, in ONE message. Wait for all verdicts in `logs/reviews.jsonl`. Any FAIL routes back to the implementer (max 3 fix cycles total per task, including this one). All PASS / CONCERNS → continue to integration.
+4. **Reviewer pass (Layer 1 self-check):** spawn `reviewer` per `ok` worktree AND `design-reviewer` per UI-touching worktree (see "Reviewer pass" section above for the file-glob detection), in parallel, in ONE message. Wait for verdicts (`logs/reviews.jsonl`, `logs/design-reviews.jsonl`). Any FAIL from either reviewer class routes back to the implementer (max 3 fix cycles total per task). All PASS / CONCERNS → continue.
 5. **All reviewed ok:** continue to integration.
 
 ## Integration step

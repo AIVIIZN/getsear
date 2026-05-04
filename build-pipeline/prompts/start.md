@@ -15,7 +15,7 @@ After reading them, do this:
    - For a parallel batch: spawn ALL tasks as background Agents in ONE message (run_in_background: true), each in its own git worktree under .claude/worktrees/v{N}-batch-{B}-{slug}/. **Use the project's specialist agents from .claude/agents/ via `subagent_type:` — see RUNNER.md "Project agent registry" table for the mapping.** Do not use `general-purpose` unless no specialist fits.
    - For a sequential task: execute inline (or with a single `subagent_type` if the work matches a specialist).
 4. Wait for agents to complete (the system will notify you).
-5. **Reviewer pass (Layer 1 self-check, MANDATORY):** spawn one `reviewer` sub-agent per completed worktree, in ONE parallel message. Wait for verdicts in `logs/reviews.jsonl`. Any FAIL → re-spawn the implementer with the reviewer's issues; max 3 fix cycles. All PASS / CONCERNS → continue.
+5. **Reviewer pass (Layer 1 self-check, MANDATORY):** spawn `reviewer` per completed worktree AND `design-reviewer` for any worktree whose diff includes UI files (`src/components/**`, `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/styles/**`, `src/app/globals.css`), all in ONE parallel message. Wait for verdicts in `logs/reviews.jsonl` + `logs/design-reviews.jsonl`. Any FAIL from either → re-spawn the implementer with the failed reviewer's issues; max 3 fix cycles. All PASS / CONCERNS → continue.
 6. Run build-pipeline/INTEGRATE.sh to merge worktrees and test (export BATCH_ID first).
 7. If integration passes: run build-pipeline/DEPLOY.sh.
 8. Update STATE.yaml: mark complete, advance pointer, append to logs/batch-runs.jsonl.
