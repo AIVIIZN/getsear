@@ -33,6 +33,7 @@ import {
   setMuted,
   resetAlertTracking,
 } from '@/lib/kds/audio-alerts'
+import { haptics } from '@/lib/haptics'
 import { type RefireReasonCode, type KdsMessageData } from '@/stores/kds-store'
 
 export default function KdsPage() {
@@ -398,6 +399,7 @@ export default function KdsPage() {
   // Bump a ticket
   const handleBump = useCallback(
     async (ticketId: string) => {
+      haptics.kdsBump()
       try {
         const res = await fetch(`/api/kds/tickets/${ticketId}/bump`, {
           method: 'POST',
@@ -418,6 +420,7 @@ export default function KdsPage() {
   // Bump individual item
   const handleItemBump = useCallback(
     async (ticketId: string, itemId: string) => {
+      haptics.kdsBump()
       try {
         const res = await fetch(
           `/api/kds/tickets/${ticketId}/items/${itemId}/bump`,
@@ -480,6 +483,7 @@ export default function KdsPage() {
   // Expo bump (final bump)
   const handleExpoBump = useCallback(
     async (ticketId: string) => {
+      haptics.kdsBump()
       try {
         const res = await fetch(`/api/kds/tickets/${ticketId}/bump`, {
           method: 'POST',
@@ -541,6 +545,7 @@ export default function KdsPage() {
   const handleBumpAll = useCallback(async () => {
     if (!activeStationId || !locationId) return
 
+    haptics.kdsBump()
     try {
       const res = await fetch('/api/kds/tickets/bump-all', {
         method: 'POST',

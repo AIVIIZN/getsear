@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { haptics } from '@/lib/haptics'
 import { ShieldCheck, X, Delete } from 'lucide-react'
 
 interface ManagerPinDialogProps {
@@ -71,6 +72,7 @@ export function ManagerPinDialog({
 
         if (res.ok) {
           const json = await res.json()
+          haptics.managerApprove()
           onVerified(
             json.data.user_id,
             json.data.display_name,

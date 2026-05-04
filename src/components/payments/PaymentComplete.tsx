@@ -5,6 +5,7 @@ import { Check } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { SPRING_SNAP, SPRING_SOFT, checkmarkPop, useReducedMotion } from '@/lib/motion/transitions'
+import { haptics } from '@/lib/haptics'
 
 interface PaymentCompleteProps {
   totalCents: number
@@ -34,6 +35,11 @@ export function PaymentComplete({
     const timer = setTimeout(() => setShowCheck(true), reduced ? 0 : 150)
     return () => clearTimeout(timer)
   }, [reduced])
+
+  // Fire success haptic once on mount (component only renders on success state)
+  useEffect(() => {
+    haptics.paymentSuccess()
+  }, [])
 
   // Auto-redirect countdown
   useEffect(() => {
