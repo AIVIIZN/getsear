@@ -60,7 +60,55 @@ Close the loop on operational realism. A POS that compiles is not a POS that ope
 **Files:** `src/app/api/kds/tickets/route.ts` (resolve TODO at line 427), `src/lib/kds/diff.ts` (new)
 **Acceptance:** When items added to an already-sent order via the existing add-items API, the KDS ticket flags `is_add: true` for those items. KDS UI shows "ADD" badge on additional items.
 
-## Batch 5.2 — Hardware integration (parallel, ~6 hours)
+## Batch 5.2 — Hardware integration (parallel, ~12 hours)
+
+### 5.2.0 — Processor binding + auto-detect framework (foundational, ~6h, software-only)
+
+**Why this exists:** Sear's business model is processor-locked merchant onboarding. Each org gets one assigned processor (Valor at launch); switching is forbidden by contract and must be impossible by software. Hardware, however, is permissive — merchants can use any compatible terminal/printer/drawer. This task builds the foundation so every later payment driver inherits the lock automatically.
+
+**Architecture goal — defense in depth (3 independent layers):**
+1. **TypeScript** — `Processor` is a const literal type, not a string union. Any future "switch" requires a code change reviewed by Sear staff.
+2. **Database** — `org_processor_bindings` table is INSERT-only, enforced by a `BEFORE UPDATE` trigger that raises an exception if the processor field changes. Even raw-SQL rogue admin attempts fail.
+3. **No UI surface** — there is no "Switch Processor" control anywhere in the app. The processor appears as read-only metadata on the receipts/settings pages. Adding/removing terminals is freely available; the processor field is never editable.
+
+**Files:**
+- Migration: `supabase/migrations/<NEW_TS>_add_org_processor_binding.sql` + `supabase/_rollbacks/...rollback.sql`
+  - New table `org_processor_bindings(org_id uuid PK FK→organizations, processor text NOT NULL CHECK (processor IN ('valor')), bound_at timestamptz NOT NULL DEFAULT now(), bound_by_user_id uuid FK→users)`.
+  - Trigger: `BEFORE UPDATE ON org_processor_bindings FOR EACH ROW: IF OLD.processor != NEW.processor THEN RAISE EXCEPTION 'processor binding is immutable'`.
+  - Backfill: INSERT one row per existing org with processor='valor', bound_by_user_id = the org's owner user.
+  - RLS: tenant-scoped SELECT (own org only); INSERT/UPDATE/DELETE blocked entirely from authenticated role (only service-role can write).
+- `src/lib/payments/processor-binding.ts` — `Processor = 'valor'` const literal type; `getProcessorBinding(org_id)`, `requireProcessorBinding(org_id)` (throws if missing).
+- `src/lib/payments/terminal-registry.ts` — registry of device-class drivers + metadata (mfg, model, supported_processors, cert_status: `'live'|'pending_cert'|'unsupported'`); `getDriver(class)`, `listAvailableDrivers(processor)` (filters by compat matrix).
+- `src/lib/payments/compatibility-matrix.ts` — single source of truth for which (driver_class × processor) combos are allowed and at what cert status. Day-1 contents:
+  - Valor VL100 / VL300 / VL500 / VP200 → 'live' (Valor's own hardware)
+  - Verifone P400, Ingenico Lane 3000, Clover Flex → 'pending_cert' (drivers exist as stubs; runtime rejects until Valor cert lands)
+  - iOS Tap-to-Pay, Android Tap-to-Pay → 'unsupported_until_psp_listed' (Valor not on Apple/Google PSP list as of build time; can flip to 'live' when status changes without code change)
+- `src/lib/payments/auto-detect.ts` — orchestrator that runs all scanners in parallel, returns `DiscoveredDevice[]` with `mfg`, `model`, `identifier (ip/serial/bt-addr)`, `device_class`, `supported: boolean`, `cert_status`.
+- `src/lib/payments/scanners/`:
+  - `mdns-scanner.ts` — Bonjour/mDNS for Wi-Fi terminals + printers (uses `bonjour-service` package).
+  - `usb-scanner.ts` — USB HID enumeration (Web USB if browser context supports; else returns []).
+  - `bluetooth-scanner.ts` — Web Bluetooth API for BT pinpads.
+  - `tap-to-pay-scanner.ts` — checks platform SDK availability (returns [] when unsupported by current processor binding).
+- `src/app/api/payments/terminals/discover/route.ts` — POST: triggers scan; returns merged DiscoveredDevice list. Manager-PIN gated.
+- `src/app/api/payments/terminals/route.ts` — GET (list registered terminals for org), POST (register a discovered device — manager-PIN gated; rejects if device's class isn't 'live' for the org's bound processor).
+- `src/app/(backoffice)/settings/terminals/page.tsx` — UI: read-only "Payment processor: Valor" header (no edit), table of registered terminals with status, "Scan for devices" button.
+- `src/components/settings/TerminalDiscoveryDialog.tsx` — dialog showing scan results with Add buttons; shows ✓ Compatible / ⚠ Pending Cert / ✗ Not Supported per device.
+
+**Acceptance criteria (all must demonstrably pass):**
+- Migration creates `org_processor_bindings` with INSERT-only trigger; SQL test proves UPDATE raises exception.
+- Existing orgs are backfilled to `processor='valor'`.
+- `Processor` type in code is a const literal `'valor'` — not a string. (Verify by attempting to assign `'stripe'` to a Processor variable; tsc errors.)
+- `requireProcessorBinding(org_id)` returns the binding for any tenant; throws for an unknown org.
+- `terminal-registry.ts` exports at least 4 Valor drivers + 3 alternative-mfg drivers (stubbed; just metadata + `connect()` throwing 'pending_cert' for non-live ones).
+- `auto-detect.ts` runs all scanners in parallel with a 5s overall timeout; returns merged results.
+- `/api/payments/terminals/discover` returns a JSON array of DiscoveredDevice; Manager-PIN required.
+- `/api/payments/terminals` POST rejects (400) any device whose `cert_status != 'live'` for the org's processor.
+- Settings → Terminals page renders the bound processor as read-only text (verify there's no `<select>` or `<input>` for the processor field anywhere in the page DOM).
+- Playwright test: scan endpoint returns mocked devices; UI lists them; clicking "Add" on a `'live'` device succeeds; clicking "Add" on `'pending_cert'` device shows error.
+
+**Logged decisions to write to STATE.yaml:**
+- Confirm Valor's Tap-to-Pay PSP status: if listed on Apple/Google approved PSPs, flip iOS/Android to `'live'` in the matrix (no code changes elsewhere needed). Otherwise stays `'unsupported_until_psp_listed'`.
+- The 9 stubbed alternative-mfg drivers (Verifone/Ingenico/Clover variants) ship in V9 batch (new bonus 9.6.x or 9.10) once each gets Valor cert.
 
 ### 5.2.1 — Star TSP650II printer
 **Files:** `src/lib/printing/star-driver.ts`, `src/app/api/printing/test/route.ts`, `src/components/printing/PrinterSetupWizard.tsx`

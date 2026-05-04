@@ -11,6 +11,9 @@ decisions:
   - { ts: "2026-05-03T04:30:00Z", scope: "lint", choice: "Bucket B distributed across V5/V6/V7 via eslint.config.mjs bucketBLintDebt array; lint passes today, future tasks remove debt file-by-file", rationale: "user-selected option 3 — slow/lowest-blast-radius; preserves regression safety for realtime infra" }
   - { ts: "2026-05-03T06:00:00Z", scope: "e2e fixtures", choice: "fixed 5 stale tests inline (toBeGreaterThanOrEqual + contains-name) rather than .fixme()", rationale: "user-selected option 2 — durable, prevents future false-failures; cost ~30min" }
   - { ts: "2026-05-03T06:30:00Z", scope: "deploy reliability", choice: "patched DEPLOY.sh smoke test to retry 5× with 5s backoff; accepts 2xx/3xx", rationale: "first deploy hit pm2-reload race; site was actually up but smoke fired too early" }
+  - { ts: "2026-05-04T01:30:00Z", scope: "prod env loading", choice: "DEPLOY.sh now sources /opt/sear/app/.env.local then pm2 reload --update-env then pm2 save", rationale: "Next 16 standalone runtime does NOT read .env.local; OS env is the only source of server-side secrets. P0 outage caused by SUPABASE_SERVICE_ROLE_KEY missing from pm2 env; bare catch swallowed the actual error" }
+  - { ts: "2026-05-04T02:00:00Z", scope: "payments architecture", choice: "hardware-permissive + processor-locked: 3-layer defense in depth (TS const literal type + DB INSERT-only trigger + no UI surface). Auto-detect framework + compatibility matrix + 4 Valor drivers live in V5.2.0; 9 alternative-mfg drivers stubbed pending Valor cert (V9.10 lights them up)", rationale: "Sear's business model depends on processor lock-in (residual revenue, MSP contract). Permissive hardware is good UX (auto-detect any compatible terminal). Locking processor at type+DB+UI layers means no single-point failure can break the constraint." }
+  - { ts: "2026-05-04T02:00:00Z", scope: "payments — Tap to Pay", choice: "iOS / Android Tap-to-Pay marked 'unsupported_until_psp_listed' in compatibility matrix; can flip to 'live' WITHOUT code change once Valor reaches Apple's / Google's PSP allowlist (reachable as of training: Stripe, Adyen, Square, Fiserv, Toast — Valor not listed)", rationale: "Apple/Google control the PSP allowlist; we can't bypass without breaking the lock. Phone-as-terminal still possible via paired Bluetooth Valor sleeve (V9.10.4/5)." }
 
 versions:
   V5:
@@ -43,12 +46,17 @@ versions:
           "5.1.4": { status: complete, agent: marketing-engineer, eta_hours: 2, review: CONCERNS }
           "5.1.5": { status: complete, agent: pos-coder, eta_hours: 1.5, review: "CONCERNS (correctness + design)" }
       "5.2":
-        type: parallel
+        type: mixed_sequential_then_parallel
         status: pending
+        # 5.2.0 is software-only (no hardware needed) and runs FIRST so the
+        # processor-binding lock + auto-detect framework exists before the
+        # hardware drivers register against it. Then 5.2.1/2/3 run in
+        # parallel against that framework.
         tasks:
-          "5.2.1": { status: pending, agent: coder, eta_hours: 4, needs_hardware: star-printer }
-          "5.2.2": { status: pending, agent: backend-dev, eta_hours: 5, needs_credential: VALOR_API_KEY, needs_hardware: valor-reader }
-          "5.2.3": { status: pending, agent: coder, eta_hours: 2, needs_hardware: bematech-drawer }
+          "5.2.0": { status: pending, agent: backend-dev+migration-author+pos-coder, eta_hours: 6, name: "processor-binding lock + auto-detect framework + UI surface (3-layer defense in depth)" }
+          "5.2.1": { status: pending, agent: hardware-integrator, eta_hours: 4, needs_hardware: star-printer, depends_on: "5.2.0" }
+          "5.2.2": { status: pending, agent: hardware-integrator, eta_hours: 5, needs_credential: VALOR_API_KEY, needs_hardware: valor-reader, depends_on: "5.2.0" }
+          "5.2.3": { status: pending, agent: hardware-integrator, eta_hours: 2, needs_hardware: bematech-drawer, depends_on: "5.2.0" }
       "5.3":
         type: parallel
         status: pending
@@ -365,6 +373,22 @@ versions:
         bonus: true
         tasks:
           "9.9.1": { status: pending, agent: backend-dev, eta_hours: 1 }
+      # Inserted 2026-05-04: extended payment-driver matrix. The V5.2.0 framework
+      # ships with 4 Valor drivers live and 9+ alternative-mfg drivers stubbed
+      # at cert_status='pending_cert'. Each task here lights up one driver class
+      # by completing Valor's EMV cert process and flipping the matrix entry.
+      "9.10":
+        type: parallel
+        status: pending
+        bonus: true
+        tasks:
+          "9.10.1": { status: pending, agent: hardware-integrator, eta_hours: 4, needs_hardware: verifone-p400, name: "light up Verifone P400 driver (post-Valor-cert)" }
+          "9.10.2": { status: pending, agent: hardware-integrator, eta_hours: 4, needs_hardware: ingenico-lane-3000, name: "light up Ingenico Lane 3000 driver" }
+          "9.10.3": { status: pending, agent: hardware-integrator, eta_hours: 4, needs_hardware: clover-flex, name: "light up Clover Flex driver" }
+          "9.10.4": { status: pending, agent: hardware-integrator, eta_hours: 3, needs_hardware: ipad-with-valor-bt-sleeve, name: "iPad-as-screen with paired Valor BT reader" }
+          "9.10.5": { status: pending, agent: hardware-integrator, eta_hours: 3, needs_hardware: android-with-valor-bt-sleeve, name: "Android-as-screen with paired Valor BT reader" }
+          "9.10.6": { status: pending, agent: hardware-integrator, eta_hours: 2, name: "Tap-to-Pay on iPhone matrix flip — only if Valor reaches Apple's PSP allowlist; otherwise mark explicitly unsupported in docs" }
+          "9.10.7": { status: pending, agent: hardware-integrator, eta_hours: 2, name: "Tap-to-Pay on Android matrix flip — same condition as 9.10.6 for Google's PSP allowlist" }
           "9.9.2": { status: pending, agent: backend-dev, eta_hours: 1 }
 
   V10:
