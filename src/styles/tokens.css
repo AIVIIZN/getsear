@@ -1,0 +1,267 @@
+/*
+ * Sear POS Design Tokens v2
+ * V6 batch 6.0.3 — distinctive premium iPad-first POS
+ *
+ * Token layers (use the SEMANTIC tokens in components, never the primitive ones directly):
+ *   1. Primitive: raw color/space/type values
+ *   2. Semantic: role-based (--color-primary, --space-md) — components use these
+ *
+ * Override .dark scope below for KDS dark surface. Do NOT add a global theme switcher
+ * — light mode is the only mode for POS + back-office; dark is locked to KDS only.
+ *
+ * Imported from src/app/globals.css. NEVER hardcode hex in component files.
+ */
+
+@layer base {
+  :root {
+    /* ─── Primitive: color ───────────────────────────────────────────────── */
+    /* Apple-system blue family — POS primary lineage. */
+    --blue-50:  #EFF6FF;
+    --blue-100: #DBEAFE;
+    --blue-200: #BFDBFE;
+    --blue-300: #93C5FD;
+    --blue-400: #60A5FA;
+    --blue-500: #3B82F6;
+    --blue-600: #007AFF;  /* Sear primary (Apple iOS systemBlue) */
+    --blue-700: #0062CC;
+    --blue-800: #004999;
+    --blue-900: #003166;
+
+    /* Neutral — Apple iPadOS gray scale. */
+    --gray-50:  #FAFAFA;
+    --gray-100: #F2F2F7;  /* Sear sidebar (Apple iPadOS systemGray6) */
+    --gray-200: #E5E5EA;
+    --gray-300: #D1D1D6;
+    --gray-400: #C7C7CC;
+    --gray-500: #AEAEB2;
+    --gray-600: #8E8E93;
+    --gray-700: #636366;
+    --gray-800: #3A3A3C;
+    --gray-900: #1C1C1E;
+
+    /* Status — semantic-only; never use raw amber/red/green names in code. */
+    --green-50:  #ECFDF5;
+    --green-500: #34C759;  /* Apple iOS systemGreen */
+    --green-700: #15803D;
+
+    --amber-50:  #FFFBEB;
+    --amber-500: #FF9500;  /* Apple iOS systemOrange */
+    --amber-700: #B45309;
+
+    --red-50:    #FEF2F2;
+    --red-500:   #FF3B30;  /* Apple iOS systemRed */
+    --red-700:   #B91C1C;
+
+    /* ─── Semantic: color (USE THESE in components) ──────────────────────── */
+    --color-primary:        var(--blue-600);
+    --color-primary-hover:  var(--blue-700);
+    --color-primary-active: var(--blue-800);
+    --color-primary-fg:     #FFFFFF;
+
+    --color-success:        var(--green-700);
+    --color-success-bg:     var(--green-50);
+    --color-success-strong: var(--green-500);
+
+    --color-warning:        var(--amber-700);
+    --color-warning-bg:     var(--amber-50);
+    --color-warning-strong: var(--amber-500);
+
+    --color-danger:         var(--red-700);
+    --color-danger-bg:      var(--red-50);
+    --color-danger-strong:  var(--red-500);
+
+    --color-bg:             #FFFFFF;
+    --color-bg-subtle:      var(--gray-50);
+    --color-bg-muted:       var(--gray-100);
+    --color-surface:        #FFFFFF;
+    --color-surface-hover:  var(--gray-50);
+    --color-surface-active: var(--gray-100);
+
+    --color-sidebar:        var(--gray-100);   /* Apple iPadOS light sidebar */
+    --color-sidebar-active: rgba(0, 122, 255, 0.12);
+
+    --color-border:         var(--gray-200);
+    --color-border-strong:  var(--gray-300);
+    --color-border-focus:   var(--blue-600);
+
+    --color-text:           var(--gray-900);
+    --color-text-muted:     var(--gray-600);
+    --color-text-subtle:    var(--gray-500);
+    --color-text-on-primary: var(--color-primary-fg);
+
+    /* ─── Semantic: spacing (4pt scale, Apple HIG aligned) ──────────────── */
+    --space-0:    0;
+    --space-px:   1px;
+    --space-0_5:  2px;
+    --space-1:    4px;
+    --space-2:    8px;
+    --space-3:    12px;
+    --space-4:    16px;   /* base unit */
+    --space-5:    20px;
+    --space-6:    24px;
+    --space-8:    32px;
+    --space-10:   40px;
+    --space-12:   48px;
+    --space-14:   56px;   /* topbar height */
+    --space-16:   64px;
+    --space-20:   80px;
+    --space-24:   96px;
+
+    /* ─── Semantic: typography — Apple SF Pro scale ─────────────────────── */
+    /* Stick with system fonts (no web-font load): SF on Apple, system-ui on others. */
+    --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+                   system-ui, "Segoe UI", Roboto, sans-serif;
+    --font-mono:   "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+
+    --type-caption-2-size:    11px;  /* tag/badge */
+    --type-caption-1-size:    12px;  /* helper text */
+    --type-footnote-size:     13px;  /* metadata, secondary lines */
+    --type-subhead-size:      15px;  /* secondary content */
+    --type-body-size:         17px;  /* primary content (Apple HIG default) */
+    --type-callout-size:      16px;  /* CTA labels */
+    --type-headline-size:     17px;  /* card titles, semibold */
+    --type-title-3-size:      20px;
+    --type-title-2-size:      22px;  /* page subsection headers (Apple HIG) */
+    --type-title-1-size:      28px;  /* page titles */
+    --type-large-title-size:  34px;  /* hero / dashboard */
+
+    --type-line-height-tight:   1.15;
+    --type-line-height-snug:    1.3;
+    --type-line-height-normal:  1.5;
+    --type-line-height-relaxed: 1.6;
+
+    --weight-regular:  400;
+    --weight-medium:   500;
+    --weight-semibold: 600;
+    --weight-bold:     700;
+
+    /* ─── Semantic: shadow (3-tier elevation, no random values) ─────────── */
+    --shadow-flat:    none;
+    --shadow-low:     0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 1px 1px 0 rgba(0, 0, 0, 0.03);
+    --shadow-mid:    0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --shadow-high:   0 12px 32px -8px rgba(0, 0, 0, 0.10), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+    --shadow-modal:  0 24px 48px -12px rgba(0, 0, 0, 0.18), 0 8px 16px -4px rgba(0, 0, 0, 0.10);
+
+    /* ─── Semantic: radius ──────────────────────────────────────────────── */
+    --radius-xs:    4px;   /* badge, small tag */
+    --radius-sm:    6px;   /* button, input */
+    --radius-md:    10px;  /* card */
+    --radius-lg:    14px;  /* sheet, modal corner */
+    --radius-xl:    20px;  /* hero card */
+    --radius-pill:  9999px;
+    --radius-circle: 50%;
+
+    /* ─── Semantic: z-index (named tiers) ───────────────────────────────── */
+    --z-base:       0;
+    --z-dropdown:   1000;
+    --z-sticky:     1100;   /* topbar */
+    --z-fixed:      1200;   /* offline banner */
+    --z-overlay:    1300;   /* modal backdrop */
+    --z-modal:      1400;
+    --z-popover:    1500;
+    --z-toast:      1600;
+    --z-tooltip:    1700;
+
+    /* ─── Semantic: animation (iOS spring) ──────────────────────────────── */
+    /* All UI transitions use one of these three timings. */
+    --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out:  cubic-bezier(0.4, 0, 0.2, 1);
+
+    --duration-instant:  100ms;   /* press feedback */
+    --duration-quick:    180ms;   /* hover/focus */
+    --duration-base:     280ms;   /* page transitions, modals */
+    --duration-slow:     420ms;   /* spring-y modal entrance */
+
+    /* ─── Semantic: blur (frosted-glass for modals/sheets) ──────────────── */
+    --blur-sm:  8px;
+    --blur-md:  16px;
+    --blur-lg:  24px;
+    --blur-xl:  40px;
+
+    /* ─── Touch targets (Apple HIG minimum) ─────────────────────────────── */
+    --touch-min: 44px;
+
+    /* ─── Layout ────────────────────────────────────────────────────────── */
+    --topbar-height:    var(--space-14);   /* 56px */
+    --sidebar-width:    240px;
+    --content-max:      1440px;
+  }
+
+  /* ─── KDS dark surface override (apply via .kds-dark wrapper) ─────────── */
+  .kds-dark {
+    --color-bg:          #1C1C1E;
+    --color-bg-subtle:   #2C2C2E;
+    --color-bg-muted:    #3A3A3C;
+    --color-surface:     #2C2C2E;
+    --color-surface-hover: #3A3A3C;
+    --color-surface-active: #48484A;
+
+    --color-sidebar:     #1C1C1E;
+    --color-sidebar-active: rgba(0, 122, 255, 0.20);
+
+    --color-border:        #3A3A3C;
+    --color-border-strong: #48484A;
+
+    --color-text:         #FFFFFF;
+    --color-text-muted:   #C7C7CC;
+    --color-text-subtle:  #8E8E93;
+
+    --color-warning-bg:   rgba(255, 149, 0, 0.20);  /* deeper amber on dark */
+    --color-success-bg:   rgba(52, 199, 89, 0.20);
+    --color-danger-bg:    rgba(255, 59, 48, 0.20);
+  }
+}
+
+/*
+ * Utility helpers — extend ONLY if a Tailwind class doesn't already cover it.
+ * Touch-target enforcement is a project rule (44pt min for any tappable POS surface).
+ */
+.touch-target {
+  min-height: var(--touch-min);
+  min-width:  var(--touch-min);
+}
+
+/* iOS-style press feedback: subtle scale on active. */
+.btn-press {
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.btn-press:active {
+  transform: scale(0.96);
+}
+
+/* Frosted-glass backdrop for modals/sheets. */
+.frosted-backdrop {
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(var(--blur-lg)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(180%);
+}
+.kds-dark .frosted-backdrop {
+  background-color: rgba(28, 28, 30, 0.72);
+}
+
+/* Skeleton shimmer animation for loaders (use on .skeleton elements). */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-subtle) 0%,
+    var(--color-bg-muted)  50%,
+    var(--color-bg-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Respect reduced-motion (project a11y rule). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
