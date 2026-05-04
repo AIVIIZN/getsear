@@ -6,6 +6,7 @@ import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { QuickFavorites } from './QuickFavorites'
 import { Search, Ban } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { haptics } from '@/lib/haptics'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 
 interface MenuItem {
@@ -102,6 +103,7 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
   const handleItemTap = useCallback(
     (item: MenuItem) => {
       if (!item.is_available) return
+      haptics.orderAdd()
       onItemTap(item)
     },
     [onItemTap]
