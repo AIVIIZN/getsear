@@ -6,6 +6,7 @@ import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { QuickFavorites } from './QuickFavorites'
 import { Search, Ban } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 
 interface MenuItem {
   id: string
@@ -185,22 +186,26 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
         {isLoading ? (
           <MenuGridSkeleton />
         ) : filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-center">
-            <Search className="h-10 w-10 text-muted-foreground/30 mb-3" />
-            <p className="text-callout font-medium text-muted-foreground">No items found</p>
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchInput('')
-                  setSearchQuery('')
-                }}
-                className="mt-2 text-subhead text-[var(--primary)] font-medium hover:underline"
-              >
-                Clear search
-              </button>
-            )}
-          </div>
+          <EmptyState
+            illustration="no-menu-items"
+            title={searchQuery ? 'No items match your search' : 'No menu items yet'}
+            description={
+              searchQuery
+                ? 'Try a different search term or clear the filter to see all items.'
+                : 'Add your first menu item from the back office to start taking orders.'
+            }
+            action={
+              searchQuery
+                ? {
+                    label: 'Clear search',
+                    onClick: () => {
+                      setSearchInput('')
+                      setSearchQuery('')
+                    },
+                  }
+                : undefined
+            }
+          />
         ) : (
           <div
             className="grid gap-3"

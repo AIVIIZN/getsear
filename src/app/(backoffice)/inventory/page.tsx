@@ -394,7 +394,7 @@ function ItemsTab() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState
-          icon={Package}
+          illustration="no-inventory"
           title="No inventory items"
           description="Add your first inventory item to start tracking stock levels"
           action={{ label: "Add Item", onClick: () => setShowCreate(true) }}

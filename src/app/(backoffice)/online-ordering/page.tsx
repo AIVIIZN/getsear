@@ -509,7 +509,7 @@ export default function OnlineOrderingPage() {
             </div>
           ) : queue.length === 0 ? (
             <EmptyState
-              icon={ShoppingCart}
+              illustration="no-orders"
               title="No orders in queue"
               description={`No ${queueFilter} orders at the moment.`}
             />

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Users, Armchair, Clock, BarChart3, CalendarDays, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { calculateAverageTurnTime } from '@/lib/tables/turn-time-calc'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 
 interface TableData {
   id: string
@@ -245,9 +246,11 @@ export function CapacityDashboard({
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : reservations.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            No upcoming reservations in the next 2 hours.
-          </div>
+          <EmptyState
+            illustration="no-reservations"
+            title="No upcoming reservations"
+            description="No bookings in the next 2 hours."
+          />
         ) : (
           <div className="divide-y divide-border">
             {reservations.map((res) => (

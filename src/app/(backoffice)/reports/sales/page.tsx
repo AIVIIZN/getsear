@@ -281,7 +281,7 @@ export default function SalesReportPage() {
 
       {isEmpty && !loading && (
         <EmptyState
-          icon={TrendingUp}
+          illustration="no-reports"
           title="No sales data for this period"
           description="Sales data will appear after orders are processed. Try selecting a different date range."
         />
