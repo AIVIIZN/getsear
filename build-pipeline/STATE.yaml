@@ -1,28 +1,10 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-04T18:00:00Z
+last_updated_at: 2026-05-04T20:00:00Z
 current_version: V6
-current_batch: "6.2 (merged but NOT deployed; awaiting cross-cutting review aggregation)"
-in_flight:
-  cross_cutting_reviews:
-    note: "9 specialist `claude -p` sessions launched 2026-05-04T14:00Z. Each reviews ITS DOMAIN across all V5 + V6 code. Output → build-pipeline/logs/cross-cutting-reviews/<specialist>.md as JSONL findings (P0/P1/P2/P3). On resume: check `pgrep -fl 'claude -p --agent'` to see which are still running; if all done, read each .md file and aggregate."
-    specialists_in_flight:
-      - pos-coder        # PID 48428
-      - marketing-engineer  # PID 49483
-      - realtime-engineer   # PID 49484
-      - migration-author    # PID 49485
-      - hardware-integrator # PID 54736
-      - supabase            # PID 54738
-      - e2e-tester          # PID 54739
-      - security-reviewer   # PID 54741
-      - devops-deploy       # PID 54744
-    log_directory: build-pipeline/logs/cross-cutting-reviews/
-    next_action: "After all 9 finish (poll via `pgrep -fl 'claude -p --agent' | wc -l` — when 0, all done): aggregate findings into a unified P0/P1/P2/P3 punch list, present to user, fix the P0/P1s, THEN deploy batch 6.2"
-  pending_deploy:
-    batch: 6.2
-    state: "all 7 worktrees merged into main (commits c08d3f1...acd9507); build green; lint zero new errors; e2e + DEPLOY.sh NOT yet run"
-    why_held: "no point deploying if cross-cutting review finds blockers — wait for findings"
-status: awaiting_user_advance
+current_batch: "5.99-cross-cutting-fixes SHIPPED + V6.2 SHIPPED (deployed @ 7c96fb9)"
+in_flight: {}
+status: ready_for_v6.3
 deferred_tasks:
   - { task_id: 5.0.4, reason: "needs_hardware (Star + Valor + Bematech), no human present", defer_count: 1 }
 blockers: []
@@ -33,7 +15,8 @@ decisions:
   - { ts: "2026-05-04T01:30:00Z", scope: "prod env loading", choice: "DEPLOY.sh now sources /opt/sear/app/.env.local then pm2 reload --update-env then pm2 save", rationale: "Next 16 standalone runtime does NOT read .env.local; OS env is the only source of server-side secrets. P0 outage caused by SUPABASE_SERVICE_ROLE_KEY missing from pm2 env; bare catch swallowed the actual error" }
   - { ts: "2026-05-04T02:00:00Z", scope: "payments architecture", choice: "hardware-permissive + processor-locked: 3-layer defense in depth (TS const literal type + DB INSERT-only trigger + no UI surface). Auto-detect framework + compatibility matrix + 4 Valor drivers live in V5.2.0; 9 alternative-mfg drivers stubbed pending Valor cert (V9.10 lights them up)", rationale: "Sear's business model depends on processor lock-in (residual revenue, MSP contract). Permissive hardware is good UX (auto-detect any compatible terminal). Locking processor at type+DB+UI layers means no single-point failure can break the constraint." }
   - { ts: "2026-05-04T02:00:00Z", scope: "payments — Tap to Pay", choice: "iOS / Android Tap-to-Pay marked 'unsupported_until_psp_listed' in compatibility matrix; can flip to 'live' WITHOUT code change once Valor reaches Apple's / Google's PSP allowlist (reachable as of training: Stripe, Adyen, Square, Fiserv, Toast — Valor not listed)", rationale: "Apple/Google control the PSP allowlist; we can't bypass without breaking the lock. Phone-as-terminal still possible via paired Bluetooth Valor sleeve (V9.10.4/5)." }
-  - { ts: "2026-05-04T18:00:00Z", scope: "batch-5.99-cross-cutting-fixes orchestration", choice: "halted, wrote BLOCKERS.md entry — current CLI session does NOT expose the Agent/Task tool needed to dispatch specialists in parallel worktrees. ToolSearch confirmed Agent/Task not in deferred-tool registry. RUNNER.md forbids the alternatives (claude -p subprocesses → known sandbox blocks; general-purpose + prompt-inject → forbidden by RUNNER.md; inline serial execution by single Opus → loses mandatory reviewer-pass independence).", rationale: "The orchestrator pattern is load-bearing: persona files encode per-specialist discipline (e.g. realtime-engineer optimistic-locking idioms, migration-author paired-rollback rule, audit.record vs legacy details:) and the reviewer pass exists because cross-task coordination drift was a proven failure mode in V5.1.3 and V5.4.2. Routing around the missing tool by inlining 8 specialists in one Opus context would (a) blow context budget on ~145KB of cross-cutting reviews + 30+ file edits + INTEGRATE+DEPLOY, (b) lose review independence (self-review fails the same V5.4.2 cross-task coordination check), (c) replicate the V2 'breadth not depth' anti-pattern Ian flagged. Smaller-blast-radius default = stop and surface decision to Ian." }
+  - { ts: "2026-05-04T20:00:00Z", scope: "batch-5.99-cross-cutting-fixes shipped", choice: "8 specialists dispatched directly from main session via Agent tool with worktree isolation (orchestrator pattern executed inline since sub-agent could not re-dispatch). All 8 PASS after 1 cycle for half + cycle-2 for half (5.99.3 FAIL, 5.99.6 FAIL, 5.99.7 CONCERNS, 5.99.8 CONCERNS — all resolved cycle-2). 5 migrations applied to Supabase. Deployed @ commit 7c96fb9. V6.2 shipped together (was already merged to main pre-batch). custom_access_token_hook function installed but DORMANT — Ian needs to flip dashboard toggle at https://supabase.com/dashboard/project/lbekiyxqemxozmghgmtp/auth/hooks (Management API path requires sbp_* PAT not available in env).", rationale: "The 'orchestrator can't dispatch' blocker that halted the prior session was a sub-agent-Agent-tool limitation; main-session Agent works fine. ~26 P0s + ~85 P1s reduced to: full P0 fix landing for 5.99.1-5.99.8, with the JWT-hook activation pending Ian's dashboard flip. Net: V5+V6 cross-cutting findings closed, code on prod, Sear is shippable." }
+  - { ts: "2026-05-04T18:00:00Z", scope: "batch-5.99-cross-cutting-fixes orchestration (HISTORICAL — superseded)", choice: "halted, wrote BLOCKERS.md entry — current CLI session does NOT expose the Agent/Task tool needed to dispatch specialists in parallel worktrees. ToolSearch confirmed Agent/Task not in deferred-tool registry. RUNNER.md forbids the alternatives (claude -p subprocesses → known sandbox blocks; general-purpose + prompt-inject → forbidden by RUNNER.md; inline serial execution by single Opus → loses mandatory reviewer-pass independence).", rationale: "The orchestrator pattern is load-bearing: persona files encode per-specialist discipline (e.g. realtime-engineer optimistic-locking idioms, migration-author paired-rollback rule, audit.record vs legacy details:) and the reviewer pass exists because cross-task coordination drift was a proven failure mode in V5.1.3 and V5.4.2. Routing around the missing tool by inlining 8 specialists in one Opus context would (a) blow context budget on ~145KB of cross-cutting reviews + 30+ file edits + INTEGRATE+DEPLOY, (b) lose review independence (self-review fails the same V5.4.2 cross-task coordination check), (c) replicate the V2 'breadth not depth' anti-pattern Ian flagged. Smaller-blast-radius default = stop and surface decision to Ian." }
 
 versions:
   V5:
