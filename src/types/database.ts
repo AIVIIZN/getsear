@@ -650,11 +650,21 @@ export interface AuditLog {
   entity_type: string
   entity_id: UUID | null
   description: string
+  /** @deprecated since V5.4.3 — use `before_state`. Retained for rows written before the expansion. */
   previous_state: Record<string, unknown> | null
+  /** @deprecated since V5.4.3 — use `after_state`. Retained for rows written before the expansion. */
   new_state: Record<string, unknown> | null
   ip_address: string | null
   user_agent: string | null
   terminal_id: UUID | null
+  /** Manager whose PIN authorised the action; NULL when no PIN was required. Added 5.4.3. */
+  manager_pin_user_id: UUID | null
+  /** Typed snapshot of the entity immediately before the change. Added 5.4.3. */
+  before_state: Record<string, unknown> | null
+  /** Typed snapshot of the entity immediately after the change. Added 5.4.3. */
+  after_state: Record<string, unknown> | null
+  /** Human-readable rationale entered by the actor. Added 5.4.3. */
+  reason: string | null
   created_at: Timestamp
 }
 

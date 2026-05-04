@@ -27,6 +27,7 @@ import {
   Building,
   ChevronRight,
   Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +86,10 @@ const sections: NavSectionData[] = [
   },
   {
     label: "Admin",
-    items: [{ label: "Settings", href: "/settings", icon: Settings }],
+    items: [
+      { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Audit Log", shortLabel: "Audit", href: "/audit-log", icon: ShieldCheck },
+    ],
   },
 ];
 
