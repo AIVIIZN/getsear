@@ -1,0 +1,5 @@
+# Merge JSONL log files using union strategy so parallel agent worktrees
+# that all append to the same log file don't produce merge conflicts.
+# Without this, N agents in N worktrees create "<<<< HEAD" markers in every
+# batch's agents.jsonl commit. (F-06 fix)
+build-pipeline/logs/*.jsonl merge=union
