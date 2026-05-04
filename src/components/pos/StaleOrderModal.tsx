@@ -209,19 +209,13 @@ export function StaleOrderModal({ onRefresh }: StaleOrderModalProps = {}) {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning-bg">
+              <AlertTriangle className="h-5 w-5 text-warning" />
             </div>
             <div className="flex-1">
               <DialogTitle className="text-lg">Someone updated this order</DialogTitle>
               <DialogDescription className="mt-1">
-                Another terminal saved a change while you were editing.
-                {event.conflict.expected_version !== null && (
-                  <>
-                    {' '}You had version {event.conflict.expected_version}; the latest is{' '}
-                    version {event.conflict.current_version}.
-                  </>
-                )}
+                Another terminal saved a change while you were editing. Refresh to see the latest version, then re-apply your changes.
               </DialogDescription>
             </div>
           </div>
@@ -243,10 +237,10 @@ export function StaleOrderModal({ onRefresh }: StaleOrderModalProps = {}) {
                   <div className="font-medium text-foreground truncate">
                     {formatField(row.field)}
                   </div>
-                  <div className="text-amber-700 truncate" title={formatValue(row.yourValue)}>
+                  <div className="text-warning line-clamp-2 break-words">
                     {formatValue(row.yourValue)}
                   </div>
-                  <div className="text-emerald-700 truncate" title={formatValue(row.serverValue)}>
+                  <div className="text-success line-clamp-2 break-words">
                     {formatValue(row.serverValue)}
                   </div>
                 </div>
@@ -261,6 +255,7 @@ export function StaleOrderModal({ onRefresh }: StaleOrderModalProps = {}) {
             onClick={handleClose}
             disabled={reapplying}
             type="button"
+            className="h-11 touch-target"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh & discard
@@ -269,6 +264,7 @@ export function StaleOrderModal({ onRefresh }: StaleOrderModalProps = {}) {
             onClick={handleReapply}
             disabled={reapplying}
             type="button"
+            className="h-11 touch-target"
           >
             <RotateCw className={`mr-2 h-4 w-4 ${reapplying ? 'animate-spin' : ''}`} />
             {reapplying ? 'Re-applying…' : 'Refresh & re-apply'}
