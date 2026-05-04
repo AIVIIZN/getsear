@@ -1,11 +1,20 @@
 Resume the autonomous Sear POS build runner. Working directory: /Users/ianrakow/Desktop/getsear.
 
 Read these in order before any action:
-1. build-pipeline/STATE.yaml — find current pointer + any in_progress task.
+1. build-pipeline/STATE.yaml — find current pointer + any in_progress task. **Pay special attention to the `in_flight:` section** — it tells you about ANY background `claude -p` sessions or pending deploys from the prior session.
 2. build-pipeline/BLOCKERS.md — if it has any non-template active entry, do NOT proceed. Print blockers and stop. The human must resolve and clear the file before resuming.
 3. build-pipeline/RUNNER.md — your operating manual.
 4. build-pipeline/DEFAULTS.md — decision defaults.
 5. build-pipeline/STANDING_RULES.md — universal rules.
+
+**CHECK FOR IN-FLIGHT BACKGROUND REVIEWS FIRST:**
+```
+pgrep -fl 'claude -p --agent' | wc -l
+```
+If non-zero, prior-session cross-cutting reviews are still running. DO NOT spawn new ones. Wait for them to finish (poll every 60-120s using ScheduleWakeup) or check `build-pipeline/logs/cross-cutting-reviews/<specialist>.md` for their output. When all 9 done: aggregate findings into a unified P0/P1/P2/P3 punch list, present to user, fix P0/P1s, THEN resume the normal pipeline loop.
+
+**CHECK FOR PENDING DEPLOYS:**
+If `STATE.yaml in_flight.pending_deploy` exists, a batch was merged but not deployed last session. Verify build/lint still green, run e2e, then DEPLOY.sh.
 
 Reconcile in_progress tasks (in case a session died mid-task):
 - Run `git worktree list` and check each .claude/worktrees/v* worktree.
