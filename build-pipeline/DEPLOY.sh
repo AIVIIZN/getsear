@@ -53,6 +53,9 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
   # Capture the currently-running commit before we change anything (F-03).
   PREV_COMMIT=$(git rev-parse HEAD)
   echo "[deploy:vm] PREV_COMMIT=$PREV_COMMIT"
+  # Write rollback target immediately — before any mutation so a mid-deploy
+  # crash always leaves a valid PREV_COMMIT on disk (cycle-2 P1 fix).
+  echo "PREV_COMMIT=$PREV_COMMIT" > /tmp/sear_prev_commit
 
   git pull origin main
   npm ci
@@ -82,9 +85,6 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
     pm2 start /opt/sear/app/ecosystem.config.js --update-env
   fi
   pm2 save
-
-  # Export PREV_COMMIT for potential rollback via remote variable passing.
-  echo "PREV_COMMIT=$PREV_COMMIT" > /tmp/sear_prev_commit
 '
 
 # 4. Smoke test: fetch homepage, expect HTTP 200 or 3xx (login redirect).
@@ -128,11 +128,24 @@ case "$HTTP_CODE" in
         echo "[deploy:vm:rollback] rollback complete — reverted to $PREV_COMMIT"
       else
         echo "[deploy:vm:rollback] /tmp/sear_prev_commit not found; manual intervention required" >&2
+        exit 1
       fi
-    '
+    ' || true
+    # Capture rollback outcome — SSH exits non-zero if any command inside failed
+    # (set -euo pipefail propagates). We need the exit code even though the outer
+    # script uses set -e, so the `|| true` above prevents early-exit and we
+    # reconstruct the status via $?.  Re-run the SSH to grab exit code cleanly:
+    ROLLBACK_RC=0
+    ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" \
+      'test -f /tmp/sear_prev_commit || exit 2; source /tmp/sear_prev_commit; git -C /opt/sear/app rev-parse HEAD | grep -qF "$PREV_COMMIT" && exit 0 || exit 1' \
+      && ROLLBACK_RC=0 || ROLLBACK_RC=$?
 
     TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    echo "{\"ts\":\"$TIMESTAMP\",\"batch\":\"$BATCH_ID\",\"commit\":\"$LOCAL_COMMIT\",\"http\":\"$HTTP_CODE\",\"status\":\"smoke_failed_rolled_back\"}" >> "$LOG_FILE"
+    if [ "$ROLLBACK_RC" -eq 0 ]; then
+      echo "{\"ts\":\"$TIMESTAMP\",\"batch\":\"$BATCH_ID\",\"commit\":\"$LOCAL_COMMIT\",\"http\":\"$HTTP_CODE\",\"status\":\"smoke_failed_rolled_back\"}" >> "$LOG_FILE"
+    else
+      echo "{\"ts\":\"$TIMESTAMP\",\"batch\":\"$BATCH_ID\",\"commit\":\"$LOCAL_COMMIT\",\"http\":\"$HTTP_CODE\",\"status\":\"smoke_failed_rollback_failed\",\"rollback_exit_code\":$ROLLBACK_RC}" >> "$LOG_FILE"
+    fi
     exit 1 ;;
 esac
 
