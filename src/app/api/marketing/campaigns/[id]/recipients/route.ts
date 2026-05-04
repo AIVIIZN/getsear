@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+
+/**
+ * POST body schema. Each customer_id MUST be a valid UUID — without this
+ * check, malformed payloads (mixed types, non-UUID strings) reach the DB
+ * upsert and produce confusing 500 errors instead of a clean 400. Cap the
+ * batch at 500 so a single request can't enqueue an unbounded number of
+ * rows.
+ */
+const recipientsBodySchema = z.object({
+  customer_ids: z.array(z.string().uuid()).min(1).max(500),
+})
 
 /**
  * GET /api/marketing/campaigns/:id/recipients — list recipients with tracking status
@@ -24,7 +36,12 @@ export async function GET(
 
   const supabase = createAdminClient()
 
-  // Verify campaign belongs to org
+  // Verify campaign belongs to org.
+  // TODO(5.99.6): the `campaigns` table is missing from the generated
+  // Supabase Database type because the marketing tables predate the
+  // current type-gen run; once `npm run gen:types` is re-run after the
+  // marketing migration is in main, drop the `as any` and let inference
+  // narrow the row type.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: campaign } = await (supabase.from('campaigns') as any)
     .select('id')
@@ -36,10 +53,18 @@ export async function GET(
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   }
 
+  // Defense-in-depth: even though the campaign id was already verified
+  // org-scoped above, also filter recipients by org_id so a misbehaving
+  // RLS policy or a future code path using a non-admin client cannot
+  // accidentally surface another org's rows.
+  // TODO(5.99.6): same as above — `campaign_recipients` is not in the
+  // generated Database type yet. Re-gen after the marketing migration
+  // lands in main and remove the `as any` cast.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('campaign_recipients') as any)
     .select('*', { count: 'exact' })
     .eq('campaign_id', id)
+    .eq('org_id', user.org_id)
     .order('sent_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -79,22 +104,59 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { customer_ids } = body as { customer_ids?: string[] }
-  if (!customer_ids || !Array.isArray(customer_ids) || customer_ids.length === 0) {
-    return NextResponse.json({ error: 'customer_ids array is required' }, { status: 400 })
+  const parsed = recipientsBodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.issues },
+      { status: 400 },
+    )
   }
+  const { customer_ids } = parsed.data
 
   const supabase = createAdminClient()
+
+  // P0 fix (5.99.6 #5):
+  //  1. Verify the campaign belongs to the caller's org BEFORE accepting
+  //     any recipients — this route was previously open-bored, allowing
+  //     a manager to add recipients to any campaign id they could guess.
+  //  2. campaign_recipients has TWO NOT NULL columns the previous insert
+  //     omitted: `channel` (baseline.sql:364) and `org_id` (added by
+  //     20260504005008_add_campaign_recipients_indexes.sql). Both must
+  //     be supplied or the insert fails with 23502.
+  //  3. status='pending' was orphan; the rest of the system uses
+  //     'queued' for newly-enqueued recipients. Match it for analytics
+  //     consistency.
+  // TODO(5.99.6): drop `as any` once `campaigns` is in the generated
+  // Database type (post marketing-migration regen).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: campaign, error: campaignErr } = await (supabase.from('campaigns') as any)
+    .select('id, campaign_type')
+    .eq('id', id)
+    .eq('org_id', user.org_id)
+    .single()
+
+  if (campaignErr || !campaign) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+
+  const channel = (campaign.campaign_type as string) ?? 'email'
 
   const rows = customer_ids.map((customer_id: string) => ({
     campaign_id: id,
     customer_id,
-    status: 'pending',
+    org_id: user.org_id,
+    channel,
+    status: 'queued' as const,
   }))
 
+  // TODO(5.99.6): drop `as any` once `campaign_recipients` is in the
+  // generated Database type (post marketing-migration regen).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('campaign_recipients') as any)
-    .insert(rows)
+    .upsert(rows, {
+      onConflict: 'campaign_id,customer_id',
+      ignoreDuplicates: false,
+    })
     .select()
 
   if (error) {

@@ -15,10 +15,13 @@ export async function GET(
   const { id } = await params
   const db = createAdminClient()
 
-  // Fetch campaign
+  // P0 fix (5.99.6 #2): the previous version queried a non-existent
+  // `marketing_campaigns` table and read `email_subject` / `email_body`
+  // columns that don't exist either. Real table is `campaigns` with
+  // `subject`, `body_html`, and `sms_body`.
   const { data: campaign, error } = await db
-    .from('marketing_campaigns')
-    .select('*')
+    .from('campaigns')
+    .select('id, org_id, subject, body_html, sms_body')
     .eq('id', id)
     .eq('org_id', user.org_id)
     .single()
@@ -63,12 +66,14 @@ export async function GET(
     ? resolveMergeFields(campaign.sms_body as string, mergeData)
     : null
 
-  const previewEmailSubject = campaign.email_subject
-    ? resolveMergeFields(campaign.email_subject as string, mergeData)
+  // The real campaigns table uses `subject` and `body_html`, not
+  // `email_subject` / `email_body`. Read the right columns.
+  const previewEmailSubject = campaign.subject
+    ? resolveMergeFields(campaign.subject as string, mergeData)
     : null
 
-  const previewEmailBody = campaign.email_body
-    ? resolveMergeFields(campaign.email_body as string, mergeData)
+  const previewEmailBody = campaign.body_html
+    ? resolveMergeFields(campaign.body_html as string, mergeData)
     : null
 
   return NextResponse.json({
