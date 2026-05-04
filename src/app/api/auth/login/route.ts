@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
         avatar_url: profile.avatar_url,
       },
     })
-  } catch {
+  } catch (err) {
+    console.error('[auth/login] failed:', err)
     return NextResponse.json(
       { error: 'An unexpected error occurred. Please try again.' },
       { status: 500 }

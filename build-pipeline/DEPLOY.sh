@@ -27,6 +27,14 @@ fi
 git push origin main
 
 # 3. Deploy on VM via SSH.
+#    IMPORTANT: source .env.local INTO THE SHELL THAT RUNS pm2, then use
+#    --update-env. Next 16 standalone mode runs from .next/standalone/ and
+#    does NOT auto-load .env.local at runtime — it only inlines build-time
+#    constants. Server-side runtime reads of process.env.SUPABASE_SERVICE_ROLE_KEY
+#    (and other server-only secrets) come from pm2's process environment, which
+#    only refreshes via --update-env from a shell that already has the vars.
+#    Without this, server route handlers throw "supabaseKey is required" at
+#    every admin-client call (login, staff fetch, anything bypassing RLS).
 ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
   set -euo pipefail
   cd /opt/sear/app
@@ -35,7 +43,11 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
   npm run build
   cp -r .next/static .next/standalone/.next/
   cp -r public .next/standalone/
-  pm2 reload sear-pos
+  set -a
+  source /opt/sear/app/.env.local
+  set +a
+  pm2 reload sear-pos --update-env
+  pm2 save
 '
 
 # 4. Smoke test: fetch homepage, expect HTTP 200 or 3xx (login redirect).
