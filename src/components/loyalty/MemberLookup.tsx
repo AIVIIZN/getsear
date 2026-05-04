@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PointsHistory } from './PointsHistory'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 
 interface Member {
   id: string
@@ -136,10 +137,11 @@ export function MemberLookup() {
         <Card className="border-warm shadow-warm">
           <CardContent className="pt-4">
             {members.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No members found</p>
-              </div>
+              <EmptyState
+                illustration="no-customers"
+                title="No members found"
+                description="Try a different name, phone number, or email."
+              />
             ) : (
               <Table>
                 <TableHeader>

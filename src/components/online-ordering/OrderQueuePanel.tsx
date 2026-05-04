@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 
 interface QueueOrder {
   id: string
@@ -114,9 +115,12 @@ export function OrderQueuePanel() {
       {/* Pending Orders */}
       {pendingOrders.length === 0 && acceptedOrders.length === 0 ? (
         <Card className="border-warm shadow-warm">
-          <CardContent className="py-8 text-center">
-            <ShoppingBag className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No online orders in queue</p>
+          <CardContent className="py-4">
+            <EmptyState
+              illustration="no-orders"
+              title="No online orders in queue"
+              description="New orders from your online channels will appear here as they arrive."
+            />
           </CardContent>
         </Card>
       ) : (

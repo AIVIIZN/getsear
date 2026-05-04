@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" fill="none" role="img" aria-label="No menu items">
+  <ellipse cx="120" cy="178" rx="80" ry="6" fill="currentColor" opacity="0.08"/>
+  <circle cx="120" cy="110" r="64" fill="currentColor" opacity="0.06"/>
+  <circle cx="120" cy="110" r="60" fill="#FFFFFF" stroke="currentColor" stroke-opacity="0.30" stroke-width="1.5"/>
+  <circle cx="120" cy="110" r="44" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="1.25" stroke-dasharray="3 4"/>
+  <path d="M62 92 l-12 -22 a4 4 0 0 1 4 -6 h8 a4 4 0 0 1 4 6 l-4 22" fill="#FFFFFF" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.5" stroke-linejoin="round"/>
+  <line x1="60" y1="92" x2="60" y2="148" stroke="currentColor" stroke-opacity="0.35" stroke-width="2" stroke-linecap="round"/>
+  <path d="M178 70 v50 a8 8 0 0 1 -8 8 v20" fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-width="2" stroke-linecap="round"/>
+  <path d="M174 70 v32 M178 70 v32 M182 70 v32" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="160" cy="76" r="11" fill="#007AFF"/>
+  <path d="M160 71 v10 M155 76 h10" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

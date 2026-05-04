@@ -544,7 +544,7 @@ export default function ReservationsPage() {
               </div>
             ) : reservations.length === 0 ? (
               <EmptyState
-                icon={CalendarDays}
+                illustration="no-reservations"
                 title="No reservations"
                 description={`No reservations found for ${formatDate(selectedDate)}.`}
                 action={{ label: "New Reservation", onClick: () => setCreateOpen(true) }}

@@ -429,7 +429,7 @@ export default function CustomersPage() {
         </div>
       ) : customers.length === 0 ? (
         <EmptyState
-          icon={Users}
+          illustration="no-customers"
           title="No customers yet"
           description="They'll appear here after their first order."
           action={{ label: "Add Customer", onClick: () => setCreateOpen(true) }}
