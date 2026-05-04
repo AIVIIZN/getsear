@@ -1,24 +1,56 @@
 /**
- * Audit log — STUB (5.4.2 cycle 2).
+ * Audit log — V5.4.3 expansion.
  *
- * Owned by sister batch 5.4.3. This stub mirrors the REAL public surface area
- * published in `v5-batch-5.4.3-audit-log/src/lib/audit/log.ts` so 5.4.2 routes
- * (comp / void / payments-refund) can compile against the same shape before
- * INTEGRATE.sh overwrites this file with the real implementation.
+ * Single entry point for every privileged action in the system (void, comp,
+ * discount, cash drop, manager override, drawer-open, refund, settlement,
+ * chargeback, customer merge, etc). Each call inserts an APPEND-ONLY row
+ * into `public.audit_log` with full forensic context:
+ *   - actor (user_id, user_name, user_role) — who initiated
+ *   - manager_pin_user_id                    — who *authorised* via PIN
+ *   - action, entity_type, entity_id         — what + on what
+ *   - before_state, after_state              — typed jsonb snapshots
+ *   - reason                                 — free-text rationale
+ *   - ip_address, user_agent, terminal_id    — request context
  *
- * The stub falls back to a best-effort insert into `audit_log` so the trail
- * isn't blank during the merge window. Errors are swallowed — never throw
- * from the audit layer because a failed audit must not roll back the user-
- * visible action.
+ * The table has no UPDATE or DELETE policy for authenticated callers
+ * (migration 20260504063726). Service-role bypasses RLS for support
+ * tooling that needs to purge a tenant on offboarding.
+ *
+ * Sister tasks:
+ *   - 5.4.1 (optimistic locking) — captures `before_state` from the
+ *     If-Match snapshot the route already loaded.
+ *   - 5.4.2 (comp/void/refund routes) — calls audit.record(...) at the
+ *     end of every successful mutation.
+ *
+ * USAGE:
+ * ```ts
+ * import { audit } from '@/lib/audit/log'
+ *
+ * await audit.record({
+ *   actor: user,                            // AuthUser from getAuthUser()
+ *   manager_pin_user_id: pinAuthorizer?.id, // null if no PIN required
+ *   action: 'payment_voided',
+ *   entity_type: 'payment',
+ *   entity_id: payment.id,
+ *   before_state: paymentBefore,
+ *   after_state: paymentAfter,
+ *   reason: body.reason,
+ *   description: `Voided $${(amount/100).toFixed(2)} payment`,
+ *   request,                                // optional, captures IP + UA
+ *   location_id: payment.location_id,
+ *   terminal_id: terminalId,
+ * })
+ * ```
  */
 
 import type { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { AuthUser } from '@/lib/api/auth'
+import { toCsv as csvSerialize, type AuditCsvRow } from '@/lib/audit/csv'
 
 // ---------------------------------------------------------------------------
-// Action vocabulary — kept in sync with 5.4.3's enum so call sites that pass
-// `'order_comped' | 'order_voided' | 'payment_refunded' | ...` resolve.
+// Action vocabulary — narrow string union of every privileged action so the
+// type system catches typos. Add new actions here, never inline.
 // ---------------------------------------------------------------------------
 export type AuditAction =
   // Payments
@@ -71,6 +103,9 @@ export type EntityType =
   | 'discount'
   | 'house_account'
 
+// ---------------------------------------------------------------------------
+// Public input shape
+// ---------------------------------------------------------------------------
 export interface AuditRecordInput {
   actor: Pick<AuthUser, 'id' | 'email' | 'org_id' | 'role'>
   manager_pin_user_id?: string | null
@@ -87,10 +122,50 @@ export interface AuditRecordInput {
   request?: NextRequest | Request
 }
 
+// ---------------------------------------------------------------------------
+// Internal: best-effort actor name lookup (cached in-process per actor.id)
+// ---------------------------------------------------------------------------
+const userNameCache = new Map<string, { name: string | null; role: string | null }>()
+
+async function getActorMeta(
+  actorId: string,
+  fallbackEmail: string | null
+): Promise<{ user_name: string | null; user_role: string | null }> {
+  const cached = userNameCache.get(actorId)
+  if (cached) {
+    return { user_name: cached.name, user_role: cached.role }
+  }
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('users')
+    .select('first_name, last_name, display_name, role, email')
+    .eq('id', actorId)
+    .single()
+
+  const profile = data as
+    | { first_name?: string | null; last_name?: string | null; display_name?: string | null; role?: string | null; email?: string | null }
+    | null
+
+  const name =
+    profile?.display_name ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+    profile?.email ||
+    fallbackEmail ||
+    null
+  const role = profile?.role ?? null
+
+  userNameCache.set(actorId, { name, role })
+  return { user_name: name, user_role: role }
+}
+
 function extractIp(req: NextRequest | Request | undefined): string | null {
   if (!req) return null
   const xff = req.headers.get('x-forwarded-for')
-  if (xff) return xff.split(',')[0]!.trim() || null
+  if (xff) {
+    // First entry in XFF is the original client.
+    return xff.split(',')[0]!.trim() || null
+  }
   const real = req.headers.get('x-real-ip')
   if (real) return real
   return null
@@ -101,29 +176,34 @@ function extractUserAgent(req: NextRequest | Request | undefined): string | null
   return req.headers.get('user-agent') || null
 }
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 /**
- * Stub recorder. Mirrors 5.4.3's signature; writes a best-effort row into
- * `audit_log`. Failures are swallowed and console.error'd.
+ * Insert an audit row. NEVER throws — audit failures must not break the
+ * caller's mutation. Errors are logged to console.error (and Sentry once
+ * wired) so on-call sees them, but the calling route returns success.
  */
-async function record(
-  input: AuditRecordInput
-): Promise<{ id: string | null; error: string | null }> {
+async function record(input: AuditRecordInput): Promise<{ id: string | null; error: string | null }> {
   try {
     const admin = createAdminClient()
+    const { user_name, user_role } = await getActorMeta(input.actor.id, input.actor.email ?? null)
+
     const description =
       input.description ||
-      `${input.action.replace(/_/g, ' ')} on ${input.entity_type}${
-        input.entity_id ? ` ${input.entity_id}` : ''
-      }`
+      `${input.action.replace(/_/g, ' ')} on ${input.entity_type}${input.entity_id ? ` ${input.entity_id}` : ''}`
 
     const row = {
       org_id: input.actor.org_id,
       location_id: input.location_id ?? null,
       user_id: input.actor.id,
+      user_name,
+      user_role: user_role as never, // text column accepts any string
       action: input.action,
       entity_type: input.entity_type,
       entity_id: input.entity_id,
       description,
+      // Mirror to deprecated columns for backward compat with old readers.
       previous_state: input.before_state ?? null,
       new_state: input.after_state ?? null,
       before_state: input.before_state ?? null,
@@ -135,29 +215,155 @@ async function record(
       terminal_id: input.terminal_id ?? null,
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (admin.from('audit_log') as any)
-      .insert(row)
+    const { data, error } = await admin
+      .from('audit_log')
+      .insert(row as never)
       .select('id')
       .single()
 
     if (error) {
-      console.error('[audit] insert failed (stub)', {
-        action: input.action,
-        entity_type: input.entity_type,
-        error: error.message,
-      })
+      console.error('[audit] insert failed', { action: input.action, entity_type: input.entity_type, error: error.message })
       return { id: null, error: error.message }
     }
 
     return { id: (data as { id: string } | null)?.id ?? null, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown audit error'
-    console.error('[audit] unexpected error (stub)', { action: input.action, message })
+    console.error('[audit] unexpected error', { action: input.action, message })
     return { id: null, error: message }
   }
 }
 
+// ---------------------------------------------------------------------------
+// Query API — used by the back-office page + CSV export
+// ---------------------------------------------------------------------------
+export interface AuditListFilters {
+  org_id: string
+  date_from?: string | null
+  date_to?: string | null
+  actor_user_id?: string | null
+  manager_pin_user_id?: string | null
+  action?: AuditAction | null
+  entity_type?: EntityType | null
+  /** Free-text search against description. */
+  search?: string | null
+  limit?: number
+  offset?: number
+}
+
+export interface AuditListRow {
+  id: string
+  created_at: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  description: string
+  user_id: string | null
+  user_name: string | null
+  user_role: string | null
+  manager_pin_user_id: string | null
+  manager_pin_user_name: string | null
+  manager_pin_user_email: string | null
+  actor_email: string | null
+  before_state: Record<string, unknown> | null
+  after_state: Record<string, unknown> | null
+  reason: string | null
+  ip_address: string | null
+}
+
+const MAX_LIST_LIMIT = 500
+const DEFAULT_LIST_LIMIT = 100
+
+async function list(filters: AuditListFilters): Promise<{ rows: AuditListRow[]; total: number }> {
+  const admin = createAdminClient()
+  const limit = Math.min(filters.limit ?? DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT)
+  const offset = Math.max(filters.offset ?? 0, 0)
+
+  let q = admin
+    .from('audit_log')
+    .select(
+      'id, created_at, action, entity_type, entity_id, description, user_id, user_name, user_role, manager_pin_user_id, before_state, after_state, reason, ip_address',
+      { count: 'exact' }
+    )
+    .eq('org_id', filters.org_id)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (filters.date_from) q = q.gte('created_at', filters.date_from)
+  if (filters.date_to) q = q.lte('created_at', filters.date_to)
+  if (filters.actor_user_id) q = q.eq('user_id', filters.actor_user_id)
+  if (filters.manager_pin_user_id) q = q.eq('manager_pin_user_id', filters.manager_pin_user_id)
+  if (filters.action) q = q.eq('action', filters.action)
+  if (filters.entity_type) q = q.eq('entity_type', filters.entity_type)
+  if (filters.search) q = q.ilike('description', `%${filters.search.replace(/[%_]/g, '\\$&')}%`)
+
+  const { data, count, error } = await q
+  if (error) {
+    console.error('[audit] list failed', { error: error.message })
+    return { rows: [], total: 0 }
+  }
+
+  const baseRows = (data ?? []) as Array<Omit<AuditListRow, 'manager_pin_user_name' | 'manager_pin_user_email' | 'actor_email'>>
+
+  // Resolve actor + manager-PIN user emails/names in a single batch.
+  const idsToHydrate = new Set<string>()
+  for (const r of baseRows) {
+    if (r.user_id) idsToHydrate.add(r.user_id)
+    if (r.manager_pin_user_id) idsToHydrate.add(r.manager_pin_user_id)
+  }
+
+  const userMap = new Map<string, { email: string | null; name: string | null }>()
+  if (idsToHydrate.size > 0) {
+    const { data: users } = await admin
+      .from('users')
+      .select('id, email, first_name, last_name, display_name')
+      .in('id', Array.from(idsToHydrate))
+      .eq('org_id', filters.org_id)
+
+    for (const u of (users ?? []) as Array<{
+      id: string
+      email: string | null
+      first_name: string | null
+      last_name: string | null
+      display_name: string | null
+    }>) {
+      const name =
+        u.display_name ||
+        [u.first_name, u.last_name].filter(Boolean).join(' ') ||
+        u.email ||
+        null
+      userMap.set(u.id, { email: u.email, name })
+    }
+  }
+
+  const rows: AuditListRow[] = baseRows.map((r) => {
+    const actor = r.user_id ? userMap.get(r.user_id) : null
+    const pinner = r.manager_pin_user_id ? userMap.get(r.manager_pin_user_id) : null
+    return {
+      ...r,
+      actor_email: actor?.email ?? null,
+      manager_pin_user_name: pinner?.name ?? null,
+      manager_pin_user_email: pinner?.email ?? null,
+    }
+  })
+
+  return { rows, total: count ?? rows.length }
+}
+
+// ---------------------------------------------------------------------------
+// CSV — delegates to the dependency-free serialiser in ./csv.ts so tests
+// can exercise it without needing the Supabase env vars.
+// ---------------------------------------------------------------------------
+function toCsv(rows: AuditListRow[]): string {
+  // AuditListRow has a strict superset of the CSV row shape, so the cast is safe.
+  return csvSerialize(rows as AuditCsvRow[])
+}
+
+// ---------------------------------------------------------------------------
+// Namespace export — call sites use `audit.record(...)` / `audit.list(...)`.
+// ---------------------------------------------------------------------------
 export const audit = {
   record,
+  list,
+  toCsv,
 }
