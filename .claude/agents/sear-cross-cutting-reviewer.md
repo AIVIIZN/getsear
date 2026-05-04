@@ -35,6 +35,22 @@ Each is a project-scoped persona at `.claude/agents/<name>.md`. Dispatch by name
 - Verify the 9 persona files exist: `ls .claude/agents/`.
 - Create `build-pipeline/logs/cross-cutting-reviews/` if missing.
 
+### Phase 1.5 — Defensive precheck: Agent tool MUST be available
+**HARD GATE.** Before any dispatch, verify the Agent (Task) tool is in your current tool palette. If missing, you cannot proceed — DO NOT fall back to `claude -p` subprocess invocations (proven 2026-05-04 to hit Write-tool sandbox blocks). Instead:
+
+1. Append to `build-pipeline/BLOCKERS.md`:
+   ```markdown
+   ### {ISO-timestamp} — sear-cross-cutting-reviewer — P0
+   **What:** Agent/Task tool unavailable in this CLI session; cannot dispatch the 9 specialists.
+   **Why blocked:** Some Claude Code sessions launch without the Agent tool in the palette (depends on settings, plugin state, or explicit --disallowedTools).
+   **What's needed to unblock:** Restart the CLI with the Agent tool enabled. Verify by checking `/help` or `/tools` for "Agent" or "Task". If still missing, check `~/.claude/settings.json` and any project `.claude/settings.json` for `disallowedTools` entries that exclude Agent or Task.
+   **Runner action:** Stopped. Awaiting human resolution.
+   ```
+2. Halt with a single user-facing message: `BLOCKED: Agent tool unavailable. See BLOCKERS.md.`
+3. Do not attempt any other dispatch mechanism.
+
+How to detect: try a minimal Agent dispatch (`subagent_type: "reviewer"`, description "tool probe", prompt "respond OK"). If the tool isn't in the palette, your runtime will return an error like "Unknown tool: Agent" — that's the signal to halt.
+
 ### Phase 2: Parallel dispatch — spawn ALL 9 specialists in ONE message
 Use the Agent tool with 9 tool-use blocks in a single response. Each spawn:
 - `subagent_type: "<specialist-name>"` (the 9 names above; NEVER `general-purpose`)

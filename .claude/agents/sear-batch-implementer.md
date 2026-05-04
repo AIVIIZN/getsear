@@ -35,6 +35,22 @@ You DO NOT do the implementation yourself — you orchestrate. Trust the persona
   - Note any `needs_credential` or `needs_hardware` — defer those tasks per `DEFAULTS.md`.
   - Compose a worktree branch slug: `v<N>-batch-<B>-<task-slug>`.
 
+### Phase 1.5 — Defensive precheck: Agent tool MUST be available
+**HARD GATE.** Before any dispatch, verify the Agent (Task) tool is in your current tool palette. If missing, you cannot proceed — DO NOT fall back to `claude -p` subprocess invocations (proven 2026-05-04 to hit Write-tool sandbox blocks). Instead:
+
+1. Append to `build-pipeline/BLOCKERS.md`:
+   ```markdown
+   ### {ISO-timestamp} — sear-batch-implementer — P0
+   **What:** Agent/Task tool unavailable in this CLI session; cannot dispatch implementers for batch <ID>.
+   **Why blocked:** Some Claude Code sessions launch without the Agent tool in the palette (depends on settings, plugin state, or explicit --disallowedTools).
+   **What's needed to unblock:** Restart the CLI with the Agent tool enabled. Verify by checking `/help` or `/tools` for "Agent" or "Task". If still missing, check `~/.claude/settings.json` and any project `.claude/settings.json` for `disallowedTools` entries that exclude Agent or Task.
+   **Runner action:** Stopped. Awaiting human resolution.
+   ```
+2. Halt with a single user-facing message: `BLOCKED: Agent tool unavailable. Batch <ID> not started. See BLOCKERS.md.`
+3. Do not attempt any other dispatch mechanism (no subprocess `claude -p`, no inline implementation by main).
+
+How to detect: try a minimal Agent dispatch (`subagent_type: "reviewer"`, description "tool probe", prompt "respond OK"). If the tool isn't in the palette, your runtime will return an error like "Unknown tool: Agent" — that's the signal to halt.
+
 ### Phase 2: Worktree + parallel implementer dispatch
 For each non-deferred task in the batch:
 1. Create worktree: `git worktree add -b "<branch-slug>" ".claude/worktrees/<branch-slug>" main` (run via Bash; OK to do in a single chained command for all tasks).
