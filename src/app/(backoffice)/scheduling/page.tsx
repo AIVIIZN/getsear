@@ -6,7 +6,6 @@ import { WeeklyGrid } from "@/components/scheduling/WeeklyGrid";
 import {
   CalendarDays,
   Plus,
-  Loader2,
   Clock,
   ArrowRightLeft,
   Check,
@@ -14,42 +13,31 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  Pencil,
-  Trash2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui-v2/Button";
+import { Card } from "@/components/ui-v2/Card";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/components/ui-v2/data/Table";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetBody,
   SheetFooter,
-} from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+} from "@/components/ui-v2/Sheet";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,13 +84,6 @@ interface SwapRequest {
   target_user_id: string | null;
   status: string;
   created_at: string;
-}
-
-interface ScheduleTemplate {
-  id: string;
-  org_id: string;
-  name: string;
-  is_active: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,14 +134,31 @@ function getWeekDates(weekStart: Date): string[] {
   return dates;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  server: "bg-blue-100 text-blue-700 border-blue-200",
-  bartender: "bg-purple-100 text-purple-700 border-purple-200",
-  kitchen: "bg-orange-100 text-orange-700 border-orange-200",
-  host: "bg-teal-100 text-teal-700 border-teal-200",
-  manager: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  cashier: "bg-green-100 text-green-700 border-green-200",
+// Token-based role chip styles via color-mix on the primary token. Per-role
+// hue comes from a small set of semantic accents already in tokens.css.
+const ROLE_CHIP_BG: Record<string, string> = {
+  server:
+    "bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-[var(--color-primary)]",
+  bartender:
+    "bg-[color-mix(in_srgb,var(--color-primary)_18%,transparent)] text-[var(--color-primary)]",
+  kitchen:
+    "bg-[var(--color-warning-bg)] text-[var(--color-warning)]",
+  host:
+    "bg-[color-mix(in_srgb,var(--color-success)_14%,transparent)] text-[var(--color-success)]",
+  manager:
+    "bg-[color-mix(in_srgb,var(--color-primary)_24%,transparent)] text-[var(--color-primary)]",
+  cashier:
+    "bg-[var(--color-success-bg)] text-[var(--color-success)]",
 };
+
+const ROLE_OPTIONS = [
+  { value: "server", label: "Server" },
+  { value: "bartender", label: "Bartender" },
+  { value: "kitchen", label: "Kitchen" },
+  { value: "host", label: "Host" },
+  { value: "manager", label: "Manager" },
+  { value: "cashier", label: "Cashier" },
+];
 
 // ---------------------------------------------------------------------------
 // Main Page
@@ -170,9 +168,7 @@ export default function SchedulingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="page-title">
-          Staff Scheduling
-        </h2>
+        <h2 className="page-title">Staff Scheduling</h2>
         <p className="page-subtitle">
           Manage shifts, availability, and swap requests
         </p>
@@ -225,7 +221,6 @@ function ScheduleTab() {
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [showCreate, setShowCreate] = useState(false);
-  const [createDate, setCreateDate] = useState("");
 
   // Shift creation state
   const [newUserId, setNewUserId] = useState("");
@@ -245,7 +240,7 @@ function ScheduleTab() {
     try {
       const [shiftsRes, staffRes] = await Promise.all([
         fetch(
-          `/api/scheduling/shifts?date_from=${dateFrom}&date_to=${dateTo}`
+          `/api/scheduling/shifts?date_from=${dateFrom}&date_to=${dateTo}`,
         ),
         fetch("/api/staff?status=active"),
       ]);
@@ -266,8 +261,6 @@ function ScheduleTab() {
     fetchData();
   }, [fetchData]);
 
-  const staffMap = new Map(staff.map((s) => [s.id, s]));
-
   // Group shifts by user_id and date
   const shiftsByUserDate = new Map<string, Shift[]>();
   for (const shift of shifts) {
@@ -276,11 +269,7 @@ function ScheduleTab() {
     shiftsByUserDate.get(key)!.push(shift);
   }
 
-  // Get unique staff who have shifts this week
-  const staffWithShifts = new Set(shifts.map((s) => s.user_id));
-  const displayStaff = staff.filter(
-    (s) => staffWithShifts.has(s.id) || true
-  );
+  const displayStaff = staff;
 
   const handleCreateShift = async () => {
     if (!newUserId || !newDate) {
@@ -362,41 +351,56 @@ function ScheduleTab() {
   const totalHours = shifts.reduce((sum, s) => {
     const start = s.start_time.split(":").map(Number);
     const end = s.end_time.split(":").map(Number);
-    const hours =
-      (end[0] + end[1] / 60) - (start[0] + start[1] / 60);
+    const hours = end[0] + end[1] / 60 - (start[0] + start[1] / 60);
     return sum + Math.max(0, hours);
   }, 0);
+
+  const staffOptions = staff.map((s) => ({
+    value: s.id,
+    label: s.display_name ?? `${s.first_name} ${s.last_name}`,
+  }));
 
   return (
     <div className="space-y-4 mt-4">
       {/* Week Navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={prevWeek}>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={prevWeek}
+            aria-label="Previous week"
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={thisWeek}>
+          <Button variant="secondary" size="md" onClick={thisWeek}>
             This Week
           </Button>
-          <Button variant="outline" size="icon" onClick={nextWeek}>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={nextWeek}
+            aria-label="Next week"
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium ml-2">
+          <span className="ml-[var(--space-2)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text)]">
             {formatDateShort(weekDates[0])} - {formatDateShort(weekDates[6])}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
             {shifts.length} shifts | {totalHours.toFixed(1)}h total
           </span>
           <Button
+            variant="primary"
+            size="md"
             onClick={() => {
               setShowCreate(true);
               setNewDate(weekDates[0]);
             }}
-            className="btn-press gap-2"
+            leadingIcon={<Plus className="h-4 w-4" />}
           >
-            <Plus className="h-4 w-4" />
             Add Shift
           </Button>
         </div>
@@ -406,7 +410,7 @@ function ScheduleTab() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : displayStaff.length === 0 ? (
@@ -416,32 +420,42 @@ function ScheduleTab() {
           description="Add staff members first, then create their schedule"
         />
       ) : (
-        <Card className="overflow-x-auto">
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[140px] sticky left-0 bg-card z-10">
+                <TableCell
+                  header
+                  className="min-w-[140px] sticky left-0 bg-[var(--color-bg-subtle)] z-10"
+                >
                   Staff
-                </TableHead>
+                </TableCell>
                 {weekDates.map((date, i) => (
-                  <TableHead key={date} className="min-w-[120px] text-center">
-                    <div className="text-xs text-muted-foreground">
+                  <TableCell
+                    key={date}
+                    header
+                    align="center"
+                    className="min-w-[120px]"
+                  >
+                    <div className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)] normal-case">
                       {DAY_NAMES[i]}
                     </div>
-                    <div className="font-medium">{formatDateShort(date)}</div>
-                  </TableHead>
+                    <div className="font-[var(--weight-medium)] normal-case text-[var(--color-text)]">
+                      {formatDateShort(date)}
+                    </div>
+                  </TableCell>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {displayStaff.map((member) => (
                 <TableRow key={member.id}>
-                  <TableCell className="font-medium sticky left-0 bg-card z-10">
-                    <div className="text-sm">
+                  <TableCell className="font-[var(--weight-medium)] sticky left-0 bg-[var(--color-surface)] z-10">
+                    <div className="text-[length:var(--type-subhead-size)]">
                       {member.display_name ??
                         `${member.first_name} ${member.last_name}`}
                     </div>
-                    <div className="text-xs text-muted-foreground capitalize">
+                    <div className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)] capitalize">
                       {member.role}
                     </div>
                   </TableCell>
@@ -449,18 +463,18 @@ function ScheduleTab() {
                     const key = `${member.id}__${date}`;
                     const dayShifts = shiftsByUserDate.get(key) ?? [];
                     return (
-                      <TableCell key={date} className="p-1 align-top">
+                      <TableCell key={date} className="!p-1 align-top">
                         <div className="space-y-1">
                           {dayShifts.map((shift) => {
-                            const roleClass =
-                              ROLE_COLORS[shift.role ?? ""] ??
-                              "bg-gray-100 text-gray-700 border-gray-200";
+                            const chipCls =
+                              ROLE_CHIP_BG[shift.role ?? ""] ??
+                              "bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]";
                             return (
                               <div
                                 key={shift.id}
-                                className={`rounded-md border px-2 py-1 text-xs cursor-pointer group relative ${roleClass}`}
+                                className={`rounded-[var(--radius-xs)] px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--type-caption-1-size)] cursor-pointer group relative ${chipCls}`}
                               >
-                                <div className="font-medium">
+                                <div className="font-[var(--weight-medium)]">
                                   {formatTime(shift.start_time)} -{" "}
                                   {formatTime(shift.end_time)}
                                 </div>
@@ -470,7 +484,9 @@ function ScheduleTab() {
                                   </div>
                                 )}
                                 <button
-                                  className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-white rounded-full hidden group-hover:flex items-center justify-center"
+                                  type="button"
+                                  aria-label="Remove shift"
+                                  className="btn-press absolute -top-1 -right-1 h-4 w-4 bg-[var(--color-danger)] text-[var(--color-primary-fg)] rounded-[var(--radius-circle)] hidden group-hover:flex items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--color-border-focus)]"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleDeleteShift(shift.id);
@@ -483,14 +499,16 @@ function ScheduleTab() {
                           })}
                           {dayShifts.length === 0 && (
                             <button
-                              className="w-full h-8 rounded-md border border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50 transition-colors flex items-center justify-center"
+                              type="button"
+                              aria-label="Add shift"
+                              className="btn-press w-full h-8 rounded-[var(--radius-xs)] border border-dashed border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)] transition-colors flex items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--color-border-focus)]"
                               onClick={() => {
                                 setNewDate(date);
                                 setNewUserId(member.id);
                                 setShowCreate(true);
                               }}
                             >
-                              <Plus className="h-3 w-3 text-muted-foreground" />
+                              <Plus className="h-3 w-3 text-[var(--color-text-muted)]" />
                             </button>
                           )}
                         </div>
@@ -514,93 +532,61 @@ function ScheduleTab() {
           }
         }}
       >
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetContent width="md">
           <SheetHeader>
             <SheetTitle>New Shift</SheetTitle>
             <SheetDescription>
               Create a shift assignment for a staff member
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 py-6">
-            <div>
-              <Label>Staff Member *</Label>
-              <Select
-                value={newUserId}
-                onValueChange={(v) => v && setNewUserId(v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select staff" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staff.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.display_name ??
-                        `${s.first_name} ${s.last_name}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Date *</Label>
-              <Input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-              />
-            </div>
+          <SheetBody className="space-y-4">
+            <Select
+              label="Staff Member"
+              required
+              placeholder="Select staff"
+              options={staffOptions}
+              value={newUserId}
+              onChange={(v) => setNewUserId(v)}
+            />
+            <Text
+              label="Date"
+              required
+              type="date"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+            />
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Start Time</Label>
-                <Input
-                  type="time"
-                  value={newStartTime}
-                  onChange={(e) => setNewStartTime(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>End Time</Label>
-                <Input
-                  type="time"
-                  value={newEndTime}
-                  onChange={(e) => setNewEndTime(e.target.value)}
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Role</Label>
-              <Select value={newRole} onValueChange={(v) => v && setNewRole(v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "server",
-                    "bartender",
-                    "kitchen",
-                    "host",
-                    "manager",
-                    "cashier",
-                  ].map((r) => (
-                    <SelectItem key={r} value={r}>
-                      <span className="capitalize">{r}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Notes</Label>
-              <Input
-                value={newNotes}
-                onChange={(e) => setNewNotes(e.target.value)}
-                placeholder="Optional notes"
+              <Text
+                label="Start Time"
+                type="time"
+                value={newStartTime}
+                onChange={(e) => setNewStartTime(e.target.value)}
+              />
+              <Text
+                label="End Time"
+                type="time"
+                value={newEndTime}
+                onChange={(e) => setNewEndTime(e.target.value)}
               />
             </div>
-          </div>
+            <Select
+              label="Role"
+              placeholder="Select role"
+              options={ROLE_OPTIONS}
+              value={newRole}
+              onChange={(v) => setNewRole(v)}
+            />
+            <Text
+              label="Notes"
+              value={newNotes}
+              onChange={(e) => setNewNotes(e.target.value)}
+              placeholder="Optional notes"
+            />
+          </SheetBody>
           <SheetFooter>
             <Button
-              variant="outline"
+              variant="secondary"
+              size="md"
               onClick={() => {
                 setShowCreate(false);
                 resetCreateForm();
@@ -609,11 +595,11 @@ function ScheduleTab() {
               Cancel
             </Button>
             <Button
+              variant="primary"
+              size="md"
               onClick={handleCreateShift}
-              disabled={creating}
-              className="btn-press"
+              loading={creating}
             >
-              {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Create Shift
             </Button>
           </SheetFooter>
@@ -668,31 +654,31 @@ function AvailabilityTab() {
     byUser.get(a.user_id)!.push(a);
   }
 
+  const userFilterOptions = [
+    { value: "all", label: "All Staff" },
+    ...staff.map((s) => ({
+      value: s.id,
+      label: s.display_name ?? `${s.first_name} ${s.last_name}`,
+    })),
+  ];
+
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center gap-4">
-        <Select
-          value={selectedUser}
-          onValueChange={(v) => v && setSelectedUser(v)}
-        >
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Filter by staff" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Staff</SelectItem>
-            {staff.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.display_name ?? `${s.first_name} ${s.last_name}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-[240px]">
+          <Select
+            options={userFilterOptions}
+            value={selectedUser}
+            onChange={(v) => setSelectedUser(v)}
+            ariaLabel="Filter by staff"
+          />
+        </div>
       </div>
 
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : availability.length === 0 ? (
@@ -702,15 +688,22 @@ function AvailabilityTab() {
           description="Staff members have not submitted their availability yet"
         />
       ) : (
-        <Card className="overflow-x-auto">
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[140px]">Staff</TableHead>
+                <TableCell header className="min-w-[140px]">
+                  Staff
+                </TableCell>
                 {DAY_NAMES_FULL.map((day) => (
-                  <TableHead key={day} className="text-center min-w-[100px]">
+                  <TableCell
+                    key={day}
+                    header
+                    align="center"
+                    className="min-w-[100px]"
+                  >
                     {day}
-                  </TableHead>
+                  </TableCell>
                 ))}
               </TableRow>
             </TableHeader>
@@ -719,30 +712,34 @@ function AvailabilityTab() {
                 const member = staffMap.get(userId);
                 return (
                   <TableRow key={userId}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-[var(--weight-medium)]">
                       {member
-                        ? member.display_name ??
-                          `${member.first_name} ${member.last_name}`
+                        ? (member.display_name ??
+                          `${member.first_name} ${member.last_name}`)
                         : userId.slice(0, 8)}
                     </TableCell>
                     {[0, 1, 2, 3, 4, 5, 6].map((dow) => {
                       const dayEntries = entries.filter(
-                        (e) => e.day_of_week === dow
+                        (e) => e.day_of_week === dow,
                       );
                       return (
-                        <TableCell key={dow} className="text-center p-1">
+                        <TableCell
+                          key={dow}
+                          align="center"
+                          className="!p-[var(--space-1)]"
+                        >
                           {dayEntries.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
                               --
                             </span>
                           ) : (
                             dayEntries.map((e) => (
                               <div
                                 key={e.id}
-                                className={`text-xs rounded px-1 py-0.5 mb-0.5 ${
+                                className={`text-[length:var(--type-caption-1-size)] rounded-[var(--radius-xs)] px-[var(--space-1)] py-[2px] mb-[2px] ${
                                   e.is_available
-                                    ? "bg-green-50 text-green-700"
-                                    : "bg-red-50 text-red-700"
+                                    ? "bg-[var(--color-success-bg)] text-[var(--color-success)]"
+                                    : "bg-[var(--color-danger-bg)] text-[var(--color-danger)]"
                                 }`}
                               >
                                 {formatTime(e.start_time)}-
@@ -770,7 +767,6 @@ function AvailabilityTab() {
 
 function SwapsTab() {
   const [swaps, setSwaps] = useState<SwapRequest[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -802,10 +798,13 @@ function SwapsTab() {
     staff.map((s) => [
       s.id,
       s.display_name ?? `${s.first_name} ${s.last_name}`,
-    ])
+    ]),
   );
 
-  const handleAction = async (swapId: string, status: "approved" | "rejected") => {
+  const handleAction = async (
+    swapId: string,
+    status: "approved" | "rejected",
+  ) => {
     try {
       const res = await fetch(`/api/scheduling/swap-requests/${swapId}`, {
         method: "PUT",
@@ -832,7 +831,7 @@ function SwapsTab() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : swaps.length === 0 ? (
@@ -846,57 +845,61 @@ function SwapsTab() {
           {/* Pending */}
           {pendingSwaps.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-2">
+              <h3 className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text)] mb-[var(--space-2)]">
                 Pending Requests ({pendingSwaps.length})
               </h3>
-              <Card>
+              <Card padding="compact" className="!p-0 overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Requested By</TableHead>
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Swap With</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableCell header>Requested By</TableCell>
+                      <TableCell header>Shift</TableCell>
+                      <TableCell header>Swap With</TableCell>
+                      <TableCell header>Submitted</TableCell>
+                      <TableCell header align="right">
+                        Actions
+                      </TableCell>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pendingSwaps.map((swap) => (
                       <TableRow key={swap.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-[var(--weight-medium)]">
                           {staffMap.get(swap.requesting_user_id) ??
                             swap.requesting_user_id.slice(0, 8)}
                         </TableCell>
-                        <TableCell className="font-mono text-xs">
+                        <TableCell className="font-mono text-[length:var(--type-footnote-size)]">
                           {swap.original_shift_id.slice(0, 8)}...
                         </TableCell>
                         <TableCell>
                           {swap.target_user_id
-                            ? staffMap.get(swap.target_user_id) ??
-                              swap.target_user_id.slice(0, 8)
+                            ? (staffMap.get(swap.target_user_id) ??
+                              swap.target_user_id.slice(0, 8))
                             : "Open"}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-[var(--color-text-muted)]">
                           {new Date(swap.created_at).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell align="right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
-                              variant="outline"
+                              variant="secondary"
                               size="sm"
-                              className="text-green-600 border-green-200 hover:bg-green-50"
-                              onClick={() => handleAction(swap.id, "approved")}
+                              onClick={() =>
+                                handleAction(swap.id, "approved")
+                              }
+                              leadingIcon={<Check className="h-3 w-3" />}
                             >
-                              <Check className="h-3 w-3 mr-1" />
                               Approve
                             </Button>
                             <Button
-                              variant="outline"
+                              variant="secondary"
                               size="sm"
-                              className="text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={() => handleAction(swap.id, "rejected")}
+                              onClick={() =>
+                                handleAction(swap.id, "rejected")
+                              }
+                              leadingIcon={<X className="h-3 w-3" />}
                             >
-                              <X className="h-3 w-3 mr-1" />
                               Reject
                             </Button>
                           </div>
@@ -912,40 +915,40 @@ function SwapsTab() {
           {/* Resolved */}
           {resolvedSwaps.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              <h3 className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)] mb-[var(--space-2)]">
                 Resolved ({resolvedSwaps.length})
               </h3>
-              <Card>
+              <Card padding="compact" className="!p-0 overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Requested By</TableHead>
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Swap With</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
+                      <TableCell header>Requested By</TableCell>
+                      <TableCell header>Shift</TableCell>
+                      <TableCell header>Swap With</TableCell>
+                      <TableCell header>Status</TableCell>
+                      <TableCell header>Date</TableCell>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {resolvedSwaps.map((swap) => (
                       <TableRow key={swap.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-[var(--weight-medium)]">
                           {staffMap.get(swap.requesting_user_id) ??
                             swap.requesting_user_id.slice(0, 8)}
                         </TableCell>
-                        <TableCell className="font-mono text-xs">
+                        <TableCell className="font-mono text-[length:var(--type-footnote-size)]">
                           {swap.original_shift_id.slice(0, 8)}...
                         </TableCell>
                         <TableCell>
                           {swap.target_user_id
-                            ? staffMap.get(swap.target_user_id) ??
-                              swap.target_user_id.slice(0, 8)
+                            ? (staffMap.get(swap.target_user_id) ??
+                              swap.target_user_id.slice(0, 8))
                             : "Open"}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={swap.status} />
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-[var(--color-text-muted)]">
                           {new Date(swap.created_at).toLocaleDateString()}
                         </TableCell>
                       </TableRow>

@@ -6,56 +6,47 @@ import { DeliveryMap } from "@/components/delivery/DeliveryMap";
 import {
   MapPin,
   Plus,
-  Loader2,
   Truck,
-  Clock,
-  DollarSign,
   User,
   Pencil,
   Navigation,
   X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui-v2/Button";
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui-v2/Card";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { NumberInput } from "@/components/ui-v2/inputs/Number";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Badge } from "@/components/ui-v2/data/Badge";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/components/ui-v2/data/Table";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetBody,
   SheetFooter,
-} from "@/components/ui/sheet";
+} from "@/components/ui-v2/Sheet";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+} from "@/components/ui-v2/Modal";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -133,23 +124,36 @@ function timeAgo(iso: string): string {
   return `${hours}h ${mins % 60}m ago`;
 }
 
-const STATUS_ORDER = [
-  "pending",
-  "assigned",
-  "picked_up",
-  "en_route",
-  "delivered",
-  "cancelled",
-];
+function deliveryStatusVariant(
+  status: string,
+): "default" | "primary" | "warning" | "success" | "danger" {
+  switch (status) {
+    case "pending":
+      return "default";
+    case "assigned":
+      return "primary";
+    case "picked_up":
+      return "warning";
+    case "en_route":
+      return "warning";
+    case "delivered":
+      return "success";
+    case "cancelled":
+      return "danger";
+    default:
+      return "default";
+  }
+}
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-700 border-gray-200",
-  assigned: "bg-blue-50 text-blue-700 border-blue-200",
-  picked_up: "bg-orange-50 text-orange-700 border-orange-200",
-  en_route: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  delivered: "bg-green-50 text-green-700 border-green-200",
-  cancelled: "bg-red-50 text-red-700 border-red-200",
-};
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "assigned", label: "Assigned" },
+  { value: "picked_up", label: "Picked Up" },
+  { value: "en_route", label: "En Route" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 // ---------------------------------------------------------------------------
 // Main Page
@@ -159,9 +163,7 @@ export default function DeliveryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="page-title">
-          Delivery Management
-        </h2>
+        <h2 className="page-title">Delivery Management</h2>
         <p className="page-subtitle">
           Manage active deliveries and delivery zones
         </p>
@@ -208,6 +210,7 @@ function ActiveDeliveriesTab() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [assignDialog, setAssignDialog] = useState<Delivery | null>(null);
   const [selectedDriver, setSelectedDriver] = useState("");
+  const [assigning, setAssigning] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -236,17 +239,18 @@ function ActiveDeliveriesTab() {
   }, [fetchData]);
 
   const drivers = staff.filter(
-    (s) => s.role === "driver" || s.role === "manager" || s.role === "owner"
+    (s) => s.role === "driver" || s.role === "manager" || s.role === "owner",
   );
   const staffMap = new Map(
     staff.map((s) => [
       s.id,
       s.display_name ?? `${s.first_name} ${s.last_name}`,
-    ])
+    ]),
   );
 
   const handleAssign = async () => {
     if (!assignDialog || !selectedDriver) return;
+    setAssigning(true);
     try {
       const res = await fetch(
         `/api/delivery/deliveries/${assignDialog.id}/assign`,
@@ -254,7 +258,7 @@ function ActiveDeliveriesTab() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ driver_id: selectedDriver }),
-        }
+        },
       );
       if (res.ok) {
         toast.success("Driver assigned");
@@ -267,13 +271,12 @@ function ActiveDeliveriesTab() {
       }
     } catch {
       toast.error("Network error");
+    } finally {
+      setAssigning(false);
     }
   };
 
-  const handleStatusUpdate = async (
-    deliveryId: string,
-    status: string
-  ) => {
+  const handleStatusUpdate = async (deliveryId: string, status: string) => {
     try {
       const res = await fetch(
         `/api/delivery/deliveries/${deliveryId}/status`,
@@ -281,7 +284,7 @@ function ActiveDeliveriesTab() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status }),
-        }
+        },
       );
       if (res.ok) {
         toast.success(`Status updated to ${status.replace("_", " ")}`);
@@ -295,9 +298,8 @@ function ActiveDeliveriesTab() {
     }
   };
 
-  // Summary
   const activeCount = deliveries.filter(
-    (d) => !["delivered", "cancelled"].includes(d.status)
+    (d) => !["delivered", "cancelled"].includes(d.status),
   ).length;
   const deliveredToday = deliveries.filter((d) => {
     if (d.status !== "delivered" || !d.delivered_at) return false;
@@ -305,72 +307,70 @@ function ActiveDeliveriesTab() {
     return d.delivered_at.startsWith(today);
   }).length;
 
+  const driverOptions = drivers.map((d) => ({
+    value: d.id,
+    label: d.display_name ?? `${d.first_name} ${d.last_name}`,
+  }));
+
   return (
     <div className="space-y-4 mt-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card padding="default">
+          <CardHeader>
+            <CardTitle className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
               Active Deliveries
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">{activeCount}</div>
-          </CardContent>
+          <CardBody>
+            <div className="text-[length:var(--type-title-1-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
+              {activeCount}
+            </div>
+          </CardBody>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card padding="default">
+          <CardHeader>
+            <CardTitle className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
               Delivered Today
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums text-green-600">
+          <CardBody>
+            <div className="text-[length:var(--type-title-1-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-success)]">
               {deliveredToday}
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card padding="default">
+          <CardHeader>
+            <CardTitle className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
               Available Drivers
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">
+          <CardBody>
+            <div className="text-[length:var(--type-title-1-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
               {drivers.length}
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center gap-4">
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => v && setStatusFilter(v)}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="assigned">Assigned</SelectItem>
-            <SelectItem value="picked_up">Picked Up</SelectItem>
-            <SelectItem value="en_route">En Route</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="w-[200px]">
+          <Select
+            options={STATUS_FILTER_OPTIONS}
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v)}
+            ariaLabel="Filter by status"
+          />
+        </div>
       </div>
 
       {/* Deliveries Table */}
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : deliveries.length === 0 ? (
@@ -380,23 +380,25 @@ function ActiveDeliveriesTab() {
           description="Delivery orders will appear here when created"
         />
       ) : (
-        <Card>
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Driver</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>ETA</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell header>Order</TableCell>
+                <TableCell header>Address</TableCell>
+                <TableCell header>Driver</TableCell>
+                <TableCell header>Status</TableCell>
+                <TableCell header>ETA</TableCell>
+                <TableCell header>Created</TableCell>
+                <TableCell header align="right">
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
               {deliveries.map((delivery) => (
                 <TableRow key={delivery.id}>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="font-mono text-[length:var(--type-footnote-size)]">
                     {delivery.order_id.slice(0, 8)}...
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">
@@ -404,46 +406,44 @@ function ActiveDeliveriesTab() {
                   </TableCell>
                   <TableCell>
                     {delivery.driver_id
-                      ? staffMap.get(delivery.driver_id) ??
-                        delivery.driver_id.slice(0, 8)
+                      ? (staffMap.get(delivery.driver_id) ??
+                        delivery.driver_id.slice(0, 8))
                       : "--"}
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant="outline"
-                      className={`text-xs font-medium capitalize ${
-                        STATUS_COLORS[delivery.status] ?? ""
-                      }`}
+                      variant={deliveryStatusVariant(delivery.status)}
+                      className="capitalize"
                     >
                       {delivery.status.replace("_", " ")}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-[var(--color-text-muted)]">
                     {delivery.estimated_delivery_at
                       ? formatTime(delivery.estimated_delivery_at)
                       : "--"}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
+                  <TableCell className="text-[var(--color-text-muted)] text-[length:var(--type-caption-1-size)]">
                     {timeAgo(delivery.created_at)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell align="right">
                     <div className="flex items-center justify-end gap-1">
                       {delivery.status === "pending" && (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={() => {
                             setAssignDialog(delivery);
                             setSelectedDriver("");
                           }}
+                          leadingIcon={<User className="h-3 w-3" />}
                         >
-                          <User className="h-3 w-3 mr-1" />
                           Assign
                         </Button>
                       )}
                       {delivery.status === "assigned" && (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={() =>
                             handleStatusUpdate(delivery.id, "picked_up")
@@ -454,21 +454,20 @@ function ActiveDeliveriesTab() {
                       )}
                       {delivery.status === "picked_up" && (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={() =>
                             handleStatusUpdate(delivery.id, "en_route")
                           }
+                          leadingIcon={<Navigation className="h-3 w-3" />}
                         >
-                          <Navigation className="h-3 w-3 mr-1" />
                           En Route
                         </Button>
                       )}
                       {delivery.status === "en_route" && (
                         <Button
-                          variant="outline"
+                          variant="primary"
                           size="sm"
-                          className="text-green-600 border-green-200 hover:bg-green-50"
                           onClick={() =>
                             handleStatusUpdate(delivery.id, "delivered")
                           }
@@ -485,8 +484,8 @@ function ActiveDeliveriesTab() {
         </Card>
       )}
 
-      {/* Assign Driver Dialog */}
-      <Dialog
+      {/* Assign Driver Modal — short confirmation */}
+      <Modal
         open={!!assignDialog}
         onOpenChange={(open) => {
           if (!open) {
@@ -495,53 +494,45 @@ function ActiveDeliveriesTab() {
           }
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Driver</DialogTitle>
-            <DialogDescription>
+        <ModalContent size="sm">
+          <ModalHeader>
+            <ModalTitle>Assign Driver</ModalTitle>
+            <ModalDescription>
               Select a driver for this delivery
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Driver</Label>
-              <Select
-                value={selectedDriver}
-                onValueChange={(v) => v && setSelectedDriver(v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  {drivers.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.display_name ??
-                        `${d.first_name} ${d.last_name}`}
-                    </SelectItem>
-                  ))}
-                  {drivers.length === 0 && (
-                    <SelectItem value="_none" disabled>
-                      No drivers available
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignDialog(null)}>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalBody>
+            <Select
+              label="Driver"
+              placeholder={
+                drivers.length === 0 ? "No drivers available" : "Select driver"
+              }
+              options={driverOptions}
+              value={selectedDriver}
+              onChange={(v) => setSelectedDriver(v)}
+              disabled={drivers.length === 0}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setAssignDialog(null)}
+            >
               Cancel
             </Button>
             <Button
+              variant="primary"
+              size="md"
               onClick={handleAssign}
               disabled={!selectedDriver}
-              className="btn-press"
+              loading={assigning}
             >
               Assign
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
@@ -594,12 +585,16 @@ function ZonesTab() {
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
+        <h3 className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
           {zones.filter((z) => z.is_active).length} active zone
           {zones.filter((z) => z.is_active).length !== 1 ? "s" : ""}
         </h3>
-        <Button onClick={() => setShowCreate(true)} className="btn-press gap-2">
-          <Plus className="h-4 w-4" />
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setShowCreate(true)}
+          leadingIcon={<Plus className="h-4 w-4" />}
+        >
           Add Zone
         </Button>
       </div>
@@ -607,7 +602,7 @@ function ZonesTab() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : zones.length === 0 ? (
@@ -615,33 +610,42 @@ function ZonesTab() {
           icon={MapPin}
           title="No delivery zones"
           description="Create delivery zones to define your delivery area and fees"
-          actionLabel="Add Zone"
-          onAction={() => setShowCreate(true)}
+          action={{ label: "Add Zone", onClick: () => setShowCreate(true) }}
         />
       ) : (
-        <Card>
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Zone Name</TableHead>
-                <TableHead className="text-right">Delivery Fee</TableHead>
-                <TableHead className="text-right">Min Order</TableHead>
-                <TableHead className="text-right">Est. Minutes</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell header>Zone Name</TableCell>
+                <TableCell header align="right">
+                  Delivery Fee
+                </TableCell>
+                <TableCell header align="right">
+                  Min Order
+                </TableCell>
+                <TableCell header align="right">
+                  Est. Minutes
+                </TableCell>
+                <TableCell header>Status</TableCell>
+                <TableCell header align="right">
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
               {zones.map((zone) => (
                 <TableRow key={zone.id}>
-                  <TableCell className="font-medium">{zone.name}</TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="font-[var(--weight-medium)]">
+                    {zone.name}
+                  </TableCell>
+                  <TableCell align="right" className="tabular-nums">
                     {formatMoney(zone.delivery_fee)}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell align="right" className="tabular-nums">
                     {formatMoney(zone.min_order)}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell align="right" className="tabular-nums">
                     {zone.estimated_minutes} min
                   </TableCell>
                   <TableCell>
@@ -649,11 +653,12 @@ function ZonesTab() {
                       status={zone.is_active ? "active" : "inactive"}
                     />
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell align="right">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
+                        aria-label={`Edit ${zone.name}`}
                         onClick={() => setEditZone(zone)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -661,10 +666,11 @@ function ZonesTab() {
                       {zone.is_active && (
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="sm"
+                          aria-label={`Deactivate ${zone.name}`}
                           onClick={() => handleDeactivate(zone.id)}
                         >
-                          <X className="h-4 w-4 text-destructive" />
+                          <X className="h-4 w-4 text-[var(--color-danger)]" />
                         </Button>
                       )}
                     </div>
@@ -760,7 +766,7 @@ function ZoneFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent width="md">
         <SheetHeader>
           <SheetTitle>{zone ? "Edit Zone" : "New Delivery Zone"}</SheetTitle>
           <SheetDescription>
@@ -769,49 +775,46 @@ function ZoneFormSheet({
               : "Define a new delivery area with fees and minimums"}
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-4 py-6">
-          <div>
-            <Label>Zone Name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
+        <SheetBody className="space-y-4">
+          <Text
+            label="Zone Name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Delivery Fee ($)</Label>
-              <Input
-                type="number"
-                value={deliveryFee}
-                onChange={(e) => setDeliveryFee(e.target.value)}
-                min={0}
-                step="0.01"
-              />
-            </div>
-            <div>
-              <Label>Min Order ($)</Label>
-              <Input
-                type="number"
-                value={minOrder}
-                onChange={(e) => setMinOrder(e.target.value)}
-                min={0}
-                step="0.01"
-              />
-            </div>
-          </div>
-          <div>
-            <Label>Estimated Minutes</Label>
-            <Input
-              type="number"
-              value={estimatedMinutes}
-              onChange={(e) => setEstimatedMinutes(e.target.value)}
+            <NumberInput
+              label="Delivery Fee ($)"
+              value={deliveryFee}
+              onChange={(e) => setDeliveryFee(e.target.value)}
               min={0}
+              step="0.01"
+            />
+            <NumberInput
+              label="Min Order ($)"
+              value={minOrder}
+              onChange={(e) => setMinOrder(e.target.value)}
+              min={0}
+              step="0.01"
             />
           </div>
-        </div>
+          <NumberInput
+            label="Estimated Minutes"
+            value={estimatedMinutes}
+            onChange={(e) => setEstimatedMinutes(e.target.value)}
+            min={0}
+          />
+        </SheetBody>
         <SheetFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" size="md" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving} className="btn-press">
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSave}
+            loading={saving}
+          >
             {zone ? "Save Changes" : "Create Zone"}
           </Button>
         </SheetFooter>
@@ -819,4 +822,3 @@ function ZoneFormSheet({
     </Sheet>
   );
 }
-
