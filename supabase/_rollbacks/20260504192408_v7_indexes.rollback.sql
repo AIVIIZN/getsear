@@ -13,7 +13,7 @@ DROP INDEX IF EXISTS public.idx_house_account_transactions_org_created;
 DROP INDEX IF EXISTS public.idx_accounting_sync_log_org_created;
 DROP INDEX IF EXISTS public.idx_print_queue_org_status_created;
 DROP INDEX IF EXISTS public.idx_print_queue_printer_status;
-DROP INDEX IF EXISTS public.idx_online_order_queue_loc_status_created;
+DROP INDEX IF EXISTS public.idx_online_order_queue_org_status_created;
 DROP INDEX IF EXISTS public.idx_loyalty_transactions_account_created;
 DROP INDEX IF EXISTS public.idx_order_modifications_org_created;
 

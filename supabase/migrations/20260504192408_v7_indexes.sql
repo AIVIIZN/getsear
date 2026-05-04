@@ -53,11 +53,11 @@ CREATE INDEX IF NOT EXISTS idx_print_queue_org_status_created
 CREATE INDEX IF NOT EXISTS idx_print_queue_printer_status
   ON public.print_queue (printer_id, status);
 
--- 8. Online-order operator queue: SELECT pending orders by location+status,
---    newest first. All four FKs (org_id, location_id, order_id, accepted_by)
---    are flagged unindexed.
-CREATE INDEX IF NOT EXISTS idx_online_order_queue_loc_status_created
-  ON public.online_order_queue (location_id, status, created_at DESC);
+-- 8. Online-order operator queue: SELECT pending orders by org+status,
+--    newest first. Per V7.2.1 reviewer P2: queue route filters by org_id first,
+--    location_id is optional — index leads with org_id for max selectivity.
+CREATE INDEX IF NOT EXISTS idx_online_order_queue_org_status_created
+  ON public.online_order_queue (org_id, status, created_at DESC);
 
 -- 9. Loyalty account history (FK lookup + chronological).
 CREATE INDEX IF NOT EXISTS idx_loyalty_transactions_account_created
