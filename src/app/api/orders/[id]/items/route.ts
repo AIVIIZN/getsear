@@ -5,6 +5,7 @@ import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
 import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
+import { getReqLoggerFromRequest } from '@/lib/observability/req-context'
 
 const modifierSchema = z.object({
   modifier_id: z.string().uuid(),
@@ -38,20 +39,49 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) => {
+  const t0 = Date.now()
+  const rlog = getReqLoggerFromRequest(request, {
+    route: '/api/orders/[id]/items',
+    method: 'POST',
+  })
+
   const user = await getAuthUser()
-  if (user instanceof NextResponse) return user
+  if (user instanceof NextResponse) {
+    rlog.warn('orders.add_items.unauthorized', {
+      status: user.status,
+      duration_ms: Date.now() - t0,
+    })
+    return user
+  }
 
   const { id: orderId } = await params
+  rlog.info('orders.add_items.start', {
+    user_id: user.id,
+    org_id: user.org_id,
+    order_id: orderId,
+  })
 
   let body: unknown
   try {
     body = await request.json()
   } catch {
+    rlog.warn('orders.add_items.invalid_json', {
+      user_id: user.id,
+      org_id: user.org_id,
+      status: 400,
+      duration_ms: Date.now() - t0,
+    })
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const parsed = addItemSchema.safeParse(body)
   if (!parsed.success) {
+    rlog.warn('orders.add_items.validation_failed', {
+      user_id: user.id,
+      org_id: user.org_id,
+      status: 400,
+      duration_ms: Date.now() - t0,
+    })
     return NextResponse.json(
       { error: 'Validation failed', details: parsed.error.issues },
       { status: 400 }
@@ -189,6 +219,15 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
     .eq('org_id', user.org_id)
     .maybeSingle()
   const newVersion = (refreshed?.version as number | undefined) ?? check.currentVersion + 1
+
+  rlog.info('orders.add_items.ok', {
+    user_id: user.id,
+    org_id: user.org_id,
+    order_id: orderId,
+    item_id: (item as { id?: string })?.id,
+    status: 201,
+    duration_ms: Date.now() - t0,
+  })
 
   return NextResponse.json(
     { data: completeItem },

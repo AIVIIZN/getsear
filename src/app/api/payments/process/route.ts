@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { valorClient } from '@/lib/payments/valor-client'
+import { getReqLoggerFromRequest } from '@/lib/observability/req-context'
 import crypto from 'crypto'
 
 const processPaymentSchema = z.object({
@@ -47,18 +48,42 @@ const processPaymentSchema = z.object({
  * dedupes by `(Idempotency-Key, route, org_id)`.
  */
 export const POST = withIdempotency('payments.process', async (request: NextRequest) => {
+  const t0 = Date.now()
+  const rlog = getReqLoggerFromRequest(request, {
+    route: '/api/payments/process',
+    method: 'POST',
+  })
+
   const user = await getAuthUser()
-  if (user instanceof NextResponse) return user
+  if (user instanceof NextResponse) {
+    rlog.warn('payments.process.unauthorized', {
+      status: user.status,
+      duration_ms: Date.now() - t0,
+    })
+    return user
+  }
 
   let body: unknown
   try {
     body = await request.json()
   } catch {
+    rlog.warn('payments.process.invalid_json', {
+      user_id: user.id,
+      org_id: user.org_id,
+      status: 400,
+      duration_ms: Date.now() - t0,
+    })
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const parsed = processPaymentSchema.safeParse(body)
   if (!parsed.success) {
+    rlog.warn('payments.process.validation_failed', {
+      user_id: user.id,
+      org_id: user.org_id,
+      status: 400,
+      duration_ms: Date.now() - t0,
+    })
     return NextResponse.json(
       { error: 'Validation failed', details: parsed.error.issues },
       { status: 400 }
@@ -80,6 +105,16 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
   const total_cents = amount_cents + tip_cents
   const supabase = createAdminClient()
 
+  rlog.info('payments.process.start', {
+    user_id: user.id,
+    org_id: user.org_id,
+    order_id,
+    location_id,
+    payment_method,
+    total_cents,
+    mode,
+  })
+
   // Verify order exists and belongs to org
   const { data: order, error: orderErr } = await (supabase.from('orders') as ReturnType<typeof supabase.from>)
     .select('id, org_id, total, balance_due, amount_paid, status')
@@ -88,6 +123,13 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
     .single()
 
   if (orderErr || !order) {
+    rlog.warn('payments.process.order_not_found', {
+      user_id: user.id,
+      org_id: user.org_id,
+      order_id,
+      status: 404,
+      duration_ms: Date.now() - t0,
+    })
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
@@ -151,6 +193,16 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
           .select()
           .single()
 
+        rlog.warn('payments.process.declined', {
+          user_id: user.id,
+          org_id: user.org_id,
+          order_id,
+          payment_method,
+          decline_code: result.decline_code,
+          status: 402,
+          duration_ms: Date.now() - t0,
+        })
+
         return NextResponse.json(
           {
             error: 'Payment declined',
@@ -171,6 +223,17 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
         .insert(paymentRecord)
         .select()
         .single()
+
+      rlog.error('payments.process.processor_error', {
+        user_id: user.id,
+        org_id: user.org_id,
+        order_id,
+        payment_method,
+        err: errorMessage,
+        err_stack: err instanceof Error ? err.stack : undefined,
+        status: 500,
+        duration_ms: Date.now() - t0,
+      })
 
       return NextResponse.json(
         { error: 'Payment processing failed', reason: errorMessage },
@@ -295,6 +358,18 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
       .update(orderUpdate)
       .eq('id', order_id)
   }
+
+  rlog.info('payments.process.ok', {
+    user_id: user.id,
+    org_id: user.org_id,
+    order_id,
+    payment_id: (paymentData as { id?: string })?.id,
+    payment_method,
+    payment_status: paymentRecord.status,
+    total_cents,
+    status: 201,
+    duration_ms: Date.now() - t0,
+  })
 
   return NextResponse.json(
     {
