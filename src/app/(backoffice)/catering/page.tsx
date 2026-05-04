@@ -6,55 +6,46 @@ import {
   CalendarDays,
   Plus,
   Search,
-  Loader2,
   Trash2,
   Eye,
   Users,
   DollarSign,
   UtensilsCrossed,
-  X,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui-v2/Button"
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui-v2/Card"
+import { Text } from "@/components/ui-v2/inputs/Text"
+import { NumberInput } from "@/components/ui-v2/inputs/Number"
+import { Select } from "@/components/ui-v2/inputs/Select"
+import { Textarea } from "@/components/ui-v2/inputs/Textarea"
+import { Badge } from "@/components/ui-v2/data/Badge"
+import { Skeleton } from "@/components/ui-v2/data/Skeleton"
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
-} from "@/components/ui/table"
+  TableHeader,
+  TableRow,
+} from "@/components/ui-v2/data/Table"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { EmptyState } from "@/components/shared/EmptyState"
+  SheetBody,
+  SheetFooter,
+} from "@/components/ui-v2/Sheet"
+import { ConfirmDialog } from "@/components/ui-v2/feedback/ConfirmDialog"
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -103,16 +94,57 @@ interface CalendarEvent {
 }
 
 // ---------------------------------------------------------------------------
-// Status colors
+// Status variant mapping (token-based)
 // ---------------------------------------------------------------------------
-const EVENT_STATUS_COLORS: Record<string, string> = {
-  inquiry: "bg-gray-100 text-gray-700 border-gray-200",
-  quoted: "bg-blue-50 text-blue-700 border-blue-200",
-  confirmed: "bg-green-50 text-green-700 border-green-200",
-  in_progress: "bg-amber-50 text-amber-700 border-amber-200",
-  completed: "bg-purple-50 text-purple-700 border-purple-200",
-  cancelled: "bg-red-50 text-red-700 border-red-200",
+function eventStatusVariant(
+  status: string,
+): "default" | "primary" | "warning" | "success" | "danger" {
+  switch (status) {
+    case "inquiry":
+      return "default"
+    case "quoted":
+      return "primary"
+    case "confirmed":
+      return "success"
+    case "in_progress":
+      return "warning"
+    case "completed":
+      return "primary"
+    case "cancelled":
+      return "danger"
+    default:
+      return "default"
+  }
 }
+
+// Token-based pastel chip backgrounds for calendar cells.
+const CALENDAR_CHIP_CLS: Record<string, string> = {
+  inquiry: "bg-[var(--color-bg-muted)] text-[var(--color-text)]",
+  quoted: "bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-[var(--color-primary)]",
+  confirmed: "bg-[var(--color-success-bg)] text-[var(--color-success)]",
+  in_progress: "bg-[var(--color-warning-bg)] text-[var(--color-warning)]",
+  completed: "bg-[color-mix(in_srgb,var(--color-primary)_18%,transparent)] text-[var(--color-primary)]",
+  cancelled: "bg-[var(--color-danger-bg)] text-[var(--color-danger)]",
+}
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "inquiry", label: "Inquiry" },
+  { value: "quoted", label: "Quoted" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+]
+
+const STATUS_FORM_OPTIONS = [
+  { value: "inquiry", label: "Inquiry" },
+  { value: "quoted", label: "Quoted" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+]
 
 // ---------------------------------------------------------------------------
 // Calendar helpers
@@ -141,7 +173,7 @@ export default function CateringPage() {
   const [calendarEvents, setCalendarEvents] = React.useState<CalendarEvent[]>([])
   const [eventsLoading, setEventsLoading] = React.useState(true)
   const [eventSearch, setEventSearch] = React.useState("")
-  const [eventStatusFilter, setEventStatusFilter] = React.useState("")
+  const [eventStatusFilter, setEventStatusFilter] = React.useState("all")
   const [eventSheetOpen, setEventSheetOpen] = React.useState(false)
   const [editingEvent, setEditingEvent] = React.useState<CateringEvent | null>(null)
   const [saving, setSaving] = React.useState(false)
@@ -184,7 +216,8 @@ export default function CateringPage() {
     setEventsLoading(true)
     try {
       const params = new URLSearchParams()
-      if (eventStatusFilter) params.set("status", eventStatusFilter)
+      if (eventStatusFilter && eventStatusFilter !== "all")
+        params.set("status", eventStatusFilter)
       const res = await fetch(`/api/catering/events?${params}`)
       if (res.ok) {
         const json = await res.json()
@@ -356,27 +389,22 @@ export default function CateringPage() {
 
   async function handleDeleteMenu() {
     if (!menuToDelete) return
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/catering/menus/${menuToDelete.id}`, {
-        method: "DELETE",
-      })
-      if (res.ok) {
-        setDeleteDialogOpen(false)
-        setMenuToDelete(null)
-        fetchMenus()
-      }
-    } finally {
-      setSaving(false)
+    const res = await fetch(`/api/catering/menus/${menuToDelete.id}`, {
+      method: "DELETE",
+    })
+    if (res.ok) {
+      setMenuToDelete(null)
+      fetchMenus()
     }
   }
 
   // -----------------------------------------------------------------------
   // Filtered events
   // -----------------------------------------------------------------------
-  const filteredEvents = events.filter((e) =>
-    e.event_name.toLowerCase().includes(eventSearch.toLowerCase()) ||
-    e.contact_name.toLowerCase().includes(eventSearch.toLowerCase()),
+  const filteredEvents = events.filter(
+    (e) =>
+      e.event_name.toLowerCase().includes(eventSearch.toLowerCase()) ||
+      e.contact_name.toLowerCase().includes(eventSearch.toLowerCase()),
   )
 
   // -----------------------------------------------------------------------
@@ -450,149 +478,182 @@ export default function CateringPage() {
             ============================================================ */}
         <TabsContent value="events" className="space-y-6">
           {/* Calendar */}
-          <Card>
+          <Card padding="default">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
+                <CardTitle>
                   {MONTH_NAMES[calMonth]} {calYear}
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevMonth}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-label="Previous month"
+                    onClick={prevMonth}
+                  >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextMonth}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-label="Next month"
+                    onClick={nextMonth}
+                  >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+            <CardBody>
+              <div className="grid grid-cols-7 gap-px bg-[var(--color-border)] rounded-[var(--radius-md)] overflow-hidden">
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                   <div
                     key={d}
-                    className="bg-muted px-2 py-1.5 text-center text-xs font-medium text-muted-foreground"
+                    className="bg-[var(--color-bg-subtle)] px-[var(--space-2)] py-[var(--space-2)] text-center text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]"
                   >
                     {d}
                   </div>
                 ))}
                 {/* Blank cells for start of month offset */}
                 {Array.from({ length: firstDay }).map((_, i) => (
-                  <div key={`blank-${i}`} className="bg-card min-h-[72px]" />
+                  <div
+                    key={`blank-${i}`}
+                    className="bg-[var(--color-surface)] min-h-[72px]"
+                  />
                 ))}
                 {calendarDays.map(({ day, events: dayEvents }) => (
-                  <div
+                  <button
                     key={day}
-                    className="bg-card min-h-[72px] p-1.5 text-sm hover:bg-accent/30 transition-colors cursor-pointer"
+                    type="button"
+                    className="btn-press text-left bg-[var(--color-surface)] min-h-[72px] p-[var(--space-2)] text-[length:var(--type-subhead-size)] hover:bg-[var(--color-surface-hover)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-border-focus)] focus-visible:outline-offset-[-2px]"
                     onClick={() => {
                       const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
                       setEvDate(dateStr)
                       openCreateEvent()
                     }}
+                    aria-label={`Add event for day ${day}`}
                   >
-                    <span className="text-xs font-medium">{day}</span>
-                    {dayEvents.map((ev) => (
-                      <div
-                        key={ev.id}
-                        className={`mt-0.5 rounded px-1 py-0.5 text-[10px] truncate ${EVENT_STATUS_COLORS[ev.status] ?? "bg-gray-100"}`}
-                        title={`${ev.event_name} (${ev.guest_count} guests)`}
-                      >
-                        {ev.event_name}
-                      </div>
-                    ))}
-                  </div>
+                    <span className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[var(--color-text)]">
+                      {day}
+                    </span>
+                    {dayEvents.map((ev) => {
+                      const cls =
+                        CALENDAR_CHIP_CLS[ev.status] ??
+                        "bg-[var(--color-bg-muted)] text-[var(--color-text)]"
+                      return (
+                        <div
+                          key={ev.id}
+                          className={`mt-[2px] rounded-[var(--radius-xs)] px-[var(--space-1)] py-[2px] text-[10px] truncate ${cls}`}
+                          title={`${ev.event_name} (${ev.guest_count} guests)`}
+                        >
+                          {ev.event_name}
+                        </div>
+                      )
+                    })}
+                  </button>
                 ))}
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
 
           {/* Events list */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+              <div className="max-w-sm w-[260px]">
+                <Text
                   placeholder="Search events..."
                   value={eventSearch}
                   onChange={(e) => setEventSearch(e.target.value)}
-                  className="pl-9"
+                  leadingIcon={<Search className="h-4 w-4" />}
+                  aria-label="Search events"
                 />
               </div>
-              <Select value={eventStatusFilter} onValueChange={(v) => v && setEventStatusFilter(v)}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="inquiry">Inquiry</SelectItem>
-                  <SelectItem value="quoted">Quoted</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="w-[160px]">
+                <Select
+                  options={STATUS_FILTER_OPTIONS}
+                  value={eventStatusFilter}
+                  onChange={(v) => setEventStatusFilter(v)}
+                  ariaLabel="Filter by status"
+                />
+              </div>
             </div>
-            <Button onClick={openCreateEvent} className="btn-press">
-              <Plus className="mr-2 h-4 w-4" />
+            <Button
+              variant="primary"
+              size="md"
+              onClick={openCreateEvent}
+              leadingIcon={<Plus className="h-4 w-4" />}
+            >
               New Event
             </Button>
           </div>
 
           {eventsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} variant="table-row" />
+              ))}
             </div>
           ) : filteredEvents.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
               title="No catering events"
               description="Create your first catering event to get started."
-              actionLabel="New Event"
-              onAction={openCreateEvent}
+              action={{ label: "New Event", onClick: openCreateEvent }}
             />
           ) : (
-            <div className="rounded-lg border bg-card">
+            <Card padding="compact" className="!p-0 overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Event</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead className="text-right">Guests</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="w-[80px]" />
+                    <TableCell header>Event</TableCell>
+                    <TableCell header>Date</TableCell>
+                    <TableCell header>Contact</TableCell>
+                    <TableCell header align="right">
+                      Guests
+                    </TableCell>
+                    <TableCell header>Status</TableCell>
+                    <TableCell header align="right">
+                      Total
+                    </TableCell>
+                    <TableCell header className="w-[80px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredEvents.map((ev) => (
                     <TableRow key={ev.id}>
-                      <TableCell className="font-medium">{ev.event_name}</TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(ev.event_date + "T00:00:00").toLocaleDateString()}
-                        <span className="ml-1 text-muted-foreground">{ev.event_time}</span>
+                      <TableCell className="font-[var(--weight-medium)]">
+                        {ev.event_name}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(
+                          ev.event_date + "T00:00:00",
+                        ).toLocaleDateString()}
+                        <span className="ml-1 text-[var(--color-text-muted)]">
+                          {ev.event_time}
+                        </span>
                       </TableCell>
                       <TableCell>{ev.contact_name}</TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell align="right" className="tabular-nums">
                         {ev.guest_count}
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant="outline"
-                          className={`capitalize text-xs ${EVENT_STATUS_COLORS[ev.status] ?? ""}`}
+                          variant={eventStatusVariant(ev.status)}
+                          className="capitalize"
                         >
                           {ev.status.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {ev.total ? `$${parseFloat(ev.total).toFixed(2)}` : "--"}
+                      <TableCell align="right" className="tabular-nums">
+                        {ev.total
+                          ? `$${parseFloat(ev.total).toFixed(2)}`
+                          : "--"}
                       </TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="sm"
+                          aria-label={`View ${ev.event_name}`}
                           onClick={() => openEditEvent(ev)}
                         >
                           <Eye className="h-4 w-4" />
@@ -602,7 +663,7 @@ export default function CateringPage() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </Card>
           )}
         </TabsContent>
 
@@ -611,61 +672,68 @@ export default function CateringPage() {
             ============================================================ */}
         <TabsContent value="menus" className="space-y-4">
           <div className="flex items-center justify-end">
-            <Button onClick={openCreateMenu} className="btn-press">
-              <Plus className="mr-2 h-4 w-4" />
+            <Button
+              variant="primary"
+              size="md"
+              onClick={openCreateMenu}
+              leadingIcon={<Plus className="h-4 w-4" />}
+            >
               New Menu Package
             </Button>
           </div>
 
           {menusLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} variant="card" />
+              ))}
             </div>
           ) : menus.length === 0 ? (
             <EmptyState
               icon={UtensilsCrossed}
               title="No catering menus"
               description="Create catering menu packages for your events."
-              actionLabel="New Menu Package"
-              onAction={openCreateMenu}
+              action={{
+                label: "New Menu Package",
+                onClick: openCreateMenu,
+              }}
             />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {menus.map((m) => (
-                <Card key={m.id} className="relative">
+                <Card key={m.id} padding="default" className="relative">
                   {!m.is_active && (
                     <Badge
-                      variant="outline"
-                      className="absolute top-3 right-3 bg-gray-100 text-gray-500 text-xs"
+                      variant="default"
+                      className="absolute top-[var(--space-3)] right-[var(--space-3)]"
                     >
                       Inactive
                     </Badge>
                   )}
                   <CardHeader>
-                    <CardTitle className="text-base">{m.name}</CardTitle>
+                    <CardTitle>{m.name}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardBody>
                     {m.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
+                      <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)] line-clamp-2">
                         {m.description}
                       </p>
                     )}
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-1 text-muted-foreground">
+                    <div className="flex items-center justify-between text-[length:var(--type-subhead-size)]">
+                      <span className="flex items-center gap-1 text-[var(--color-text-muted)]">
                         <DollarSign className="h-3.5 w-3.5" />
                         {parseFloat(m.per_person_price).toFixed(2)}/person
                       </span>
                       {m.min_guests && (
-                        <span className="flex items-center gap-1 text-muted-foreground">
+                        <span className="flex items-center gap-1 text-[var(--color-text-muted)]">
                           <Users className="h-3.5 w-3.5" />
                           Min {m.min_guests}
                         </span>
                       )}
                     </div>
-                    <Separator />
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 border-t border-[var(--color-border)] pt-[var(--space-3)]">
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => openEditMenu(m)}
                       >
@@ -674,16 +742,16 @@ export default function CateringPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-destructive"
+                        aria-label={`Deactivate ${m.name}`}
                         onClick={() => {
                           setMenuToDelete(m)
                           setDeleteDialogOpen(true)
                         }}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5 text-[var(--color-danger)]" />
                       </Button>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               ))}
             </div>
@@ -695,7 +763,7 @@ export default function CateringPage() {
           EVENT SHEET
           ================================================================ */}
       <Sheet open={eventSheetOpen} onOpenChange={setEventSheetOpen}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent width="lg">
           <SheetHeader>
             <SheetTitle>
               {editingEvent ? "Edit Event" : "New Catering Event"}
@@ -707,82 +775,106 @@ export default function CateringPage() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label>Event Name</Label>
-              <Input value={evName} onChange={(e) => setEvName(e.target.value)} placeholder="e.g. Johnson Wedding Reception" />
+          <SheetBody className="space-y-4">
+            <Text
+              label="Event Name"
+              value={evName}
+              onChange={(e) => setEvName(e.target.value)}
+              placeholder="e.g. Johnson Wedding Reception"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <Text
+                label="Date"
+                type="date"
+                value={evDate}
+                onChange={(e) => setEvDate(e.target.value)}
+              />
+              <Text
+                label="Time"
+                type="time"
+                value={evTime}
+                onChange={(e) => setEvTime(e.target.value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Input type="date" value={evDate} onChange={(e) => setEvDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Time</Label>
-                <Input type="time" value={evTime} onChange={(e) => setEvTime(e.target.value)} />
-              </div>
+              <NumberInput
+                label="Guest Count"
+                value={evGuests}
+                onChange={(e) => setEvGuests(e.target.value)}
+                placeholder="50"
+              />
+              <Select
+                label="Status"
+                options={STATUS_FORM_OPTIONS}
+                value={evStatus}
+                onChange={(v) => setEvStatus(v)}
+              />
+            </div>
+            <div className="border-t border-[var(--color-border)] pt-[var(--space-4)]">
+              <Text
+                label="Contact Name"
+                value={evContact}
+                onChange={(e) => setEvContact(e.target.value)}
+                placeholder="Jane Smith"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Guest Count</Label>
-                <Input type="number" value={evGuests} onChange={(e) => setEvGuests(e.target.value)} placeholder="50" />
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={evStatus} onValueChange={(v) => v && setEvStatus(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="inquiry">Inquiry</SelectItem>
-                    <SelectItem value="quoted">Quoted</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Text
+                label="Phone"
+                value={evPhone}
+                onChange={(e) => setEvPhone(e.target.value)}
+                placeholder="(555) 123-4567"
+              />
+              <Text
+                label="Email"
+                type="email"
+                value={evEmail}
+                onChange={(e) => setEvEmail(e.target.value)}
+                placeholder="jane@example.com"
+              />
             </div>
-            <Separator />
-            <div className="space-y-2">
-              <Label>Contact Name</Label>
-              <Input value={evContact} onChange={(e) => setEvContact(e.target.value)} placeholder="Jane Smith" />
+            <div className="grid grid-cols-2 gap-4 border-t border-[var(--color-border)] pt-[var(--space-4)]">
+              <NumberInput
+                label="Total ($)"
+                step="0.01"
+                value={evTotal}
+                onChange={(e) => setEvTotal(e.target.value)}
+                placeholder="0.00"
+              />
+              <NumberInput
+                label="Deposit ($)"
+                step="0.01"
+                value={evDeposit}
+                onChange={(e) => setEvDeposit(e.target.value)}
+                placeholder="0.00"
+              />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input value={evPhone} onChange={(e) => setEvPhone(e.target.value)} placeholder="(555) 123-4567" />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={evEmail} onChange={(e) => setEvEmail(e.target.value)} placeholder="jane@example.com" />
-              </div>
-            </div>
-            <Separator />
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Total ($)</Label>
-                <Input type="number" step="0.01" value={evTotal} onChange={(e) => setEvTotal(e.target.value)} placeholder="0.00" />
-              </div>
-              <div className="space-y-2">
-                <Label>Deposit ($)</Label>
-                <Input type="number" step="0.01" value={evDeposit} onChange={(e) => setEvDeposit(e.target.value)} placeholder="0.00" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea value={evNotes} onChange={(e) => setEvNotes(e.target.value)} rows={3} placeholder="Special instructions, dietary needs..." />
-            </div>
-            <Separator />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEventSheetOpen(false)}>Cancel</Button>
-              <Button onClick={handleSaveEvent} disabled={saving || !evName || !evContact} className="btn-press">
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingEvent ? "Update" : "Create"}
-              </Button>
-            </div>
-          </div>
+            <Textarea
+              label="Notes"
+              value={evNotes}
+              onChange={(e) => setEvNotes(e.target.value)}
+              rows={3}
+              placeholder="Special instructions, dietary needs..."
+            />
+          </SheetBody>
+          <SheetFooter>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setEventSheetOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleSaveEvent}
+              disabled={!evName || !evContact}
+              loading={saving}
+            >
+              {editingEvent ? "Update" : "Create"}
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
 
@@ -790,7 +882,7 @@ export default function CateringPage() {
           MENU SHEET
           ================================================================ */}
       <Sheet open={menuSheetOpen} onOpenChange={setMenuSheetOpen}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent width="lg">
           <SheetHeader>
             <SheetTitle>
               {editingMenu ? "Edit Menu Package" : "New Menu Package"}
@@ -800,58 +892,73 @@ export default function CateringPage() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label>Package Name</Label>
-              <Input value={menuName} onChange={(e) => setMenuName(e.target.value)} placeholder="e.g. Corporate Lunch" />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea value={menuDesc} onChange={(e) => setMenuDesc(e.target.value)} rows={3} placeholder="What's included..." />
-            </div>
+          <SheetBody className="space-y-4">
+            <Text
+              label="Package Name"
+              value={menuName}
+              onChange={(e) => setMenuName(e.target.value)}
+              placeholder="e.g. Corporate Lunch"
+            />
+            <Textarea
+              label="Description"
+              value={menuDesc}
+              onChange={(e) => setMenuDesc(e.target.value)}
+              rows={3}
+              placeholder="What's included..."
+            />
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Per-Person Price ($)</Label>
-                <Input type="number" step="0.01" value={menuPrice} onChange={(e) => setMenuPrice(e.target.value)} placeholder="18.00" />
-              </div>
-              <div className="space-y-2">
-                <Label>Min Guests</Label>
-                <Input type="number" value={menuMinGuests} onChange={(e) => setMenuMinGuests(e.target.value)} placeholder="10" />
-              </div>
+              <NumberInput
+                label="Per-Person Price ($)"
+                step="0.01"
+                value={menuPrice}
+                onChange={(e) => setMenuPrice(e.target.value)}
+                placeholder="18.00"
+              />
+              <NumberInput
+                label="Min Guests"
+                value={menuMinGuests}
+                onChange={(e) => setMenuMinGuests(e.target.value)}
+                placeholder="10"
+              />
             </div>
-            <Separator />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setMenuSheetOpen(false)}>Cancel</Button>
-              <Button onClick={handleSaveMenu} disabled={saving || !menuName || !menuPrice} className="btn-press">
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingMenu ? "Update" : "Create"}
-              </Button>
-            </div>
-          </div>
+          </SheetBody>
+          <SheetFooter>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setMenuSheetOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleSaveMenu}
+              disabled={!menuName || !menuPrice}
+              loading={saving}
+            >
+              {editingMenu ? "Update" : "Create"}
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
 
       {/* ================================================================
-          DELETE MENU DIALOG
+          DELETE MENU CONFIRM
           ================================================================ */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Deactivate Menu</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to deactivate &ldquo;{menuToDelete?.name}&rdquo;?
-              It will no longer appear in active listings.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteMenu} disabled={saving} className="btn-press">
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Deactivate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(o) => {
+          setDeleteDialogOpen(o)
+          if (!o) setMenuToDelete(null)
+        }}
+        title="Deactivate Menu"
+        description={`Are you sure you want to deactivate "${menuToDelete?.name ?? ""}"? It will no longer appear in active listings.`}
+        confirmLabel="Deactivate"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={handleDeleteMenu}
+      />
     </div>
   )
 }

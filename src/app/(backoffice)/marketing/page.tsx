@@ -8,54 +8,40 @@ import {
   Send,
   BarChart3,
   Users,
-  Loader2,
   Trash2,
   Eye,
-  X,
   MousePointerClick,
   Target,
   Wand2,
 } from "lucide-react"
 import { CampaignBuilder } from "@/components/marketing/CampaignBuilder"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui-v2/Button"
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui-v2/Card"
+import { Text } from "@/components/ui-v2/inputs/Text"
+import { NumberInput } from "@/components/ui-v2/inputs/Number"
+import { Select } from "@/components/ui-v2/inputs/Select"
+import { Textarea } from "@/components/ui-v2/inputs/Textarea"
+import { Badge } from "@/components/ui-v2/data/Badge"
+import { Skeleton } from "@/components/ui-v2/data/Skeleton"
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
-} from "@/components/ui/table"
+  TableHeader,
+  TableRow,
+} from "@/components/ui-v2/data/Table"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { EmptyState } from "@/components/shared/EmptyState"
+  SheetBody,
+  SheetFooter,
+} from "@/components/ui-v2/Sheet"
+import { ConfirmDialog } from "@/components/ui-v2/feedback/ConfirmDialog"
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,15 +82,48 @@ interface Analytics {
 }
 
 // ---------------------------------------------------------------------------
-// Status color map
+// Token-based status variants
 // ---------------------------------------------------------------------------
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700 border-gray-200",
-  scheduled: "bg-blue-50 text-blue-700 border-blue-200",
-  sending: "bg-amber-50 text-amber-700 border-amber-200",
-  sent: "bg-green-50 text-green-700 border-green-200",
-  cancelled: "bg-red-50 text-red-700 border-red-200",
+function statusBadgeVariant(
+  status: string,
+): "default" | "primary" | "warning" | "success" | "danger" {
+  switch (status) {
+    case "draft":
+      return "default"
+    case "scheduled":
+      return "primary"
+    case "sending":
+      return "warning"
+    case "sent":
+      return "success"
+    case "cancelled":
+      return "danger"
+    default:
+      return "default"
+  }
 }
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "draft", label: "Draft" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "sending", label: "Sending" },
+  { value: "sent", label: "Sent" },
+  { value: "cancelled", label: "Cancelled" },
+]
+
+const TYPE_OPTIONS = [
+  { value: "all", label: "All types" },
+  { value: "email", label: "Email" },
+  { value: "sms", label: "SMS" },
+  { value: "push", label: "Push" },
+]
+
+const FORM_TYPE_OPTIONS = [
+  { value: "email", label: "Email" },
+  { value: "sms", label: "SMS" },
+  { value: "push", label: "Push Notification" },
+]
 
 // ---------------------------------------------------------------------------
 // Component
@@ -115,8 +134,8 @@ export default function MarketingPage() {
   const [analytics, setAnalytics] = React.useState<Analytics | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [search, setSearch] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState("")
-  const [typeFilter, setTypeFilter] = React.useState("")
+  const [statusFilter, setStatusFilter] = React.useState("all")
+  const [typeFilter, setTypeFilter] = React.useState("all")
 
   // Sheet / dialog
   const [sheetOpen, setSheetOpen] = React.useState(false)
@@ -145,8 +164,8 @@ export default function MarketingPage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (statusFilter) params.set("status", statusFilter)
-      if (typeFilter) params.set("type", typeFilter)
+      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter)
+      if (typeFilter && typeFilter !== "all") params.set("type", typeFilter)
       const res = await fetch(`/api/marketing/campaigns?${params}`)
       if (res.ok) {
         const json = await res.json()
@@ -228,18 +247,12 @@ export default function MarketingPage() {
 
   async function handleDelete() {
     if (!campaignToDelete) return
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/marketing/campaigns/${campaignToDelete.id}`, {
-        method: "DELETE",
-      })
-      if (res.ok) {
-        setDeleteDialogOpen(false)
-        setCampaignToDelete(null)
-        fetchCampaigns()
-      }
-    } finally {
-      setSaving(false)
+    const res = await fetch(`/api/marketing/campaigns/${campaignToDelete.id}`, {
+      method: "DELETE",
+    })
+    if (res.ok) {
+      setCampaignToDelete(null)
+      fetchCampaigns()
     }
   }
 
@@ -289,12 +302,14 @@ export default function MarketingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Marketing</h1>
-          <p className="page-subtitle">
-            Email, SMS, and push campaigns
-          </p>
+          <p className="page-subtitle">Email, SMS, and push campaigns</p>
         </div>
-        <Button onClick={openCreate} className="btn-press">
-          <Plus className="mr-2 h-4 w-4" />
+        <Button
+          variant="primary"
+          size="md"
+          onClick={openCreate}
+          leadingIcon={<Plus className="h-4 w-4" />}
+        >
           New Campaign
         </Button>
       </div>
@@ -333,67 +348,66 @@ export default function MarketingPage() {
         <TabsContent value="campaigns" className="space-y-4">
           {/* Filters */}
           <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+            <div className="flex-1 max-w-sm">
+              <Text
                 placeholder="Search campaigns..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
+                leadingIcon={<Search className="h-4 w-4" />}
+                aria-label="Search campaigns"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="scheduled">Scheduled</SelectItem>
-                <SelectItem value="sending">Sending</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="All types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-                <SelectItem value="push">Push</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-[160px]">
+              <Select
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v)}
+                ariaLabel="Filter by status"
+              />
+            </div>
+            <div className="w-[140px]">
+              <Select
+                options={TYPE_OPTIONS}
+                value={typeFilter}
+                onChange={(v) => setTypeFilter(v)}
+                ariaLabel="Filter by type"
+              />
+            </div>
           </div>
 
           {/* Table */}
           {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} variant="table-row" />
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={Mail}
               title="No campaigns yet"
               description="Create your first marketing campaign to reach your customers."
-              actionLabel="New Campaign"
-              onAction={openCreate}
+              action={{ label: "New Campaign", onClick: openCreate }}
             />
           ) : (
-            <div className="rounded-lg border bg-card">
+            <Card padding="compact" className="!p-0 overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Sent</TableHead>
-                    <TableHead className="text-right">Open Rate</TableHead>
-                    <TableHead className="text-right">Click Rate</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="w-[100px]" />
+                    <TableCell header>Name</TableCell>
+                    <TableCell header>Type</TableCell>
+                    <TableCell header>Status</TableCell>
+                    <TableCell header align="right">
+                      Sent
+                    </TableCell>
+                    <TableCell header align="right">
+                      Open Rate
+                    </TableCell>
+                    <TableCell header align="right">
+                      Click Rate
+                    </TableCell>
+                    <TableCell header>Date</TableCell>
+                    <TableCell header className="w-[120px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -414,30 +428,32 @@ export default function MarketingPage() {
 
                     return (
                       <TableRow key={c.id}>
-                        <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell className="font-[var(--weight-medium)]">
+                          {c.name}
+                        </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize text-xs">
+                          <Badge variant="default" className="capitalize">
                             {c.type}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant="outline"
-                            className={`capitalize text-xs ${STATUS_COLORS[c.status] ?? ""}`}
+                            variant={statusBadgeVariant(c.status)}
+                            className="capitalize"
                           >
                             {c.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
+                        <TableCell align="right" className="tabular-nums">
                           {sent.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
+                        <TableCell align="right" className="tabular-nums">
                           {openRate}%
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
+                        <TableCell align="right" className="tabular-nums">
                           {clickRate}%
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
+                        <TableCell className="text-[var(--color-text-muted)]">
                           {c.sent_at
                             ? new Date(c.sent_at).toLocaleDateString()
                             : c.scheduled_at
@@ -448,8 +464,8 @@ export default function MarketingPage() {
                           <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
+                              size="sm"
+                              aria-label="View campaign"
                               onClick={() => openEdit(c)}
                             >
                               <Eye className="h-4 w-4" />
@@ -458,22 +474,22 @@ export default function MarketingPage() {
                               <>
                                 <Button
                                   variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-primary"
+                                  size="sm"
+                                  aria-label="Send campaign"
                                   onClick={() => handleSend(c)}
                                 >
-                                  <Send className="h-4 w-4" />
+                                  <Send className="h-4 w-4 text-[var(--color-primary)]" />
                                 </Button>
                                 <Button
                                   variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive"
+                                  size="sm"
+                                  aria-label="Delete campaign"
                                   onClick={() => {
                                     setCampaignToDelete(c)
                                     setDeleteDialogOpen(true)
                                   }}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4 text-[var(--color-danger)]" />
                                 </Button>
                               </>
                             )}
@@ -484,7 +500,7 @@ export default function MarketingPage() {
                   })}
                 </TableBody>
               </Table>
-            </div>
+            </Card>
           )}
         </TabsContent>
 
@@ -492,51 +508,46 @@ export default function MarketingPage() {
             SEGMENTS TAB
             ============================================================ */}
         <TabsContent value="segments" className="space-y-4">
-          <Card>
+          <Card padding="default">
             <CardHeader>
-              <CardTitle className="text-lg">Customer Segment Builder</CardTitle>
+              <CardTitle>Customer Segment Builder</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardBody className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Minimum Visits</Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 3"
-                    value={segmentMinVisits}
-                    onChange={(e) => setSegmentMinVisits(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tags (comma-separated)</Label>
-                  <Input
-                    placeholder="e.g. vip, regular"
-                    value={segmentTags}
-                    onChange={(e) => setSegmentTags(e.target.value)}
-                  />
-                </div>
+                <NumberInput
+                  label="Minimum Visits"
+                  placeholder="e.g. 3"
+                  value={segmentMinVisits}
+                  onChange={(e) => setSegmentMinVisits(e.target.value)}
+                />
+                <Text
+                  label="Tags (comma-separated)"
+                  placeholder="e.g. vip, regular"
+                  value={segmentTags}
+                  onChange={(e) => setSegmentTags(e.target.value)}
+                />
               </div>
 
-              <Separator />
-
-              <div className="flex items-center gap-4">
-                <Button onClick={handleCountSegment} disabled={countLoading}>
-                  {countLoading && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  <Users className="mr-2 h-4 w-4" />
+              <div className="flex items-center gap-4 border-t border-[var(--color-border)] pt-[var(--space-4)]">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleCountSegment}
+                  loading={countLoading}
+                  leadingIcon={<Users className="h-4 w-4" />}
+                >
                   Count Matching Customers
                 </Button>
                 {segmentCount !== null && (
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground">
+                  <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
+                    <span className="font-[var(--weight-semibold)] text-[var(--color-text)]">
                       {segmentCount.toLocaleString()}
                     </span>{" "}
                     customers match this segment
                   </p>
                 )}
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         </TabsContent>
 
@@ -547,83 +558,99 @@ export default function MarketingPage() {
           {analytics ? (
             <>
               <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                  <CardContent className="pt-6">
+                <Card padding="default">
+                  <CardBody>
                     <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-blue-50 p-2">
-                        <Send className="h-5 w-5 text-blue-600" />
+                      <div className="rounded-[var(--radius-circle)] bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] p-[var(--space-2)]">
+                        <Send className="h-5 w-5 text-[var(--color-primary)]" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold tabular-nums">
+                        <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
                           {analytics.total_sent.toLocaleString()}
                         </p>
-                        <p className="text-xs text-muted-foreground">Total Sent</p>
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Total Sent
+                        </p>
                       </div>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
+                <Card padding="default">
+                  <CardBody>
                     <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-green-50 p-2">
-                        <Eye className="h-5 w-5 text-green-600" />
+                      <div className="rounded-[var(--radius-circle)] bg-[var(--color-success-bg)] p-[var(--space-2)]">
+                        <Eye className="h-5 w-5 text-[var(--color-success)]" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold tabular-nums">
+                        <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
                           {analytics.open_rate.toFixed(1)}%
                         </p>
-                        <p className="text-xs text-muted-foreground">Open Rate</p>
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Open Rate
+                        </p>
                       </div>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
+                <Card padding="default">
+                  <CardBody>
                     <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-purple-50 p-2">
-                        <MousePointerClick className="h-5 w-5 text-purple-600" />
+                      <div className="rounded-[var(--radius-circle)] bg-[color-mix(in_srgb,var(--color-primary)_14%,transparent)] p-[var(--space-2)]">
+                        <MousePointerClick className="h-5 w-5 text-[var(--color-primary)]" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold tabular-nums">
+                        <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
                           {analytics.click_rate.toFixed(1)}%
                         </p>
-                        <p className="text-xs text-muted-foreground">Click Rate</p>
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Click Rate
+                        </p>
                       </div>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
+                <Card padding="default">
+                  <CardBody>
                     <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-amber-50 p-2">
-                        <BarChart3 className="h-5 w-5 text-amber-600" />
+                      <div className="rounded-[var(--radius-circle)] bg-[var(--color-warning-bg)] p-[var(--space-2)]">
+                        <BarChart3 className="h-5 w-5 text-[var(--color-warning)]" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold tabular-nums">
+                        <p className="text-[length:var(--type-title-2-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
                           {analytics.total_campaigns}
                         </p>
-                        <p className="text-xs text-muted-foreground">Campaigns</p>
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Campaigns
+                        </p>
                       </div>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               </div>
 
               {/* Campaign performance table */}
-              <Card>
+              <Card padding="default">
                 <CardHeader>
-                  <CardTitle className="text-lg">Campaign Performance</CardTitle>
+                  <CardTitle>Campaign Performance</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardBody>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Campaign</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Sent</TableHead>
-                        <TableHead className="text-right">Opened</TableHead>
-                        <TableHead className="text-right">Clicked</TableHead>
-                        <TableHead className="text-right">Bounced</TableHead>
+                        <TableCell header>Campaign</TableCell>
+                        <TableCell header>Type</TableCell>
+                        <TableCell header align="right">
+                          Sent
+                        </TableCell>
+                        <TableCell header align="right">
+                          Opened
+                        </TableCell>
+                        <TableCell header align="right">
+                          Clicked
+                        </TableCell>
+                        <TableCell header align="right">
+                          Bounced
+                        </TableCell>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -631,18 +658,22 @@ export default function MarketingPage() {
                         const s = c.stats ?? {}
                         return (
                           <TableRow key={c.id}>
-                            <TableCell className="font-medium">{c.name}</TableCell>
-                            <TableCell className="capitalize">{c.type}</TableCell>
-                            <TableCell className="text-right tabular-nums">
+                            <TableCell className="font-[var(--weight-medium)]">
+                              {c.name}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {c.type}
+                            </TableCell>
+                            <TableCell align="right" className="tabular-nums">
                               {(s.sent ?? 0).toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums">
+                            <TableCell align="right" className="tabular-nums">
                               {(s.opened ?? 0).toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums">
+                            <TableCell align="right" className="tabular-nums">
                               {(s.clicked ?? 0).toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums">
+                            <TableCell align="right" className="tabular-nums">
                               {(s.bounced ?? 0).toLocaleString()}
                             </TableCell>
                           </TableRow>
@@ -650,12 +681,14 @@ export default function MarketingPage() {
                       })}
                     </TableBody>
                   </Table>
-                </CardContent>
+                </CardBody>
               </Card>
             </>
           ) : (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} variant="card" />
+              ))}
             </div>
           )}
         </TabsContent>
@@ -665,7 +698,7 @@ export default function MarketingPage() {
           CREATE / EDIT SHEET
           ================================================================ */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent width="lg">
           <SheetHeader>
             <SheetTitle>
               {editingCampaign ? "Edit Campaign" : "New Campaign"}
@@ -677,116 +710,79 @@ export default function MarketingPage() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label>Campaign Name</Label>
-              <Input
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="e.g. Summer Promotion"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Type</Label>
-              <Select value={formType} onValueChange={(v) => v && setFormType(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="sms">SMS</SelectItem>
-                  <SelectItem value="push">Push Notification</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+          <SheetBody className="space-y-4">
+            <Text
+              label="Campaign Name"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="e.g. Summer Promotion"
+            />
+            <Select
+              label="Type"
+              options={FORM_TYPE_OPTIONS}
+              value={formType}
+              onChange={(v) => setFormType(v)}
+            />
             {formType === "email" && (
-              <div className="space-y-2">
-                <Label>Subject Line</Label>
-                <Input
-                  value={formSubject}
-                  onChange={(e) => setFormSubject(e.target.value)}
-                  placeholder="e.g. Don't miss our summer specials!"
-                />
-              </div>
+              <Text
+                label="Subject Line"
+                value={formSubject}
+                onChange={(e) => setFormSubject(e.target.value)}
+                placeholder="e.g. Don't miss our summer specials!"
+              />
             )}
-
-            <div className="space-y-2">
-              <Label>Body / Content</Label>
-              <Textarea
-                value={formBody}
-                onChange={(e) => setFormBody(e.target.value)}
-                placeholder="Write your campaign message..."
-                rows={8}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Schedule (optional)</Label>
-              <Input
-                type="datetime-local"
-                value={formScheduledAt}
-                onChange={(e) => setFormScheduledAt(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave blank to save as draft
-              </p>
-            </div>
-
-            <Separator />
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setSheetOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving || !formName}
-                className="btn-press"
-              >
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingCampaign ? "Update" : "Create"}
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* ================================================================
-          DELETE CONFIRMATION DIALOG
-          ================================================================ */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Campaign</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &ldquo;{campaignToDelete?.name}&rdquo;?
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+            <Textarea
+              label="Body / Content"
+              value={formBody}
+              onChange={(e) => setFormBody(e.target.value)}
+              placeholder="Write your campaign message..."
+              rows={8}
+            />
+            <Text
+              label="Schedule (optional)"
+              type="datetime-local"
+              value={formScheduledAt}
+              onChange={(e) => setFormScheduledAt(e.target.value)}
+              helper="Leave blank to save as draft"
+            />
+          </SheetBody>
+          <SheetFooter>
             <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
+              variant="secondary"
+              size="md"
+              onClick={() => setSheetOpen(false)}
             >
               Cancel
             </Button>
             <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={saving}
-              className="btn-press"
+              variant="primary"
+              size="md"
+              onClick={handleSave}
+              disabled={!formName}
+              loading={saving}
             >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+              {editingCampaign ? "Update" : "Create"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ================================================================
+          DELETE CONFIRMATION
+          ================================================================ */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(o) => {
+          setDeleteDialogOpen(o)
+          if (!o) setCampaignToDelete(null)
+        }}
+        title="Delete Campaign"
+        description={`Are you sure you want to delete "${campaignToDelete?.name ?? ""}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

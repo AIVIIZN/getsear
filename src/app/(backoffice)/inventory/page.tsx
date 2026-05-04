@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   Package,
   Plus,
-  Loader2,
   Search,
   AlertTriangle,
   Truck,
@@ -24,47 +23,41 @@ import { WasteLogForm } from "@/components/inventory/WasteLogForm";
 import { FoodCostReport } from "@/components/inventory/FoodCostReport";
 import { PrepListView } from "@/components/inventory/PrepListView";
 import { InventoryCountSheet } from "@/components/inventory/InventoryCountSheet";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui-v2/Button";
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui-v2/Card";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { NumberInput } from "@/components/ui-v2/inputs/Number";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Badge } from "@/components/ui-v2/data/Badge";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/components/ui-v2/data/Table";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetBody,
   SheetFooter,
-} from "@/components/ui/sheet";
+} from "@/components/ui-v2/Sheet";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+} from "@/components/ui-v2/Modal";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -131,22 +124,43 @@ function formatMoney(amount: string | null): string {
   return `$${num.toFixed(2)}`;
 }
 
-function stockStatus(item: InventoryItem): "critical" | "warning" | "good" {
+type StockStatus = "critical" | "warning" | "good";
+
+function stockStatus(item: InventoryItem): StockStatus {
   if (item.current_stock <= item.reorder_point) return "critical";
   if (item.current_stock <= item.par_level) return "warning";
   return "good";
 }
 
-function stockBadgeClass(status: "critical" | "warning" | "good"): string {
-  switch (status) {
-    case "critical":
-      return "bg-red-50 text-red-700 border-red-200";
-    case "warning":
-      return "bg-amber-50 text-amber-700 border-amber-200";
-    case "good":
-      return "bg-green-50 text-green-700 border-green-200";
-  }
+function stockBadgeVariant(
+  status: StockStatus,
+): "danger" | "warning" | "success" {
+  if (status === "critical") return "danger";
+  if (status === "warning") return "warning";
+  return "success";
 }
+
+const UNIT_OPTIONS = ["each", "oz", "lb", "gal", "case", "bag", "bottle"].map(
+  (u) => ({ value: u, label: u }),
+);
+
+const RECIPE_UNIT_OPTIONS = [
+  "each",
+  "oz",
+  "lb",
+  "gal",
+  "cup",
+  "tbsp",
+  "tsp",
+].map((u) => ({ value: u, label: u }));
+
+const PO_STATUS_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "draft", label: "Draft" },
+  { value: "submitted", label: "Submitted" },
+  { value: "received", label: "Received" },
+  { value: "reconciled", label: "Reconciled" },
+];
 
 // ---------------------------------------------------------------------------
 // Main Page
@@ -156,9 +170,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="page-title">
-          Inventory Management
-        </h2>
+        <h2 className="page-title">Inventory Management</h2>
         <p className="page-subtitle">
           Track stock levels, vendors, purchase orders, and recipes
         </p>
@@ -195,7 +207,10 @@ export default function InventoryPage() {
               <Truck className="h-4 w-4" />
               Vendors
             </TabsTrigger>
-            <TabsTrigger value="purchase-orders" className="h-9 gap-2 touch-target">
+            <TabsTrigger
+              value="purchase-orders"
+              className="h-9 gap-2 touch-target"
+            >
               <FileText className="h-4 w-4" />
               POs
             </TabsTrigger>
@@ -250,6 +265,7 @@ function ItemsTab() {
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [countItem, setCountItem] = useState<InventoryItem | null>(null);
   const [countQty, setCountQty] = useState("");
+  const [countSaving, setCountSaving] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -273,6 +289,7 @@ function ItemsTab() {
 
   const handleCount = async () => {
     if (!countItem || !countQty) return;
+    setCountSaving(true);
     try {
       const res = await fetch(`/api/inventory/items/${countItem.id}/count`, {
         method: "POST",
@@ -290,71 +307,80 @@ function ItemsTab() {
       }
     } catch {
       toast.error("Network error");
+    } finally {
+      setCountSaving(false);
     }
   };
 
   const lowStockCount = items.filter(
-    (i) => i.is_active && i.current_stock <= i.reorder_point
+    (i) => i.is_active && i.current_stock <= i.reorder_point,
   ).length;
   const totalValue = items
     .filter((i) => i.is_active)
-    .reduce((sum, i) => sum + i.current_stock * parseFloat(i.unit_cost || "0"), 0);
+    .reduce(
+      (sum, i) => sum + i.current_stock * parseFloat(i.unit_cost || "0"),
+      0,
+    );
 
   return (
     <div className="space-y-4 mt-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card padding="default">
+          <CardHeader>
+            <CardTitle className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
               Total Items
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">
+          <CardBody>
+            <div className="text-[length:var(--type-title-1-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
               {items.filter((i) => i.is_active).length}
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card padding="default">
+          <CardHeader>
+            <CardTitle className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
               Low Stock Alerts
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums text-red-600">
+          <CardBody>
+            <div className="text-[length:var(--type-title-1-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-danger)]">
               {lowStockCount}
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card padding="default">
+          <CardHeader>
+            <CardTitle className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
               Total Inventory Value
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">
+          <CardBody>
+            <div className="text-[length:var(--type-title-1-size)] font-[var(--weight-bold)] tabular-nums text-[var(--color-text)]">
               ${totalValue.toFixed(2)}
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+        <div className="flex-1 max-w-sm">
+          <Text
             placeholder="Search items..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            leadingIcon={<Search className="h-4 w-4" />}
+            aria-label="Search items"
           />
         </div>
-        <Button onClick={() => setShowCreate(true)} className="btn-press gap-2">
-          <Plus className="h-4 w-4" />
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setShowCreate(true)}
+          leadingIcon={<Plus className="h-4 w-4" />}
+        >
           Add Item
         </Button>
       </div>
@@ -363,7 +389,7 @@ function ItemsTab() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : items.length === 0 ? (
@@ -371,87 +397,98 @@ function ItemsTab() {
           icon={Package}
           title="No inventory items"
           description="Add your first inventory item to start tracking stock levels"
-          actionLabel="Add Item"
-          onAction={() => setShowCreate(true)}
+          action={{ label: "Add Item", onClick: () => setShowCreate(true) }}
         />
       ) : (
-        <Card>
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right">Par</TableHead>
-                <TableHead className="text-right">Reorder Pt</TableHead>
-                <TableHead className="text-right">Unit Cost</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell header>Name</TableCell>
+                <TableCell header>Category</TableCell>
+                <TableCell header align="right">
+                  Stock
+                </TableCell>
+                <TableCell header align="right">
+                  Par
+                </TableCell>
+                <TableCell header align="right">
+                  Reorder Pt
+                </TableCell>
+                <TableCell header align="right">
+                  Unit Cost
+                </TableCell>
+                <TableCell header>Status</TableCell>
+                <TableCell header align="right">
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.filter((i) => i.is_active).map((item) => {
-                const ss = stockStatus(item);
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.category ?? "--"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {item.current_stock} {item.unit}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {item.par_level}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {item.reorder_point}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(item.unit_cost)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs font-medium capitalize ${stockBadgeClass(ss)}`}
-                      >
-                        {ss === "critical" && (
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                        )}
-                        {ss}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setCountItem(item);
-                            setCountQty(String(item.current_stock));
-                          }}
-                        >
-                          Count
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditItem(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {items
+                .filter((i) => i.is_active)
+                .map((item) => {
+                  const ss = stockStatus(item);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-[var(--weight-medium)]">
+                        {item.name}
+                      </TableCell>
+                      <TableCell className="text-[var(--color-text-muted)]">
+                        {item.category ?? "--"}
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums">
+                        {item.current_stock} {item.unit}
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums">
+                        {item.par_level}
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums">
+                        {item.reorder_point}
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums">
+                        {formatMoney(item.unit_cost)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={stockBadgeVariant(ss)} className="capitalize">
+                          {ss === "critical" && (
+                            <AlertTriangle className="h-3 w-3" />
+                          )}
+                          {ss}
+                        </Badge>
+                      </TableCell>
+                      <TableCell align="right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setCountItem(item);
+                              setCountQty(String(item.current_stock));
+                            }}
+                          >
+                            Count
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Edit ${item.name}`}
+                            onClick={() => setEditItem(item)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
             </TableBody>
           </Table>
         </Card>
       )}
 
-      {/* Quick Count Dialog */}
-      <Dialog
+      {/* Quick Count Modal — short confirmation */}
+      <Modal
         open={!!countItem}
         onOpenChange={(open) => {
           if (!open) {
@@ -460,35 +497,41 @@ function ItemsTab() {
           }
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Quick Count: {countItem?.name}</DialogTitle>
-            <DialogDescription>
+        <ModalContent size="sm">
+          <ModalHeader>
+            <ModalTitle>Quick Count: {countItem?.name}</ModalTitle>
+            <ModalDescription>
               Current system stock: {countItem?.current_stock} {countItem?.unit}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Counted Quantity</Label>
-              <Input
-                type="number"
-                value={countQty}
-                onChange={(e) => setCountQty(e.target.value)}
-                min={0}
-                step="0.01"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCountItem(null)}>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalBody>
+            <NumberInput
+              label="Counted Quantity"
+              value={countQty}
+              onChange={(e) => setCountQty(e.target.value)}
+              min={0}
+              step="0.01"
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setCountItem(null)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCount} className="btn-press">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleCount}
+              loading={countSaving}
+            >
               Save Count
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Create/Edit Item Sheet */}
       <ItemFormSheet
@@ -590,95 +633,77 @@ function ItemFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent width="md">
         <SheetHeader>
           <SheetTitle>{item ? "Edit Item" : "New Inventory Item"}</SheetTitle>
           <SheetDescription>
-            {item ? "Update inventory item details" : "Add a new item to your inventory"}
+            {item
+              ? "Update inventory item details"
+              : "Add a new item to your inventory"}
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-4 py-6">
-          <div>
-            <Label>Name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
+        <SheetBody className="space-y-4">
+          <Text
+            label="Name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Unit</Label>
-              <Select value={unit} onValueChange={(v) => v && setUnit(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["each", "oz", "lb", "gal", "case", "bag", "bottle"].map(
-                    (u) => (
-                      <SelectItem key={u} value={u}>
-                        {u}
-                      </SelectItem>
-                    )
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Category</Label>
-              <Input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g. Produce"
-              />
-            </div>
+            <Select
+              label="Unit"
+              options={UNIT_OPTIONS}
+              value={unit}
+              onChange={(v) => setUnit(v)}
+            />
+            <Text
+              label="Category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="e.g. Produce"
+            />
           </div>
-          <Separator />
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label>Current Stock</Label>
-              <Input
-                type="number"
-                value={currentStock}
-                onChange={(e) => setCurrentStock(e.target.value)}
-                min={0}
-                step="0.01"
-              />
-            </div>
-            <div>
-              <Label>Par Level</Label>
-              <Input
-                type="number"
-                value={parLevel}
-                onChange={(e) => setParLevel(e.target.value)}
-                min={0}
-                step="0.01"
-              />
-            </div>
-            <div>
-              <Label>Reorder Point</Label>
-              <Input
-                type="number"
-                value={reorderPoint}
-                onChange={(e) => setReorderPoint(e.target.value)}
-                min={0}
-                step="0.01"
-              />
-            </div>
-          </div>
-          <div>
-            <Label>Unit Cost ($)</Label>
-            <Input
-              type="number"
-              value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
+            <NumberInput
+              label="Current Stock"
+              value={currentStock}
+              onChange={(e) => setCurrentStock(e.target.value)}
+              min={0}
+              step="0.01"
+            />
+            <NumberInput
+              label="Par Level"
+              value={parLevel}
+              onChange={(e) => setParLevel(e.target.value)}
+              min={0}
+              step="0.01"
+            />
+            <NumberInput
+              label="Reorder Point"
+              value={reorderPoint}
+              onChange={(e) => setReorderPoint(e.target.value)}
               min={0}
               step="0.01"
             />
           </div>
-        </div>
+          <NumberInput
+            label="Unit Cost ($)"
+            value={unitCost}
+            onChange={(e) => setUnitCost(e.target.value)}
+            min={0}
+            step="0.01"
+          />
+        </SheetBody>
         <SheetFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" size="md" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving} className="btn-press">
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSave}
+            loading={saving}
+          >
             {item ? "Save Changes" : "Create Item"}
           </Button>
         </SheetFooter>
@@ -718,11 +743,15 @@ function VendorsTab() {
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
+        <h3 className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
           {vendors.length} vendor{vendors.length !== 1 ? "s" : ""}
         </h3>
-        <Button onClick={() => setShowCreate(true)} className="btn-press gap-2">
-          <Plus className="h-4 w-4" />
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setShowCreate(true)}
+          leadingIcon={<Plus className="h-4 w-4" />}
+        >
           Add Vendor
         </Button>
       </div>
@@ -730,7 +759,7 @@ function VendorsTab() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : vendors.length === 0 ? (
@@ -738,46 +767,52 @@ function VendorsTab() {
           icon={Truck}
           title="No vendors"
           description="Add your first vendor to start managing suppliers"
-          actionLabel="Add Vendor"
-          onAction={() => setShowCreate(true)}
+          action={{ label: "Add Vendor", onClick: () => setShowCreate(true) }}
         />
       ) : (
-        <Card>
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Terms</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell header>Name</TableCell>
+                <TableCell header>Contact</TableCell>
+                <TableCell header>Email</TableCell>
+                <TableCell header>Phone</TableCell>
+                <TableCell header>Terms</TableCell>
+                <TableCell header>Status</TableCell>
+                <TableCell header align="right">
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
               {vendors.map((vendor) => (
                 <TableRow key={vendor.id}>
-                  <TableCell className="font-medium">{vendor.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="font-[var(--weight-medium)]">
+                    {vendor.name}
+                  </TableCell>
+                  <TableCell className="text-[var(--color-text-muted)]">
                     {vendor.contact_name ?? "--"}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-[var(--color-text-muted)]">
                     {vendor.email ?? "--"}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-[var(--color-text-muted)]">
                     {vendor.phone ?? "--"}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-[var(--color-text-muted)]">
                     {vendor.payment_terms ?? "--"}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={vendor.is_active ? "active" : "inactive"} />
+                    <StatusBadge
+                      status={vendor.is_active ? "active" : "inactive"}
+                    />
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell align="right">
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
+                      aria-label={`Edit ${vendor.name}`}
                       onClick={() => setEditVendor(vendor)}
                     >
                       <Pencil className="h-4 w-4" />
@@ -877,57 +912,55 @@ function VendorFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent width="md">
         <SheetHeader>
           <SheetTitle>{vendor ? "Edit Vendor" : "New Vendor"}</SheetTitle>
           <SheetDescription>
             {vendor ? "Update vendor details" : "Add a new supplier"}
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-4 py-6">
-          <div>
-            <Label>Name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <Label>Contact Name</Label>
-            <Input
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-            />
-          </div>
+        <SheetBody className="space-y-4">
+          <Text
+            label="Name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Text
+            label="Contact Name"
+            value={contactName}
+            onChange={(e) => setContactName(e.target.value)}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Phone</Label>
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-          </div>
-          <div>
-            <Label>Payment Terms</Label>
-            <Input
-              value={paymentTerms}
-              onChange={(e) => setPaymentTerms(e.target.value)}
-              placeholder="e.g. Net 30"
+            <Text
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <Text
+              label="Phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
-        </div>
+          <Text
+            label="Payment Terms"
+            value={paymentTerms}
+            onChange={(e) => setPaymentTerms(e.target.value)}
+            placeholder="e.g. Net 30"
+          />
+        </SheetBody>
         <SheetFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" size="md" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving} className="btn-press">
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSave}
+            loading={saving}
+          >
             {vendor ? "Save Changes" : "Create Vendor"}
           </Button>
         </SheetFooter>
@@ -1013,7 +1046,6 @@ function PurchaseOrdersTab() {
   };
 
   const handleReceivePO = async (poId: string) => {
-    // Simple: mark all items as fully received
     try {
       const detailRes = await fetch(`/api/inventory/purchase-orders/${poId}`);
       const detailJson = await detailRes.json();
@@ -1032,7 +1064,7 @@ function PurchaseOrdersTab() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items: poItems }),
-        }
+        },
       );
       if (res.ok) {
         toast.success("PO received");
@@ -1085,26 +1117,30 @@ function PurchaseOrdersTab() {
     }
   };
 
+  const vendorOptions = vendors
+    .filter((v) => v.is_active)
+    .map((v) => ({ value: v.id, label: v.name }));
+  const itemOptions = items
+    .filter((i) => i.is_active)
+    .map((i) => ({ value: i.id, label: i.name }));
+
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between gap-4">
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => v && setStatusFilter(v)}
+        <div className="w-[200px]">
+          <Select
+            options={PO_STATUS_OPTIONS}
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v)}
+            ariaLabel="Filter by status"
+          />
+        </div>
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setShowCreate(true)}
+          leadingIcon={<Plus className="h-4 w-4" />}
         >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="submitted">Submitted</SelectItem>
-            <SelectItem value="received">Received</SelectItem>
-            <SelectItem value="reconciled">Reconciled</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button onClick={() => setShowCreate(true)} className="btn-press gap-2">
-          <Plus className="h-4 w-4" />
           New PO
         </Button>
       </div>
@@ -1112,7 +1148,7 @@ function PurchaseOrdersTab() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : filteredOrders.length === 0 ? (
@@ -1120,45 +1156,48 @@ function PurchaseOrdersTab() {
           icon={FileText}
           title="No purchase orders"
           description="Create your first purchase order to start ordering from vendors"
-          actionLabel="New PO"
-          onAction={() => setShowCreate(true)}
+          action={{ label: "New PO", onClick: () => setShowCreate(true) }}
         />
       ) : (
-        <Card>
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>PO ID</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell header>PO ID</TableCell>
+                <TableCell header>Vendor</TableCell>
+                <TableCell header>Status</TableCell>
+                <TableCell header align="right">
+                  Total
+                </TableCell>
+                <TableCell header>Created</TableCell>
+                <TableCell header align="right">
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOrders.map((po) => (
                 <TableRow key={po.id}>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="font-mono text-[length:var(--type-footnote-size)]">
                     {po.id.slice(0, 8)}...
                   </TableCell>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-[var(--weight-medium)]">
                     {vendorMap.get(po.vendor_id) ?? "--"}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={po.status} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell align="right" className="tabular-nums">
                     {formatMoney(po.total)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-[var(--color-text-muted)]">
                     {new Date(po.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell align="right">
                     <div className="flex items-center justify-end gap-1">
                       {po.status === "draft" && (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={() => handleSubmitPO(po.id)}
                         >
@@ -1167,7 +1206,7 @@ function PurchaseOrdersTab() {
                       )}
                       {po.status === "submitted" && (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={() => handleReceivePO(po.id)}
                         >
@@ -1195,146 +1234,135 @@ function PurchaseOrdersTab() {
           }
         }}
       >
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent width="lg">
           <SheetHeader>
             <SheetTitle>New Purchase Order</SheetTitle>
             <SheetDescription>
               Create a PO to order from a vendor
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 py-6">
+          <SheetBody className="space-y-4">
+            <Select
+              label="Vendor"
+              required
+              placeholder="Select vendor"
+              options={vendorOptions}
+              value={newVendorId}
+              onChange={(v) => setNewVendorId(v)}
+            />
             <div>
-              <Label>Vendor *</Label>
-              <Select
-                value={newVendorId}
-                onValueChange={(v) => v && setNewVendorId(v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendors
-                    .filter((v) => v.is_active)
-                    .map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Separator />
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label>Items</Label>
+              <div className="flex items-center justify-between mb-[var(--space-2)]">
+                <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text)]">
+                  Items
+                </span>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={() =>
                     setNewItems([
                       ...newItems,
-                      { inventory_item_id: "", quantity_ordered: "1", unit_cost: "0.00" },
+                      {
+                        inventory_item_id: "",
+                        quantity_ordered: "1",
+                        unit_cost: "0.00",
+                      },
                     ])
                   }
+                  leadingIcon={<Plus className="h-3 w-3" />}
                 >
-                  <Plus className="h-3 w-3 mr-1" />
                   Add Item
                 </Button>
               </div>
-              {newItems.map((item, idx) => (
-                <div key={idx} className="flex gap-2 mb-2 items-end">
-                  <div className="flex-1">
-                    <Select
-                      value={item.inventory_item_id}
-                      onValueChange={(v) => {
-                        if (!v) return;
-                        const updated = [...newItems];
-                        updated[idx] = { ...updated[idx], inventory_item_id: v };
-                        const inv = items.find((i) => i.id === v);
-                        if (inv) {
-                          updated[idx].unit_cost = inv.unit_cost;
-                        }
-                        setNewItems(updated);
-                      }}
+              <div className="space-y-2">
+                {newItems.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Select
+                        placeholder="Select item"
+                        options={itemOptions}
+                        value={item.inventory_item_id}
+                        onChange={(v) => {
+                          const updated = [...newItems];
+                          updated[idx] = {
+                            ...updated[idx],
+                            inventory_item_id: v,
+                          };
+                          const inv = items.find((i) => i.id === v);
+                          if (inv) {
+                            updated[idx].unit_cost = inv.unit_cost;
+                          }
+                          setNewItems(updated);
+                        }}
+                      />
+                    </div>
+                    <div className="w-20">
+                      <NumberInput
+                        placeholder="Qty"
+                        aria-label="Quantity"
+                        value={item.quantity_ordered}
+                        onChange={(e) => {
+                          const updated = [...newItems];
+                          updated[idx] = {
+                            ...updated[idx],
+                            quantity_ordered: e.target.value,
+                          };
+                          setNewItems(updated);
+                        }}
+                        min={0}
+                        step="0.01"
+                      />
+                    </div>
+                    <div className="w-24">
+                      <NumberInput
+                        placeholder="Cost"
+                        aria-label="Unit cost"
+                        value={item.unit_cost}
+                        onChange={(e) => {
+                          const updated = [...newItems];
+                          updated[idx] = {
+                            ...updated[idx],
+                            unit_cost: e.target.value,
+                          };
+                          setNewItems(updated);
+                        }}
+                        min={0}
+                        step="0.01"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      aria-label="Remove item"
+                      onClick={() =>
+                        setNewItems(newItems.filter((_, i) => i !== idx))
+                      }
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select item" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {items
-                          .filter((i) => i.is_active)
-                          .map((i) => (
-                            <SelectItem key={i.id} value={i.id}>
-                              {i.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      <Trash2 className="h-4 w-4 text-[var(--color-danger)]" />
+                    </Button>
                   </div>
-                  <div className="w-20">
-                    <Input
-                      type="number"
-                      placeholder="Qty"
-                      value={item.quantity_ordered}
-                      onChange={(e) => {
-                        const updated = [...newItems];
-                        updated[idx] = {
-                          ...updated[idx],
-                          quantity_ordered: e.target.value,
-                        };
-                        setNewItems(updated);
-                      }}
-                      min={0}
-                      step="0.01"
-                    />
-                  </div>
-                  <div className="w-24">
-                    <Input
-                      type="number"
-                      placeholder="Cost"
-                      value={item.unit_cost}
-                      onChange={(e) => {
-                        const updated = [...newItems];
-                        updated[idx] = {
-                          ...updated[idx],
-                          unit_cost: e.target.value,
-                        };
-                        setNewItems(updated);
-                      }}
-                      min={0}
-                      step="0.01"
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      setNewItems(newItems.filter((_, i) => i !== idx))
-                    }
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-            <div>
-              <Label>Notes</Label>
-              <Input
-                value={newNotes}
-                onChange={(e) => setNewNotes(e.target.value)}
-              />
-            </div>
-          </div>
+            <Text
+              label="Notes"
+              value={newNotes}
+              onChange={(e) => setNewNotes(e.target.value)}
+            />
+          </SheetBody>
           <SheetFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setShowCreate(false)}
+            >
               Cancel
             </Button>
             <Button
+              variant="primary"
+              size="md"
               onClick={handleCreatePO}
-              disabled={creating}
-              className="btn-press"
+              loading={creating}
             >
-              {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Create PO
             </Button>
           </SheetFooter>
@@ -1354,7 +1382,6 @@ function RecipesTab() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
-  // Create recipe state
   const [menuItemId, setMenuItemId] = useState("");
   const [inventoryItemId, setInventoryItemId] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -1440,14 +1467,22 @@ function RecipesTab() {
     }
   };
 
+  const ingredientOptions = items
+    .filter((i) => i.is_active)
+    .map((i) => ({ value: i.id, label: i.name }));
+
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
+        <h3 className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
           {recipes.length} recipe link{recipes.length !== 1 ? "s" : ""}
         </h3>
-        <Button onClick={() => setShowCreate(true)} className="btn-press gap-2">
-          <Plus className="h-4 w-4" />
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setShowCreate(true)}
+          leadingIcon={<Plus className="h-4 w-4" />}
+        >
           Link Ingredient
         </Button>
       </div>
@@ -1455,7 +1490,7 @@ function RecipesTab() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} variant="table-row" />
           ))}
         </div>
       ) : recipes.length === 0 ? (
@@ -1463,20 +1498,28 @@ function RecipesTab() {
           icon={BookOpen}
           title="No recipes"
           description="Link menu items to inventory ingredients to track food cost"
-          actionLabel="Link Ingredient"
-          onAction={() => setShowCreate(true)}
+          action={{
+            label: "Link Ingredient",
+            onClick: () => setShowCreate(true),
+          }}
         />
       ) : (
-        <Card>
+        <Card padding="compact" className="!p-0 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Menu Item ID</TableHead>
-                <TableHead>Ingredient</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Est. Cost</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell header>Menu Item ID</TableCell>
+                <TableCell header>Ingredient</TableCell>
+                <TableCell header align="right">
+                  Quantity
+                </TableCell>
+                <TableCell header>Unit</TableCell>
+                <TableCell header align="right">
+                  Est. Cost
+                </TableCell>
+                <TableCell header align="right">
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1487,28 +1530,29 @@ function RecipesTab() {
                   : 0;
                 return (
                   <TableRow key={recipe.id}>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="font-mono text-[length:var(--type-footnote-size)]">
                       {recipe.menu_item_id.slice(0, 8)}...
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-[var(--weight-medium)]">
                       {inv?.name ?? recipe.inventory_item_id.slice(0, 8)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell align="right" className="tabular-nums">
                       {recipe.quantity}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-[var(--color-text-muted)]">
                       {recipe.unit}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell align="right" className="tabular-nums">
                       ${cost.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell align="right">
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
+                        aria-label="Delete recipe link"
                         onClick={() => handleDelete(recipe.id)}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-4 w-4 text-[var(--color-danger)]" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -1526,78 +1570,59 @@ function RecipesTab() {
           if (!o) setShowCreate(false);
         }}
       >
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetContent width="md">
           <SheetHeader>
             <SheetTitle>Link Ingredient to Menu Item</SheetTitle>
             <SheetDescription>
               Define how much of an ingredient a menu item uses
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 py-6">
-            <div>
-              <Label>Menu Item ID *</Label>
-              <Input
-                value={menuItemId}
-                onChange={(e) => setMenuItemId(e.target.value)}
-                placeholder="Paste menu item UUID"
+          <SheetBody className="space-y-4">
+            <Text
+              label="Menu Item ID"
+              required
+              value={menuItemId}
+              onChange={(e) => setMenuItemId(e.target.value)}
+              placeholder="Paste menu item UUID"
+            />
+            <Select
+              label="Inventory Item"
+              required
+              placeholder="Select ingredient"
+              options={ingredientOptions}
+              value={inventoryItemId}
+              onChange={(v) => setInventoryItemId(v)}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <NumberInput
+                label="Quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                min={0}
+                step="0.001"
+              />
+              <Select
+                label="Unit"
+                options={RECIPE_UNIT_OPTIONS}
+                value={unit}
+                onChange={(v) => setUnit(v)}
               />
             </div>
-            <div>
-              <Label>Inventory Item *</Label>
-              <Select
-                value={inventoryItemId}
-                onValueChange={(v) => v && setInventoryItemId(v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select ingredient" />
-                </SelectTrigger>
-                <SelectContent>
-                  {items
-                    .filter((i) => i.is_active)
-                    .map((i) => (
-                      <SelectItem key={i.id} value={i.id}>
-                        {i.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Quantity</Label>
-                <Input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  min={0}
-                  step="0.001"
-                />
-              </div>
-              <div>
-                <Label>Unit</Label>
-                <Select value={unit} onValueChange={(v) => v && setUnit(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["each", "oz", "lb", "gal", "cup", "tbsp", "tsp"].map(
-                      (u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+          </SheetBody>
           <SheetFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setShowCreate(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={saving} className="btn-press">
-              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleCreate}
+              loading={saving}
+            >
               Create Link
             </Button>
           </SheetFooter>
@@ -1606,3 +1631,4 @@ function RecipesTab() {
     </div>
   );
 }
+
