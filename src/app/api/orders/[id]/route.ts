@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
-import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
+import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
 import {
   assertVersion,
   checkUpdateAffectedRow,
@@ -139,8 +139,28 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
     )
     if (staleResp) return staleResp
 
-    // Recalculate tax when for_here or order_type changes
-    await recalculateOrderTotals(supabase, id, user.org_id)
+    // Recalculate tax when for_here or order_type changes.
+    // 5.99.2 — the primary `orders` UPDATE above already fired the
+    // version-bump trigger, so the row is at `expectedVersion + 1` now;
+    // gate the totals UPDATE on that to detect a concurrent writer that
+    // squeezed in between our checkUpdateAffectedRow above and this recalc.
+    const recalcExpected =
+      check.expectedVersion === null ? null : check.expectedVersion + 1
+    try {
+      await recalculateOrderTotals(supabase, id, user.org_id, recalcExpected)
+    } catch (err) {
+      if (err instanceof StaleVersionError) {
+        const stale = await checkUpdateAffectedRow(
+          supabase,
+          id,
+          user.org_id,
+          recalcExpected,
+          null
+        )
+        if (stale) return stale
+      }
+      throw err
+    }
 
     // Fetch updated order with recalculated totals
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,9 +199,27 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
   )
   if (staleResp) return staleResp
 
-  // If order_type changed, recalculate tax (affects for-here/to-go logic)
+  // If order_type changed, recalculate tax (affects for-here/to-go logic).
+  // 5.99.2 — same reasoning as the for_here branch above: the primary UPDATE
+  // already bumped the version by 1, so we gate recalc on expectedVersion+1.
   if (directFields.order_type) {
-    await recalculateOrderTotals(supabase, id, user.org_id)
+    const recalcExpected =
+      check.expectedVersion === null ? null : check.expectedVersion + 1
+    try {
+      await recalculateOrderTotals(supabase, id, user.org_id, recalcExpected)
+    } catch (err) {
+      if (err instanceof StaleVersionError) {
+        const stale = await checkUpdateAffectedRow(
+          supabase,
+          id,
+          user.org_id,
+          recalcExpected,
+          null
+        )
+        if (stale) return stale
+      }
+      throw err
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updatedOrder } = await (supabase.from('orders') as any)

@@ -15,6 +15,32 @@ import {
 } from '@/lib/tax/tax-engine'
 
 /**
+ * Thrown by {@link recalculateOrderTotals} when its final `orders` UPDATE
+ * matches zero rows because another writer bumped `orders.version` after the
+ * caller's `assertVersion()` check (5.4.1) and before this function's UPDATE.
+ *
+ * Callers should catch this and convert to a 409 via
+ * `checkUpdateAffectedRow(supabase, orderId, orgId, expectedVersion, null)`
+ * so the StaleOrderModal on the client receives the canonical 409 body.
+ *
+ * Why a class (not a result tuple): every caller in V5.4.1 already has a
+ * straight-line happy path; throwing keeps the happy path uncluttered and
+ * forces conflict handling into a visible try/catch.
+ */
+export class StaleVersionError extends Error {
+  readonly orderId: string
+  readonly expectedVersion: number
+  constructor(orderId: string, expectedVersion: number) {
+    super(
+      `Order ${orderId} totals UPDATE found no row at version ${expectedVersion} — another writer raced ahead.`
+    )
+    this.name = 'StaleVersionError'
+    this.orderId = orderId
+    this.expectedVersion = expectedVersion
+  }
+}
+
+/**
  * Fetch active tax rates for a location from the database.
  */
 export async function fetchLocationTaxRates(
@@ -44,12 +70,38 @@ export async function fetchLocationTaxRates(
  * 4. Calculates tax per item using the tax engine
  * 5. Updates per-item tax_amount fields
  * 6. Sums everything and updates the order totals
+ *
+ * Optimistic locking (5.99.2):
+ *   The final `orders` UPDATE is gated on `.eq('version', expectedVersion)`.
+ *   If `expectedVersion` is `null`, the UPDATE is unconditional (legacy
+ *   path, e.g. the items DELETE handler which predates V5.4.1's If-Match
+ *   plumbing). If non-null and the UPDATE matches zero rows, we throw
+ *   {@link StaleVersionError} so the caller can return the canonical 409
+ *   from `checkUpdateAffectedRow` rather than silently clobbering totals.
+ *
+ *   Why this matters: prior to this fix, two terminals each passing
+ *   `assertVersion` at v=5 could both INSERT items and both call this
+ *   function — the second writer's stale-snapshot UPDATE would clobber the
+ *   first. Now the second writer's UPDATE matches zero rows and surfaces
+ *   the conflict to the user.
+ *
+ * Note on `expectedVersion`: callers must pass the version of `orders` AT
+ * RECALC TIME, which is not always the version the route received in
+ * If-Match. Routes that perform a primary `orders` UPDATE before recalc
+ * (e.g. PATCH /api/orders/[id] toggling for_here) have already incremented
+ * the version via the BEFORE-UPDATE trigger (migration 20260504063720), so
+ * they must pass `expectedVersion + 1` (or re-read). Routes that mutate
+ * only sub-tables (order_items, order_discounts, order_item_modifiers)
+ * before recalc — POST /items, PATCH /items/[itemId], POST /discount,
+ * POST /merge, the pre-close path of POST /comp — pass `expectedVersion`
+ * directly because those sub-table writes do not bump `orders.version`.
  */
 export async function recalculateOrderTotals(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   orderId: string,
-  orgId: string
+  orgId: string,
+  expectedVersion: number | null
 ): Promise<void> {
   // Get order metadata (location, type, for_here flag)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,8 +223,12 @@ export async function recalculateOrderTotals(
   const amountPaidCents = dollarsToCents(order.amount_paid ?? '0')
   const balanceDueCents = Math.max(0, totalCents - amountPaidCents)
 
+  // 5.99.2 — gate the totals UPDATE on `version` so a stale snapshot can't
+  // clobber a concurrent writer's totals. `expectedVersion === null` keeps
+  // the legacy unconditional path for callers that haven't been updated to
+  // thread a version (e.g. the unguarded items DELETE handler).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('orders') as any)
+  let updateQuery = (supabase.from('orders') as any)
     .update({
       subtotal: centsToDollars(subtotalCents),
       discount_total: centsToDollars(discountTotalCents),
@@ -182,6 +238,20 @@ export async function recalculateOrderTotals(
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)
+    .eq('org_id', orgId)
+  if (expectedVersion !== null) {
+    updateQuery = updateQuery.eq('version', expectedVersion)
+  }
+  const { data: updated, error: updateError } = await updateQuery
+    .select('id')
+    .maybeSingle()
+
+  if (updateError) {
+    throw updateError
+  }
+  if (expectedVersion !== null && !updated) {
+    throw new StaleVersionError(orderId, expectedVersion)
+  }
 }
 
 /**

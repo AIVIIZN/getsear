@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
-import { assertVersion } from '@/lib/orders/concurrency'
+import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 
 const updateItemSchema = z.object({
   quantity: z.number().int().min(1).max(999).optional(),
@@ -88,8 +88,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
-  // — this UPDATE bumps the order version (V5.4.1).
-  await recalculateOrderTotals(supabase, orderId, user.org_id)
+  // — this UPDATE bumps the order version (V5.4.1). The PATCH above mutated
+  // only `order_items`, so `orders.version` is still `check.expectedVersion`
+  // here; pass it through so 5.99.2 catches a concurrent racer.
+  try {
+    await recalculateOrderTotals(supabase, orderId, user.org_id, check.expectedVersion)
+  } catch (err) {
+    if (err instanceof StaleVersionError) {
+      const stale = await checkUpdateAffectedRow(
+        supabase,
+        orderId,
+        user.org_id,
+        check.expectedVersion,
+        null
+      )
+      if (stale) return stale
+    }
+    throw err
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: refreshed } = await (supabase.from('orders') as any)
@@ -170,8 +186,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to void item' }, { status: 500 })
   }
 
-  // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
-  await recalculateOrderTotals(supabase, orderId, user.org_id)
+  // Recalculate order totals using the tax engine (no more hardcoded 8.5%).
+  // DELETE has no If-Match guard yet (deferred to sister 5.4.2 — see notes
+  // above), so we recalc unconditionally with expectedVersion=null. The
+  // version-bump trigger still fires on the orders UPDATE.
+  await recalculateOrderTotals(supabase, orderId, user.org_id, null)
 
   return NextResponse.json({ data })
 }

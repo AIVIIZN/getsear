@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
-import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
-import { assertVersion } from '@/lib/orders/concurrency'
+import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 
 const modifierSchema = z.object({
   modifier_id: z.string().uuid(),
@@ -153,8 +153,26 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%).
-  // This UPDATE on `orders` triggers the version bump (V5.4.1).
-  await recalculateOrderTotals(supabase, orderId, user.org_id)
+  // This UPDATE on `orders` triggers the version bump (V5.4.1). The INSERTs
+  // above hit only `order_items`/`order_item_modifiers` which do not bump
+  // `orders.version`, so we gate the totals UPDATE on `check.expectedVersion`
+  // (5.99.2). On a concurrent-writer race the recalc throws and we return
+  // the canonical 409 instead of clobbering the other terminal's totals.
+  try {
+    await recalculateOrderTotals(supabase, orderId, user.org_id, check.expectedVersion)
+  } catch (err) {
+    if (err instanceof StaleVersionError) {
+      const stale = await checkUpdateAffectedRow(
+        supabase,
+        orderId,
+        user.org_id,
+        check.expectedVersion,
+        null
+      )
+      if (stale) return stale
+    }
+    throw err
+  }
 
   // Fetch the complete item with modifiers
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
