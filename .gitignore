@@ -47,3 +47,6 @@ next-env.d.ts
 # playwright generated artifacts (HTML report + per-test trace zips/screenshots)
 /playwright-report/
 /test-results/
+
+# seed photo generation output (per-run, contains URLs + cost)
+scripts/_seed-photos-output.json

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
 import {
   DndContext,
   closestCenter,
@@ -16,10 +17,11 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Star, Trash2, ImageIcon } from 'lucide-react'
+import { GripVertical, Star, Trash2, ImageIcon, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { PhotoUploader } from '../PhotoUploader'
+import { PhotoUploader, type PhotoUploaderHandle } from '../PhotoUploader'
+import { scaleIn } from '@/lib/motion/transitions'
 
 export interface MenuItemPhoto {
   id: string
@@ -34,7 +36,10 @@ interface PhotosTabProps {
   onUpload: (file: File) => Promise<void>
   onDelete: (photoId: string) => Promise<void>
   onReorder: (photoIds: string[]) => Promise<void>
+  onGenerate?: () => Promise<{ url: string } | null>
   isUploading: boolean
+  isGenerating?: boolean
+  generatedPreviewUrl?: string | null
 }
 
 function SortablePhoto({
@@ -133,11 +138,31 @@ export function PhotosTab({
   onUpload,
   onDelete,
   onReorder,
+  onGenerate,
   isUploading,
+  isGenerating,
+  generatedPreviewUrl,
 }: PhotosTabProps) {
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const uploaderRef = useRef<PhotoUploaderHandle | null>(null)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
+
+  const handleGenerate = useCallback(async () => {
+    if (!onGenerate) return
+    setGenerateError(null)
+    try {
+      const result = await onGenerate()
+      if (!result) {
+        setGenerateError('Generation failed. Try again.')
+      }
+    } catch (err) {
+      setGenerateError(
+        err instanceof Error ? err.message : 'Generation failed'
+      )
+    }
+  }, [onGenerate])
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
@@ -167,8 +192,54 @@ export function PhotosTab({
 
   return (
     <div className="space-y-4">
+      {/* Generate + Upload action row */}
+      {onGenerate && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={isGenerating || isUploading}
+            >
+              <Sparkles className="size-3.5 mr-1" />
+              {isGenerating ? 'Generating...' : 'Generate'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isGenerating}
+              onClick={() => uploaderRef.current?.openFilePicker()}
+            >
+              Upload
+            </Button>
+          </div>
+          {generateError && (
+            <p className="text-xs font-medium text-destructive">{generateError}</p>
+          )}
+          {generatedPreviewUrl && (
+            <motion.div
+              key={generatedPreviewUrl}
+              initial={scaleIn.initial}
+              animate={scaleIn.animate}
+              transition={scaleIn.transition}
+              className="overflow-hidden rounded-lg border border-border bg-muted"
+            >
+              {/* Inline preview of the freshly generated photo */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={generatedPreviewUrl}
+                alt="Generated preview"
+                className="aspect-square w-full object-cover"
+              />
+            </motion.div>
+          )}
+        </div>
+      )}
+
       {/* Upload area */}
-      <PhotoUploader onUpload={onUpload} isUploading={isUploading} />
+      <PhotoUploader ref={uploaderRef} onUpload={onUpload} isUploading={isUploading} />
 
       {/* Photo grid */}
       {photos.length > 0 && (
