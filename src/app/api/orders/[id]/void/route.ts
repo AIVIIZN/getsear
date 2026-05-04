@@ -10,7 +10,7 @@ import {
   isTerminal,
   type OrderState,
 } from '@/lib/orders/state-machine'
-import { assertVersion, bumpVersion } from '@/lib/orders/concurrency'
+import { assertVersion } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
 
 const VOID_REASONS = [
@@ -101,20 +101,12 @@ export async function POST(
     )
   }
 
-  // ----- 2. Optimistic-lock check ------------------------------------------
-  const ifMatchHeader = request.headers.get('If-Match')
-  const expectedVersion = ifMatchHeader ? Number(ifMatchHeader) : null
-  const versionCheck = await assertVersion(supabase, 'orders', orderId, expectedVersion)
-  if (!versionCheck.ok) {
-    return NextResponse.json(
-      {
-        error: 'Conflict: order was updated by another terminal',
-        current_version: versionCheck.current_version,
-        current_state: versionCheck.current_state,
-      },
-      { status: 409 }
-    )
-  }
+  // ----- 2. Optimistic-lock check (5.4.1) ----------------------------------
+  // assertVersion loads the row, parses If-Match, and short-circuits with a
+  // ready-to-return NextResponse on 404 / 409 / 412. The 409 carries the
+  // current state for the StaleOrderModal diff.
+  const versionCheck = await assertVersion(supabase, request, orderId, user.org_id)
+  if (!versionCheck.ok) return versionCheck.response
 
   // ----- 3. Manager-PIN validation (post-close only) ------------------------
   let approvedByManagerId: string | null = null
@@ -163,28 +155,28 @@ export async function POST(
   // ----- 6. Write the void --------------------------------------------------
   const voidedAt = new Date().toISOString()
 
+  // The BEFORE-UPDATE trigger (migration 20260504063720) auto-bumps
+  // orders.version on every real change, so we just submit the domain UPDATE.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error: updateErr } = await (supabase.from('orders') as any)
-    .update(
-      bumpVersion({
-        status: 'voided',
-        voided_at: voidedAt,
-        voided_by: user.id,
-        void_reason: reason,
-        metadata: {
-          ...(order.metadata ?? {}),
-          void: {
-            reason,
-            notes: notes ?? null,
-            after_close: isAfterClose,
-            manager_id: approvedByManagerId,
-            voided_by_user_id: user.id,
-            voided_at: voidedAt,
-          },
+    .update({
+      status: 'voided',
+      voided_at: voidedAt,
+      voided_by: user.id,
+      void_reason: reason,
+      metadata: {
+        ...(order.metadata ?? {}),
+        void: {
+          reason,
+          notes: notes ?? null,
+          after_close: isAfterClose,
+          manager_id: approvedByManagerId,
+          voided_by_user_id: user.id,
+          voided_at: voidedAt,
         },
-        updated_at: voidedAt,
-      })
-    )
+      },
+      updated_at: voidedAt,
+    })
     .eq('id', orderId)
     .select()
     .single()
@@ -224,22 +216,26 @@ export async function POST(
     approved_by: approvedByManagerId,
   })
 
-  await audit.record(supabase, {
-    org_id: user.org_id,
-    location_id: order.location_id,
-    user_id: user.id,
-    approved_by_user_id: approvedByManagerId,
-    action: isAfterClose ? 'order_void_after_close' : 'order_void',
+  // 5.4.3 audit enum has only `order_voided` (no `order_voided_after_close`),
+  // so we encode the post-close differentiation in `reason` and the
+  // before/after state snapshots — both queryable from audit_log.
+  await audit.record({
+    actor: user,
+    manager_pin_user_id: approvedByManagerId,
+    action: 'order_voided',
     entity_type: 'order',
     entity_id: orderId,
-    description: `Order voided (${reason})`,
-    before_state: beforeState,
+    description: `Order voided (${reason})${isAfterClose ? ' [after close]' : ''}`,
+    before_state: { ...beforeState, after_close: isAfterClose },
     after_state: {
       status: 'voided',
       voided_at: voidedAt,
       void_reason: reason,
+      notes: notes ?? null,
     },
-    reason,
+    reason: isAfterClose ? `${reason} (after close)` : reason,
+    location_id: order.location_id,
+    request,
   })
 
   return NextResponse.json({

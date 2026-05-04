@@ -9,7 +9,6 @@ import {
   IllegalTransitionError,
   type OrderState,
 } from '@/lib/orders/state-machine'
-import { assertVersion, bumpVersion } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
 
 const REFUND_REASON_CODES = [
@@ -230,20 +229,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
   }
 
-  // ----- 5. Optimistic-lock check on payment row ----------------------------
-  const ifMatchHeader = request.headers.get('If-Match')
-  const expectedVersion = ifMatchHeader ? Number(ifMatchHeader) : null
-  const versionCheck = await assertVersion(supabase, 'payments', payment_id, expectedVersion)
-  if (!versionCheck.ok) {
-    return NextResponse.json(
-      {
-        error: 'Conflict: payment was updated by another terminal',
-        current_version: versionCheck.current_version,
-        current_state: versionCheck.current_state,
-      },
-      { status: 409 }
-    )
-  }
+  // ----- 5. Optimistic-lock — intentionally skipped on payments ------------
+  // 5.4.1 added `orders.version` and a BEFORE-UPDATE trigger but did NOT add
+  // a version column to `payments` (payments are append-only in the data
+  // model — capture, then immutable except for refund_amount). Concurrent
+  // partial refunds on the same payment from two terminals are rare in
+  // practice, and the order state-machine in this route catches the
+  // double-refund case via REFUND_FULL → 'refunded' (terminal) so a second
+  // attempt fails the assertTransition guard with a 422.
+  // If the payments table grows a version column in a future task, restore
+  // assertVersion here against that column.
 
   // ----- 6. Process refund at processor (cards only) ------------------------
   const isCard = ['credit_card', 'debit_card', 'apple_pay', 'google_pay'].includes(
@@ -295,21 +290,19 @@ export async function POST(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error: updateErr } = await (supabase.from('payments') as any)
-    .update(
-      bumpVersion({
-        status: newPaymentStatus,
-        refund_amount: (newRefundTotal / 100).toFixed(2),
-        refund_reason: `${reason}${reason_detail ? ': ' + reason_detail : ''}`,
-        refunded_by: user.id,
-        refunded_at: new Date().toISOString(),
-        // For tip-only refunds, lower the tracked tip so reports reflect it.
-        ...(mode === 'tip_only' ? { tip_amount: (newTipCents / 100).toFixed(2) } : {}),
-        processor_response: {
-          ...((paymentData.processor_response as Record<string, unknown>) ?? {}),
-          refunds: [...existingRefundsList, refundEntry],
-        },
-      })
-    )
+    .update({
+      status: newPaymentStatus,
+      refund_amount: (newRefundTotal / 100).toFixed(2),
+      refund_reason: `${reason}${reason_detail ? ': ' + reason_detail : ''}`,
+      refunded_by: user.id,
+      refunded_at: new Date().toISOString(),
+      // For tip-only refunds, lower the tracked tip so reports reflect it.
+      ...(mode === 'tip_only' ? { tip_amount: (newTipCents / 100).toFixed(2) } : {}),
+      processor_response: {
+        ...((paymentData.processor_response as Record<string, unknown>) ?? {}),
+        refunds: [...existingRefundsList, refundEntry],
+      },
+    })
     .eq('id', payment_id)
     .select()
     .single()
@@ -379,16 +372,16 @@ export async function POST(request: NextRequest) {
       nextOrderStatus = 'closed'
     }
 
+    // The orders.version trigger (5.4.1 migration 20260504063720) auto-bumps
+    // version on every UPDATE, so we just submit the domain change.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('orders') as any)
-      .update(
-        bumpVersion({
-          amount_paid: (newPaid / 100).toFixed(2),
-          balance_due: (newBalance / 100).toFixed(2),
-          status: nextOrderStatus,
-          updated_at: new Date().toISOString(),
-        })
-      )
+      .update({
+        amount_paid: (newPaid / 100).toFixed(2),
+        balance_due: (newBalance / 100).toFixed(2),
+        status: nextOrderStatus,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', paymentData.order_id)
   }
 
@@ -420,29 +413,35 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  await audit.record(supabase, {
-    org_id: user.org_id,
-    location_id: paymentData.location_id as string | null,
-    user_id: user.id,
-    approved_by_user_id: approvedByManagerId,
-    action: isFullRefund ? 'payment_refunded' : 'payment_partially_refunded',
+  // 5.4.3 audit enum has only `payment_refunded` (no `payment_partially_refunded`).
+  // Encode the partial-vs-full distinction in `reason` and the
+  // before/after state snapshots so reports can still slice it.
+  await audit.record({
+    actor: user,
+    manager_pin_user_id: approvedByManagerId,
+    action: 'payment_refunded',
     entity_type: 'payment',
     entity_id: payment_id,
-    description: `Refund ($${(amountCents / 100).toFixed(2)}) — ${mode}/${reason}`,
+    description: `Refund ($${(amountCents / 100).toFixed(2)}) — ${mode}/${reason}${isFullRefund ? ' [full]' : ' [partial]'}`,
     before_state: {
       payment_status: paymentData.status,
       total_amount_cents: totalCents,
       tip_amount_cents: tipCents,
       existing_refund_cents: existingRefundCents,
+      mode,
     },
     after_state: {
       payment_status: newPaymentStatus,
       refunded_cents: newRefundTotal,
+      this_refund_cents: amountCents,
       tip_amount_cents: newTipCents,
       refunded_item_ids: refundedItemIds,
       mode,
+      is_full_refund: isFullRefund,
     },
-    reason,
+    reason: isFullRefund ? `${reason} (full refund)` : `${reason} (partial refund: ${mode})`,
+    location_id: (paymentData.location_id as string | null) ?? null,
+    request,
   })
 
   return NextResponse.json({

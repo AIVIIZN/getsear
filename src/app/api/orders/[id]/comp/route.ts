@@ -10,7 +10,7 @@ import {
   isPostClose,
   type OrderState,
 } from '@/lib/orders/state-machine'
-import { assertVersion, bumpVersion } from '@/lib/orders/concurrency'
+import { assertVersion } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
 
 const compSchema = z.object({
@@ -91,20 +91,12 @@ export async function POST(
 
   const currentStatus = order.status as OrderState
 
-  // ----- 2. Optimistic-lock check (no-op until 5.4.1 lands) -----------------
-  const ifMatchHeader = request.headers.get('If-Match')
-  const expectedVersion = ifMatchHeader ? Number(ifMatchHeader) : null
-  const versionCheck = await assertVersion(supabase, 'orders', orderId, expectedVersion)
-  if (!versionCheck.ok) {
-    return NextResponse.json(
-      {
-        error: 'Conflict: order was updated by another terminal',
-        current_version: versionCheck.current_version,
-        current_state: versionCheck.current_state,
-      },
-      { status: 409 }
-    )
-  }
+  // ----- 2. Optimistic-lock check (5.4.1 — assertVersion 409s on stale) ----
+  // Real impl loads the row, parses If-Match, and returns a NextResponse 409
+  // with the current state on mismatch. We pass through that response so
+  // the StaleOrderModal on the client renders the diff.
+  const versionCheck = await assertVersion(supabase, request, orderId, user.org_id)
+  if (!versionCheck.ok) return versionCheck.response
 
   // ----- 3. Post-close path: validate manager PIN + re-open -----------------
   let approvedByManagerId: string | null = null
@@ -138,15 +130,15 @@ export async function POST(
     }
 
     // Re-open the order. Clears closed_at; balance_due is recomputed below.
+    // The BEFORE-UPDATE trigger from migration 20260504063720 auto-bumps
+    // orders.version, so we just do the domain update.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('orders') as any)
-      .update(
-        bumpVersion({
-          status: 'served',
-          closed_at: null,
-          updated_at: new Date().toISOString(),
-        })
-      )
+      .update({
+        status: 'served',
+        closed_at: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', orderId)
   }
 
@@ -230,13 +222,11 @@ export async function POST(
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('orders') as any)
-        .update(
-          bumpVersion({
-            status: 'closed',
-            closed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-        )
+        .update({
+          status: 'closed',
+          closed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', orderId)
     }
     // If newBalanceCents > 0 the order legitimately still owes money
@@ -272,20 +262,23 @@ export async function POST(
     .eq('id', orderId)
     .single()
 
-  await audit.record(supabase, {
-    org_id: user.org_id,
-    location_id: order.location_id,
-    user_id: user.id,
-    approved_by_user_id: approvedByManagerId,
-    action: isAfterClose ? 'order_comp_after_close' : 'order_comp',
+  // 5.4.3 audit enum has only `order_comped` (no `order_comped_after_close`),
+  // so we encode the post-close differentiation in `reason` and the
+  // before/after state snapshots — both queryable from audit_log.
+  await audit.record({
+    actor: user,
+    manager_pin_user_id: approvedByManagerId,
+    action: 'order_comped',
     entity_type: 'order',
     entity_id: orderId,
     description: order_item_id
-      ? `Item ${order_item_id} comped (${comp_reason})`
-      : `Whole order comped (${comp_reason})`,
-    before_state: beforeState,
+      ? `Item ${order_item_id} comped (${comp_reason})${isAfterClose ? ' [after close]' : ''}`
+      : `Whole order comped (${comp_reason})${isAfterClose ? ' [after close]' : ''}`,
+    before_state: { ...beforeState, after_close: isAfterClose },
     after_state: finalOrder ?? null,
-    reason: comp_reason,
+    reason: isAfterClose ? `${comp_reason} (after close)` : comp_reason,
+    location_id: order.location_id,
+    request,
   })
 
   // ----- 9. Return updated order --------------------------------------------
