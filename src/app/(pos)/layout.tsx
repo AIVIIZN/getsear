@@ -1,9 +1,12 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { StaleOrderModal } from "@/components/pos/StaleOrderModal";
 import { useUIStore } from "@/stores/ui-store";
+import { fadeUp, useReducedMotion } from "@/lib/motion/transitions";
 
 export default function PosLayout({
   children,
@@ -12,6 +15,8 @@ export default function PosLayout({
 }) {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.actions.toggleSidebar);
+  const pathname = usePathname();
+  const reduced = useReducedMotion();
 
   return (
     <div className="no-select no-overscroll flex h-screen overflow-hidden">
@@ -30,7 +35,20 @@ export default function PosLayout({
       {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar onToggleSidebar={toggleSidebar} />
-        <main className="flex-1 overflow-hidden">{children}</main>
+        <main className="flex-1 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={pathname}
+              className="h-full"
+              initial={reduced ? false : fadeUp.initial}
+              animate={fadeUp.animate}
+              exit={reduced ? undefined : fadeUp.exit}
+              transition={reduced ? { duration: 0 } : fadeUp.transition}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </div>
 
       {/* V5.4.1 — listens for the global stale-order event from

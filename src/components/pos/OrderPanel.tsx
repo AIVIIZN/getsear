@@ -32,6 +32,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { AnimatePresence, motion } from 'framer-motion'
+import { itemSpawn, useReducedMotion } from '@/lib/motion/transitions'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -402,6 +404,8 @@ export function OrderPanel({
     return currentOrder.order_type === 'dine_in' || currentOrder.order_type === 'bar'
   }, [currentOrder])
 
+  const reduced = useReducedMotion()
+
   const hasUnsentItems = currentOrder?.items.some(
     (i) => !i.voided && i.status === 'pending'
   ) ?? false
@@ -561,6 +565,7 @@ export function OrderPanel({
                         )}
 
                         {/* Items in this course */}
+                        <AnimatePresence initial={false}>
                         {courseGroup.items.map((item) => {
                           const itemTotal =
                             item.price_cents * item.quantity +
@@ -570,10 +575,15 @@ export function OrderPanel({
                             )
 
                           return (
-                            <div
+                            <motion.div
                               key={item.id}
+                              layout={!reduced}
+                              initial={reduced ? false : itemSpawn.initial}
+                              animate={itemSpawn.animate}
+                              exit={reduced ? undefined : itemSpawn.exit}
+                              transition={reduced ? { duration: 0 } : itemSpawn.transition}
                               className={cn(
-                                'relative mx-2 mb-1 rounded-xl transition-all duration-150',
+                                'relative mx-2 mb-1 rounded-xl',
                                 item.voided && 'opacity-40',
                                 editItemId === item.id && 'bg-[var(--info)]/[0.06] ring-1 ring-[var(--info)]/20',
                                 flashId === item.id && 'animate-item-flash',
@@ -682,9 +692,10 @@ export function OrderPanel({
                                   opacity: 0.5,
                                 }}
                               />
-                            </div>
+                            </motion.div>
                           )
                         })}
+                        </AnimatePresence>
                       </div>
                     )
                   })}

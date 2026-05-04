@@ -2,6 +2,8 @@
 
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { MessageSquare } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { itemSpawn, useReducedMotion } from '@/lib/motion/transitions'
 import { Button } from '@/components/ui-v2/Button'
 import { Badge } from '@/components/ui-v2/data/Badge'
 import { useKdsStore } from '@/stores/kds-store'
@@ -557,6 +559,8 @@ export default function KdsPage() {
     }
   }, [activeStationId, locationId])
 
+  const reducedMotion = useReducedMotion()
+
   // Get sorted active tickets and other derived state via getState()
   // Called once per render — stable because tickets/stations are the dependency
   const { sortedTickets, activeStation, isExpo, priorityCount, allDayCounts, allDayByCategory } = useMemo(() => {
@@ -768,25 +772,35 @@ export default function KdsPage() {
               gridTemplateRows: '1fr',
             }}
           >
-            {sortedTickets.map((ticket) =>
-              isExpo ? (
-                <KdsExpoTicket
+            <AnimatePresence initial={false}>
+              {sortedTickets.map((ticket) => (
+                <motion.div
                   key={ticket.id}
-                  ticket={ticket}
-                  onExpoBump={handleExpoBump}
-                  onRefire={handleRefire}
-                  onFireCourse={handleFireCourse}
-                />
-              ) : (
-                <KdsTicket
-                  key={ticket.id}
-                  ticket={ticket}
-                  onBump={handleBump}
-                  onItemBump={handleItemBump}
-                  onRefire={handleRefire}
-                />
-              )
-            )}
+                  layout={!reducedMotion}
+                  initial={reducedMotion ? false : itemSpawn.initial}
+                  animate={itemSpawn.animate}
+                  exit={reducedMotion ? undefined : itemSpawn.exit}
+                  transition={reducedMotion ? { duration: 0 } : itemSpawn.transition}
+                  className="h-full"
+                >
+                  {isExpo ? (
+                    <KdsExpoTicket
+                      ticket={ticket}
+                      onExpoBump={handleExpoBump}
+                      onRefire={handleRefire}
+                      onFireCourse={handleFireCourse}
+                    />
+                  ) : (
+                    <KdsTicket
+                      ticket={ticket}
+                      onBump={handleBump}
+                      onItemBump={handleItemBump}
+                      onRefire={handleRefire}
+                    />
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </main>
