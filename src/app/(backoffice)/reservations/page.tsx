@@ -8,57 +8,50 @@ import {
   Users,
   Phone,
   Mail,
-  Search,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
   Loader2,
   ChevronLeft,
   ChevronRight,
   Bell,
   Armchair,
   X,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
   MessageSquare,
 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Text } from "@/components/ui-v2/inputs/Text"
+import { NumberInput } from "@/components/ui-v2/inputs/Number"
+import { Email } from "@/components/ui-v2/inputs/Email"
+import { Textarea } from "@/components/ui-v2/inputs/Textarea"
+import { Select } from "@/components/ui-v2/inputs/Select"
+import { Button } from "@/components/ui-v2/Button"
+import { Badge, type BadgeProps } from "@/components/ui-v2/data/Badge"
 import {
   Table,
   TableHeader,
   TableBody,
   TableRow,
-  TableHead,
   TableCell,
-} from "@/components/ui/table"
+} from "@/components/ui-v2/data/Table"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet"
+  SheetBody,
+} from "@/components/ui-v2/Sheet"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { EmptyState } from "@/components/shared/EmptyState"
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+} from "@/components/ui-v2/Modal"
+import { Tabs } from "@/components/ui-v2/navigation/Tabs"
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -103,24 +96,26 @@ interface AvailableSlot {
   total_tables: number
 }
 
+type BadgeVariant = NonNullable<BadgeProps["variant"]>
+
 // ---------------------------------------------------------------------------
-// Status helpers
+// Status helpers — token-backed Badge variants only.
 // ---------------------------------------------------------------------------
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800 border-amber-200",
-  confirmed: "bg-blue-100 text-blue-800 border-blue-200",
-  seated: "bg-green-100 text-green-800 border-green-200",
-  completed: "bg-gray-100 text-gray-700 border-gray-200",
-  cancelled: "bg-red-100 text-red-700 border-red-200",
-  no_show: "bg-red-100 text-red-800 border-red-200",
+const STATUS_VARIANT: Record<string, BadgeVariant> = {
+  pending: "warning",
+  confirmed: "info",
+  seated: "success",
+  completed: "default",
+  cancelled: "danger",
+  no_show: "danger",
 }
 
-const WAITLIST_STATUS_COLORS: Record<string, string> = {
-  waiting: "bg-amber-100 text-amber-800 border-amber-200",
-  notified: "bg-blue-100 text-blue-800 border-blue-200",
-  seated: "bg-green-100 text-green-800 border-green-200",
-  cancelled: "bg-gray-100 text-gray-700 border-gray-200",
-  no_show: "bg-red-100 text-red-800 border-red-200",
+const WAITLIST_STATUS_VARIANT: Record<string, BadgeVariant> = {
+  waiting: "warning",
+  notified: "info",
+  seated: "success",
+  cancelled: "default",
+  no_show: "danger",
 }
 
 function formatTime(time: string): string {
@@ -438,193 +433,213 @@ export default function ReservationsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="reservations" onValueChange={(v) => v && setActiveTab(v)}>
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="reservations">
-              <CalendarDays className="mr-1.5 h-4 w-4" />
-              Reservations
-            </TabsTrigger>
-            <TabsTrigger value="waitlist">
-              <Clock className="mr-1.5 h-4 w-4" />
-              Waitlist
-              {waitlist.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-xs">
-                  {waitlist.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+      {/* Tabs row + primary action */}
+      <div className="flex items-center justify-between gap-[var(--space-4)]">
+        <Tabs
+          variant="line"
+          size="md"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          ariaLabel="Reservations sections"
+          items={[
+            {
+              value: "reservations",
+              label: "Reservations",
+              icon: <CalendarDays />,
+            },
+            {
+              value: "waitlist",
+              label: (
+                <span className="inline-flex items-center gap-[var(--space-1)]">
+                  Waitlist
+                  {waitlist.length > 0 ? (
+                    <Badge variant="primary" size="sm">
+                      {waitlist.length}
+                    </Badge>
+                  ) : null}
+                </span>
+              ),
+              icon: <Clock />,
+            },
+          ]}
+        />
 
-          {activeTab === "reservations" ? (
-            <Button className="btn-press touch-target" onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              New Reservation
-            </Button>
-          ) : (
-            <Button className="btn-press touch-target" onClick={() => setWaitlistAddOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add to Waitlist
-            </Button>
-          )}
-        </div>
+        {activeTab === "reservations" ? (
+          <Button size="md" leadingIcon={<Plus />} onClick={() => setCreateOpen(true)}>
+            New Reservation
+          </Button>
+        ) : (
+          <Button size="md" leadingIcon={<Plus />} onClick={() => setWaitlistAddOpen(true)}>
+            Add to Waitlist
+          </Button>
+        )}
+      </div>
 
-        {/* ========================== RESERVATIONS TAB ========================== */}
-        <TabsContent value="reservations">
+      {/* ========================== RESERVATIONS PANEL ========================== */}
+      {activeTab === "reservations" && (
+        <div role="tabpanel" aria-label="Reservations" className="space-y-4">
           {/* Date navigation + filters */}
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-[var(--space-3)]">
+            <div className="flex items-center gap-[var(--space-1)]">
               <Button
-                variant="outline"
-                size="icon"
-                className="touch-target"
+                variant="secondary"
+                size="md"
+                aria-label="Previous day"
                 onClick={() => navigateDate(-1)}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Input
+              <Text
                 type="date"
+                aria-label="Date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="h-10 w-auto"
+                className="w-auto"
               />
               <Button
-                variant="outline"
-                size="icon"
-                className="touch-target"
+                variant="secondary"
+                size="md"
+                aria-label="Next day"
                 onClick={() => navigateDate(1)}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <Button
-                variant="outline"
-                className="touch-target"
+                variant="secondary"
+                size="md"
                 onClick={() => setSelectedDate(todayISO())}
               >
                 Today
               </Button>
             </div>
 
-            <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
-              <SelectTrigger className="h-10 w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="seated">Seated</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="no_show">No Show</SelectItem>
-              </SelectContent>
-            </Select>
+            <Select
+              size="md"
+              ariaLabel="Status filter"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              className="w-[160px]"
+              options={[
+                { value: "all", label: "All Statuses" },
+                { value: "pending", label: "Pending" },
+                { value: "confirmed", label: "Confirmed" },
+                { value: "seated", label: "Seated" },
+                { value: "completed", label: "Completed" },
+                { value: "cancelled", label: "Cancelled" },
+                { value: "no_show", label: "No Show" },
+              ]}
+            />
 
-            <span className="text-sm text-muted-foreground">
-              {formatDate(selectedDate)} &middot; {reservations.length} reservation{reservations.length !== 1 ? "s" : ""}
+            <span className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
+              {formatDate(selectedDate)} &middot; {reservations.length} reservation
+              {reservations.length !== 1 ? "s" : ""}
             </span>
           </div>
 
           {/* Reservations table */}
-          <div className="mt-4 rounded-lg border bg-card">
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]">
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--color-text-muted)]" />
               </div>
             ) : reservations.length === 0 ? (
               <EmptyState
                 icon={CalendarDays}
                 title="No reservations"
                 description={`No reservations found for ${formatDate(selectedDate)}.`}
-                actionLabel="New Reservation"
-                onAction={() => setCreateOpen(true)}
+                action={{ label: "New Reservation", onClick: () => setCreateOpen(true) }}
               />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[80px]">Time</TableHead>
-                    <TableHead>Guest</TableHead>
-                    <TableHead className="w-[80px] text-center">Party</TableHead>
-                    <TableHead className="w-[110px]">Status</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="w-[200px] text-right">Actions</TableHead>
+                    <TableCell header className="w-[80px]">
+                      Time
+                    </TableCell>
+                    <TableCell header>Guest</TableCell>
+                    <TableCell header align="center" className="w-[80px]">
+                      Party
+                    </TableCell>
+                    <TableCell header className="w-[110px]">
+                      Status
+                    </TableCell>
+                    <TableCell header>Contact</TableCell>
+                    <TableCell header>Notes</TableCell>
+                    <TableCell header align="right" className="w-[200px]">
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {reservations.map((r) => (
-                    <TableRow
-                      key={r.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => openDetail(r)}
-                    >
-                      <TableCell className="font-medium tabular-nums">
+                    <TableRow key={r.id} interactive onClick={() => openDetail(r)}>
+                      <TableCell className="font-[var(--weight-medium)] tabular-nums">
                         {formatTime(r.reservation_time)}
                       </TableCell>
-                      <TableCell className="font-medium">{r.customer_name}</TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                      <TableCell className="font-[var(--weight-medium)]">
+                        {r.customer_name}
+                      </TableCell>
+                      <TableCell align="center">
+                        <span className="inline-flex items-center justify-center gap-[var(--space-1)]">
+                          <Users className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
                           {r.party_size}
-                        </div>
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={STATUS_COLORS[r.status] ?? ""}
-                        >
+                        <Badge variant={STATUS_VARIANT[r.status] ?? "default"}>
                           {r.status.replace("_", " ")}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-[var(--color-text-muted)]">
                         {r.customer_phone && (
-                          <span className="flex items-center gap-1">
+                          <span className="inline-flex items-center gap-[var(--space-1)]">
                             <Phone className="h-3 w-3" />
                             {r.customer_phone}
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                      <TableCell className="max-w-[200px] truncate text-[var(--color-text-muted)]">
                         {r.special_requests || r.notes || "--"}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      <TableCell align="right">
+                        <div
+                          className="flex items-center justify-end gap-[var(--space-1)]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {r.status === "pending" && (
                             <Button
-                              variant="outline"
+                              variant="secondary"
                               size="sm"
-                              className="touch-target"
-                              disabled={actionLoading === r.id}
+                              loading={actionLoading === r.id}
+                              leadingIcon={<CheckCircle2 />}
                               onClick={() => confirmReservation(r.id)}
                             >
-                              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                               Confirm
                             </Button>
                           )}
                           {(r.status === "pending" || r.status === "confirmed") && (
                             <Button
                               size="sm"
-                              className="touch-target"
-                              disabled={actionLoading === r.id}
+                              loading={actionLoading === r.id}
+                              leadingIcon={<Armchair />}
                               onClick={() => seatReservation(r.id)}
                             >
-                              <Armchair className="mr-1 h-3.5 w-3.5" />
                               Seat
                             </Button>
                           )}
-                          {r.status !== "cancelled" && r.status !== "completed" && r.status !== "no_show" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="touch-target text-destructive hover:text-destructive"
-                              disabled={actionLoading === r.id}
-                              onClick={() => cancelReservation(r.id)}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
+                          {r.status !== "cancelled" &&
+                            r.status !== "completed" &&
+                            r.status !== "no_show" && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                aria-label="Cancel reservation"
+                                loading={actionLoading === r.id}
+                                onClick={() => cancelReservation(r.id)}
+                              >
+                                <XCircle className="h-3.5 w-3.5 text-[var(--color-danger)]" />
+                              </Button>
+                            )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -633,116 +648,134 @@ export default function ReservationsPage() {
               </Table>
             )}
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ========================== WAITLIST TAB ========================== */}
-        <TabsContent value="waitlist">
-          <div className="mt-4 rounded-lg border bg-card">
+      {/* ========================== WAITLIST PANEL ========================== */}
+      {activeTab === "waitlist" && (
+        <div role="tabpanel" aria-label="Waitlist">
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]">
             {waitlistLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--color-text-muted)]" />
               </div>
             ) : waitlist.length === 0 ? (
               <EmptyState
                 icon={Clock}
                 title="Waitlist is empty"
                 description="No guests currently waiting. Add walk-ins to the waitlist."
-                actionLabel="Add to Waitlist"
-                onAction={() => setWaitlistAddOpen(true)}
+                action={{ label: "Add to Waitlist", onClick: () => setWaitlistAddOpen(true) }}
               />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px] text-center">#</TableHead>
-                    <TableHead>Guest</TableHead>
-                    <TableHead className="w-[80px] text-center">Party</TableHead>
-                    <TableHead className="w-[120px]">Quoted Wait</TableHead>
-                    <TableHead className="w-[120px]">Actual Wait</TableHead>
-                    <TableHead className="w-[110px]">Status</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead className="w-[280px] text-right">Actions</TableHead>
+                    <TableCell header align="center" className="w-[60px]">
+                      #
+                    </TableCell>
+                    <TableCell header>Guest</TableCell>
+                    <TableCell header align="center" className="w-[80px]">
+                      Party
+                    </TableCell>
+                    <TableCell header className="w-[120px]">
+                      Quoted Wait
+                    </TableCell>
+                    <TableCell header className="w-[120px]">
+                      Actual Wait
+                    </TableCell>
+                    <TableCell header className="w-[110px]">
+                      Status
+                    </TableCell>
+                    <TableCell header>Contact</TableCell>
+                    <TableCell header align="right" className="w-[280px]">
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {waitlist.map((w) => {
                     const minutesWaiting = getMinutesAgo(w.created_at)
-                    const isOverQuoted = w.quoted_wait_minutes !== null && minutesWaiting > w.quoted_wait_minutes
+                    const isOverQuoted =
+                      w.quoted_wait_minutes !== null && minutesWaiting > w.quoted_wait_minutes
                     return (
                       <TableRow key={w.id}>
-                        <TableCell className="text-center font-bold tabular-nums">
+                        <TableCell align="center" className="font-[var(--weight-semibold)] tabular-nums">
                           {w.position}
                         </TableCell>
-                        <TableCell className="font-medium">{w.customer_name}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        <TableCell className="font-[var(--weight-medium)]">
+                          {w.customer_name}
+                        </TableCell>
+                        <TableCell align="center">
+                          <span className="inline-flex items-center justify-center gap-[var(--space-1)]">
+                            <Users className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
                             {w.party_size}
-                          </div>
+                          </span>
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {w.quoted_wait_minutes !== null ? `${w.quoted_wait_minutes} min` : "--"}
+                          {w.quoted_wait_minutes !== null
+                            ? `${w.quoted_wait_minutes} min`
+                            : "--"}
                         </TableCell>
                         <TableCell>
                           <span
-                            className={`tabular-nums font-medium ${isOverQuoted ? "text-destructive" : "text-foreground"}`}
+                            className={
+                              "tabular-nums font-[var(--weight-medium)] " +
+                              (isOverQuoted
+                                ? "text-[var(--color-danger)]"
+                                : "text-[var(--color-text)]")
+                            }
                           >
                             {minutesWaiting} min
                           </span>
                           {isOverQuoted && (
-                            <AlertTriangle className="ml-1 inline h-3.5 w-3.5 text-destructive" />
+                            <AlertTriangle className="ml-1 inline h-3.5 w-3.5 text-[var(--color-danger)]" />
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={WAITLIST_STATUS_COLORS[w.status] ?? ""}
-                          >
+                          <Badge variant={WAITLIST_STATUS_VARIANT[w.status] ?? "default"}>
                             {w.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="text-[var(--color-text-muted)]">
                           {w.customer_phone && (
-                            <span className="flex items-center gap-1">
+                            <span className="inline-flex items-center gap-[var(--space-1)]">
                               <Phone className="h-3 w-3" />
                               {w.customer_phone}
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        <TableCell align="right">
+                          <div className="flex items-center justify-end gap-[var(--space-1)]">
                             {w.status === "waiting" && (
                               <Button
-                                variant="outline"
+                                variant="secondary"
                                 size="sm"
-                                className="touch-target"
-                                disabled={actionLoading === w.id}
+                                loading={actionLoading === w.id}
+                                leadingIcon={<Bell />}
                                 onClick={() => notifyWaitlistEntry(w.id)}
                               >
-                                <Bell className="mr-1 h-3.5 w-3.5" />
                                 Notify
                               </Button>
                             )}
                             {(w.status === "waiting" || w.status === "notified") && (
                               <Button
                                 size="sm"
-                                className="touch-target"
-                                disabled={actionLoading === w.id}
+                                loading={actionLoading === w.id}
+                                leadingIcon={<Armchair />}
                                 onClick={() => seatWaitlistEntry(w.id)}
                               >
-                                <Armchair className="mr-1 h-3.5 w-3.5" />
                                 Seat
                               </Button>
                             )}
                             {w.status === "waiting" && (
                               <Button
-                                variant="outline"
+                                variant="secondary"
                                 size="sm"
-                                className="touch-target text-destructive hover:text-destructive"
-                                disabled={actionLoading === w.id}
+                                aria-label="Cancel"
+                                loading={actionLoading === w.id}
                                 onClick={() => cancelWaitlistEntry(w.id)}
                               >
-                                <X className="h-3.5 w-3.5" />
+                                <X className="h-3.5 w-3.5 text-[var(--color-danger)]" />
                               </Button>
                             )}
                           </div>
@@ -754,279 +787,264 @@ export default function ReservationsPage() {
               </Table>
             )}
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
-      {/* ========================== CREATE RESERVATION DIALOG ========================== */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>New Reservation</DialogTitle>
-            <DialogDescription>
-              Create a reservation for a guest.
-            </DialogDescription>
-          </DialogHeader>
+      {/* ========================== CREATE RESERVATION MODAL ========================== */}
+      <Modal open={createOpen} onOpenChange={setCreateOpen}>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>New Reservation</ModalTitle>
+            <ModalDescription>Create a reservation for a guest.</ModalDescription>
+          </ModalHeader>
 
-          <form onSubmit={handleCreateReservation} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="res-name">Guest Name *</Label>
-              <Input
-                id="res-name"
+          <form onSubmit={handleCreateReservation} className="contents">
+            <ModalBody>
+              <Text
+                label="Guest Name"
+                required
                 placeholder="Full name"
                 value={resForm.customer_name}
-                onChange={(e) => setResForm((f) => ({ ...f, customer_name: e.target.value }))}
-                className="h-12"
-                required
+                onChange={(e) =>
+                  setResForm((f) => ({ ...f, customer_name: e.target.value }))
+                }
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="res-phone">Phone</Label>
-                <Input
-                  id="res-phone"
+              <div className="grid grid-cols-2 gap-[var(--space-3)]">
+                <Text
+                  label="Phone"
                   type="tel"
                   placeholder="(555) 123-4567"
                   value={resForm.customer_phone}
-                  onChange={(e) => setResForm((f) => ({ ...f, customer_phone: e.target.value }))}
-                  className="h-12"
+                  onChange={(e) =>
+                    setResForm((f) => ({ ...f, customer_phone: e.target.value }))
+                  }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="res-email">Email</Label>
-                <Input
-                  id="res-email"
-                  type="email"
+                <Email
+                  label="Email"
                   placeholder="guest@example.com"
                   value={resForm.customer_email}
-                  onChange={(e) => setResForm((f) => ({ ...f, customer_email: e.target.value }))}
-                  className="h-12"
+                  onChange={(e) =>
+                    setResForm((f) => ({ ...f, customer_email: e.target.value }))
+                  }
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="res-party">Party Size</Label>
-                <Input
-                  id="res-party"
-                  type="number"
+              <div className="grid grid-cols-3 gap-[var(--space-3)]">
+                <NumberInput
+                  label="Party Size"
                   min={1}
                   max={100}
                   value={resForm.party_size}
-                  onChange={(e) => setResForm((f) => ({ ...f, party_size: e.target.value }))}
-                  className="h-12"
+                  onChange={(e) =>
+                    setResForm((f) => ({ ...f, party_size: e.target.value }))
+                  }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="res-date">Date</Label>
-                <Input
-                  id="res-date"
+                <Text
+                  label="Date"
                   type="date"
                   value={resForm.reservation_date}
-                  onChange={(e) => setResForm((f) => ({ ...f, reservation_date: e.target.value }))}
-                  className="h-12"
+                  onChange={(e) =>
+                    setResForm((f) => ({ ...f, reservation_date: e.target.value }))
+                  }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="res-time">Time</Label>
-                <Input
-                  id="res-time"
+                <Text
+                  label="Time"
                   type="time"
                   value={resForm.reservation_time}
-                  onChange={(e) => setResForm((f) => ({ ...f, reservation_time: e.target.value }))}
-                  className="h-12"
+                  onChange={(e) =>
+                    setResForm((f) => ({ ...f, reservation_time: e.target.value }))
+                  }
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="res-special">Special Requests</Label>
               <Textarea
-                id="res-special"
+                label="Special Requests"
+                rows={2}
                 placeholder="Allergies, accessibility needs, celebrations..."
                 value={resForm.special_requests}
-                onChange={(e) => setResForm((f) => ({ ...f, special_requests: e.target.value }))}
-                rows={2}
+                onChange={(e) =>
+                  setResForm((f) => ({ ...f, special_requests: e.target.value }))
+                }
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="res-notes">Internal Notes</Label>
               <Textarea
-                id="res-notes"
+                label="Internal Notes"
+                rows={2}
                 placeholder="Staff-only notes..."
                 value={resForm.notes}
-                onChange={(e) => setResForm((f) => ({ ...f, notes: e.target.value }))}
-                rows={2}
+                onChange={(e) =>
+                  setResForm((f) => ({ ...f, notes: e.target.value }))
+                }
               />
-            </div>
 
-            {createError && (
-              <p className="text-sm text-destructive">{createError}</p>
-            )}
+              {createError && (
+                <p className="text-[length:var(--type-footnote-size)] text-[var(--color-danger)]">
+                  {createError}
+                </p>
+              )}
+            </ModalBody>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+            <ModalFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => setCreateOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createLoading} className="btn-press">
-                {createLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button type="submit" size="md" loading={createLoading}>
                 Create Reservation
               </Button>
-            </DialogFooter>
+            </ModalFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ModalContent>
+      </Modal>
 
-      {/* ========================== ADD TO WAITLIST DIALOG ========================== */}
-      <Dialog open={waitlistAddOpen} onOpenChange={setWaitlistAddOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Add to Waitlist</DialogTitle>
-            <DialogDescription>
-              Add a walk-in guest to the waitlist.
-            </DialogDescription>
-          </DialogHeader>
+      {/* ========================== ADD TO WAITLIST MODAL ========================== */}
+      <Modal open={waitlistAddOpen} onOpenChange={setWaitlistAddOpen}>
+        <ModalContent size="sm">
+          <ModalHeader>
+            <ModalTitle>Add to Waitlist</ModalTitle>
+            <ModalDescription>Add a walk-in guest to the waitlist.</ModalDescription>
+          </ModalHeader>
 
-          <form onSubmit={handleAddToWaitlist} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="wl-name">Guest Name *</Label>
-              <Input
-                id="wl-name"
+          <form onSubmit={handleAddToWaitlist} className="contents">
+            <ModalBody>
+              <Text
+                label="Guest Name"
+                required
                 placeholder="Full name"
                 value={waitlistForm.customer_name}
-                onChange={(e) => setWaitlistForm((f) => ({ ...f, customer_name: e.target.value }))}
-                className="h-12"
-                required
+                onChange={(e) =>
+                  setWaitlistForm((f) => ({ ...f, customer_name: e.target.value }))
+                }
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="wl-phone">Phone</Label>
-              <Input
-                id="wl-phone"
+              <Text
+                label="Phone"
                 type="tel"
                 placeholder="(555) 123-4567"
                 value={waitlistForm.customer_phone}
-                onChange={(e) => setWaitlistForm((f) => ({ ...f, customer_phone: e.target.value }))}
-                className="h-12"
+                onChange={(e) =>
+                  setWaitlistForm((f) => ({ ...f, customer_phone: e.target.value }))
+                }
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="wl-party">Party Size</Label>
-                <Input
-                  id="wl-party"
-                  type="number"
+              <div className="grid grid-cols-2 gap-[var(--space-3)]">
+                <NumberInput
+                  label="Party Size"
                   min={1}
                   max={100}
                   value={waitlistForm.party_size}
-                  onChange={(e) => setWaitlistForm((f) => ({ ...f, party_size: e.target.value }))}
-                  className="h-12"
+                  onChange={(e) =>
+                    setWaitlistForm((f) => ({ ...f, party_size: e.target.value }))
+                  }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wl-wait">Quoted Wait (min)</Label>
-                <Input
-                  id="wl-wait"
-                  type="number"
+                <NumberInput
+                  label="Quoted Wait (min)"
                   min={0}
                   value={waitlistForm.quoted_wait_minutes}
-                  onChange={(e) => setWaitlistForm((f) => ({ ...f, quoted_wait_minutes: e.target.value }))}
-                  className="h-12"
+                  onChange={(e) =>
+                    setWaitlistForm((f) => ({
+                      ...f,
+                      quoted_wait_minutes: e.target.value,
+                    }))
+                  }
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="wl-notes">Notes</Label>
               <Textarea
-                id="wl-notes"
+                label="Notes"
+                rows={2}
                 placeholder="Preferences, special needs..."
                 value={waitlistForm.notes}
-                onChange={(e) => setWaitlistForm((f) => ({ ...f, notes: e.target.value }))}
-                rows={2}
+                onChange={(e) =>
+                  setWaitlistForm((f) => ({ ...f, notes: e.target.value }))
+                }
               />
-            </div>
+            </ModalBody>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setWaitlistAddOpen(false)}>
+            <ModalFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => setWaitlistAddOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={waitlistAddLoading} className="btn-press">
-                {waitlistAddLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button type="submit" size="md" loading={waitlistAddLoading}>
                 Add to Waitlist
               </Button>
-            </DialogFooter>
+            </ModalFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ModalContent>
+      </Modal>
 
       {/* ========================== RESERVATION DETAIL SHEET ========================== */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-full sm:max-w-lg">
+        <SheetContent width="lg">
           <SheetHeader>
             <SheetTitle>Reservation Details</SheetTitle>
-            <SheetDescription>
-              View and manage this reservation.
-            </SheetDescription>
+            <SheetDescription>View and manage this reservation.</SheetDescription>
           </SheetHeader>
 
-          {selectedRes && (
-            <ScrollArea className="mt-4 h-[calc(100vh-120px)] pr-4">
+          <SheetBody>
+            {selectedRes && (
               <div className="space-y-6">
                 {/* Guest info */}
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold">{selectedRes.customer_name}</h3>
-                  <Badge
-                    variant="outline"
-                    className={`${STATUS_COLORS[selectedRes.status] ?? ""} text-sm`}
-                  >
+                <div className="space-y-[var(--space-3)]">
+                  <h3 className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)]">
+                    {selectedRes.customer_name}
+                  </h3>
+                  <Badge variant={STATUS_VARIANT[selectedRes.status] ?? "default"}>
                     {selectedRes.status.replace("_", " ")}
                   </Badge>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <div className="grid grid-cols-2 gap-[var(--space-4)] pt-[var(--space-2)]">
+                    <div className="flex items-center gap-[var(--space-2)] text-[length:var(--type-subhead-size)]">
+                      <CalendarDays className="h-4 w-4 text-[var(--color-text-muted)]" />
                       {formatDate(selectedRes.reservation_date)}
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-[var(--space-2)] text-[length:var(--type-subhead-size)]">
+                      <Clock className="h-4 w-4 text-[var(--color-text-muted)]" />
                       {formatTime(selectedRes.reservation_time)}
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Users className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-[var(--space-2)] text-[length:var(--type-subhead-size)]">
+                      <Users className="h-4 w-4 text-[var(--color-text-muted)]" />
                       Party of {selectedRes.party_size}
                     </div>
                     {selectedRes.customer_phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex items-center gap-[var(--space-2)] text-[length:var(--type-subhead-size)]">
+                        <Phone className="h-4 w-4 text-[var(--color-text-muted)]" />
                         {selectedRes.customer_phone}
                       </div>
                     )}
                     {selectedRes.customer_email && (
-                      <div className="col-span-2 flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
+                      <div className="col-span-2 flex items-center gap-[var(--space-2)] text-[length:var(--type-subhead-size)]">
+                        <Mail className="h-4 w-4 text-[var(--color-text-muted)]" />
                         {selectedRes.customer_email}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <Separator />
+                <div className="border-t border-[var(--color-border)]" />
 
                 {/* Special requests */}
                 {selectedRes.special_requests && (
                   <>
                     <div>
-                      <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                      <h4 className="mb-[var(--space-1)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
                         Special Requests
                       </h4>
-                      <p className="text-sm">{selectedRes.special_requests}</p>
+                      <p className="text-[length:var(--type-subhead-size)]">
+                        {selectedRes.special_requests}
+                      </p>
                     </div>
-                    <Separator />
+                    <div className="border-t border-[var(--color-border)]" />
                   </>
                 )}
 
@@ -1034,30 +1052,32 @@ export default function ReservationsPage() {
                 {selectedRes.notes && (
                   <>
                     <div>
-                      <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                      <h4 className="mb-[var(--space-1)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
                         Internal Notes
                       </h4>
-                      <p className="text-sm">{selectedRes.notes}</p>
+                      <p className="text-[length:var(--type-subhead-size)]">
+                        {selectedRes.notes}
+                      </p>
                     </div>
-                    <Separator />
+                    <div className="border-t border-[var(--color-border)]" />
                   </>
                 )}
 
                 {/* Confirmation info */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">
+                <div className="space-y-[var(--space-2)]">
+                  <h4 className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
                     Notifications
                   </h4>
-                  <div className="text-sm">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                  <div className="text-[length:var(--type-subhead-size)]">
+                    <div className="flex items-center gap-[var(--space-2)]">
+                      <MessageSquare className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
                       Confirmation:{" "}
                       {selectedRes.confirmation_sent_at
                         ? new Date(selectedRes.confirmation_sent_at).toLocaleString()
                         : "Not sent"}
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="mt-[var(--space-1)] flex items-center gap-[var(--space-2)]">
+                      <Bell className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
                       Reminder:{" "}
                       {selectedRes.reminder_sent_at
                         ? new Date(selectedRes.reminder_sent_at).toLocaleString()
@@ -1066,24 +1086,28 @@ export default function ReservationsPage() {
                   </div>
                 </div>
 
-                <Separator />
+                <div className="border-t border-[var(--color-border)]" />
 
                 {/* Available time slots for this date */}
                 <div>
-                  <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+                  <h4 className="mb-[var(--space-2)] text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text-muted)]">
                     Available Slots ({formatDate(selectedRes.reservation_date)})
                   </h4>
                   {slotsLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-muted)]" />
                   ) : availableSlots.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No available slots</p>
+                    <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
+                      No available slots
+                    </p>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-[var(--space-2)]">
                       {availableSlots.map((slot) => (
                         <Badge
                           key={slot.time}
-                          variant={slot.time === selectedRes.reservation_time ? "default" : "outline"}
-                          className="cursor-default tabular-nums"
+                          variant={
+                            slot.time === selectedRes.reservation_time ? "primary" : "default"
+                          }
+                          className="tabular-nums"
                         >
                           {formatTime(slot.time)} ({slot.available_tables})
                         </Badge>
@@ -1092,28 +1116,31 @@ export default function ReservationsPage() {
                   )}
                 </div>
 
-                <Separator />
+                <div className="border-t border-[var(--color-border)]" />
 
                 {/* Actions */}
-                <div className="flex flex-wrap gap-2 pb-8">
+                <div className="flex flex-wrap gap-[var(--space-2)] pb-8">
                   {selectedRes.status === "pending" && (
                     <Button
-                      className="btn-press touch-target flex-1"
-                      variant="outline"
-                      disabled={actionLoading === selectedRes.id}
+                      variant="secondary"
+                      size="lg"
+                      className="flex-1"
+                      loading={actionLoading === selectedRes.id}
+                      leadingIcon={<CheckCircle2 />}
                       onClick={() => confirmReservation(selectedRes.id)}
                     >
-                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
                       Confirm
                     </Button>
                   )}
-                  {(selectedRes.status === "pending" || selectedRes.status === "confirmed") && (
+                  {(selectedRes.status === "pending" ||
+                    selectedRes.status === "confirmed") && (
                     <Button
-                      className="btn-press touch-target flex-1"
-                      disabled={actionLoading === selectedRes.id}
+                      size="lg"
+                      className="flex-1"
+                      loading={actionLoading === selectedRes.id}
+                      leadingIcon={<Armchair />}
                       onClick={() => seatReservation(selectedRes.id)}
                     >
-                      <Armchair className="mr-1.5 h-4 w-4" />
                       Seat Guest
                     </Button>
                   )}
@@ -1121,19 +1148,19 @@ export default function ReservationsPage() {
                     selectedRes.status !== "completed" &&
                     selectedRes.status !== "no_show" && (
                       <Button
-                        className="btn-press touch-target"
-                        variant="outline"
-                        disabled={actionLoading === selectedRes.id}
+                        variant="secondary"
+                        size="lg"
+                        loading={actionLoading === selectedRes.id}
+                        leadingIcon={<XCircle className="text-[var(--color-danger)]" />}
                         onClick={() => cancelReservation(selectedRes.id)}
                       >
-                        <XCircle className="mr-1.5 h-4 w-4 text-destructive" />
                         Cancel
                       </Button>
                     )}
                 </div>
               </div>
-            </ScrollArea>
-          )}
+            )}
+          </SheetBody>
         </SheetContent>
       </Sheet>
     </div>

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   ShoppingCart,
   Plus,
-  Loader2,
   Check,
   X,
   Clock,
@@ -17,7 +16,6 @@ import {
   Mail,
   MapPin,
   ChevronRight,
-  Search,
   RefreshCw,
   Eye,
   EyeOff,
@@ -27,48 +25,34 @@ import {
 } from "lucide-react";
 import { QRCodeGenerator } from "@/components/online-ordering/QRCodeGenerator";
 import { OrderQueuePanel } from "@/components/online-ordering/OrderQueuePanel";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/shared/EmptyState";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui-v2/Card";
+import { Button } from "@/components/ui-v2/Button";
+import { Text } from "@/components/ui-v2/inputs/Text";
+import { NumberInput } from "@/components/ui-v2/inputs/Number";
+import { Select } from "@/components/ui-v2/inputs/Select";
+import { Toggle } from "@/components/ui-v2/inputs/Toggle";
+import { Textarea } from "@/components/ui-v2/inputs/Textarea";
+import { Skeleton } from "@/components/ui-v2/data/Skeleton";
+import { Badge, type BadgeProps } from "@/components/ui-v2/data/Badge";
+import { Tabs } from "@/components/ui-v2/navigation/Tabs";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
+  SheetBody,
+} from "@/components/ui-v2/Sheet";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalBody,
+  ModalFooter,
+} from "@/components/ui-v2/Modal";
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -134,6 +118,8 @@ interface ThrottleSettings {
   current_count_hour: number;
 }
 
+type BadgeVariant = NonNullable<BadgeProps["variant"]>;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -165,18 +151,18 @@ function timeAgo(iso: string): string {
   return `${hrs}h ${mins % 60}m ago`;
 }
 
-function statusColor(status: string): string {
+function statusVariant(status: string): BadgeVariant {
   switch (status) {
     case "pending":
-      return "bg-warning/10 text-warning border-warning/20";
+      return "warning";
     case "accepted":
-      return "bg-info/10 text-info border-info/20";
+      return "info";
     case "rejected":
-      return "bg-destructive/10 text-destructive border-destructive/20";
+      return "danger";
     case "preparing":
-      return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+      return "primary";
     default:
-      return "bg-muted text-muted-foreground";
+      return "default";
   }
 }
 
@@ -433,22 +419,13 @@ export default function OnlineOrderingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">
-            Online Ordering
-          </h1>
+          <h1 className="page-title">Online Ordering</h1>
           <p className="page-subtitle">
             Manage incoming online orders, menus, and throttle settings
           </p>
         </div>
         {settings && (
-          <Badge
-            variant="outline"
-            className={
-              settings.is_paused
-                ? "border-destructive text-destructive"
-                : "border-success text-success"
-            }
-          >
+          <Badge variant={settings.is_paused ? "danger" : "success"}>
             {settings.is_paused ? (
               <>
                 <Pause className="mr-1 h-3 w-3" /> Paused
@@ -463,68 +440,63 @@ export default function OnlineOrderingPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)}>
-        <div className="overflow-x-auto -mx-1 px-1">
-          <TabsList className="w-max">
-            <TabsTrigger value="queue" className="touch-target-lg gap-2">
-              <ShoppingBag className="h-4 w-4" />
-              Live Queue
-            </TabsTrigger>
-            <TabsTrigger value="incoming" className="touch-target-lg gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Order Queue
-            </TabsTrigger>
-            <TabsTrigger value="qr-codes" className="touch-target-lg gap-2">
-              <QrCode className="h-4 w-4" />
-              QR Codes
-            </TabsTrigger>
-            <TabsTrigger value="menus" className="touch-target-lg gap-2">
-              <Globe className="h-4 w-4" />
-              Menu Config
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="touch-target-lg gap-2">
-              <Settings2 className="h-4 w-4" />
-              Settings
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <div className="overflow-x-auto -mx-1 px-1">
+        <Tabs
+          variant="line"
+          size="md"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          ariaLabel="Online ordering sections"
+          items={[
+            { value: "queue", label: "Live Queue", icon: <ShoppingBag /> },
+            { value: "incoming", label: "Order Queue", icon: <ShoppingCart /> },
+            { value: "qr-codes", label: "QR Codes", icon: <QrCode /> },
+            { value: "menus", label: "Menu Config", icon: <Globe /> },
+            { value: "settings", label: "Settings", icon: <Settings2 /> },
+          ]}
+        />
+      </div>
 
-        {/* ==================== LIVE QUEUE (New Component) ==================== */}
-        <TabsContent value="incoming" className="space-y-4">
+      {/* ==================== LIVE QUEUE (New Component) ==================== */}
+      {activeTab === "incoming" && (
+        <div role="tabpanel" aria-label="Order Queue" className="space-y-4">
           <OrderQueuePanel />
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== QR CODES ==================== */}
-        <TabsContent value="qr-codes" className="space-y-4">
+      {/* ==================== QR CODES ==================== */}
+      {activeTab === "qr-codes" && (
+        <div role="tabpanel" aria-label="QR Codes" className="space-y-4">
           <QRCodeGenerator locationId="" />
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== ORDER QUEUE ==================== */}
-        <TabsContent value="queue" className="space-y-4">
-          <div className="flex items-center gap-3">
+      {/* ==================== ORDER QUEUE ==================== */}
+      {activeTab === "queue" && (
+        <div role="tabpanel" aria-label="Live Queue" className="space-y-4">
+          <div className="flex items-center gap-[var(--space-3)]">
             <Select
+              size="md"
               value={queueFilter}
-              onValueChange={(v) => v && setQueueFilter(v)}
-            >
-              <SelectTrigger className="w-[180px] touch-target-lg">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="accepted">Accepted</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="preparing">Preparing</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={setQueueFilter}
+              ariaLabel="Filter by status"
+              className="w-[180px]"
+              options={[
+                { value: "pending", label: "Pending" },
+                { value: "accepted", label: "Accepted" },
+                { value: "rejected", label: "Rejected" },
+                { value: "preparing", label: "Preparing" },
+              ]}
+            />
             <Button
-              variant="outline"
-              size="icon"
+              variant="secondary"
+              size="md"
+              aria-label="Refresh"
               onClick={fetchQueue}
-              className="touch-target-lg"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <div className="ml-auto text-sm text-muted-foreground">
+            <div className="ml-auto text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
               {queue.length} order{queue.length !== 1 ? "s" : ""}
             </div>
           </div>
@@ -532,7 +504,7 @@ export default function OnlineOrderingPage() {
           {queueLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                <Skeleton key={i} className="h-20 w-full rounded-[var(--radius-md)]" />
               ))}
             </div>
           ) : queue.length === 0 ? (
@@ -544,120 +516,107 @@ export default function OnlineOrderingPage() {
           ) : (
             <div className="space-y-3">
               {queue.map((order) => (
-                <Card key={order.id} className="shadow-warm-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      {/* Left */}
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">
-                            {order.customer_name || "Guest"}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={statusColor(order.status)}
-                          >
-                            {order.status}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {order.channel || "web"}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                          {order.customer_phone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {order.customer_phone}
-                            </span>
-                          )}
-                          {order.customer_email && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {order.customer_email}
-                            </span>
-                          )}
-                          {order.pickup_time && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Pickup: {formatTime(order.pickup_time)}
-                            </span>
-                          )}
-                          {order.delivery_address && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              Delivery
-                            </span>
-                          )}
-                        </div>
-                        {order.notes && (
-                          <p className="text-sm text-muted-foreground italic">
-                            {order.notes}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          {timeAgo(order.created_at)}
-                        </p>
+                <Card key={order.id} variant="elevated" padding="compact">
+                  <div className="flex items-start justify-between gap-[var(--space-4)]">
+                    {/* Left */}
+                    <div className="flex-1 space-y-[var(--space-1)]">
+                      <div className="flex items-center gap-[var(--space-2)]">
+                        <span className="font-[var(--weight-semibold)]">
+                          {order.customer_name || "Guest"}
+                        </span>
+                        <Badge variant={statusVariant(order.status)}>
+                          {order.status}
+                        </Badge>
+                        <Badge variant="default" size="sm">
+                          {order.channel || "web"}
+                        </Badge>
                       </div>
-
-                      {/* Actions */}
-                      {order.status === "pending" && (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            className="touch-target-lg btn-press"
-                            onClick={() => handleAccept(order)}
-                            disabled={acceptingId === order.id}
-                          >
-                            {acceptingId === order.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Check className="h-4 w-4 mr-1" />
-                            )}
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="touch-target-lg btn-press"
-                            onClick={() => {
-                              setRejectOrder(order);
-                              setRejectReason("");
-                            }}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                      {order.status === "rejected" && order.rejection_reason && (
-                        <p className="text-sm text-destructive max-w-[200px]">
-                          {order.rejection_reason}
+                      <div className="flex flex-wrap items-center gap-[var(--space-3)] text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
+                        {order.customer_phone && (
+                          <span className="flex items-center gap-[var(--space-1)]">
+                            <Phone className="h-3 w-3" />
+                            {order.customer_phone}
+                          </span>
+                        )}
+                        {order.customer_email && (
+                          <span className="flex items-center gap-[var(--space-1)]">
+                            <Mail className="h-3 w-3" />
+                            {order.customer_email}
+                          </span>
+                        )}
+                        {order.pickup_time && (
+                          <span className="flex items-center gap-[var(--space-1)]">
+                            <Clock className="h-3 w-3" />
+                            Pickup: {formatTime(order.pickup_time)}
+                          </span>
+                        )}
+                        {order.delivery_address && (
+                          <span className="flex items-center gap-[var(--space-1)]">
+                            <MapPin className="h-3 w-3" />
+                            Delivery
+                          </span>
+                        )}
+                      </div>
+                      {order.notes && (
+                        <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)] italic">
+                          {order.notes}
                         </p>
                       )}
-                      {order.status === "accepted" && (
-                        <p className="text-sm text-info">
-                          Accepted {formatDateTime(order.accepted_at)}
-                        </p>
-                      )}
+                      <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                        {timeAgo(order.created_at)}
+                      </p>
                     </div>
-                  </CardContent>
+
+                    {/* Actions */}
+                    {order.status === "pending" && (
+                      <div className="flex items-center gap-[var(--space-2)]">
+                        <Button
+                          size="md"
+                          loading={acceptingId === order.id}
+                          leadingIcon={<Check />}
+                          onClick={() => handleAccept(order)}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="md"
+                          leadingIcon={<X />}
+                          onClick={() => {
+                            setRejectOrder(order);
+                            setRejectReason("");
+                          }}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    {order.status === "rejected" && order.rejection_reason && (
+                      <p className="text-[length:var(--type-subhead-size)] text-[var(--color-danger)] max-w-[200px]">
+                        {order.rejection_reason}
+                      </p>
+                    )}
+                    {order.status === "accepted" && (
+                      <p className="text-[length:var(--type-subhead-size)] text-[var(--color-primary)]">
+                        Accepted {formatDateTime(order.accepted_at)}
+                      </p>
+                    )}
+                  </div>
                 </Card>
               ))}
             </div>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== MENU CONFIG ==================== */}
-        <TabsContent value="menus" className="space-y-4">
+      {/* ==================== MENU CONFIG ==================== */}
+      {activeTab === "menus" && (
+        <div role="tabpanel" aria-label="Menu Config" className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
               Configure menus available for online ordering
             </p>
-            <Button
-              className="touch-target-lg btn-press"
-              onClick={() => setShowCreateMenu(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
+            <Button size="md" leadingIcon={<Plus />} onClick={() => setShowCreateMenu(true)}>
               New Menu
             </Button>
           </div>
@@ -665,7 +624,7 @@ export default function OnlineOrderingPage() {
           {menusLoading ? (
             <div className="grid gap-4 md:grid-cols-2">
               {Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-36 w-full rounded-lg" />
+                <Skeleton key={i} className="h-36 w-full rounded-[var(--radius-md)]" />
               ))}
             </div>
           ) : menus.length === 0 ? (
@@ -673,40 +632,42 @@ export default function OnlineOrderingPage() {
               icon={Globe}
               title="No online menus"
               description="Create an online menu to start accepting orders."
+              action={{ label: "New Menu", onClick: () => setShowCreateMenu(true) }}
             />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {menus.map((menu) => (
                 <Card
                   key={menu.id}
-                  className="shadow-warm-sm cursor-pointer hover:shadow-warm-md transition-shadow"
+                  variant="interactive"
+                  padding="compact"
                   onClick={() => setSelectedMenu(menu)}
                 >
-                  <CardHeader className="pb-2">
+                  <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{menu.name}</CardTitle>
-                      <Switch
-                        checked={menu.is_active}
-                        onCheckedChange={(e) => {
-                          e; // prevent propagation used by parent onClick
-                          toggleMenuActive(menu);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                      <CardTitle className="text-[length:var(--type-headline-size)]">
+                        {menu.name}
+                      </CardTitle>
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <Toggle
+                          checked={menu.is_active}
+                          onChange={() => toggleMenuActive(menu)}
+                        />
+                      </span>
                     </div>
                   </CardHeader>
-                  <CardContent className="pb-4">
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <Badge variant="secondary">/{menu.slug}</Badge>
-                      <Badge variant={menu.is_active ? "default" : "secondary"}>
+                  <CardBody>
+                    <div className="flex items-center gap-[var(--space-3)] text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)]">
+                      <Badge variant="default">/{menu.slug}</Badge>
+                      <Badge variant={menu.is_active ? "success" : "default"}>
                         {menu.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-[var(--space-1)] mt-[var(--space-2)] text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
                       <span>Click to manage items</span>
                       <ChevronRight className="h-3 w-3" />
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               ))}
             </div>
@@ -719,276 +680,255 @@ export default function OnlineOrderingPage() {
               if (!open) setSelectedMenu(null);
             }}
           >
-            <SheetContent className="sm:max-w-lg">
+            <SheetContent width="lg">
               <SheetHeader>
                 <SheetTitle>{selectedMenu?.name} — Items</SheetTitle>
                 <SheetDescription>
                   Toggle availability and set online pricing
                 </SheetDescription>
               </SheetHeader>
-              <div className="mt-4 space-y-3 overflow-y-auto max-h-[calc(100vh-180px)]">
+              <SheetBody>
                 {menuItemsLoading ? (
                   <div className="space-y-2">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                      <Skeleton
+                        key={i}
+                        className="h-12 w-full rounded-[var(--radius-md)]"
+                      />
                     ))}
                   </div>
                 ) : menuItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center">
+                  <p className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)] py-8 text-center">
                     No items linked to this menu yet.
                   </p>
                 ) : (
-                  menuItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 rounded-lg border"
-                    >
-                      <div className="flex items-center gap-3">
-                        {item.is_available ? (
-                          <Eye className="h-4 w-4 text-success" />
-                        ) : (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        <span className="text-sm font-medium">
-                          Item {item.menu_item_id.slice(0, 8)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {item.online_price !== null && (
-                          <Badge variant="outline" className="tabular-nums">
-                            <DollarSign className="h-3 w-3 mr-0.5" />
-                            {item.online_price.toFixed(2)}
+                  <div className="space-y-3">
+                    {menuItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--color-border)]"
+                      >
+                        <div className="flex items-center gap-[var(--space-3)]">
+                          {item.is_available ? (
+                            <Eye className="h-4 w-4 text-[var(--color-success)]" />
+                          ) : (
+                            <EyeOff className="h-4 w-4 text-[var(--color-text-muted)]" />
+                          )}
+                          <span className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)]">
+                            Item {item.menu_item_id.slice(0, 8)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-[var(--space-2)]">
+                          {item.online_price !== null && (
+                            <Badge variant="default" className="tabular-nums">
+                              <DollarSign className="h-3 w-3 mr-0.5" />
+                              {item.online_price.toFixed(2)}
+                            </Badge>
+                          )}
+                          <Badge variant={item.is_available ? "success" : "default"}>
+                            {item.is_available ? "Available" : "Hidden"}
                           </Badge>
-                        )}
-                        <Badge variant={item.is_available ? "default" : "secondary"}>
-                          {item.is_available ? "Available" : "Hidden"}
-                        </Badge>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
-              </div>
+              </SheetBody>
             </SheetContent>
           </Sheet>
 
           {/* Create Menu Sheet */}
           <Sheet open={showCreateMenu} onOpenChange={setShowCreateMenu}>
-            <SheetContent className="sm:max-w-md">
+            <SheetContent width="md">
               <SheetHeader>
                 <SheetTitle>New Online Menu</SheetTitle>
                 <SheetDescription>
                   Create a new menu for your online ordering portal
                 </SheetDescription>
               </SheetHeader>
-              <div className="mt-6 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="menu-name">Menu Name</Label>
-                  <Input
-                    id="menu-name"
+              <SheetBody>
+                <div className="space-y-4">
+                  <Text
+                    label="Menu Name"
                     placeholder="e.g. Lunch Menu"
                     value={newMenuName}
                     onChange={(e) => setNewMenuName(e.target.value)}
-                    className="touch-target-lg"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="menu-slug">URL Slug</Label>
-                  <Input
-                    id="menu-slug"
+                  <Text
+                    label="URL Slug"
                     placeholder="e.g. lunch-menu"
                     value={newMenuSlug}
                     onChange={(e) =>
                       setNewMenuSlug(
-                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")
+                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
                       )
                     }
-                    className="touch-target-lg"
+                    helper={`Appears in the URL: /order/${newMenuSlug || "your-slug"}`}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Appears in the URL: /order/{newMenuSlug || "your-slug"}
-                  </p>
                 </div>
-              </div>
-              <SheetFooter className="mt-6">
+              </SheetBody>
+              <div className="border-t border-[var(--color-border)] px-[var(--space-6)] py-[var(--space-4)] [padding-bottom:max(var(--space-4),env(safe-area-inset-bottom))]">
                 <Button
-                  className="w-full touch-target-lg btn-press"
+                  size="lg"
+                  className="w-full"
+                  loading={creating}
+                  disabled={!newMenuName.trim() || !newMenuSlug.trim()}
+                  leadingIcon={<Plus />}
                   onClick={handleCreateMenu}
-                  disabled={creating || !newMenuName.trim() || !newMenuSlug.trim()}
                 >
-                  {creating ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Plus className="h-4 w-4 mr-2" />
-                  )}
                   Create Menu
                 </Button>
-              </SheetFooter>
+              </div>
             </SheetContent>
           </Sheet>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ==================== SETTINGS ==================== */}
-        <TabsContent value="settings" className="space-y-6">
+      {/* ==================== SETTINGS ==================== */}
+      {activeTab === "settings" && (
+        <div role="tabpanel" aria-label="Settings" className="space-y-6">
           {settingsLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                <Skeleton key={i} className="h-24 w-full rounded-[var(--radius-md)]" />
               ))}
             </div>
           ) : (
             <>
               {/* Current status card */}
               {settings && (
-                <Card className="shadow-warm-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Current Status</CardTitle>
+                <Card variant="elevated" padding="default">
+                  <CardHeader>
+                    <CardTitle className="text-[length:var(--type-headline-size)]">
+                      Current Status
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <CardBody>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-[var(--space-4)]">
                       <div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
                           Orders (15 min)
                         </p>
-                        <p className="text-xl font-semibold tabular-nums">
+                        <p className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] tabular-nums">
                           {settings.current_count_15min}
-                          <span className="text-sm text-muted-foreground font-normal">
+                          <span className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)] font-normal">
                             /{settings.max_orders_per_15_min}
                           </span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
                           Orders (1 hour)
                         </p>
-                        <p className="text-xl font-semibold tabular-nums">
+                        <p className="text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] tabular-nums">
                           {settings.current_count_hour}
-                          <span className="text-sm text-muted-foreground font-normal">
+                          <span className="text-[length:var(--type-subhead-size)] text-[var(--color-text-muted)] font-normal">
                             /{settings.max_orders_per_hour}
                           </span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Status</p>
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+                          Status
+                        </p>
                         <Badge
-                          variant={settings.is_paused ? "destructive" : "default"}
-                          className="mt-1"
+                          variant={settings.is_paused ? "danger" : "success"}
+                          className="mt-[var(--space-1)]"
                         >
                           {settings.is_paused ? "Paused" : "Accepting Orders"}
                         </Badge>
                       </div>
                       {settings.pause_reason && (
                         <div>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">
                             Pause Reason
                           </p>
-                          <p className="text-sm">{settings.pause_reason}</p>
+                          <p className="text-[length:var(--type-subhead-size)]">
+                            {settings.pause_reason}
+                          </p>
                         </div>
                       )}
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               )}
 
-              <Separator />
+              <div className="border-t border-[var(--color-border)]" />
 
               {/* Throttle Settings */}
-              <Card className="shadow-warm-sm">
+              <Card variant="elevated" padding="default">
                 <CardHeader>
-                  <CardTitle className="text-base">Throttle Limits</CardTitle>
+                  <CardTitle className="text-[length:var(--type-headline-size)]">
+                    Throttle Limits
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="max-15">Max orders per 15 minutes</Label>
-                      <Input
-                        id="max-15"
-                        type="number"
-                        min={1}
-                        max={999}
-                        value={settingsForm.max_orders_per_15_min}
-                        onChange={(e) =>
-                          setSettingsForm((prev) => ({
-                            ...prev,
-                            max_orders_per_15_min: parseInt(e.target.value, 10) || 1,
-                          }))
-                        }
-                        className="touch-target-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="max-hour">Max orders per hour</Label>
-                      <Input
-                        id="max-hour"
-                        type="number"
-                        min={1}
-                        max={9999}
-                        value={settingsForm.max_orders_per_hour}
-                        onChange={(e) =>
-                          setSettingsForm((prev) => ({
-                            ...prev,
-                            max_orders_per_hour: parseInt(e.target.value, 10) || 1,
-                          }))
-                        }
-                        className="touch-target-lg"
-                      />
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Pause Online Ordering</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Temporarily stop accepting online orders
-                      </p>
-                    </div>
-                    <Switch
-                      checked={settingsForm.is_paused}
-                      onCheckedChange={(checked) =>
-                        setSettingsForm((prev) => ({ ...prev, is_paused: checked }))
+                <CardBody>
+                  <div className="grid gap-[var(--space-4)] md:grid-cols-2">
+                    <NumberInput
+                      label="Max orders per 15 minutes"
+                      min={1}
+                      max={999}
+                      value={settingsForm.max_orders_per_15_min}
+                      onChange={(e) =>
+                        setSettingsForm((prev) => ({
+                          ...prev,
+                          max_orders_per_15_min: parseInt(e.target.value, 10) || 1,
+                        }))
+                      }
+                    />
+                    <NumberInput
+                      label="Max orders per hour"
+                      min={1}
+                      max={9999}
+                      value={settingsForm.max_orders_per_hour}
+                      onChange={(e) =>
+                        setSettingsForm((prev) => ({
+                          ...prev,
+                          max_orders_per_hour: parseInt(e.target.value, 10) || 1,
+                        }))
                       }
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Auto-Accept Orders</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Automatically accept incoming orders without manual review
-                      </p>
-                    </div>
-                    <Switch
-                      checked={settingsForm.auto_accept}
-                      onCheckedChange={(checked) =>
-                        setSettingsForm((prev) => ({ ...prev, auto_accept: checked }))
-                      }
-                    />
-                  </div>
-                </CardContent>
+                  <div className="border-t border-[var(--color-border)]" />
+
+                  <Toggle
+                    label="Pause Online Ordering"
+                    helper="Temporarily stop accepting online orders"
+                    checked={settingsForm.is_paused}
+                    onChange={(checked) =>
+                      setSettingsForm((prev) => ({ ...prev, is_paused: checked }))
+                    }
+                  />
+
+                  <Toggle
+                    label="Auto-Accept Orders"
+                    helper="Automatically accept incoming orders without manual review"
+                    checked={settingsForm.auto_accept}
+                    onChange={(checked) =>
+                      setSettingsForm((prev) => ({ ...prev, auto_accept: checked }))
+                    }
+                  />
+                </CardBody>
               </Card>
 
               <div className="flex justify-end">
                 <Button
-                  className="touch-target-lg btn-press"
+                  size="md"
+                  loading={settingsSaving}
+                  leadingIcon={<Check />}
                   onClick={handleSaveSettings}
-                  disabled={settingsSaving}
                 >
-                  {settingsSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-2" />
-                  )}
                   Save Settings
                 </Button>
               </div>
             </>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
-      {/* Reject Dialog */}
-      <Dialog
+      {/* Reject Modal */}
+      <Modal
         open={!!rejectOrder}
         onOpenChange={(open) => {
           if (!open) {
@@ -997,51 +937,46 @@ export default function OnlineOrderingPage() {
           }
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Order</DialogTitle>
-            <DialogDescription>
+        <ModalContent size="md">
+          <ModalHeader>
+            <ModalTitle>Reject Order</ModalTitle>
+            <ModalDescription>
               Provide a reason for rejecting the order from{" "}
               {rejectOrder?.customer_name || "Guest"}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="reject-reason">Reason</Label>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalBody>
             <Textarea
-              id="reject-reason"
+              label="Reason"
               placeholder="e.g. Kitchen closed, item out of stock..."
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              className="touch-target-lg"
             />
-          </div>
-          <DialogFooter>
+          </ModalBody>
+          <ModalFooter>
             <Button
-              variant="outline"
+              variant="secondary"
+              size="md"
               onClick={() => {
                 setRejectOrder(null);
                 setRejectReason("");
               }}
-              className="touch-target-lg"
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
+              size="md"
+              loading={rejecting}
+              disabled={!rejectReason.trim()}
+              leadingIcon={<X />}
               onClick={handleReject}
-              disabled={rejecting || !rejectReason.trim()}
-              className="touch-target-lg btn-press"
             >
-              {rejecting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <X className="h-4 w-4 mr-2" />
-              )}
               Reject Order
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
