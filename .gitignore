@@ -50,3 +50,7 @@ next-env.d.ts
 
 # seed photo generation output (per-run, contains URLs + cost)
 scripts/_seed-photos-output.json
+
+# k6 load test runtime outputs (script files are committed; summaries are not)
+load-tests/summary.json
+load-tests/*.json
