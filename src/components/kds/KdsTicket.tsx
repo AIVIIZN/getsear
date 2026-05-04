@@ -5,7 +5,13 @@ import { KdsTimer } from './KdsTimer'
 import { KdsAllergenBanner } from './KdsAllergenBanner'
 import { KdsPriorityBanner } from './KdsPriorityBanner'
 import { KdsRefireDialog } from './KdsRefireDialog'
+import { Badge } from '@/components/ui-v2/data/Badge'
 import { cn } from '@/lib/utils'
+import {
+  getAgingBackground,
+  getItemAgingBorder,
+  getTicketAgingColor,
+} from './aging'
 import { type KdsTicket as KdsTicketData, type KdsTicketItem, type RefireReasonCode, type ItemStatus } from '@/stores/kds-store'
 
 interface KdsTicketProps {
@@ -39,46 +45,6 @@ const ORDER_TYPE_COLORS: Record<string, string> = {
   qr: 'bg-teal-600',
 }
 
-// Aging colors per POS_UI_RESEARCH.md -- vivid on dark background
-function getAgingStyles(category: 'fresh' | 'aging' | 'late' | 'critical') {
-  switch (category) {
-    case 'fresh':
-      return {
-        card: 'bg-[#1a1a1a] border-[#2a2a2a]',
-        headerColor: '#34C759', // iOS green
-      }
-    case 'aging':
-      return {
-        card: 'bg-[#1a1a00] border-[#FFCC00]/40',
-        headerColor: '#FFCC00', // iOS yellow
-      }
-    case 'late':
-      return {
-        card: 'bg-[#1a0d00] border-[#FF9500]/40',
-        headerColor: '#FF9500', // iOS orange
-      }
-    case 'critical':
-      return {
-        card: 'bg-[#1a0000] border-[#FF3B30]/50 animate-kds-flash',
-        headerColor: '#FF3B30', // iOS red
-      }
-    default:
-      return {
-        card: 'bg-[#1a1a1a] border-[#2a2a2a]',
-        headerColor: '#34C759',
-      }
-  }
-}
-
-function getItemAgingColor(ageCategory: string | undefined): string {
-  switch (ageCategory) {
-    case 'aging': return 'border-l-[#FFCC00]'
-    case 'late': return 'border-l-[#FF9500]'
-    case 'critical': return 'border-l-[#FF3B30]'
-    default: return 'border-l-transparent'
-  }
-}
-
 export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketProps) {
   const [isSliding, setIsSliding] = useState(false)
   const [refireItem, setRefireItem] = useState<KdsTicketItem | null>(null)
@@ -86,9 +52,10 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
 
   const handleBump = useCallback(() => {
     setIsSliding(true)
+    // Match kds-bump-spring keyframe (320ms) — see src/styles/tokens.css
     setTimeout(() => {
       onBump(ticket.id)
-    }, 280)
+    }, 320)
   }, [ticket.id, onBump])
 
   const handleItemBump = useCallback(
@@ -144,15 +111,12 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
     return courseItems.every((item) => !item.is_fired && item.status === 'pending')
   }
 
-  // Check if all bumpable items are bumped (for auto-bump)
-  const allItemsBumped = ticket.items
-    .filter((item) => !item.is_void && item.status !== 'held')
-    .every((item) => item.is_bumped || item.status === 'completed')
-
-  // Determine aging -- allergen tickets always have red border
-  const aging = ticket.has_allergens
-    ? { card: 'bg-[#1a0000] border-[#FF0000]', headerColor: '#FF0000' }
-    : getAgingStyles(ticket.age_category)
+  // Aging gradient: server-supplied category drives a CSS custom property the
+  // card consumes for its border + header underline. Allergen forces critical.
+  const ageCategory = ticket.has_allergens ? 'critical' : ticket.age_category
+  const ticketAgeColor = getTicketAgingColor(ageCategory)
+  const ticketBg = getAgingBackground(ageCategory)
+  const flashClass = ageCategory === 'critical' ? 'animate-kds-flash' : ''
 
   // Priority-based border effects
   const priorityBorderClass =
@@ -168,12 +132,18 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
     <>
       <div
         className={cn(
-          'flex flex-col rounded-xl border transition-all',
-          aging.card,
+          'flex flex-col rounded-[var(--radius-md)] border transition-all kds-aging-border',
+          flashClass,
           priorityBorderClass,
-          isSliding ? 'animate-slide-out-right' : 'animate-slide-in-left'
+          isSliding ? 'kds-bump-out' : 'animate-slide-in-left'
         )}
-        style={{ minWidth: 0, transitionDuration: 'var(--duration-slow)' }}
+        style={{
+          minWidth: 0,
+          transitionDuration: 'var(--duration-base)',
+          backgroundColor: ticketBg,
+          // Per-ticket aging color drives both border + header underline.
+          ['--ticket-age-color' as string]: ticketAgeColor,
+        }}
       >
         {/* Priority banner (RE-FIRE / RUSH / VIP) */}
         <KdsPriorityBanner
@@ -189,7 +159,10 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
 
         {/* ADD badge */}
         {ticket.is_add && (
-          <div className="flex items-center justify-center bg-blue-600 px-3 py-1.5 text-footnote font-black tracking-wider text-white">
+          <div
+            className="flex items-center justify-center px-3 py-1.5 text-footnote font-black tracking-wider text-[var(--color-primary-fg)]"
+            style={{ backgroundColor: 'var(--color-primary)' }}
+          >
             ADD
           </div>
         )}
@@ -197,28 +170,28 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
         {/* Header -- with aging color accent */}
         <div
           className="flex items-start justify-between gap-2 p-3"
-          style={{ borderBottom: `2px solid ${aging.headerColor}` }}
+          style={{ borderBottom: '2px solid var(--ticket-age-color)' }}
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-title-2 font-black text-white">
+              <span className="text-title-2 font-black text-[var(--color-text)]">
                 #{ticket.order_number}
               </span>
               <span
                 className={cn(
-                  'inline-flex items-center rounded-lg px-2 py-0.5 text-caption-1 font-bold text-white',
+                  'inline-flex items-center rounded-[var(--radius-sm)] px-2 py-0.5 text-caption-1 font-bold text-white',
                   ORDER_TYPE_COLORS[ticket.order_type] ?? 'bg-gray-600'
                 )}
               >
                 {ORDER_TYPE_LABELS[ticket.order_type] ?? ticket.order_type}
               </span>
             </div>
-            <div className="mt-1 flex items-center gap-2 text-subhead text-[#888]">
+            <div className="mt-1 flex items-center gap-2 text-subhead text-[var(--color-text-muted)]">
               <span>{ticket.server_name}</span>
               {ticket.table_name && (
                 <>
                   <span className="opacity-40">&middot;</span>
-                  <span className="font-semibold text-white">{ticket.table_name}</span>
+                  <span className="font-semibold text-[var(--color-text)]">{ticket.table_name}</span>
                 </>
               )}
             </div>
@@ -234,20 +207,20 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
               <div key={course}>
                 {hasMultipleCourses && (
                   <div className="mb-2 mt-1.5 flex items-center gap-2">
-                    <div className="h-px flex-1 bg-[#333]" />
-                    <span className="text-caption-1 font-bold uppercase tracking-wider text-[#888]">
+                    <div className="h-px flex-1 bg-[var(--color-border)]" />
+                    <span className="text-caption-1 font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
                       Course {course}
                     </span>
                     {held && (
-                      <span className="rounded-md bg-gray-600 px-2 py-0.5 text-caption-2 font-black uppercase text-gray-200">
+                      <Badge variant="default" size="sm" className="font-[number:var(--weight-bold)] uppercase">
                         HOLD
-                      </span>
+                      </Badge>
                     )}
-                    <div className="h-px flex-1 bg-[#333]" />
+                    <div className="h-px flex-1 bg-[var(--color-border)]" />
                   </div>
                 )}
                 {idx > 0 && !hasMultipleCourses && (
-                  <div className="my-1.5 h-px bg-[#333]" />
+                  <div className="my-1.5 h-px bg-[var(--color-border)]" />
                 )}
                 <div className={held ? 'opacity-40' : ''}>
                   {items.map((item) => (
@@ -266,16 +239,23 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
           })}
         </div>
 
-        {/* Bump button -- 56px tall, green, full width */}
+        {/* Bump button -- 56px tall, green, full width.
+            Uses raw <button> with token colors instead of ui-v2 Button so the
+            full-width 56pt + iOS green stays a kitchen-staff signature shape. */}
         <button
-          onClick={allItemsBumped ? handleBump : handleBump}
+          type="button"
+          onClick={handleBump}
           className={cn(
-            'btn-press m-3 flex items-center justify-center rounded-xl text-headline font-black uppercase tracking-wider text-white transition-colors',
-            allItemsBumped
-              ? 'bg-[#34C759] hover:bg-[#30D158] active:bg-[#28a745]'
-              : 'bg-[#34C759] hover:bg-[#30D158] active:bg-[#28a745]'
+            'btn-press m-3 flex items-center justify-center rounded-[var(--radius-md)] text-headline font-black uppercase tracking-wider text-white transition-colors',
+            'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-border-focus)]',
+            'touch-target',
           )}
-          style={{ height: 56, minHeight: 56 }}
+          style={{
+            height: 56,
+            minHeight: 56,
+            backgroundColor: 'var(--color-success-strong)',
+          }}
+          aria-label="Bump ticket"
         >
           BUMP
         </button>
@@ -324,11 +304,11 @@ function TicketItemRow({
   return (
     <div
       className={cn(
-        'mb-2 flex items-start gap-2.5 rounded-lg border-l-2 pl-1',
+        'mb-2 flex items-start gap-2.5 rounded-[var(--radius-sm)] border-l-2 pl-1',
         isVoided && 'opacity-40',
         isBumped && !isVoided && 'opacity-50',
-        getItemAgingColor(item.item_age_category)
       )}
+      style={{ borderLeftColor: getItemAgingBorder(item.item_age_category) }}
       onTouchStart={() => onLongPressStart(item)}
       onTouchEnd={onLongPressEnd}
       onTouchCancel={onLongPressEnd}
@@ -337,7 +317,10 @@ function TicketItemRow({
       onMouseLeave={onLongPressEnd}
     >
       {/* Quantity badge */}
-      <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#2a2a2a] text-subhead font-bold text-white">
+      <span
+        className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-subhead font-bold text-[var(--color-text)]"
+        style={{ backgroundColor: 'var(--color-bg-muted)' }}
+      >
         {item.quantity}
       </span>
 
@@ -346,30 +329,40 @@ function TicketItemRow({
         <div className="flex items-center gap-1.5">
           <span
             className={cn(
-              'text-callout font-semibold text-white',
+              'text-callout font-semibold text-[var(--color-text)]',
               isVoided && 'line-through',
-              isBumped && 'text-[#888]'
+              isBumped && 'text-[var(--color-text-muted)]'
             )}
           >
             {item.name}
           </span>
           {isRefire && (
-            <span className="rounded bg-[#FF2D55] px-1.5 py-0.5 text-caption-2 font-black text-white">
+            <Badge
+              size="sm"
+              className="font-[number:var(--weight-bold)] !text-white"
+              style={{ backgroundColor: '#FF2D55' }}
+            >
               RE-FIRE{(item.refire_count ?? 0) > 1 ? ` x${item.refire_count}` : ''}
-            </span>
+            </Badge>
           )}
           {item.is_add && !isRefire && (
-            <span className="rounded bg-blue-600 px-1.5 py-0.5 text-caption-2 font-black uppercase tracking-wider text-white">
+            <Badge
+              variant="primary"
+              size="sm"
+              className="uppercase font-[number:var(--weight-bold)]"
+            >
               ADD
-            </span>
+            </Badge>
           )}
           {isVoided && (
-            <span className="text-caption-1 font-bold text-red-400">(VOIDED)</span>
+            <span className="text-caption-1 font-bold" style={{ color: 'var(--color-danger-strong)' }}>
+              (VOIDED)
+            </span>
           )}
           {isHeld && !held && (
-            <span className="rounded-md bg-gray-600 px-1.5 py-0.5 text-caption-2 font-black uppercase text-gray-200">
+            <Badge variant="default" size="sm" className="uppercase font-[number:var(--weight-bold)]">
               HOLD
-            </span>
+            </Badge>
           )}
         </div>
         {item.modifiers.length > 0 && (
@@ -378,8 +371,8 @@ function TicketItemRow({
               <div
                 key={i}
                 className={cn(
-                  'pl-2 text-subhead text-[#888]',
-                  isBumped && 'text-[#555]'
+                  'pl-2 text-subhead',
+                  isBumped ? 'text-[var(--color-text-subtle)]' : 'text-[var(--color-text-muted)]',
                 )}
               >
                 &bull; {mod}
@@ -388,12 +381,24 @@ function TicketItemRow({
           </div>
         )}
         {item.special_instructions && (
-          <div className="mt-1 rounded-lg bg-yellow-900/30 px-2.5 py-1 text-subhead italic text-yellow-300">
+          <div
+            className="mt-1 rounded-[var(--radius-sm)] px-2.5 py-1 text-subhead italic"
+            style={{
+              backgroundColor: 'var(--color-warning-bg)',
+              color: 'var(--color-warning-strong)',
+            }}
+          >
             {item.special_instructions}
           </div>
         )}
         {isRefire && item.refire_reason && (
-          <div className="mt-1 rounded-lg bg-[#FF2D55]/20 px-2.5 py-1 text-caption-1 font-semibold text-[#FF2D55]">
+          <div
+            className="mt-1 rounded-[var(--radius-sm)] px-2.5 py-1 text-caption-1 font-semibold"
+            style={{
+              backgroundColor: 'rgba(255, 45, 85, 0.20)',
+              color: '#FF2D55',
+            }}
+          >
             Reason: {item.refire_reason.replace(/_/g, ' ')}
           </div>
         )}
@@ -401,43 +406,44 @@ function TicketItemRow({
 
       {/* Seat number */}
       {item.seat_number != null && (
-        <span className="mt-0.5 flex-shrink-0 text-caption-1 font-medium text-[#888]">
+        <span className="mt-0.5 flex-shrink-0 text-caption-1 font-medium text-[var(--color-text-muted)]">
           S{item.seat_number}
         </span>
       )}
 
-      {/* Bump button / status indicator */}
+      {/* Bump button / status indicator -- 44pt min target */}
       <div className="flex-shrink-0">
         {isVoided ? (
           <div className="flex h-11 w-11 items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-red-400">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" style={{ color: 'var(--color-danger-strong)' }}>
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </div>
         ) : isHeld ? (
           <div className="flex h-11 w-11 items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" style={{ color: 'var(--color-text-subtle)' }}>
               <rect x="6" y="4" width="4" height="16" rx="1" />
               <rect x="14" y="4" width="4" height="16" rx="1" />
             </svg>
           </div>
         ) : isBumped ? (
           <div className="flex h-11 w-11 items-center justify-center animate-fade-in">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-[#34C759]">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6" style={{ color: 'var(--color-success-strong)' }}>
               <path d="M20 6 9 17l-5-5" />
             </svg>
           </div>
         ) : (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation()
               onBump(item.id)
             }}
-            className="btn-press flex h-11 w-11 items-center justify-center rounded-lg bg-[#2a2a2a] transition-colors hover:bg-[#3a3a3a] active:bg-[#34C759]"
-            style={{ minWidth: 44, minHeight: 44 }}
+            className="btn-press touch-target flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-border-focus)]"
+            style={{ backgroundColor: 'var(--color-bg-muted)' }}
             aria-label={`Bump ${item.name}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-[#888]">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" style={{ color: 'var(--color-text-muted)' }}>
               <path d="M20 6 9 17l-5-5" />
             </svg>
           </button>

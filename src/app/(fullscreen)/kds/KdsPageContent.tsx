@@ -2,6 +2,8 @@
 
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { MessageSquare } from 'lucide-react'
+import { Button } from '@/components/ui-v2/Button'
+import { Badge } from '@/components/ui-v2/data/Badge'
 import { useKdsStore } from '@/stores/kds-store'
 import { useShallow } from 'zustand/react/shallow'
 import { useRealtimeKds, useRealtimeTable } from '@/hooks/use-realtime'
@@ -571,18 +573,31 @@ export default function KdsPage() {
   }, [tickets, stations, activeStationId])
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#0a0a0a] no-select no-overscroll">
+    <div
+      className="kds-dark flex h-full w-full flex-col no-select no-overscroll"
+      style={{ backgroundColor: 'var(--kds-bg)' }}
+    >
       {/* Kitchen closed banner */}
       {isKitchenClosed && (
-        <div className="z-40 flex items-center justify-center bg-red-600 px-4 py-2">
-          <span className="text-subhead font-black uppercase tracking-wider text-white">
+        <div
+          className="z-40 flex items-center justify-center px-4 py-2"
+          style={{ backgroundColor: 'var(--color-danger-strong)' }}
+        >
+          <span className="text-subhead font-black uppercase tracking-wider text-[var(--color-primary-fg)]">
             KITCHEN CLOSED
           </span>
         </div>
       )}
 
       {/* Top bar -- 48px */}
-      <header className="z-30 flex flex-shrink-0 items-center gap-2 bg-[#1a1a1a] px-4" style={{ height: 48, borderBottom: '0.5px solid #2a2a2a' }}>
+      <header
+        className="z-30 flex flex-shrink-0 items-center gap-2 px-4"
+        style={{
+          height: 48,
+          backgroundColor: 'var(--kds-topbar)',
+          borderBottom: '0.5px solid var(--color-border)',
+        }}
+      >
         {/* Station tabs */}
         <KdsStationTabs
           stations={stations}
@@ -597,92 +612,103 @@ export default function KdsPage() {
 
         {/* Priority queue count */}
         {priorityCount > 0 && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-red-600/40 bg-red-900/60 px-3 py-1.5 text-caption-1 font-bold text-red-300 animate-pulse">
+          <Badge
+            variant="danger"
+            size="md"
+            className="animate-pulse gap-[var(--space-1)] !h-auto py-[var(--space-1)] px-[var(--space-3)] font-[number:var(--weight-bold)]"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
               <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
               <path d="M12 9v4" />
               <path d="M12 17h.01" />
             </svg>
-            <span>Priority: {priorityCount}</span>
-          </div>
+            Priority: {priorityCount}
+          </Badge>
         )}
 
         {/* All-Day button */}
-        <button
+        <Button
+          variant="secondary"
+          size="lg"
           onClick={() => setAllDayOpen(true)}
-          className="btn-press flex h-10 items-center gap-2 rounded-xl bg-[#2a2a2a] px-4 text-subhead font-semibold text-white transition-colors hover:bg-[#333]"
-          style={{ minHeight: 44 }}
+          leadingIcon={
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3v18h18" />
+              <path d="M7 16h2v-4H7zM12 16h2V8h-2zM17 16h2v-6h-2z" />
+            </svg>
+          }
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-            <path d="M3 3v18h18" />
-            <path d="M7 16h2v-4H7zM12 16h2V8h-2zM17 16h2v-6h-2z" />
-          </svg>
           All-Day
-        </button>
+        </Button>
 
         {/* Recall button */}
-        <button
+        <Button
+          variant="secondary"
+          size="lg"
           onClick={() => setRecallOpen(true)}
-          className="btn-press flex h-10 items-center gap-2 rounded-xl bg-[#2a2a2a] px-4 text-subhead font-semibold text-white transition-colors hover:bg-[#333]"
-          style={{ minHeight: 44 }}
+          leadingIcon={
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+          }
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
           Recall
-        </button>
+        </Button>
 
         {/* Messages button */}
-        <button
-          onClick={() => setMessagePanelOpen(true)}
-          className="btn-press relative flex h-10 items-center gap-2 rounded-xl bg-[#2a2a2a] px-4 text-subhead font-semibold text-white transition-colors hover:bg-[#333]"
-          style={{ minHeight: 44 }}
-        >
-          <MessageSquare className="h-4 w-4" />
-          Messages
+        <div className="relative">
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() => setMessagePanelOpen(true)}
+            leadingIcon={<MessageSquare />}
+          >
+            Messages
+          </Button>
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#007AFF] px-1 text-[10px] font-bold text-white animate-pulse">
+            <span
+              className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-[var(--color-primary-fg)] animate-pulse"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+            >
               {unreadCount}
             </span>
           )}
-        </button>
+        </div>
 
         {/* Sound toggle */}
-        <button
+        <Button
+          variant={soundEnabled ? 'primary' : 'secondary'}
+          size="lg"
           onClick={() => useKdsStore.getState().actions.toggleSound()}
-          className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-subhead font-semibold transition-colors ${
-            soundEnabled
-              ? 'bg-[#007AFF] text-white'
-              : 'bg-[#2a2a2a] text-[#666]'
-          }`}
-          style={{ minHeight: 44 }}
+          leadingIcon={
+            soundEnabled ? (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                <line x1="22" y1="9" x2="16" y2="15" />
+                <line x1="16" y1="9" x2="22" y2="15" />
+              </svg>
+            )
+          }
         >
-          {soundEnabled ? (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-              <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-              <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-              <line x1="22" y1="9" x2="16" y2="15" />
-              <line x1="16" y1="9" x2="22" y2="15" />
-            </svg>
-          )}
           {soundEnabled ? 'Sound' : 'Muted'}
-        </button>
+        </Button>
 
         {/* Bump All button */}
         {sortedTickets.length > 0 && !isExpo && (
-          <button
+          <Button
+            variant="destructive"
+            size="lg"
             onClick={handleBumpAll}
-            className="btn-press flex h-10 items-center gap-2 rounded-xl bg-red-600 px-4 text-subhead font-bold text-white transition-colors hover:bg-red-500"
-            style={{ minHeight: 44 }}
           >
             Bump All
-          </button>
+          </Button>
         )}
       </header>
 
@@ -691,36 +717,45 @@ export default function KdsPage() {
         {error ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <p className="text-lg font-semibold text-red-400">{error}</p>
-              <button
+              <p className="text-lg font-semibold" style={{ color: 'var(--color-danger-strong)' }}>
+                {error}
+              </p>
+              <Button
+                variant="primary"
+                size="md"
+                className="mt-3"
                 onClick={() => {
                   setError(null)
                   fetchTickets()
                 }}
-                className="mt-3 rounded-lg bg-[#007AFF] px-4 py-2 text-sm font-semibold text-white"
               >
                 Retry
-              </button>
+              </Button>
             </div>
           </div>
         ) : loading && tickets.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-3">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#007AFF] border-t-transparent" />
-              <p className="text-sm text-[#888]">Loading tickets...</p>
+              <div
+                className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent"
+                style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
+              />
+              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                Loading tickets...
+              </p>
             </div>
           </div>
         ) : sortedTickets.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-4 h-20 w-20 text-[#444]">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-4 h-20 w-20" style={{ color: 'var(--color-border-strong)' }}>
                 <rect x="2" y="3" width="20" height="18" rx="2" />
                 <path d="M8 7h8M8 11h6M8 15h4" />
               </svg>
-              <p className="text-xl font-bold text-[#666]">
+              <p className="text-xl font-bold" style={{ color: 'var(--color-text-muted)' }}>
                 All clear
               </p>
-              <p className="mt-1 text-sm text-[#555]">
+              <p className="mt-1 text-sm" style={{ color: 'var(--color-text-subtle)' }}>
                 No active tickets at this station
               </p>
             </div>
@@ -798,10 +833,17 @@ export default function KdsPage() {
         return (
           <div
             key={`offline-${stationId}`}
-            className="fixed bottom-4 left-4 right-4 z-50 flex items-center gap-3 rounded-xl border border-yellow-600/40 bg-yellow-900/90 px-4 py-3 shadow-lg"
+            className="fixed bottom-4 left-4 right-4 z-50 flex items-center gap-3 rounded-[var(--radius-md)] border px-4 py-3 shadow-[var(--shadow-mid)]"
+            style={{
+              backgroundColor: 'var(--color-warning-bg)',
+              borderColor: 'var(--color-warning-strong)',
+            }}
           >
-            <div className="h-3 w-3 rounded-full bg-[#FF3B30] animate-pulse" />
-            <span className="text-sm font-semibold text-yellow-200">
+            <div
+              className="h-3 w-3 rounded-full animate-pulse"
+              style={{ backgroundColor: 'var(--color-danger-strong)' }}
+            />
+            <span className="text-sm font-semibold" style={{ color: 'var(--color-warning-strong)' }}>
               KDS Station &quot;{stationName}&quot; is offline
               {info.failoverActive
                 ? ' — tickets redirecting to backup printer'
