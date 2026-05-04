@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Car, Timer, Plus, ArrowRight, RefreshCw, TrendingUp } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Car, Plus } from 'lucide-react'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
+import { Badge } from '@/components/ui-v2/data/Badge'
+import { Stat } from '@/components/ui-v2/data/Stat'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 
 interface CarData {
   id: string
@@ -34,16 +35,16 @@ interface SpeedMetrics {
   total_cars: number
 }
 
-const POSITION_COLORS = {
-  ordering: 'bg-blue-500',
-  payment: 'bg-orange-500',
-  pickup: 'bg-green-500',
-}
-
 const POSITION_LABELS = {
   ordering: 'Menu Board',
   payment: 'Payment Window',
   pickup: 'Pickup Window',
+}
+
+const POSITION_TOKEN_BG: Record<CarData['position'], string> = {
+  ordering: 'bg-[var(--color-primary)]',
+  payment: 'bg-[var(--color-warning-strong)]',
+  pickup: 'bg-[var(--color-success-strong)]',
 }
 
 function formatSeconds(seconds: number): string {
@@ -124,96 +125,139 @@ export function LaneDisplay() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} variant="card" className="h-24" />)}
         </div>
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton variant="chart" className="h-64" />
       </div>
     )
   }
 
-  const isOverTarget = metrics && metrics.avg_total_time > metrics.target_total_time
+  const isOverTarget = !!metrics && metrics.avg_total_time > metrics.target_total_time
+  const activeLaneCount = lanes.filter((l) => l.is_active).length
 
   return (
     <div className="space-y-6">
-      {/* Speed Metrics */}
+      {/* Speed Metrics — ui-v2 Stat + Card */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className={`border-warm shadow-warm ${isOverTarget ? 'ring-2 ring-red-200' : ''}`}>
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Avg Total</p>
-            <p className={`text-xl font-bold ${isOverTarget ? 'text-red-600' : 'text-green-600'}`}>
-              {metrics ? formatSeconds(metrics.avg_total_time) : '--'}
-            </p>
-            <p className="text-[10px] text-muted-foreground">Target: {metrics ? formatSeconds(metrics.target_total_time) : '3:30'}</p>
-          </CardContent>
+        <Card variant={isOverTarget ? 'flat' : 'elevated'} padding="compact">
+          <Stat
+            label="Avg Total"
+            value={
+              <span className={isOverTarget ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'}>
+                {metrics ? formatSeconds(metrics.avg_total_time) : '--'}
+              </span>
+            }
+            delta={metrics ? {
+              value: `Target ${formatSeconds(metrics.target_total_time)}`,
+              direction: isOverTarget ? 'up' : 'flat',
+              intent: isOverTarget ? 'negative' : 'auto',
+            } : undefined}
+          />
         </Card>
-        <Card className="border-warm shadow-warm">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Menu Board</p>
-            <p className="text-xl font-bold text-blue-600">
-              {metrics ? formatSeconds(metrics.avg_menu_time) : '--'}
-            </p>
-          </CardContent>
+        <Card variant="elevated" padding="compact">
+          <Stat
+            label="Menu Board"
+            value={
+              <span className="text-[var(--color-primary)]">
+                {metrics ? formatSeconds(metrics.avg_menu_time) : '--'}
+              </span>
+            }
+          />
         </Card>
-        <Card className="border-warm shadow-warm">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Payment</p>
-            <p className="text-xl font-bold text-orange-600">
-              {metrics ? formatSeconds(metrics.avg_payment_time) : '--'}
-            </p>
-          </CardContent>
+        <Card variant="elevated" padding="compact">
+          <Stat
+            label="Payment"
+            value={
+              <span className="text-[var(--color-warning)]">
+                {metrics ? formatSeconds(metrics.avg_payment_time) : '--'}
+              </span>
+            }
+          />
         </Card>
-        <Card className="border-warm shadow-warm">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Pickup</p>
-            <p className="text-xl font-bold text-green-600">
-              {metrics ? formatSeconds(metrics.avg_pickup_time) : '--'}
-            </p>
-          </CardContent>
+        <Card variant="elevated" padding="compact">
+          <Stat
+            label="Pickup"
+            value={
+              <span className="text-[var(--color-success)]">
+                {metrics ? formatSeconds(metrics.avg_pickup_time) : '--'}
+              </span>
+            }
+          />
         </Card>
-        <Card className="border-warm shadow-warm">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Cars/Hour</p>
-            <p className="text-xl font-bold text-indigo-600">
-              {metrics?.cars_per_hour ?? 0}
-            </p>
-          </CardContent>
+        <Card variant="elevated" padding="compact">
+          <Stat
+            label="Active Lanes"
+            value={
+              <span className="text-[var(--color-text)]">
+                {activeLaneCount}
+              </span>
+            }
+            delta={{
+              value: `${metrics?.cars_per_hour ?? 0} cars/hr`,
+              direction: 'flat',
+            }}
+          />
         </Card>
       </div>
 
       {/* Lane Displays */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {lanes.map((lane) => (
-          <Card key={lane.id} className="border-warm shadow-warm">
-            <CardHeader className="pb-3">
+          <Card
+            key={lane.id}
+            variant={lane.is_active ? 'elevated' : 'flat'}
+            padding="compact"
+            className="gap-[var(--space-3)]"
+          >
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <div className={`w-2.5 h-2.5 rounded-full ${lane.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <CardTitle className="flex items-center gap-[var(--space-2)] text-[length:var(--type-subhead-size)]">
+                  <span
+                    className={`h-[10px] w-[10px] rounded-[var(--radius-circle)] ${
+                      lane.is_active
+                        ? 'bg-[var(--color-success-strong)]'
+                        : 'bg-[var(--color-border-strong)]'
+                    }`}
+                    aria-hidden="true"
+                  />
                   {lane.name}
-                  <Badge variant="outline" className="text-[10px]">{lane.car_count} cars</Badge>
+                  <Badge
+                    variant={lane.car_count > 0 ? 'primary' : 'default'}
+                    size="sm"
+                  >
+                    {lane.car_count} {lane.car_count === 1 ? 'car' : 'cars'}
+                  </Badge>
                 </CardTitle>
-                <Button size="sm" variant="outline" onClick={() => handleAddCar(lane.id)} className="h-7 px-2 text-xs">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAddCar(lane.id)}
+                  className="h-7 px-2 text-xs"
+                >
                   <Plus className="h-3 w-3 mr-1" />
                   Car
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardBody>
               {/* Visual Lane */}
-              <div className="relative bg-gray-100 rounded-xl p-3 min-h-[120px]">
-                <div className="flex justify-between mb-4">
+              <div className="relative bg-[var(--color-bg-muted)] rounded-[var(--radius-md)] p-[var(--space-3)] min-h-[120px]">
+                <div className="flex justify-between mb-[var(--space-4)]">
                   {(['ordering', 'payment', 'pickup'] as const).map((pos) => (
                     <div key={pos} className="text-center flex-1">
-                      <p className="text-[9px] font-medium text-gray-500 uppercase">{POSITION_LABELS[pos]}</p>
+                      <p className="text-[9px] font-[var(--weight-medium)] uppercase tracking-wide text-[var(--color-text-muted)]">
+                        {POSITION_LABELS[pos]}
+                      </p>
                     </div>
                   ))}
                 </div>
 
                 {/* Lane track */}
-                <div className="relative h-12 bg-gray-200 rounded-lg flex items-center">
+                <div className="relative h-12 bg-[var(--color-bg-subtle)] rounded-[var(--radius-sm)] flex items-center border border-[var(--color-border)]">
                   <div className="absolute inset-0 flex">
-                    <div className="flex-1 border-r border-dashed border-gray-300" />
-                    <div className="flex-1 border-r border-dashed border-gray-300" />
+                    <div className="flex-1 border-r border-dashed border-[var(--color-border-strong)]" />
+                    <div className="flex-1 border-r border-dashed border-[var(--color-border-strong)]" />
                     <div className="flex-1" />
                   </div>
 
@@ -228,21 +272,22 @@ export function LaneDisplay() {
                     return (
                       <div
                         key={car.id}
-                        className="absolute z-10 transition-all duration-500"
+                        className="absolute z-10 transition-all duration-[var(--duration-base)] ease-[var(--ease-spring)]"
                         style={{ left: positionOffset }}
                       >
                         <button
+                          type="button"
                           onClick={() => {
                             if (car.position === 'ordering') handleAdvanceCar(lane.id, car.id, 'payment')
                             else if (car.position === 'payment') handleAdvanceCar(lane.id, car.id, 'pickup')
                             else handleExitCar(lane.id, car.id)
                           }}
-                          className={`w-10 h-8 rounded ${POSITION_COLORS[car.position]} text-white flex items-center justify-center shadow-md hover:opacity-80 transition-opacity`}
+                          className={`btn-press w-10 h-8 rounded-[var(--radius-sm)] ${POSITION_TOKEN_BG[car.position]} text-[var(--color-primary-fg)] flex items-center justify-center shadow-[var(--shadow-low)] hover:opacity-90 transition-opacity`}
                           title={`Click to ${car.position === 'pickup' ? 'complete' : 'advance'}`}
                         >
                           <Car className="h-4 w-4" />
                         </button>
-                        <p className="text-[8px] text-center text-gray-500 mt-0.5">
+                        <p className="text-[8px] text-center text-[var(--color-text-muted)] mt-0.5 tabular-nums">
                           {formatSeconds(waitSeconds)}
                         </p>
                       </div>
@@ -251,19 +296,30 @@ export function LaneDisplay() {
                 </div>
 
                 {lane.cars.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center mt-2">No cars in lane</p>
+                  <p className="text-[var(--type-caption-1-size)] text-[var(--color-text-subtle)] text-center mt-[var(--space-2)]">
+                    No cars in lane
+                  </p>
                 )}
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         ))}
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-500" /> Menu Board</span>
-        <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-500" /> Payment</span>
-        <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-green-500" /> Pickup</span>
+      <div className="flex items-center gap-[var(--space-4)] text-[var(--type-caption-1-size)] text-[var(--color-text-muted)]">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[var(--radius-xs)] bg-[var(--color-primary)]" />
+          Menu Board
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[var(--radius-xs)] bg-[var(--color-warning-strong)]" />
+          Payment
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[var(--radius-xs)] bg-[var(--color-success-strong)]" />
+          Pickup
+        </span>
         <span className="ml-auto">Click car to advance &rarr;</span>
       </div>
     </div>
