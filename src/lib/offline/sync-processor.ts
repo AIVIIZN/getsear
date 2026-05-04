@@ -146,11 +146,17 @@ async function processEntry(entry: SyncQueueEntry): Promise<void> {
 
 /**
  * Process a table status sync entry.
+ *
+ * V5.3.1: stamps the entry's `idempotency_key` onto the request so the
+ * server's `withIdempotency` middleware dedupes replays.
  */
 async function processTableSync(entry: SyncQueueEntry): Promise<void> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (entry.idempotency_key) headers['Idempotency-Key'] = entry.idempotency_key
+
   const response = await fetch(`/api/tables/${entry.entity_id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(entry.payload),
   })
 

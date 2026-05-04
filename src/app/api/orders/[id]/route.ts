@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const updateOrderSchema = z.object({
@@ -51,11 +52,15 @@ export async function GET(
 /**
  * PATCH /api/orders/[id] -- update order metadata
  * Supports toggling for_here which triggers tax recalculation.
+ *
+ * Wrapped with `withIdempotency` (V5.3.1) so the offline queue's
+ * `update_order` replays don't double-apply state changes when the network
+ * blips between the server commit and the ack.
  */
-export async function PATCH(
+export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('orders.update', async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
@@ -155,7 +160,7 @@ export async function PATCH(
   }
 
   return NextResponse.json({ data })
-}
+})
 
 /**
  * DELETE /api/orders/[id] -- void order

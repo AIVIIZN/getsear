@@ -225,6 +225,14 @@ export interface SyncQueueEntry {
   last_attempt_at: string | null
   error: string | null
   location_id: string
+  /**
+   * V5.3.1 — UUIDv4 minted at enqueue time. Sent as the `Idempotency-Key`
+   * header on every retry so the server can dedupe replays after a network
+   * blip dropped the original ack but the write actually landed. Optional in
+   * the type because legacy entries persisted before this version may lack it
+   * (they fall back to no-header behavior, which is safe for non-replayed ops).
+   */
+  idempotency_key?: string
 }
 
 export interface CachedConflict {
@@ -279,6 +287,14 @@ class SearOfflineDB extends Dexie {
       sync_queue: 'id, status, priority, entity_type, entity_id, created_at',
       conflicts: 'id, entity_type, entity_id, resolved, location_id',
       cache_meta: 'id, key',
+    })
+
+    // v2: add an index on `idempotency_key` so the replayer can look up by key
+    // (V5.3.1). The schema is otherwise identical — `idempotency_key` is added
+    // as a regular field on existing entries; Dexie tolerates the absence on
+    // legacy rows because indexes are not enforced as NOT NULL.
+    this.version(2).stores({
+      sync_queue: 'id, status, priority, entity_type, entity_id, created_at, idempotency_key',
     })
   }
 }

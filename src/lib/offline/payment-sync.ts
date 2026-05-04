@@ -1,9 +1,18 @@
 /**
  * Payment sync: cash payments and store-and-forward card settlements.
  * Cash payments are straightforward. Card payments require Valor settlement on reconnect.
+ *
+ * V5.3.1: each fetch carries an `Idempotency-Key` header sourced from the
+ * queue entry. The server middleware dedupes on `(key, route, org_id)`.
  */
 
 import type { SyncQueueEntry } from './db'
+
+function syncHeaders(entry: SyncQueueEntry): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (entry.idempotency_key) h['Idempotency-Key'] = entry.idempotency_key
+  return h
+}
 
 /**
  * Process a payment sync queue entry.
@@ -27,7 +36,7 @@ export async function processPaymentSync(entry: SyncQueueEntry): Promise<void> {
 async function syncCreatePayment(entry: SyncQueueEntry): Promise<void> {
   const response = await fetch('/api/payments', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify({
       ...entry.payload,
       client_id: entry.entity_id, // For dedup
@@ -55,7 +64,7 @@ async function syncSettlePayment(entry: SyncQueueEntry): Promise<void> {
   // Step 1: Settle with Valor
   const valorResponse = await fetch('/api/payments/valor/settle', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify({
       transaction_ref: payload.valor_transaction_ref,
       amount_cents: payload.amount_cents,
@@ -79,7 +88,7 @@ async function syncSettlePayment(entry: SyncQueueEntry): Promise<void> {
   // Step 2: Record the settled payment in Supabase
   const response = await fetch('/api/payments', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify({
       ...payload,
       client_id: entry.entity_id,

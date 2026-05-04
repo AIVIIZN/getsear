@@ -2,10 +2,22 @@
  * Order-specific sync logic: create, update, add items, void.
  * Handles offline order creation with local IDs, syncing to server,
  * and updating local cache with server-assigned order numbers.
+ *
+ * V5.3.1: every replayed mutation carries an `Idempotency-Key` header taken
+ * from `entry.idempotency_key`. The server's `withIdempotency` middleware
+ * dedupes by `(key, route, org_id)` so retries after a network blip return
+ * the original response instead of duplicating the write.
  */
 
 import type { SyncQueueEntry } from './db'
 import { markOrderSynced } from './orders-cache'
+
+/** Build standard headers including the per-entry Idempotency-Key (V5.3.1). */
+function syncHeaders(entry: SyncQueueEntry): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (entry.idempotency_key) h['Idempotency-Key'] = entry.idempotency_key
+  return h
+}
 
 /**
  * Process an order sync queue entry.
@@ -40,7 +52,7 @@ async function syncCreateOrder(entry: SyncQueueEntry): Promise<void> {
 
   const response = await fetch('/api/orders', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify({
       ...payload,
       client_id: entry.entity_id, // Send the offline ID as client_id for dedup
@@ -72,7 +84,7 @@ async function syncCreateOrder(entry: SyncQueueEntry): Promise<void> {
 async function syncUpdateOrder(entry: SyncQueueEntry): Promise<void> {
   const response = await fetch(`/api/orders/${entry.entity_id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify(entry.payload),
   })
 
@@ -90,7 +102,7 @@ async function syncUpdateOrder(entry: SyncQueueEntry): Promise<void> {
 async function syncAddOrderItems(entry: SyncQueueEntry): Promise<void> {
   const response = await fetch(`/api/orders/${entry.entity_id}/items`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify(entry.payload),
   })
 
@@ -108,7 +120,7 @@ async function syncAddOrderItems(entry: SyncQueueEntry): Promise<void> {
 async function syncVoidOrder(entry: SyncQueueEntry): Promise<void> {
   const response = await fetch(`/api/orders/${entry.entity_id}/void`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify(entry.payload),
   })
 
@@ -124,7 +136,7 @@ async function syncVoidOrder(entry: SyncQueueEntry): Promise<void> {
 async function syncCloseOrder(entry: SyncQueueEntry): Promise<void> {
   const response = await fetch(`/api/orders/${entry.entity_id}/close`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: syncHeaders(entry),
     body: JSON.stringify(entry.payload),
   })
 

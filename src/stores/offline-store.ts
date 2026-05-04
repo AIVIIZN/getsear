@@ -204,3 +204,39 @@ export const useOfflineStore = create<OfflineState>()((set) => ({
       }),
   },
 }))
+
+// ─── Browser-side wiring ────────────────────────────────────────────
+//
+// Module-level side effects so consumers don't have to remember to install
+// the listeners. Guarded by `typeof window !== 'undefined'` to keep SSR safe.
+
+if (typeof window !== 'undefined') {
+  // Mirror navigator.onLine into the store on online/offline events.
+  const updateOnline = () => {
+    useOfflineStore.getState().actions.setOnline(navigator.onLine)
+  }
+  window.addEventListener('online', updateOnline)
+  window.addEventListener('offline', updateOnline)
+  // Initial sync in case we mount while offline.
+  if (typeof navigator !== 'undefined' && navigator.onLine !== undefined) {
+    useOfflineStore.setState({ isOnline: navigator.onLine })
+  }
+
+  // Test-harness exposure (non-production only). The V5.3.1 Playwright spec
+  // drives the queue directly via these globals because the offline UI
+  // surfaces are owned by sister task 5.3.2. Stripped from prod builds.
+  if (process.env.NODE_ENV !== 'production') {
+    const w = window as unknown as Record<string, unknown>
+    w.useOfflineStore = useOfflineStore
+    // Lazy-import to avoid circular evaluation cost.
+    void import('@/lib/offline/db').then((mod) => {
+      w.offlineDB = mod.offlineDB
+    })
+    void import('@/lib/offline/sync-queue').then((mod) => {
+      w.syncQueue = mod
+    })
+    void import('@/lib/offline/sync-processor').then((mod) => {
+      w.syncProcessor = mod
+    })
+  }
+}

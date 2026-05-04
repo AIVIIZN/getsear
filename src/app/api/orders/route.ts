@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { withIdempotency } from '@/lib/api/idempotency'
 
 const createOrderSchema = z.object({
   order_type: z.enum([
@@ -66,8 +67,12 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/orders — create new order (draft status)
+ *
+ * Wrapped with `withIdempotency` (V5.3.1) so the offline mutation queue can
+ * safely retry: a replay with the same `Idempotency-Key` returns the
+ * original response instead of creating a duplicate order.
  */
-export async function POST(request: NextRequest) {
+export const POST = withIdempotency('orders.create', async (request: NextRequest) => {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
@@ -129,4 +134,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ data }, { status: 201 })
-}
+})
