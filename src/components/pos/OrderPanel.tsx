@@ -11,6 +11,7 @@ import { CourseSelector } from './CourseSelector'
 import { ForHereToGoToggle } from './ForHereToGoToggle'
 import { ItemEditPopover } from './ItemEditPopover'
 import { useOrderStore } from '@/stores/order-store'
+import { mutateOrder, StaleOrderError } from '@/lib/orders/api-client'
 import { getSeatColor } from '@/lib/constants'
 import type { CourseState } from '@/lib/constants'
 import {
@@ -286,6 +287,7 @@ export function OrderPanel({
     setActiveSeat,
     setForHere,
     setCourseState,
+    setCurrentOrderVersion,
   } = useOrderStore((s) => s.actions)
 
   // Popover state
@@ -350,7 +352,9 @@ export function OrderPanel({
     setEditAnchorRect(null)
   }, [])
 
-  // Course fire/hold toggle
+  // Course fire/hold toggle. V5.4.1: routed through `mutateOrder` so the
+  // optimistic-lock `If-Match` header is sent and a 409 stale-conflict
+  // surfaces the StaleOrderModal automatically.
   const handleCourseToggle = useCallback(
     async (course: number) => {
       const currentState = courseStates[course] ?? (course === 1 ? 'fire' : 'hold')
@@ -360,39 +364,34 @@ export function OrderPanel({
 
       if (!currentOrder) return
 
+      const url = newState === 'fire'
+        ? `/api/orders/${currentOrder.id}/fire-course`
+        : `/api/orders/${currentOrder.id}/hold`
+
       try {
-        if (newState === 'fire') {
-          const res = await fetch(`/api/orders/${currentOrder.id}/fire-course`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ course }),
-          })
-          if (res.ok) {
-            toast.success(`Course ${course} fired`)
-          } else {
-            // Revert
-            setCourseState(course, currentState)
-            toast.error('Failed to fire course')
-          }
-        } else {
-          const res = await fetch(`/api/orders/${currentOrder.id}/hold`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ course }),
-          })
-          if (res.ok) {
-            toast.info(`Course ${course} held`)
-          } else {
-            setCourseState(course, currentState)
-            toast.error('Failed to hold course')
-          }
+        const result = await mutateOrder(url, currentOrder.id, {
+          method: 'POST',
+          body: { course },
+          ifMatchVersion: currentOrder.version ?? null,
+        })
+        if (result.newVersion !== null) {
+          setCurrentOrderVersion(result.newVersion)
         }
-      } catch {
+        if (newState === 'fire') {
+          toast.success(`Course ${course} fired`)
+        } else {
+          toast.info(`Course ${course} held`)
+        }
+      } catch (err) {
+        // Revert the optimistic UI; the StaleOrderModal (mounted at the
+        // (pos) layout) is already showing if this was a stale conflict.
         setCourseState(course, currentState)
-        toast.error('Network error')
+        if (!(err instanceof StaleOrderError)) {
+          toast.error(err instanceof Error ? err.message : 'Failed to update course')
+        }
       }
     },
-    [courseStates, setCourseState, currentOrder]
+    [courseStates, setCourseState, currentOrder, setCurrentOrderVersion]
   )
 
   // For-here / to-go derived state

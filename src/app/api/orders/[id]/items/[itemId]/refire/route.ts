@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { assertVersion } from '@/lib/orders/concurrency'
 
 const refireSchema = z.object({
   reason: z.enum([
@@ -46,16 +47,16 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  // Verify order exists and belongs to org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, location_id, status')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
+  // V5.4.1 optimistic-lock guard. Refire mutates kitchen state; if a parallel
+  // edit is already in flight we'd rather 409 than create a refire ticket
+  // for an item that just got voided.
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, org_id, location_id, status, version',
+  })
+  if (!check.ok) return check.response
 
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  const order = check.currentRow as {
+    id: string; org_id: string; location_id: string; status: string
   }
 
   if (order.status === 'closed' || order.status === 'voided') {

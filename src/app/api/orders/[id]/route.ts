@@ -4,6 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
+import {
+  assertVersion,
+  checkUpdateAffectedRow,
+} from '@/lib/orders/concurrency'
 
 const updateOrderSchema = z.object({
   order_type: z.enum([
@@ -46,7 +50,13 @@ export async function GET(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
-  return NextResponse.json({ data })
+  // Surface the optimistic-lock version as ETag so clients can pass it back
+  // via If-Match on the next mutating request (V5.4.1).
+  const version = (data as Record<string, unknown>).version
+  const headers: Record<string, string> = {}
+  if (typeof version === 'number') headers.ETag = `"${version}"`
+
+  return NextResponse.json({ data }, { headers })
 }
 
 /**
@@ -83,6 +93,15 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
 
   const supabase = createAdminClient()
 
+  // V5.4.1: optimistic-lock guard. If the client passed `If-Match`, we
+  // compare against the live row; mismatch returns 409 with the current
+  // state so the StaleOrderModal can render a diff. No header → legacy
+  // unconditional path (offline-replay queue, pre-V5.4.1 callers).
+  const check = await assertVersion(supabase, request, id, user.org_id, {
+    select: 'metadata, version',
+  })
+  if (!check.ok) return check.response
+
   // Build update payload
   // for_here is stored in the metadata jsonb field since the orders table
   // doesn't have a dedicated column for it
@@ -90,22 +109,11 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
 
   // If for_here is being toggled, merge it into the metadata field
   if (for_here !== undefined) {
-    // Fetch current metadata
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: currentOrder } = await (supabase.from('orders') as any)
-      .select('metadata')
-      .eq('id', id)
-      .eq('org_id', user.org_id)
-      .single()
-
-    if (!currentOrder) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-    }
-
-    const metadata = { ...(currentOrder.metadata ?? {}), for_here }
+    const currentMetadata = (check.currentRow.metadata ?? {}) as Record<string, unknown>
+    const metadata = { ...currentMetadata, for_here }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('orders') as any)
+    let updateQuery = (supabase.from('orders') as any)
       .update({
         ...directFields,
         metadata,
@@ -113,12 +121,23 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
       })
       .eq('id', id)
       .eq('org_id', user.org_id)
-      .select()
-      .single()
+    if (check.expectedVersion !== null) {
+      updateQuery = updateQuery.eq('version', check.expectedVersion)
+    }
+    const { data, error } = await updateQuery.select().maybeSingle()
 
-    if (error || !data) {
+    if (error) {
       return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
     }
+
+    const staleResp = await checkUpdateAffectedRow(
+      supabase,
+      id,
+      user.org_id,
+      check.expectedVersion,
+      data
+    )
+    if (staleResp) return staleResp
 
     // Recalculate tax when for_here or order_type changes
     await recalculateOrderTotals(supabase, id, user.org_id)
@@ -130,21 +149,35 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
       .eq('id', id)
       .single()
 
-    return NextResponse.json({ data: updatedOrder })
+    const newVersion = updatedOrder?.version ?? check.currentVersion + 1
+    return NextResponse.json({ data: updatedOrder }, {
+      headers: { ETag: `"${newVersion}"` },
+    })
   }
 
   // Standard update without for_here
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('orders') as any)
+  let updateQuery = (supabase.from('orders') as any)
     .update({ ...directFields, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)
-    .select()
-    .single()
+  if (check.expectedVersion !== null) {
+    updateQuery = updateQuery.eq('version', check.expectedVersion)
+  }
+  const { data, error } = await updateQuery.select().maybeSingle()
 
-  if (error || !data) {
+  if (error) {
     return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
   }
+
+  const staleResp = await checkUpdateAffectedRow(
+    supabase,
+    id,
+    user.org_id,
+    check.expectedVersion,
+    data
+  )
+  if (staleResp) return staleResp
 
   // If order_type changed, recalculate tax (affects for-here/to-go logic)
   if (directFields.order_type) {
@@ -156,10 +189,17 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
       .eq('id', id)
       .single()
 
-    return NextResponse.json({ data: updatedOrder })
+    const newVersion = updatedOrder?.version ?? check.currentVersion + 1
+    return NextResponse.json({ data: updatedOrder }, {
+      headers: { ETag: `"${newVersion}"` },
+    })
   }
 
-  return NextResponse.json({ data })
+  const newVersion = (data as Record<string, unknown>)?.version as number | undefined
+    ?? check.currentVersion + 1
+  return NextResponse.json({ data }, {
+    headers: { ETag: `"${newVersion}"` },
+  })
 })
 
 /**

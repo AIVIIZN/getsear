@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { assertVersion } from '@/lib/orders/concurrency'
 
 const autoGratuitySchema = z.object({
   guest_count: z.number().int().min(1).max(999),
@@ -44,16 +45,15 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  // Get the order with location
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, location_id, subtotal, metadata, total, tip_total')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
-
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  // V5.4.1 optimistic-lock guard.
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, org_id, location_id, subtotal, metadata, total, tip_total, version',
+  })
+  if (!check.ok) return check.response
+  const order = check.currentRow as {
+    id: string; org_id: string; location_id: string;
+    subtotal: string; metadata: Record<string, unknown> | null;
+    total: string; tip_total: string;
   }
 
   // Get location settings for auto-gratuity configuration
@@ -159,25 +159,38 @@ export async function POST(
     performed_by: user.id,
   })
 
-  return NextResponse.json({
-    data: {
-      id: gratuity.id,
-      order_id: orderId,
-      percentage,
-      amount: gratuityAmount.toFixed(2),
-      guest_count,
-      threshold,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: refreshed } = await (supabase.from('orders') as any)
+    .select('version')
+    .eq('id', orderId)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+  const newVersion = (refreshed?.version as number | undefined) ?? check.currentVersion + 1
+
+  return NextResponse.json(
+    {
+      data: {
+        id: gratuity.id,
+        order_id: orderId,
+        percentage,
+        amount: gratuityAmount.toFixed(2),
+        guest_count,
+        threshold,
+      },
     },
-  }, { status: 201 })
+    { status: 201, headers: { ETag: `"${newVersion}"` } }
+  )
 }
 
 /**
  * DELETE /api/orders/[id]/auto-gratuity
  *
  * Removes auto-gratuity from the order. Requires manager role.
+ *
+ * V5.4.1: gated by `If-Match` optimistic-lock check.
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getAuthUser()
@@ -191,16 +204,14 @@ export async function DELETE(
 
   const supabase = createAdminClient()
 
-  // Verify order exists and belongs to org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, tip_total, total, metadata')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
-
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  // V5.4.1 optimistic-lock guard.
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, org_id, tip_total, total, metadata, version',
+  })
+  if (!check.ok) return check.response
+  const order = check.currentRow as {
+    id: string; org_id: string; tip_total: string;
+    total: string; metadata: Record<string, unknown> | null;
   }
 
   // Find the auto-gratuity discount
@@ -263,10 +274,21 @@ export async function DELETE(
     performed_by: user.id,
   })
 
-  return NextResponse.json({
-    data: {
-      order_id: orderId,
-      removed_amount: gratuityAmount.toFixed(2),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: refreshed2 } = await (supabase.from('orders') as any)
+    .select('version')
+    .eq('id', orderId)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+  const newVersion = (refreshed2?.version as number | undefined) ?? check.currentVersion + 1
+
+  return NextResponse.json(
+    {
+      data: {
+        order_id: orderId,
+        removed_amount: gratuityAmount.toFixed(2),
+      },
     },
-  })
+    { headers: { ETag: `"${newVersion}"` } }
+  )
 }

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
+import { assertVersion } from '@/lib/orders/concurrency'
 
 const modifierSchema = z.object({
   modifier_id: z.string().uuid(),
@@ -59,16 +60,16 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
 
   const supabase = createAdminClient()
 
-  // Verify order exists and belongs to org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, status, location_id')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
+  // V5.4.1 optimistic-lock guard. Adding items mutates the order's totals via
+  // `recalculateOrderTotals` below, which performs an UPDATE that fires the
+  // version-bump trigger.
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, org_id, status, location_id, version',
+  })
+  if (!check.ok) return check.response
 
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  const order = check.currentRow as {
+    id: string; org_id: string; status: string; location_id: string
   }
 
   if (order.status === 'closed' || order.status === 'voided') {
@@ -151,7 +152,8 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
     await (supabase.from('order_item_modifiers') as any).insert(modRows)
   }
 
-  // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  // Recalculate order totals using the tax engine (no more hardcoded 8.5%).
+  // This UPDATE on `orders` triggers the version bump (V5.4.1).
   await recalculateOrderTotals(supabase, orderId, user.org_id)
 
   // Fetch the complete item with modifiers
@@ -161,5 +163,17 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
     .eq('id', item.id)
     .single()
 
-  return NextResponse.json({ data: completeItem }, { status: 201 })
+  // Read the new order version for the response ETag.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: refreshed } = await (supabase.from('orders') as any)
+    .select('version')
+    .eq('id', orderId)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+  const newVersion = (refreshed?.version as number | undefined) ?? check.currentVersion + 1
+
+  return NextResponse.json(
+    { data: completeItem },
+    { status: 201, headers: { ETag: `"${newVersion}"` } }
+  )
 })

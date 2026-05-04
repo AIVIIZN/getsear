@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 
 /**
  * POST /api/orders/[id]/reopen — reopen a closed order (manager+ only)
+ *
+ * V5.4.1: gated by `If-Match` optimistic-lock check.
  */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getAuthUser()
@@ -18,25 +21,22 @@ export async function POST(
   const { id: orderId } = await params
   const supabase = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, status, total, amount_paid, org_id')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, status, total, amount_paid, org_id, version',
+  })
+  if (!check.ok) return check.response
 
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-  }
-
-  if (order.status !== 'closed') {
+  const status = check.currentRow.status as string
+  if (status !== 'closed') {
     return NextResponse.json({ error: 'Only closed orders can be reopened' }, { status: 400 })
   }
 
-  const balanceDue = (parseFloat(order.total) - parseFloat(order.amount_paid)).toFixed(2)
+  const total = check.currentRow.total as string
+  const amountPaid = check.currentRow.amount_paid as string
+  const balanceDue = (parseFloat(total) - parseFloat(amountPaid)).toFixed(2)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('orders') as any)
+  let updateQuery = (supabase.from('orders') as any)
     .update({
       status: 'served',
       closed_at: null,
@@ -44,12 +44,24 @@ export async function POST(
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)
-    .select()
-    .single()
+    .eq('org_id', user.org_id)
+  if (check.expectedVersion !== null) {
+    updateQuery = updateQuery.eq('version', check.expectedVersion)
+  }
+  const { data, error } = await updateQuery.select().maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: 'Failed to reopen order' }, { status: 500 })
   }
+
+  const staleResp = await checkUpdateAffectedRow(
+    supabase,
+    orderId,
+    user.org_id,
+    check.expectedVersion,
+    data
+  )
+  if (staleResp) return staleResp
 
   // Audit trail
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,5 +75,9 @@ export async function POST(
     performed_by: user.id,
   })
 
-  return NextResponse.json({ data })
+  const newVersion = (data as Record<string, unknown>)?.version as number | undefined
+    ?? check.currentVersion + 1
+  return NextResponse.json({ data }, {
+    headers: { ETag: `"${newVersion}"` },
+  })
 }

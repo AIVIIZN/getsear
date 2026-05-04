@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
+import { assertVersion } from '@/lib/orders/concurrency'
 
 const updateItemSchema = z.object({
   quantity: z.number().int().min(1).max(999).optional(),
@@ -46,17 +47,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const supabase = createAdminClient()
 
-  // Verify order belongs to org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
-
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-  }
+  // V5.4.1 optimistic-lock guard. PATCHing an item will trigger a totals
+  // recalculation that bumps the order's version.
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, version',
+  })
+  if (!check.ok) return check.response
 
   const updates: Record<string, unknown> = {}
   if (parsed.data.quantity !== undefined) updates.quantity = parsed.data.quantity
@@ -92,13 +88,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  // — this UPDATE bumps the order version (V5.4.1).
   await recalculateOrderTotals(supabase, orderId, user.org_id)
 
-  return NextResponse.json({ data })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: refreshed } = await (supabase.from('orders') as any)
+    .select('version')
+    .eq('id', orderId)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+  const newVersion = (refreshed?.version as number | undefined) ?? check.currentVersion + 1
+
+  return NextResponse.json(
+    { data },
+    { headers: { ETag: `"${newVersion}"` } }
+  )
 }
 
 /**
  * DELETE /api/orders/[id]/items/[itemId] -- void item
+ *
+ * NOTE: V5.4.1 deliberately does NOT add an If-Match guard here. Item-void
+ * is a privileged action (manager PIN) and is being moved to the new
+ * `/api/orders/[id]/void/route.ts` handler in sister task 5.4.2 along with
+ * comp/refund. We leave this endpoint unguarded for now to avoid a merge
+ * conflict with that branch.
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const user = await getAuthUser()

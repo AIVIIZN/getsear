@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { StaleOrderModal } from "@/components/pos/StaleOrderModal";
 import { useUIStore } from "@/stores/ui-store";
 
 export default function PosLayout({
@@ -31,6 +32,11 @@ export default function PosLayout({
         <Topbar onToggleSidebar={toggleSidebar} />
         <main className="flex-1 overflow-hidden">{children}</main>
       </div>
+
+      {/* V5.4.1 — listens for the global stale-order event from
+          src/lib/orders/api-client.ts. One mount serves every (pos)
+          subroute. */}
+      <StaleOrderModal />
     </div>
   );
 }

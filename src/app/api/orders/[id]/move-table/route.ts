@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 
 const moveTableSchema = z.object({
   table_id: z.string().uuid(),
@@ -36,19 +37,13 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  // Get current order
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, table_id, org_id')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
+  // V5.4.1 optimistic-lock guard.
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, table_id, org_id, version',
+  })
+  if (!check.ok) return check.response
 
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-  }
-
-  const previousTableId = order.table_id
+  const previousTableId = check.currentRow.table_id as string | null
 
   // Update old table to available/dirty
   if (previousTableId) {
@@ -66,18 +61,30 @@ export async function POST(
 
   // Move order
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('orders') as any)
+  let updateQuery = (supabase.from('orders') as any)
     .update({
       table_id: parsed.data.table_id,
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)
-    .select()
-    .single()
+    .eq('org_id', user.org_id)
+  if (check.expectedVersion !== null) {
+    updateQuery = updateQuery.eq('version', check.expectedVersion)
+  }
+  const { data, error } = await updateQuery.select().maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: 'Failed to move order' }, { status: 500 })
   }
+
+  const staleResp = await checkUpdateAffectedRow(
+    supabase,
+    orderId,
+    user.org_id,
+    check.expectedVersion,
+    data
+  )
+  if (staleResp) return staleResp
 
   // Audit trail
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,5 +98,9 @@ export async function POST(
     performed_by: user.id,
   })
 
-  return NextResponse.json({ data })
+  const newVersion = (data as Record<string, unknown>)?.version as number | undefined
+    ?? check.currentVersion + 1
+  return NextResponse.json({ data }, {
+    headers: { ETag: `"${newVersion}"` },
+  })
 }
