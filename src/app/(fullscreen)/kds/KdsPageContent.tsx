@@ -545,6 +545,7 @@ export default function KdsPage() {
   const handleBumpAll = useCallback(async () => {
     if (!activeStationId || !locationId) return
 
+    haptics.kdsBump()
     try {
       const res = await fetch('/api/kds/tickets/bump-all', {
         method: 'POST',
