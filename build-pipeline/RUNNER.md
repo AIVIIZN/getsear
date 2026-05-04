@@ -91,7 +91,8 @@ For a parallel batch with N tasks, you spawn N agents in **one message** contain
 | `marketing-engineer` | Resend + react-email + BullMQ campaign pipeline | 5.1.2, 5.1.3, 5.1.4, 8.4.1 |
 | `realtime-engineer` | Realtime hooks, IndexedDB offline queue, optimistic locking, XState order machine | 5.3.1, 5.3.2, 5.4.1, 5.4.2, 7.5.2, 7.5.3 |
 | `hardware-integrator` | Star/Valor/Bematech drivers + setup wizards | 5.2.1, 5.2.2, 5.2.3 |
-| `migration-author` | Supabase migrations + rollback files | Any task adding tables/columns/indexes/policies |
+| `migration-author` | Supabase schema DDL + paired rollback files only | Any task adding tables/columns/indexes/policies |
+| `supabase` | Edge functions, type gen, auth flows (MFA/SSO/OAuth), storage buckets + signed URLs, RPC functions, extensions, performance/security advisors, Supabase MCP tooling | V8 onboarding/auth, V9 integrations needing edge functions, V10 AI tasks needing pgvector, anything in `supabase/functions/` or `src/lib/supabase/{auth,storage}.ts` |
 | `e2e-tester` | Playwright workflow specs in `e2e/` | 5.5.1, 5.5.2, and any test-only batch |
 | `security-reviewer` | RLS, manager-PIN, audit-log, OWASP audits | 8.3.x, 8.6.x, any auth/payment privileged-action task |
 | `devops-deploy` | INTEGRATE.sh, DEPLOY.sh, GitHub Actions, pm2/VM, Sentry | 7.1.x, 7.4.x, any pipeline-plumbing task |
