@@ -4,21 +4,20 @@ import * as React from "react"
 import { FranchiseDashboard } from "@/components/franchise/FranchiseDashboard"
 import {
   Building2,
-  Plus,
   Loader2,
   DollarSign,
   MapPin,
   BarChart3,
   Calculator,
-  TrendingUp,
   CheckCircle,
-  Clock,
   FileText,
   RefreshCw,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/components/ui-v2/data/Badge"
+import { Stat } from "@/components/ui-v2/data/Stat"
+import { Skeleton } from "@/components/ui-v2/data/Skeleton"
 import {
   Table,
   TableHeader,
@@ -43,7 +42,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui-v2/Card"
 import { Separator } from "@/components/ui/separator"
 import { EmptyState } from "@/components/shared/EmptyState"
 
@@ -96,12 +95,15 @@ interface ConsolidatedReport {
 }
 
 // ---------------------------------------------------------------------------
-// Status colors
+// Status → ui-v2 Badge variant
 // ---------------------------------------------------------------------------
-const ROYALTY_STATUS_COLORS: Record<string, string> = {
-  calculated: "bg-blue-50 text-blue-700 border-blue-200",
-  invoiced: "bg-amber-50 text-amber-700 border-amber-200",
-  paid: "bg-green-50 text-green-700 border-green-200",
+type BadgeVariant = "default" | "primary" | "success" | "warning" | "danger" | "info"
+
+function royaltyBadgeVariant(status: string): BadgeVariant {
+  if (status === "paid") return "success"
+  if (status === "invoiced") return "warning"
+  if (status === "calculated") return "info"
+  return "default"
 }
 
 // ---------------------------------------------------------------------------
@@ -313,52 +315,37 @@ export default function FranchisePage() {
             ROYALTIES TAB
             ============================================================ */}
         <TabsContent value="royalties" className="space-y-4">
-          {/* Summary */}
+          {/* Summary — ui-v2 Stat */}
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-blue-50 p-2">
-                    <DollarSign className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold tabular-nums">
-                      ${totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Total Due</p>
-                  </div>
-                </div>
-              </CardContent>
+            <Card variant="elevated" padding="compact">
+              <Stat
+                label="Total Due"
+                value={
+                  <span className="text-[var(--color-primary)]">
+                    ${totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                }
+              />
             </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-green-50 p-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold tabular-nums">
-                      ${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Total Paid</p>
-                  </div>
-                </div>
-              </CardContent>
+            <Card variant="elevated" padding="compact">
+              <Stat
+                label="Total Paid"
+                value={
+                  <span className="text-[var(--color-success)]">
+                    ${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                }
+              />
             </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-amber-50 p-2">
-                    <Clock className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold tabular-nums">
-                      ${totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Outstanding</p>
-                  </div>
-                </div>
-              </CardContent>
+            <Card variant="elevated" padding="compact">
+              <Stat
+                label="Outstanding"
+                value={
+                  <span className="text-[var(--color-warning)]">
+                    ${totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                }
+              />
             </Card>
           </div>
 
@@ -383,8 +370,11 @@ export default function FranchisePage() {
 
           {/* Table */}
           {royaltiesLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-2">
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
             </div>
           ) : royalties.length === 0 ? (
             <EmptyState
@@ -395,7 +385,7 @@ export default function FranchisePage() {
               onAction={() => setCalcSheetOpen(true)}
             />
           ) : (
-            <div className="rounded-lg border bg-card">
+            <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -435,8 +425,9 @@ export default function FranchisePage() {
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant="outline"
-                          className={`capitalize text-xs ${ROYALTY_STATUS_COLORS[r.status] ?? ""}`}
+                          variant={royaltyBadgeVariant(r.status)}
+                          size="sm"
+                          className="capitalize"
                         >
                           {r.status}
                         </Badge>
@@ -459,7 +450,7 @@ export default function FranchisePage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-xs text-green-600"
+                              className="h-7 text-xs text-[var(--color-success)]"
                               onClick={() => markAsPaid(r.id)}
                               disabled={saving}
                             >
@@ -482,8 +473,10 @@ export default function FranchisePage() {
             ============================================================ */}
         <TabsContent value="locations" className="space-y-4">
           {locationsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} variant="card" className="h-44" />
+              ))}
             </div>
           ) : locations.length === 0 ? (
             <EmptyState
@@ -492,52 +485,50 @@ export default function FranchisePage() {
               description="Add locations to your organization to see them here."
             />
           ) : (
-            <>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {locations.map((loc) => (
-                  <Card key={loc.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{loc.name}</CardTitle>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${loc.is_active ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-100 text-gray-500"}`}
-                        >
-                          {loc.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {loc.phone && (
-                        <p className="text-sm text-muted-foreground">{loc.phone}</p>
-                      )}
-                      {loc.timezone && (
-                        <p className="text-xs text-muted-foreground">{loc.timezone}</p>
-                      )}
-                      {loc.metrics && (
-                        <>
-                          <Separator />
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <p className="text-muted-foreground text-xs">30d Revenue</p>
-                              <p className="font-semibold tabular-nums">
-                                ${parseFloat(loc.metrics.revenue_30d).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground text-xs">30d Orders</p>
-                              <p className="font-semibold tabular-nums">
-                                {loc.metrics.order_count_30d.toLocaleString()}
-                              </p>
-                            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {locations.map((loc) => (
+                <Card key={loc.id} variant="elevated" padding="compact" className="gap-[var(--space-3)]">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-[length:var(--type-callout-size)]">{loc.name}</CardTitle>
+                      <Badge
+                        variant={loc.is_active ? "success" : "default"}
+                        size="sm"
+                      >
+                        {loc.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardBody>
+                    {loc.phone && (
+                      <p className="text-[var(--type-subhead-size)] text-[var(--color-text-muted)]">{loc.phone}</p>
+                    )}
+                    {loc.timezone && (
+                      <p className="text-[var(--type-caption-1-size)] text-[var(--color-text-muted)]">{loc.timezone}</p>
+                    )}
+                    {loc.metrics && (
+                      <>
+                        <Separator />
+                        <div className="grid grid-cols-2 gap-2 text-[var(--type-subhead-size)]">
+                          <div>
+                            <p className="text-[var(--color-text-muted)] text-[var(--type-caption-1-size)]">30d Revenue</p>
+                            <p className="font-[var(--weight-semibold)] tabular-nums">
+                              ${parseFloat(loc.metrics.revenue_30d).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </p>
                           </div>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </>
+                          <div>
+                            <p className="text-[var(--color-text-muted)] text-[var(--type-caption-1-size)]">30d Orders</p>
+                            <p className="font-[var(--weight-semibold)] tabular-nums">
+                              {loc.metrics.order_count_30d.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
           )}
         </TabsContent>
 
@@ -578,8 +569,13 @@ export default function FranchisePage() {
           </div>
 
           {reportLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} variant="card" className="h-24" />
+                ))}
+              </div>
+              <Skeleton variant="chart" className="h-64" />
             </div>
           ) : !report ? (
             <EmptyState
@@ -589,76 +585,48 @@ export default function FranchisePage() {
             />
           ) : (
             <>
-              {/* Totals */}
+              {/* Totals — ui-v2 Stat */}
               <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-primary/10 p-2">
-                        <DollarSign className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tabular-nums">
-                          ${parseFloat(report.totals.revenue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Total Revenue</p>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <Stat
+                    label="Total Revenue"
+                    value={
+                      <span className="text-[var(--color-primary)]">
+                        ${parseFloat(report.totals.revenue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    }
+                  />
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-blue-50 p-2">
-                        <FileText className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tabular-nums">
-                          {report.totals.order_count.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Total Orders</p>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <Stat
+                    label="Total Orders"
+                    value={report.totals.order_count.toLocaleString()}
+                  />
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-green-50 p-2">
-                        <TrendingUp className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tabular-nums">
-                          ${parseFloat(report.totals.avg_check).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Avg Check</p>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <Stat
+                    label="Avg Check"
+                    value={
+                      <span className="text-[var(--color-success)]">
+                        ${parseFloat(report.totals.avg_check).toFixed(2)}
+                      </span>
+                    }
+                  />
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-purple-50 p-2">
-                        <Building2 className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tabular-nums">
-                          {report.totals.location_count}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Locations</p>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <Stat
+                    label="Locations"
+                    value={report.totals.location_count}
+                  />
                 </Card>
               </div>
 
               {/* Per-location table */}
-              <Card>
+              <Card variant="flat" padding="compact" className="gap-[var(--space-3)]">
                 <CardHeader>
-                  <CardTitle className="text-lg">Location Breakdown</CardTitle>
+                  <CardTitle className="text-[length:var(--type-headline-size)]">Location Breakdown</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardBody>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -687,7 +655,7 @@ export default function FranchisePage() {
                       ))}
                     </TableBody>
                   </Table>
-                </CardContent>
+                </CardBody>
               </Card>
             </>
           )}

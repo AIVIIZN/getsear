@@ -9,14 +9,12 @@ import {
   Trash2,
   Timer,
   MonitorPlay,
-  Clock,
-  TrendingUp,
-  Activity,
-  Zap,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/components/ui-v2/data/Badge"
+import { Stat } from "@/components/ui-v2/data/Stat"
+import { Skeleton } from "@/components/ui-v2/data/Skeleton"
 import {
   Table,
   TableHeader,
@@ -50,7 +48,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui-v2/Card"
 import { Separator } from "@/components/ui/separator"
 import { EmptyState } from "@/components/shared/EmptyState"
 
@@ -87,7 +85,7 @@ interface MenuBoard {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — token-based palette for chart bars + speed scoring
 // ---------------------------------------------------------------------------
 function formatSeconds(s: number): string {
   const mins = Math.floor(s / 60)
@@ -95,16 +93,26 @@ function formatSeconds(s: number): string {
   return `${mins}:${String(secs).padStart(2, "0")}`
 }
 
-function speedColor(seconds: number): string {
-  if (seconds <= 120) return "text-green-600"
-  if (seconds <= 180) return "text-amber-600"
-  return "text-red-600"
+type SpeedTier = "fast" | "ok" | "slow"
+
+function speedTier(seconds: number): SpeedTier {
+  if (seconds <= 120) return "fast"
+  if (seconds <= 180) return "ok"
+  return "slow"
 }
 
-function speedBg(seconds: number): string {
-  if (seconds <= 120) return "bg-green-50"
-  if (seconds <= 180) return "bg-amber-50"
-  return "bg-red-50"
+function speedTextClass(seconds: number): string {
+  const tier = speedTier(seconds)
+  if (tier === "fast") return "text-[var(--color-success)]"
+  if (tier === "ok") return "text-[var(--color-warning)]"
+  return "text-[var(--color-danger)]"
+}
+
+function speedBarVar(seconds: number): string {
+  const tier = speedTier(seconds)
+  if (tier === "fast") return "var(--color-success-strong)"
+  if (tier === "ok") return "var(--color-warning-strong)"
+  return "var(--color-danger-strong)"
 }
 
 function formatHour(h: number): string {
@@ -314,8 +322,13 @@ export default function DriveThruPage() {
           </div>
 
           {metricsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} variant="card" className="h-24" />
+                ))}
+              </div>
+              <Skeleton variant="chart" className="h-64" />
             </div>
           ) : !metrics || metrics.total_orders === 0 ? (
             <EmptyState
@@ -325,68 +338,39 @@ export default function DriveThruPage() {
             />
           ) : (
             <>
-              {/* Summary cards */}
+              {/* Summary cards — ui-v2 Stat */}
               <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className={`rounded-full p-2 ${speedBg(metrics.avg_total_seconds)}`}>
-                        <Clock className={`h-5 w-5 ${speedColor(metrics.avg_total_seconds)}`} />
-                      </div>
-                      <div>
-                        <p className={`text-2xl font-bold tabular-nums ${speedColor(metrics.avg_total_seconds)}`}>
-                          {formatSeconds(metrics.avg_total_seconds)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Avg Total Time
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <Stat
+                    label="Avg Total Time"
+                    value={
+                      <span className={speedTextClass(metrics.avg_total_seconds)}>
+                        {formatSeconds(metrics.avg_total_seconds)}
+                      </span>
+                    }
+                  />
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-blue-50 p-2">
-                        <Car className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tabular-nums">
-                          {metrics.total_orders.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Cars Served
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <Stat
+                    label="Cars Served"
+                    value={metrics.total_orders.toLocaleString()}
+                  />
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-purple-50 p-2">
-                        <Activity className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tabular-nums">
-                          {metrics.lanes.length}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Active Lanes
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card variant="elevated" padding="compact">
+                  <Stat
+                    label="Active Lanes"
+                    value={metrics.lanes.length}
+                  />
                 </Card>
               </div>
 
               {/* Lane breakdown */}
               {metrics.lanes.length > 0 && (
-                <Card>
+                <Card variant="flat" padding="compact" className="gap-[var(--space-3)]">
                   <CardHeader>
-                    <CardTitle className="text-lg">Lane Performance</CardTitle>
+                    <CardTitle className="text-[length:var(--type-headline-size)]">Lane Performance</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardBody>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -406,30 +390,30 @@ export default function DriveThruPage() {
                             <TableCell className="text-right tabular-nums">
                               {l.order_count}
                             </TableCell>
-                            <TableCell className={`text-right tabular-nums font-medium ${speedColor(l.avg_seconds)}`}>
+                            <TableCell className={`text-right tabular-nums font-medium ${speedTextClass(l.avg_seconds)}`}>
                               {formatSeconds(l.avg_seconds)}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums text-green-600">
+                            <TableCell className="text-right tabular-nums text-[var(--color-success)]">
                               {formatSeconds(l.min_seconds)}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums text-red-600">
+                            <TableCell className="text-right tabular-nums text-[var(--color-danger)]">
                               {formatSeconds(l.max_seconds)}
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               )}
 
-              {/* Hourly breakdown */}
+              {/* Hourly breakdown — token-driven custom bars */}
               {metrics.hourly.length > 0 && (
-                <Card>
+                <Card variant="flat" padding="compact" className="gap-[var(--space-3)]">
                   <CardHeader>
-                    <CardTitle className="text-lg">Hourly Breakdown</CardTitle>
+                    <CardTitle className="text-[length:var(--type-headline-size)]">Hourly Breakdown</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardBody>
                     <div className="space-y-2">
                       {metrics.hourly.map((h) => {
                         const maxOrders = Math.max(
@@ -442,15 +426,19 @@ export default function DriveThruPage() {
 
                         return (
                           <div key={h.hour} className="flex items-center gap-3">
-                            <span className="w-14 text-xs text-muted-foreground text-right">
+                            <span className="w-14 text-[var(--type-caption-1-size)] text-[var(--color-text-muted)] text-right">
                               {formatHour(h.hour)}
                             </span>
-                            <div className="flex-1 h-6 bg-muted rounded overflow-hidden relative">
+                            <div className="flex-1 h-6 bg-[var(--color-bg-muted)] rounded-[var(--radius-sm)] overflow-hidden relative">
                               <div
-                                className={`h-full rounded transition-all ${speedBg(h.avg_seconds).replace("bg-", "bg-")}`}
-                                style={{ width: `${widthPct}%`, backgroundColor: h.avg_seconds <= 120 ? "#bbf7d0" : h.avg_seconds <= 180 ? "#fde68a" : "#fecaca" }}
+                                className="h-full rounded-[var(--radius-sm)] transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
+                                style={{
+                                  width: `${widthPct}%`,
+                                  backgroundColor: speedBarVar(h.avg_seconds),
+                                  opacity: 0.85,
+                                }}
                               />
-                              <span className="absolute inset-0 flex items-center px-2 text-xs font-medium">
+                              <span className="absolute inset-0 flex items-center px-2 text-xs font-medium text-[var(--color-text)]">
                                 {h.order_count} orders &middot; {formatSeconds(h.avg_seconds)} avg
                               </span>
                             </div>
@@ -458,7 +446,7 @@ export default function DriveThruPage() {
                         )
                       })}
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               )}
             </>
@@ -477,8 +465,10 @@ export default function DriveThruPage() {
           </div>
 
           {boardsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-2">
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
+              <Skeleton variant="table-row" />
             </div>
           ) : boards.length === 0 ? (
             <EmptyState
@@ -489,7 +479,7 @@ export default function DriveThruPage() {
               onAction={openCreateBoard}
             />
           ) : (
-            <div className="rounded-lg border bg-card">
+            <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -505,14 +495,14 @@ export default function DriveThruPage() {
                     <TableRow key={b.id}>
                       <TableCell className="font-medium">{b.name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize text-xs">
+                        <Badge variant="default" size="sm" className="capitalize">
                           {b.type.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant="outline"
-                          className={`text-xs ${b.is_active ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}
+                          variant={b.is_active ? "success" : "default"}
+                          size="sm"
                         >
                           {b.is_active ? "Active" : "Inactive"}
                         </Badge>
