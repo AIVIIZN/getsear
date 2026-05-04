@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { diffTicketItems, type DiffableOrderItem } from '@/lib/kds/diff'
 
 interface RawOrderItem {
   id: string
@@ -56,6 +57,7 @@ interface TicketItem {
   is_fired: boolean
   is_bumped: boolean
   is_refire: boolean
+  is_add: boolean
   refire_count: number
   refire_reason: string | null
   prep_station: string | null
@@ -172,6 +174,37 @@ export async function GET(request: NextRequest) {
 
   if (!items || items.length === 0) {
     return NextResponse.json({ data: [] })
+  }
+
+  // 3b. Compute per-order ADD-item diffs.
+  // Anchor must be the order's earliest sent_at across ALL items, not just
+  // items routed to this station -- otherwise a station that only sees a
+  // late-added item would treat it as the "original" batch.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: allOrderItemsForDiff } = await (supabase.from('order_items') as any)
+    .select('id, order_id, sent_at, is_void')
+    .in('order_id', orderIds)
+    .eq('is_sent', true)
+
+  const addItemIds = new Set<string>()
+  if (allOrderItemsForDiff) {
+    const itemsByOrder = new Map<string, DiffableOrderItem[]>()
+    for (const row of allOrderItemsForDiff as Array<{
+      id: string
+      order_id: string
+      sent_at: string | null
+      is_void: boolean | null
+    }>) {
+      const list = itemsByOrder.get(row.order_id) ?? []
+      list.push({ id: row.id, sent_at: row.sent_at, is_void: row.is_void })
+      itemsByOrder.set(row.order_id, list)
+    }
+    for (const orderItems of itemsByOrder.values()) {
+      const diff = diffTicketItems(orderItems)
+      for (const change of diff.changes) {
+        if (change.is_add) addItemIds.add(change.id)
+      }
+    }
   }
 
   // 4. Get ALL bump/recall/refire events for these items
@@ -351,6 +384,7 @@ export async function GET(request: NextRequest) {
       is_fired: item.is_fired ?? false,
       is_bumped: isExpo ? (isBumpedAnywhere || item.is_ready) : isBumpedHere,
       is_refire: itemEvents?.isRefire ?? false,
+      is_add: addItemIds.has(item.id),
       refire_count: itemEvents?.refireCount ?? 0,
       refire_reason: itemEvents?.lastRefireReason ?? null,
       prep_station: item.prep_station,
@@ -386,6 +420,7 @@ export async function GET(request: NextRequest) {
     const customerInfo = order.customer_id ? customerMap[order.customer_id] : undefined
     const isVip = customerInfo?.is_vip ?? false
     const isRefire = ticketItems.some((i) => i.is_refire)
+    const isAdd = ticketItems.some((i) => i.is_add)
     const isRush = order.is_rush ?? false
 
     // Resolve priority
@@ -424,7 +459,7 @@ export async function GET(request: NextRequest) {
       is_rush: isRush,
       is_vip: isVip,
       is_refire: isRefire,
-      is_add: false, // TODO: detect ADD orders based on prior sent_at
+      is_add: isAdd,
       station_id: stationId,
       priority,
       station_statuses: stationStatuses,

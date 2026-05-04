@@ -358,6 +358,11 @@ function TicketItemRow({
               RE-FIRE{(item.refire_count ?? 0) > 1 ? ` x${item.refire_count}` : ''}
             </span>
           )}
+          {item.is_add && !isRefire && (
+            <span className="rounded bg-blue-600 px-1.5 py-0.5 text-caption-2 font-black uppercase tracking-wider text-white">
+              ADD
+            </span>
+          )}
           {isVoided && (
             <span className="text-caption-1 font-bold text-red-400">(VOIDED)</span>
           )}
