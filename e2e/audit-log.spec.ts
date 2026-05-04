@@ -31,13 +31,17 @@ test.afterAll(async () => {
 })
 
 test.describe('Audit Log API', () => {
-  test('GET /api/audit-log returns 401 without auth', async ({ playwright }) => {
+  test('GET /api/audit-log rejects unauthenticated callers', async ({ playwright }) => {
     const ctx = await playwright.request.newContext({
       baseURL: 'https://getsear.com',
       ignoreHTTPSErrors: true,
+      maxRedirects: 0,
     })
     const res = await ctx.get('/api/audit-log')
-    expect(res.status()).toBe(401)
+    // Middleware redirects unauth API calls to /login (302); the route's own
+    // 401 only fires for callers that bypass the middleware. Either denies
+    // access — the test verifies the negative path, not the specific status.
+    expect([302, 401]).toContain(res.status())
     await ctx.dispose()
   })
 
@@ -61,13 +65,14 @@ test.describe('Audit Log API', () => {
     expect([401, 403]).toContain(res.status())
   })
 
-  test('GET /api/audit-log/export rejects missing PIN with no auth (401)', async ({ playwright }) => {
+  test('GET /api/audit-log/export rejects unauthenticated callers', async ({ playwright }) => {
     const ctx = await playwright.request.newContext({
       baseURL: 'https://getsear.com',
       ignoreHTTPSErrors: true,
+      maxRedirects: 0,
     })
     const res = await ctx.get('/api/audit-log/export?manager_pin=000000')
-    expect(res.status()).toBe(401)
+    expect([302, 401]).toContain(res.status())
     await ctx.dispose()
   })
 
@@ -97,8 +102,10 @@ test.describe('Audit Log Page', () => {
 
   test('clicking Export CSV opens the PIN dialog', async ({ page }) => {
     await page.goto('/audit-log')
-    await page.getByRole('button', { name: /Export CSV/i }).click()
-    await expect(page.getByText(/Confirm owner PIN/i)).toBeVisible()
-    await expect(page.getByLabel(/Owner PIN/i)).toBeVisible()
+    const exportBtn = page.getByRole('button', { name: /Export CSV/i })
+    await expect(exportBtn).toBeVisible({ timeout: 10000 })
+    await exportBtn.click()
+    await expect(page.getByText(/Confirm owner PIN/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('#audit-export-pin')).toBeVisible()
   })
 })
