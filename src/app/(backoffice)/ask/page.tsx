@@ -1,14 +1,19 @@
 'use client'
 
 import { useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { MessageSquare, Plus, Clock, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAIStore } from '@/stores/ai-store'
 import { SearAskChat } from '@/components/ai/SearAskChat'
 import { InsightsList } from '@/components/ai/InsightsList'
-import { PredictionChart } from '@/components/ai/PredictionChart'
 import { PredictionSummary } from '@/components/ai/PredictionSummary'
+
+const PredictionChart = dynamic(
+  () => import('@/components/ai/PredictionChart').then(m => ({ default: m.PredictionChart })),
+  { ssr: false, loading: () => <div className="h-[200px] w-full skeleton rounded-[var(--radius-md)]" /> },
+)
 
 /**
  * Full-page Sear Ask chat interface.

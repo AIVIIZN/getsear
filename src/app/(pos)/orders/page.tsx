@@ -1,23 +1,49 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { OrderPanel } from '@/components/pos/OrderPanel'
 import { MenuGrid } from '@/components/pos/MenuGrid'
 import { ModifierSheet } from '@/components/pos/ModifierSheet'
-import { ComboBuilder } from '@/components/pos/ComboBuilder'
-import { OpenPriceDialog } from '@/components/pos/OpenPriceDialog'
-import { VoidReasonDialog } from '@/components/pos/VoidReasonDialog'
-import { CompDialog } from '@/components/pos/CompDialog'
-import { DiscountDialog } from '@/components/pos/DiscountDialog'
-import { OrderTransferDialog } from '@/components/pos/OrderTransferDialog'
-import { TableMoveDialog } from '@/components/pos/TableMoveDialog'
-import { AllergenWarningDialog } from '@/components/pos/AllergenWarningDialog'
 import { useOrderStore } from '@/stores/order-store'
 import { useMenuStore } from '@/stores/menu-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { useRealtime86 } from '@/hooks/use-realtime'
 import { toast } from 'sonner'
+
+const ComboBuilder = dynamic(
+  () => import('@/components/pos/ComboBuilder').then(m => ({ default: m.ComboBuilder })),
+  { ssr: false },
+)
+const OpenPriceDialog = dynamic(
+  () => import('@/components/pos/OpenPriceDialog').then(m => ({ default: m.OpenPriceDialog })),
+  { ssr: false },
+)
+const VoidReasonDialog = dynamic(
+  () => import('@/components/pos/VoidReasonDialog').then(m => ({ default: m.VoidReasonDialog })),
+  { ssr: false },
+)
+const CompDialog = dynamic(
+  () => import('@/components/pos/CompDialog').then(m => ({ default: m.CompDialog })),
+  { ssr: false },
+)
+const DiscountDialog = dynamic(
+  () => import('@/components/pos/DiscountDialog').then(m => ({ default: m.DiscountDialog })),
+  { ssr: false },
+)
+const OrderTransferDialog = dynamic(
+  () => import('@/components/pos/OrderTransferDialog').then(m => ({ default: m.OrderTransferDialog })),
+  { ssr: false },
+)
+const TableMoveDialog = dynamic(
+  () => import('@/components/pos/TableMoveDialog').then(m => ({ default: m.TableMoveDialog })),
+  { ssr: false },
+)
+const AllergenWarningDialog = dynamic(
+  () => import('@/components/pos/AllergenWarningDialog').then(m => ({ default: m.AllergenWarningDialog })),
+  { ssr: false },
+)
 
 interface ModifierGroupData {
   id: string
@@ -850,21 +876,25 @@ export default function OrdersPage() {
       />
 
       {/* Combo Builder */}
-      <ComboBuilder
-        item={comboItem}
-        open={comboBuilderOpen}
-        onOpenChange={setComboBuilderOpen}
-        onAcceptCombo={handleComboAccept}
-        onDeclineCombo={handleComboDecline}
-      />
+      {comboBuilderOpen && (
+        <ComboBuilder
+          item={comboItem}
+          open={comboBuilderOpen}
+          onOpenChange={setComboBuilderOpen}
+          onAcceptCombo={handleComboAccept}
+          onDeclineCombo={handleComboDecline}
+        />
+      )}
 
       {/* Open Price Dialog */}
-      <OpenPriceDialog
-        item={openPriceItem}
-        open={openPriceDialogOpen}
-        onOpenChange={setOpenPriceDialogOpen}
-        onConfirmPrice={handleOpenPriceConfirm}
-      />
+      {openPriceDialogOpen && (
+        <OpenPriceDialog
+          item={openPriceItem}
+          open={openPriceDialogOpen}
+          onOpenChange={setOpenPriceDialogOpen}
+          onConfirmPrice={handleOpenPriceConfirm}
+        />
+      )}
 
       {/* Void Reason Dialog */}
       {voidTarget && (
@@ -889,41 +919,49 @@ export default function OrdersPage() {
       )}
 
       {/* Discount Dialog */}
-      <DiscountDialog
-        open={discountOpen}
-        onOpenChange={setDiscountOpen}
-        subtotalCents={currentOrder?.subtotal_cents ?? 0}
-        onApply={handleDiscountApply}
-      />
+      {discountOpen && (
+        <DiscountDialog
+          open={discountOpen}
+          onOpenChange={setDiscountOpen}
+          subtotalCents={currentOrder?.subtotal_cents ?? 0}
+          onApply={handleDiscountApply}
+        />
+      )}
 
       {/* Order Transfer Dialog */}
-      <OrderTransferDialog
-        open={transferOpen}
-        onOpenChange={setTransferOpen}
-        currentServerId={currentOrder?.server_id ?? ''}
-        currentServerName={currentOrder?.server_name ?? ''}
-        onTransfer={handleTransfer}
-      />
+      {transferOpen && (
+        <OrderTransferDialog
+          open={transferOpen}
+          onOpenChange={setTransferOpen}
+          currentServerId={currentOrder?.server_id ?? ''}
+          currentServerName={currentOrder?.server_name ?? ''}
+          onTransfer={handleTransfer}
+        />
+      )}
 
       {/* Table Move Dialog */}
-      <TableMoveDialog
-        open={tableMoveOpen}
-        onOpenChange={setTableMoveOpen}
-        currentTableId={currentOrder?.table_id ?? null}
-        currentTableName={currentOrder?.table_name ?? null}
-        locationId={activeLocationId ?? ''}
-        onMove={handleTableMove}
-      />
+      {tableMoveOpen && (
+        <TableMoveDialog
+          open={tableMoveOpen}
+          onOpenChange={setTableMoveOpen}
+          currentTableId={currentOrder?.table_id ?? null}
+          currentTableName={currentOrder?.table_name ?? null}
+          locationId={activeLocationId ?? ''}
+          onMove={handleTableMove}
+        />
+      )}
 
       {/* Allergen Warning Dialog */}
-      <AllergenWarningDialog
-        open={allergenDialogOpen}
-        onOpenChange={setAllergenDialogOpen}
-        itemName={pendingAllergenItem?.name ?? ''}
-        conflicts={allergenConflicts}
-        onAcknowledge={handleAllergenAcknowledge}
-        onCancel={handleAllergenCancel}
-      />
+      {allergenDialogOpen && (
+        <AllergenWarningDialog
+          open={allergenDialogOpen}
+          onOpenChange={setAllergenDialogOpen}
+          itemName={pendingAllergenItem?.name ?? ''}
+          conflicts={allergenConflicts}
+          onAcknowledge={handleAllergenAcknowledge}
+          onCancel={handleAllergenCancel}
+        />
+      )}
     </div>
   )
 }

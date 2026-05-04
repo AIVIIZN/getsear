@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 import { Button } from '@/components/ui-v2/Button'
 import { Skeleton } from '@/components/ui-v2/data/Skeleton'
@@ -8,8 +9,12 @@ import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { Table, TableBody, TableCell, TableHeader, TableRow, type SortDirection } from '@/components/ui-v2/data/Table'
 import { Badge, type BadgeProps } from '@/components/ui-v2/data/Badge'
 import { DateRangePicker, type DatePreset } from '@/components/reports/DateRangePicker'
-import { PMIXScatter } from '@/components/reports/PMIXScatter'
 import { Download, ChefHat } from 'lucide-react'
+
+const PMIXScatter = dynamic(
+  () => import('@/components/reports/PMIXScatter').then(m => ({ default: m.PMIXScatter })),
+  { ssr: false, loading: () => <Skeleton variant="chart" className="h-72" /> },
+)
 
 interface PMIXItem {
   name: string

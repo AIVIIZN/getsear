@@ -1,14 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 import { Button } from '@/components/ui-v2/Button'
 import { Text } from '@/components/ui-v2/inputs/Text'
 import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
-import { PLWaterfallChart } from '@/components/reports/PLWaterfallChart'
 import { ComparisonArrow } from '@/components/reports/ComparisonArrow'
 import { Download, TrendingUp } from 'lucide-react'
+
+const PLWaterfallChart = dynamic(
+  () => import('@/components/reports/PLWaterfallChart').then(m => ({ default: m.PLWaterfallChart })),
+  { ssr: false, loading: () => <Skeleton variant="chart" className="h-72" /> },
+)
 
 interface PnLData {
   month: string
