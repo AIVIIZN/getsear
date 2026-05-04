@@ -74,6 +74,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(func
             width={192}
             height={160}
             priority={false}
+            unoptimized
             className="h-40 w-48 select-none"
           />
         </div>
