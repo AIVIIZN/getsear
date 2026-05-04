@@ -1,0 +1,147 @@
+name: Load Test — k6 Full Shift
+
+on:
+  # Weekly on Monday at 09:00 UTC — runs against staging (NOT prod).
+  schedule:
+    - cron: '0 9 * * 1'
+
+  # On-demand via Actions UI. Set `target` to "prod" to intentionally
+  # hammer production (requires explicit human confirmation).
+  workflow_dispatch:
+    inputs:
+      target:
+        description: >
+          Target environment. Use "staging" (default) for the spinning-up
+          staging server, or type "prod" to confirm you want to load-test
+          the live production URL (getsear.com). Prod load test is NEVER
+          run automatically — only on manual dispatch with this input set.
+        required: false
+        default: staging
+        type: choice
+        options:
+          - staging
+          - prod
+
+# Prevent concurrent load runs from piling up.
+concurrency:
+  group: load-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  load-test:
+    name: k6 Full-Shift Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Resolve the target URL.
+      #   • Scheduled run: always staging.
+      #   • workflow_dispatch with target=prod: use prod URL.
+      #   • workflow_dispatch with target=staging (default): use staging.
+      # STAGING_URL secret must be set in repo settings; falls back to a
+      # local Next.js instance spun up in the next step if absent.
+      TARGET: ${{ github.event.inputs.target || 'staging' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine BASE_URL
+        id: base_url
+        run: |
+          if [[ "${{ env.TARGET }}" == "prod" ]]; then
+            echo "url=https://getsear.com" >> "$GITHUB_OUTPUT"
+            echo "::notice::Running load test against PRODUCTION (https://getsear.com)"
+          elif [[ -n "${{ secrets.STAGING_URL }}" ]]; then
+            echo "url=${{ secrets.STAGING_URL }}" >> "$GITHUB_OUTPUT"
+            echo "::notice::Running load test against staging: ${{ secrets.STAGING_URL }}"
+          else
+            echo "url=http://localhost:3000" >> "$GITHUB_OUTPUT"
+            echo "::notice::No STAGING_URL secret — will spin up local Next.js server"
+          fi
+
+      # ---------------------------------------------------------------------------
+      # Spin up a local Next.js instance when STAGING_URL is not available.
+      # Skipped entirely when we already have a staging or prod URL.
+      # ---------------------------------------------------------------------------
+      - name: Setup Node.js (local server fallback)
+        if: steps.base_url.outputs.url == 'http://localhost:3000'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (local server fallback)
+        if: steps.base_url.outputs.url == 'http://localhost:3000'
+        run: npm ci
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Build Next.js (local server fallback)
+        if: steps.base_url.outputs.url == 'http://localhost:3000'
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NODE_ENV: production
+
+      - name: Start Next.js server (local server fallback)
+        if: steps.base_url.outputs.url == 'http://localhost:3000'
+        run: |
+          npm start &
+          npx wait-on http://localhost:3000 --timeout 60000
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PORT: 3000
+
+      # ---------------------------------------------------------------------------
+      # Install k6
+      # ---------------------------------------------------------------------------
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo 'deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main' \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 -y
+
+      # ---------------------------------------------------------------------------
+      # Run the full-shift load test
+      # ---------------------------------------------------------------------------
+      - name: Run k6 load test
+        id: k6
+        run: |
+          k6 run load-tests/full-shift.js \
+            --summary-export=load-tests/summary.json \
+            -e BASE_URL=${{ steps.base_url.outputs.url }} \
+            -e DEMO_EMAIL=${{ secrets.LOAD_TEST_DEMO_EMAIL || 'demo@getsear.com' }} \
+            -e DEMO_PASSWORD=${{ secrets.LOAD_TEST_DEMO_PASSWORD || 'demo1234' }}
+
+      # ---------------------------------------------------------------------------
+      # Upload artifacts — summary JSON + stdout captured by the runner
+      # ---------------------------------------------------------------------------
+      - name: Upload load test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-load-test-summary-${{ github.run_id }}
+          path: load-tests/summary.json
+          retention-days: 30
+
+      # Fail the workflow explicitly if k6 reported threshold violations.
+      # k6 exits with code 99 on threshold failure; the `run` step above
+      # will already fail, but this step surfaces a clear message.
+      - name: Check for threshold violations
+        if: failure() && steps.k6.conclusion == 'failure'
+        run: |
+          echo "::error::k6 load test failed — one or more thresholds were violated."
+          echo "::error::Download the 'k6-load-test-summary' artifact and inspect 'summary.json'."
+          echo "::error::See load-tests/README.md for pass criteria and interpretation guide."
+          exit 1
