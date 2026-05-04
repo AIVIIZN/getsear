@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
+import { assertVersion } from '@/lib/orders/concurrency'
 
 const mergeSchema = z.object({
   source_order_id: z.string().uuid(),
@@ -38,13 +39,14 @@ export async function POST(
   const supabase = createAdminClient()
   const { source_order_id } = parsed.data
 
-  // Verify both orders exist
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: targetOrder } = await (supabase.from('orders') as any)
-    .select('id, org_id, status')
-    .eq('id', targetOrderId)
-    .eq('org_id', user.org_id)
-    .single()
+  // V5.4.1 optimistic-lock guard against the TARGET order. We don't gate the
+  // source — by definition we're voiding it, so a stale source-version is
+  // not a meaningful conflict (the merge still proceeds with whatever items
+  // exist at this moment).
+  const check = await assertVersion(supabase, request, targetOrderId, user.org_id, {
+    select: 'id, org_id, status, version',
+  })
+  if (!check.ok) return check.response
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: sourceOrder } = await (supabase.from('orders') as any)
@@ -53,11 +55,12 @@ export async function POST(
     .eq('org_id', user.org_id)
     .single()
 
-  if (!targetOrder || !sourceOrder) {
-    return NextResponse.json({ error: 'One or both orders not found' }, { status: 404 })
+  if (!sourceOrder) {
+    return NextResponse.json({ error: 'Source order not found' }, { status: 404 })
   }
 
-  if (targetOrder.status === 'closed' || targetOrder.status === 'voided') {
+  const targetStatus = check.currentRow.status as string
+  if (targetStatus === 'closed' || targetStatus === 'voided') {
     return NextResponse.json({ error: 'Target order is closed or voided' }, { status: 400 })
   }
 
@@ -86,6 +89,7 @@ export async function POST(
     .eq('id', source_order_id)
 
   // Recalculate target totals using the tax engine (no more hardcoded 8.5%)
+  // — this UPDATE bumps the order version (V5.4.1).
   await recalculateOrderTotals(supabase, targetOrderId, user.org_id)
 
   // Fetch the updated order
@@ -107,5 +111,8 @@ export async function POST(
     performed_by: user.id,
   })
 
-  return NextResponse.json({ data: updatedOrder })
+  const newVersion = (updatedOrder?.version as number | undefined) ?? check.currentVersion + 1
+  return NextResponse.json({ data: updatedOrder }, {
+    headers: { ETag: `"${newVersion}"` },
+  })
 }

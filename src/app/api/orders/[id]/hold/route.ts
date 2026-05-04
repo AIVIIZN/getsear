@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 
 /**
  * POST /api/orders/[id]/hold — hold order (back to 'open' from 'fired')
+ *
+ * V5.4.1: gated by `If-Match` optimistic-lock check. Mismatch → 409 with
+ * current state for the StaleOrderModal.
  */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getAuthUser()
@@ -15,31 +19,42 @@ export async function POST(
   const { id: orderId } = await params
   const supabase = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, status, org_id')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, status, org_id, version',
+  })
+  if (!check.ok) return check.response
 
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-  }
-
-  if (order.status === 'closed' || order.status === 'voided') {
+  const status = check.currentRow.status as string
+  if (status === 'closed' || status === 'voided') {
     return NextResponse.json({ error: 'Cannot hold a closed or voided order' }, { status: 400 })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('orders') as any)
+  let updateQuery = (supabase.from('orders') as any)
     .update({ status: 'open', updated_at: new Date().toISOString() })
     .eq('id', orderId)
-    .select()
-    .single()
+    .eq('org_id', user.org_id)
+  if (check.expectedVersion !== null) {
+    updateQuery = updateQuery.eq('version', check.expectedVersion)
+  }
+  const { data, error } = await updateQuery.select().maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: 'Failed to hold order' }, { status: 500 })
   }
 
-  return NextResponse.json({ data })
+  const staleResp = await checkUpdateAffectedRow(
+    supabase,
+    orderId,
+    user.org_id,
+    check.expectedVersion,
+    data
+  )
+  if (staleResp) return staleResp
+
+  const newVersion = (data as Record<string, unknown>)?.version as number | undefined
+    ?? check.currentVersion + 1
+  return NextResponse.json({ data }, {
+    headers: { ETag: `"${newVersion}"` },
+  })
 }

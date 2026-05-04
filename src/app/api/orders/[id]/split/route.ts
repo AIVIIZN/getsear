@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { assertVersion } from '@/lib/orders/concurrency'
 
 const splitSchema = z.object({
   mode: z.enum(['by_seat', 'equal', 'custom']),
@@ -44,6 +45,15 @@ export async function POST(
   }
 
   const supabase = createAdminClient()
+
+  // V5.4.1 optimistic-lock guard. Splitting an order is a multi-step write
+  // (creates new orders, moves items, updates the original); we want to
+  // 409 early if a concurrent edit is in flight rather than risk an
+  // inconsistent split.
+  const versionCheck = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, version',
+  })
+  if (!versionCheck.ok) return versionCheck.response
 
   // Get the order with items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,11 +198,25 @@ export async function POST(
     performed_by: user.id,
   })
 
-  return NextResponse.json({
-    data: {
-      original_order_id: orderId,
-      new_order_ids: newOrders,
-      mode,
+  // Read fresh version for ETag (the original order was UPDATEd in the equal
+  // branch above; in the by_seat branch only the items moved, so the trigger
+  // may not have fired — either way this is the canonical post-split version).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: refreshed } = await (supabase.from('orders') as any)
+    .select('version')
+    .eq('id', orderId)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+  const newVersion = (refreshed?.version as number | undefined) ?? versionCheck.currentVersion
+
+  return NextResponse.json(
+    {
+      data: {
+        original_order_id: orderId,
+        new_order_ids: newOrders,
+        mode,
+      },
     },
-  })
+    { headers: { ETag: `"${newVersion}"` } }
+  )
 }

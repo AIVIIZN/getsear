@@ -80,6 +80,12 @@ interface Order {
   sync_status?: SyncStatus
   /** Offline order number (OFL-001 format) */
   offline_number?: string | null
+  /**
+   * V5.4.1 optimistic-lock version. Read from `ETag` header on GET / mutation
+   * responses; sent as `If-Match` on the next mutating request. `undefined`
+   * means we haven't loaded the order from the server yet (purely-local draft).
+   */
+  version?: number
 }
 
 interface OrderState {
@@ -114,6 +120,9 @@ interface OrderState {
     loadActiveOrders: (orders: Order[]) => void
     updateActiveOrder: (order: Order) => void
     removeActiveOrder: (orderId: string) => void
+    /** V5.4.1 — update the optimistic-lock version on the current order
+     *  (called after a successful mutation reads the new ETag). */
+    setCurrentOrderVersion: (version: number) => void
     /** Save current order to IndexedDB and enqueue for sync (offline mode) */
     sendOrderOffline: (locationId: string) => Promise<void>
     /** Dual-write: save order to IndexedDB cache alongside normal operations */
@@ -477,6 +486,13 @@ export const useOrderStore = create<OrderState>()(
       removeActiveOrder: (orderId) =>
         set((state) => {
           delete state.activeOrders[orderId]
+        }),
+
+      setCurrentOrderVersion: (version) =>
+        set((state) => {
+          if (state.currentOrder) {
+            state.currentOrder.version = version
+          }
         }),
 
       sendOrderOffline: async (locationId: string) => {

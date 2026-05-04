@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
+import { assertVersion } from '@/lib/orders/concurrency'
 
 const discountSchema = z.object({
   name: z.string().min(1).max(200),
@@ -41,16 +42,15 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  // Get the order
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, subtotal, amount_paid')
-    .eq('id', orderId)
-    .eq('org_id', user.org_id)
-    .single()
+  // V5.4.1 optimistic-lock guard. Applying a discount triggers
+  // `recalculateOrderTotals` below, which UPDATEs the order row.
+  const check = await assertVersion(supabase, request, orderId, user.org_id, {
+    select: 'id, org_id, subtotal, amount_paid, version',
+  })
+  if (!check.ok) return check.response
 
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  const order = check.currentRow as {
+    id: string; org_id: string; subtotal: string; amount_paid: string
   }
 
   const { name, discount_type, value, order_item_id } = parsed.data
@@ -105,7 +105,19 @@ export async function POST(
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
+  // — this UPDATE bumps the order version (V5.4.1).
   await recalculateOrderTotals(supabase, orderId, user.org_id)
 
-  return NextResponse.json({ data: discount }, { status: 201 })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: refreshed } = await (supabase.from('orders') as any)
+    .select('version')
+    .eq('id', orderId)
+    .eq('org_id', user.org_id)
+    .maybeSingle()
+  const newVersion = (refreshed?.version as number | undefined) ?? check.currentVersion + 1
+
+  return NextResponse.json(
+    { data: discount },
+    { status: 201, headers: { ETag: `"${newVersion}"` } }
+  )
 }

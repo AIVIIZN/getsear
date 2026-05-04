@@ -12,10 +12,20 @@
 import type { SyncQueueEntry } from './db'
 import { markOrderSynced } from './orders-cache'
 
-/** Build standard headers including the per-entry Idempotency-Key (V5.3.1). */
+/** Build standard headers including the per-entry Idempotency-Key (V5.3.1)
+ *  and an optional `If-Match` (V5.4.1) when the queue entry's payload carries
+ *  an `expected_version` field. The offline queue itself does not yet track
+ *  versions across reconnects (a queued mutation may be N versions behind by
+ *  the time it lands), so this header is only set when callers explicitly
+ *  attach one — typically NOT desired for offline replay (we want the server
+ *  to accept the buffered write). Left in place for forward-compat. */
 function syncHeaders(entry: SyncQueueEntry): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   if (entry.idempotency_key) h['Idempotency-Key'] = entry.idempotency_key
+  const v = (entry.payload as { expected_version?: number | null }).expected_version
+  if (typeof v === 'number' && v > 0) {
+    h['If-Match'] = String(v)
+  }
   return h
 }
 
