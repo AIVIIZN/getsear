@@ -2,6 +2,10 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // Skip dev-only specs that target localhost:3000 — they live in e2e/dev-only/
+  // and run via playwright.dev.config.ts. Including them in the prod run would
+  // 100% fail (no dev server, baseURL mismatch).
+  testIgnore: ['**/dev-only/**'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 1,
