@@ -60,7 +60,7 @@ function getBannerMessage(
 ): string {
   switch (state) {
     case 'offline': {
-      let msg = "You're offline — orders and cash payments still work."
+      let msg = "You're offline. Orders will sync when you reconnect."
       if (storeForwardCount > 0) {
         msg += ` ${storeForwardCount} card payment${storeForwardCount > 1 ? 's' : ''} pending settlement.`
       }

@@ -10,6 +10,7 @@ import { PrintQueueBadge, PrintQueueDropdown } from "@/components/printing/Print
 import { SyncStatusIndicator } from "@/components/offline/SyncStatusIndicator";
 import { OfflineBanner } from "@/components/offline/OfflineBanner";
 import { SyncProgressBar } from "@/components/offline/SyncProgressBar";
+import { PendingMutationsBadge } from "@/components/offline/PendingMutationsBadge";
 
 interface TopbarProps {
   showBreadcrumbs?: boolean;
@@ -102,6 +103,7 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
         <StaffClockButton />
         <LiveClock />
         <SyncStatusIndicator />
+        <PendingMutationsBadge />
         <div className="relative">
           <PrintQueueBadge />
           <PrintQueueDropdown />
