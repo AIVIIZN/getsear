@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { useMenuStore } from '@/stores/menu-store'
 import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { QuickFavorites } from './QuickFavorites'
@@ -8,6 +9,7 @@ import { Search, Ban } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { haptics } from '@/lib/haptics'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
+import { FALLBACK_BLUR } from '@/components/menu/ItemCard'
 
 interface MenuItem {
   id: string
@@ -215,10 +217,12 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
               gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
             }}
           >
-            {filteredItems.map((item) => {
+            {filteredItems.map((item, index) => {
               const catColor = categoryColorMap.get(item.category_id) ?? '#8E8E93'
-              const hasImage = !!(item as MenuItem & { image_url?: string | null }).image_url
+              const imageUrl = (item as MenuItem & { image_url?: string | null }).image_url
+              const hasImage = !!imageUrl
               const firstLetter = item.name.charAt(0).toUpperCase()
+              const isAboveFold = index < 8
 
               return (
                 <button
@@ -238,13 +242,18 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                   } as React.CSSProperties}
                 >
                   {/* Tile background — image or colored */}
-                  {hasImage ? (
-                    <div
-                      className="absolute inset-0 bg-cover bg-center"
-                      style={{
-                        backgroundImage: `url(${(item as MenuItem & { image_url?: string }).image_url})`,
-                      }}
-                    >
+                  {hasImage && imageUrl ? (
+                    <div className="absolute inset-0">
+                      <Image
+                        src={imageUrl}
+                        alt={item.name}
+                        fill
+                        sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
+                        placeholder="blur"
+                        blurDataURL={FALLBACK_BLUR}
+                        priority={isAboveFold}
+                        className="object-cover"
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                     </div>
                   ) : (

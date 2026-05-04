@@ -1,11 +1,15 @@
 'use client'
 
+import Image from 'next/image'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, ImageIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { MenuItem } from './ItemGrid'
+
+export const FALLBACK_BLUR =
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxIDEiPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNmMmYyZjciLz48L3N2Zz4='
 
 const DIETARY_ICONS: Record<string, { label: string; abbrev: string; color: string }> = {
   vegetarian: { label: 'Vegetarian', abbrev: 'V', color: 'bg-green-100 text-green-700' },
@@ -132,11 +136,15 @@ export function ItemCard({
 
       {/* Photo thumbnail */}
       {item.image_url ? (
-        <div className="mb-2 aspect-video w-full overflow-hidden rounded-lg bg-muted">
-          <img
+        <div className="relative mb-2 aspect-video w-full overflow-hidden rounded-lg bg-muted">
+          <Image
             src={item.image_url}
             alt={item.name}
-            className="size-full object-cover"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 200px"
+            placeholder="blur"
+            blurDataURL={FALLBACK_BLUR}
+            className="object-cover"
           />
         </div>
       ) : (
