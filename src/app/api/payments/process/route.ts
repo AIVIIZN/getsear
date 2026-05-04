@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { withIdempotency } from '@/lib/api/idempotency'
 import { valorClient } from '@/lib/payments/valor-client'
 import crypto from 'crypto'
 
@@ -39,8 +40,13 @@ const processPaymentSchema = z.object({
  * Process a payment: card (via Valor), cash, gift card, or house account.
  * For card payments, supports both 'sale' (auth+capture) and 'auth_only'
  * (pre-auth for tip-on-receipt flow).
+ *
+ * Wrapped with `withIdempotency` (V5.3.1). The offline queue retries
+ * payments aggressively on reconnect — a duplicate charge is one of the
+ * worst possible bugs in a POS, so dedup is non-negotiable here. Server
+ * dedupes by `(Idempotency-Key, route, org_id)`.
  */
-export async function POST(request: NextRequest) {
+export const POST = withIdempotency('payments.process', async (request: NextRequest) => {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
@@ -302,4 +308,4 @@ export async function POST(request: NextRequest) {
     },
     { status: 201 }
   )
-}
+})

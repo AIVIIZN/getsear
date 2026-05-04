@@ -24,9 +24,12 @@ export async function processClockSync(entry: SyncQueueEntry): Promise<void> {
     ? '/api/staff/clock-in'
     : '/api/staff/clock-out'
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (entry.idempotency_key) headers['Idempotency-Key'] = entry.idempotency_key
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       ...payload,
       client_id: entry.entity_id,

@@ -32,7 +32,46 @@ function generateId(): string {
 }
 
 /**
+ * Generate a UUIDv4 for use as an `Idempotency-Key` header (V5.3.1).
+ *
+ * Server-side `withIdempotency` middleware (`src/lib/api/idempotency.ts`)
+ * dedupes by `(key, route, org_id)` so replays after a network blip — where
+ * the original write landed but the ack was lost — return the original
+ * response body instead of duplicating the write.
+ *
+ * Falls back to a manual RFC 4122 v4 implementation for the rare browser
+ * without `crypto.randomUUID` (Safari pre-15.4, Chrome pre-92, etc.).
+ */
+export function generateIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  const bytes = new Uint8Array(16)
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes)
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256)
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40 // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80 // variant 10
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+/**
  * Enqueue a sync operation. Persisted in IndexedDB.
+ *
+ * V5.3.1: every entry is stamped with a UUIDv4 `idempotency_key` at enqueue
+ * time. The replayer (`order-sync`, `payment-sync`, `clock-sync`,
+ * `processTableSync`) sets that key as the `Idempotency-Key` HTTP header on
+ * every retry so the server can dedupe replays after a network blip lost
+ * the original ack but the write actually landed.
+ *
+ * **CRITICAL ORDERING:** the IndexedDB `put` resolves *before* this function
+ * returns (Dexie awaits the transaction commit). Callers MUST `await
+ * enqueueSync(...)` BEFORE applying their optimistic UI update — otherwise
+ * a tab crash between the optimistic mutation and the IndexedDB commit
+ * loses the operation.
  */
 export async function enqueueSync(params: {
   operation: SyncOperation
@@ -40,6 +79,12 @@ export async function enqueueSync(params: {
   entity_id: string
   payload: Record<string, unknown>
   location_id: string
+  /**
+   * Optional pre-generated idempotency key. Most callers omit this and let
+   * the queue mint one. The override exists for tests + for callers that
+   * want to stamp the same key onto an optimistic UI record.
+   */
+  idempotency_key?: string
 }): Promise<string> {
   const id = generateId()
   const entry: SyncQueueEntry = {
@@ -56,6 +101,7 @@ export async function enqueueSync(params: {
     last_attempt_at: null,
     error: null,
     location_id: params.location_id,
+    idempotency_key: params.idempotency_key ?? generateIdempotencyKey(),
   }
 
   await offlineDB.sync_queue.put(entry)
@@ -64,6 +110,15 @@ export async function enqueueSync(params: {
   notifyQueueChange()
 
   return id
+}
+
+/**
+ * Look up the idempotency key on an existing entry. Returns undefined if the
+ * entry doesn't exist or pre-dates V5.3.1 (legacy rows without keys).
+ */
+export async function getIdempotencyKey(entryId: string): Promise<string | undefined> {
+  const entry = await offlineDB.sync_queue.get(entryId)
+  return entry?.idempotency_key
 }
 
 /**

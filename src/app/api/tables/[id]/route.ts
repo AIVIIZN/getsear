@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { withIdempotency } from '@/lib/api/idempotency'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -28,8 +29,12 @@ const updateTableSchema = z.object({
 
 /**
  * PATCH /api/tables/[id] — update table (position, size, status, etc.)
+ *
+ * Wrapped with `withIdempotency` (V5.3.1). The offline queue replays table
+ * status updates (server assignments, seat counts) on reconnect; the same
+ * key ensures repeated replays don't re-fire side effects.
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export const PATCH = withIdempotency<RouteParams>('tables.update', async (request: NextRequest, { params }: RouteParams) => {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
@@ -68,7 +73,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   return NextResponse.json({ data })
-}
+})
 
 /**
  * DELETE /api/tables/[id] — soft delete table

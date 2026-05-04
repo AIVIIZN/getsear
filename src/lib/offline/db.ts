@@ -225,6 +225,14 @@ export interface SyncQueueEntry {
   last_attempt_at: string | null
   error: string | null
   location_id: string
+  /**
+   * V5.3.1 — UUIDv4 minted at enqueue time. Sent as the `Idempotency-Key`
+   * header on every retry so the server can dedupe replays after a network
+   * blip dropped the original ack but the write actually landed. Optional in
+   * the type because legacy entries persisted before this version may lack it
+   * (they fall back to no-header behavior, which is safe for non-replayed ops).
+   */
+  idempotency_key?: string
 }
 
 export interface CachedConflict {
@@ -247,34 +255,6 @@ export interface CacheMeta {
   updated_at: string
 }
 
-// ─── Mutation queue (5.3.1 spec-shaped) ────────────────────────────
-// Independent of `sync_queue` (which is operation-typed). The mutation queue
-// stores raw HTTP mutations with a UUIDv4 Idempotency-Key so the server can
-// dedupe replays. Each entry is created BEFORE the optimistic UI update.
-
-export type MutationStatus = 'pending' | 'syncing' | 'synced' | 'failed'
-
-export interface QueuedMutation {
-  /** UUIDv4 — also used as the Idempotency-Key header on replay. */
-  id: string
-  /** Absolute or app-relative URL, e.g. '/api/orders'. */
-  url: string
-  /** HTTP method. POST/PUT/PATCH/DELETE — never GET (GETs aren't mutations). */
-  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  /** JSON-serializable request body. */
-  body: unknown
-  /** Optional extra request headers (Idempotency-Key + Content-Type are added by the replayer). */
-  headers: Record<string, string>
-  status: MutationStatus
-  attempts: number
-  /** Server-side rejection ceiling. After this many 4xx/5xx, the entry is marked `failed`. */
-  max_attempts: number
-  /** ISO timestamp — also serves as FIFO ordering key. */
-  created_at: string
-  last_attempt_at: string | null
-  last_error: string | null
-}
-
 // ─── Database definition ───────────────────────────────────────────
 
 class SearOfflineDB extends Dexie {
@@ -290,7 +270,6 @@ class SearOfflineDB extends Dexie {
   sync_queue!: EntityTable<SyncQueueEntry, 'id'>
   conflicts!: EntityTable<CachedConflict, 'id'>
   cache_meta!: EntityTable<CacheMeta, 'id'>
-  mutation_queue!: EntityTable<QueuedMutation, 'id'>
 
   constructor() {
     super('sear-pos-offline')
@@ -310,9 +289,12 @@ class SearOfflineDB extends Dexie {
       cache_meta: 'id, key',
     })
 
-    // v2: add the spec-shaped mutation_queue (5.3.1).
+    // v2: add an index on `idempotency_key` so the replayer can look up by key
+    // (V5.3.1). The schema is otherwise identical — `idempotency_key` is added
+    // as a regular field on existing entries; Dexie tolerates the absence on
+    // legacy rows because indexes are not enforced as NOT NULL.
     this.version(2).stores({
-      mutation_queue: 'id, status, created_at',
+      sync_queue: 'id, status, priority, entity_type, entity_id, created_at, idempotency_key',
     })
   }
 }
@@ -359,7 +341,6 @@ export async function clearAllOfflineData(): Promise<void> {
       offlineDB.sync_queue,
       offlineDB.conflicts,
       offlineDB.cache_meta,
-      offlineDB.mutation_queue,
     ],
     async () => {
       await offlineDB.menu_categories.clear()
@@ -374,7 +355,6 @@ export async function clearAllOfflineData(): Promise<void> {
       await offlineDB.sync_queue.clear()
       await offlineDB.conflicts.clear()
       await offlineDB.cache_meta.clear()
-      await offlineDB.mutation_queue.clear()
     }
   )
 }

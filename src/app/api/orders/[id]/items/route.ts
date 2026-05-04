@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals } from '@/lib/tax/recalculate-order'
 
 const modifierSchema = z.object({
@@ -26,11 +27,16 @@ const addItemSchema = z.object({
 
 /**
  * POST /api/orders/[id]/items -- add item to order
+ *
+ * Wrapped with `withIdempotency` (V5.3.1) so retries from the offline queue
+ * don't double-add items. The dedup key is per-(key, route, org_id), so the
+ * same key on different orders is correctly distinct (the body identifies
+ * the order — we'd never hit the cache across orders).
  */
-export async function POST(
+export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders.add_items', async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
@@ -156,4 +162,4 @@ export async function POST(
     .single()
 
   return NextResponse.json({ data: completeItem }, { status: 201 })
-}
+})
