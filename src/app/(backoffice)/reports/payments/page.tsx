@@ -1,14 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 import { Button } from '@/components/ui-v2/Button'
 import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui-v2/data/Table'
 import { DateRangePicker, type DatePreset } from '@/components/reports/DateRangePicker'
-import { PaymentMixChart } from '@/components/reports/PaymentMixChart'
 import { Download, CreditCard } from 'lucide-react'
+
+const PaymentMixChart = dynamic(
+  () => import('@/components/reports/PaymentMixChart').then(m => ({ default: m.PaymentMixChart })),
+  { ssr: false, loading: () => <Skeleton variant="chart" className="h-72" /> },
+)
 
 interface PaymentEntry {
   method: string

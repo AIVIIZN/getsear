@@ -3,6 +3,16 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
 
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "date-fns",
+      "@dnd-kit/core",
+      "@dnd-kit/sortable",
+    ],
+  },
+
   // Image optimization
   images: {
     remotePatterns: [

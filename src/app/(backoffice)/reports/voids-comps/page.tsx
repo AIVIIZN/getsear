@@ -1,16 +1,24 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 import { Button } from '@/components/ui-v2/Button'
 import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui-v2/data/Table'
 import { DateRangePicker, type DatePreset } from '@/components/reports/DateRangePicker'
-import { VoidCompTrendChart } from '@/components/reports/VoidCompTrendChart'
 import { EmployeeFlagBadge } from '@/components/reports/EmployeeFlagBadge'
 import { Download, AlertTriangle } from 'lucide-react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+
+const VoidCompTrendChart = dynamic(
+  () => import('@/components/reports/VoidCompTrendChart').then(m => ({ default: m.VoidCompTrendChart })),
+  { ssr: false, loading: () => <Skeleton variant="chart" className="h-72" /> },
+)
+const VoidsByReasonPie = dynamic(() => import('@/components/reports/VoidsByReasonPie'), {
+  ssr: false,
+  loading: () => <Skeleton variant="chart" className="h-64" />,
+})
 
 interface VoidCompData {
   total_void: number
@@ -144,17 +152,7 @@ export default function VoidsCompsPage() {
                 <CardTitle>By Reason</CardTitle>
               </CardHeader>
               <CardBody>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={data.by_reason} cx="50%" cy="50%" outerRadius={90} innerRadius={40} dataKey="total" nameKey="reason" strokeWidth={2} stroke="var(--color-surface)">
-                        {data.by_reason.map((_, i) => <Cell key={i} fill={REASON_COLORS[i % REASON_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip formatter={(v) => `$${Number(v).toFixed(2)}`} />
-                      <Legend formatter={(v: string) => <span className="text-[length:var(--type-caption-1-size)]">{v}</span>} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                <VoidsByReasonPie data={data.by_reason} colors={REASON_COLORS} />
               </CardBody>
             </Card>
           </div>

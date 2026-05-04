@@ -1,15 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 import { Button } from '@/components/ui-v2/Button'
 import { Select } from '@/components/ui-v2/inputs/Select'
 import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui-v2/data/Table'
-import { TrendLineChart } from '@/components/reports/TrendLineChart'
 import { ComparisonArrow } from '@/components/reports/ComparisonArrow'
 import { Download, LineChart } from 'lucide-react'
+
+const TrendLineChart = dynamic(
+  () => import('@/components/reports/TrendLineChart').then(m => ({ default: m.TrendLineChart })),
+  { ssr: false, loading: () => <Skeleton variant="chart" className="h-72" /> },
+)
 
 interface TrendWeek {
   week_start: string

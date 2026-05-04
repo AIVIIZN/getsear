@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import dynamic from 'next/dynamic'
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 import { Button } from '@/components/ui-v2/Button'
 import { Badge } from '@/components/ui-v2/data/Badge'
@@ -9,6 +9,11 @@ import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { DateRangePicker, type DatePreset } from '@/components/reports/DateRangePicker'
 import { Download, DollarSign, ShoppingCart, Users, Percent, UserCheck } from 'lucide-react'
+
+const ServerComparisonChart = dynamic(() => import('@/components/reports/ServerComparisonChart'), {
+  ssr: false,
+  loading: () => <Skeleton variant="chart" className="h-72" />,
+})
 
 interface ServerEntry {
   name: string
@@ -20,31 +25,6 @@ interface ServerEntry {
   covers: number
   cash_tips?: number
   card_tips?: number
-}
-
-function ServerTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean
-  payload?: Array<{ value: number; name: string; color: string }>
-  label?: string
-}) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-[var(--space-3)] shadow-[var(--shadow-mid)]">
-      <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] mb-[var(--space-1)]">{label}</p>
-      {payload.map(p => (
-        <p key={p.name} className="text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
-          {p.name}:{' '}
-          <span className="font-[var(--weight-medium)]" style={{ color: p.color }}>
-            {p.name === 'Avg Tip %' ? `${p.value}%` : `$${p.value.toLocaleString()}`}
-          </span>
-        </p>
-      ))}
-    </div>
-  )
 }
 
 export default function ServerPerformancePage() {
@@ -167,20 +147,7 @@ export default function ServerPerformancePage() {
               <CardTitle>Server Sales Comparison</CardTitle>
             </CardHeader>
             <CardBody>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${v}`} />
-                    <Tooltip content={<ServerTooltip />} />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="total_sales" name="Total Sales" fill="var(--color-primary)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar yAxisId="right" dataKey="avg_check" name="Avg Check" fill="#7C3AED" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <ServerComparisonChart data={chartData} />
             </CardBody>
           </Card>
         </>
