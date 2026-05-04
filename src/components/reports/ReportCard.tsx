@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui-v2/Card'
 import {
   DollarSign, CreditCard, Banknote, Receipt, Timer, ChefHat,
   TrendingUp, AlertTriangle, Users, UserCheck, LineChart, Salad,
@@ -35,7 +35,7 @@ function Sparkline({ data }: { data: number[] }) {
   }).join(' ')
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="text-[var(--primary)]">
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="text-[color:var(--color-primary)]">
       <polyline
         points={points}
         fill="none"
@@ -52,30 +52,28 @@ export function ReportCard({ name, description, href, icon, sparklineData }: Rep
   const Icon = ICON_MAP[icon] ?? DollarSign
 
   return (
-    <Link href={href}>
-      <Card className="shadow-warm-sm hover:shadow-warm-md transition-all duration-200 cursor-pointer group h-full">
-        <CardContent className="p-5 flex flex-col justify-between h-full">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--accent)] group-hover:bg-[var(--primary)] transition-colors">
-                <Icon className="h-5 w-5 text-[var(--primary)] group-hover:text-white transition-colors" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors">
-                  {name}
-                </h3>
-                <p className="text-xs text-[var(--muted-foreground)] mt-0.5 line-clamp-1">
-                  {description}
-                </p>
-              </div>
+    <Link href={href} className="h-full block group">
+      <Card variant="elevated" padding="default" className="h-full hover:shadow-[var(--shadow-mid)] transition-shadow">
+        <div className="flex items-start justify-between gap-[var(--space-3)]">
+          <div className="flex items-center gap-[var(--space-3)]">
+            <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-md)] bg-[color:var(--color-bg-muted)] group-hover:bg-[color:var(--color-primary)] transition-colors">
+              <Icon className="h-5 w-5 text-[color:var(--color-primary)] group-hover:text-[color:var(--color-primary-fg)] transition-colors" />
+            </div>
+            <div>
+              <h3 className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)] group-hover:text-[color:var(--color-primary)] transition-colors">
+                {name}
+              </h3>
+              <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] mt-[var(--space-1)] line-clamp-1">
+                {description}
+              </p>
             </div>
           </div>
-          {sparklineData && sparklineData.length > 1 && (
-            <div className="mt-3 pt-3 border-t border-[var(--border)]">
-              <Sparkline data={sparklineData} />
-            </div>
-          )}
-        </CardContent>
+        </div>
+        {sparklineData && sparklineData.length > 1 && (
+          <div className="mt-[var(--space-3)] pt-[var(--space-3)] border-t border-[color:var(--color-border)]">
+            <Sparkline data={sparklineData} />
+          </div>
+        )}
       </Card>
     </Link>
   )

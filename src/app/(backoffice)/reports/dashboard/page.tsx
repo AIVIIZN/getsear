@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Card } from '@/components/ui-v2/Card'
+import { Button } from '@/components/ui-v2/Button'
+import { Skeleton } from '@/components/ui-v2/data/Skeleton'
+import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { OwnerDashboardCard } from '@/components/reports/OwnerDashboardCard'
 import { ComparisonArrow } from '@/components/reports/ComparisonArrow'
 import { DollarSign, Users, AlertTriangle, Receipt, RefreshCw } from 'lucide-react'
@@ -42,69 +46,76 @@ export default function OwnerDashboardPage() {
 
   useEffect(() => {
     fetchData()
-    // Auto-refresh every 60 seconds
     const interval = setInterval(fetchData, 60000)
     return () => clearInterval(interval)
   }, [fetchData])
 
   const laborColor = data
-    ? data.labor_pct <= 30 ? '#16A34A' : data.labor_pct <= 35 ? '#D97706' : '#DC2626'
+    ? data.labor_pct <= 30
+      ? 'var(--color-success)'
+      : data.labor_pct <= 35
+        ? 'var(--color-warning)'
+        : 'var(--color-danger)'
     : undefined
 
   return (
-    <div className="p-4 max-w-md mx-auto space-y-4" style={{ minHeight: '100vh', backgroundColor: 'var(--background)' }}>
-      {/* Header */}
+    <div
+      className="p-[var(--space-3)] max-w-md mx-auto space-y-[var(--space-3)]"
+      style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg)' }}
+    >
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Dashboard</h1>
-          <p className="text-xs text-[var(--muted-foreground)]">
+          <h1 className="text-[length:var(--type-title-3-size)] font-[var(--weight-bold)] text-[color:var(--color-text)]">Dashboard</h1>
+          <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
             Updated {lastRefresh.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
           </p>
         </div>
-        <button type="button" onClick={fetchData} className="p-2.5 rounded-xl bg-white shadow-warm-sm active:scale-95 transition-transform" style={{ minWidth: 44, minHeight: 44 }}>
-          <RefreshCw className={`h-5 w-5 text-[var(--muted-foreground)] ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <Button
+          variant="secondary"
+          size="md"
+          onClick={fetchData}
+          aria-label="Refresh dashboard"
+          loading={loading}
+          leadingIcon={<RefreshCw className="h-5 w-5" />}
+        >
+          Refresh
+        </Button>
       </div>
 
       {loading && !data && (
-        <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="h-24 rounded-2xl bg-white animate-pulse shadow-warm-sm" />
-          ))}
+        <div className="space-y-[var(--space-3)]">
+          {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} variant="card" />)}
         </div>
       )}
 
       {data && (
         <>
-          {/* Revenue — Big hero card */}
           <OwnerDashboardCard
             label="Today's Revenue"
             value={`$${data.today_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
             icon={DollarSign}
             sublabel={`${data.today_orders} orders | $${data.today_avg_check.toFixed(2)} avg`}
-            color="#007AFF"
+            color="var(--color-primary)"
             onClick={() => router.push('/reports/sales')}
           />
 
-          {/* Comparison */}
-          <div className="rounded-2xl bg-white p-5 shadow-warm-sm">
+          <Card padding="default">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">vs Last Week</p>
-                <div className="flex items-center gap-2 mt-1">
+                <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] uppercase tracking-wide">vs Last Week</p>
+                <div className="flex items-center gap-[var(--space-2)] mt-[var(--space-1)]">
                   <ComparisonArrow value={data.revenue_change_pct} size="lg" />
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-[var(--muted-foreground)]">Same day last week</p>
-                <p className="text-sm font-medium tabular-nums mt-0.5">
+                <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">Same day last week</p>
+                <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] tabular-nums mt-[var(--space-1)]">
                   ${data.last_week_same_day_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Labor */}
           <OwnerDashboardCard
             label="Labor Cost %"
             value={`${data.labor_pct.toFixed(1)}%`}
@@ -114,7 +125,6 @@ export default function OwnerDashboardPage() {
             onClick={() => router.push('/reports/labor')}
           />
 
-          {/* Open Checks */}
           <OwnerDashboardCard
             label="Open Checks"
             value={data.open_checks_count.toString()}
@@ -123,10 +133,9 @@ export default function OwnerDashboardPage() {
             onClick={() => router.push('/reports/sales')}
           />
 
-          {/* Alerts */}
           {data.alerts.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide px-1">
+            <div className="space-y-[var(--space-2)]">
+              <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] uppercase tracking-wide px-[var(--space-1)]">
                 Alerts ({data.alerts.length})
               </p>
               {data.alerts.map((alert, i) => (
@@ -138,33 +147,34 @@ export default function OwnerDashboardPage() {
                     else if (alert.type === 'void') router.push('/reports/voids-comps')
                     else if (alert.type === 'labor') router.push('/reports/labor')
                   }}
-                  className="w-full rounded-2xl p-4 shadow-warm-sm active:scale-[0.98] transition-transform text-left flex items-start gap-3"
+                  className="btn-press w-full rounded-[var(--radius-md)] p-[var(--space-3)] text-left flex items-start gap-[var(--space-3)] border-l-4"
                   style={{
-                    backgroundColor: alert.severity === 'critical' ? '#FEF2F2' : '#FFFBEB',
-                    borderLeft: `4px solid ${alert.severity === 'critical' ? '#DC2626' : '#D97706'}`,
+                    backgroundColor: alert.severity === 'critical' ? 'var(--color-danger-bg)' : 'var(--color-warning-bg)',
+                    borderLeftColor: alert.severity === 'critical' ? 'var(--color-danger)' : 'var(--color-warning)',
                   }}
                 >
-                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: alert.severity === 'critical' ? '#DC2626' : '#D97706' }} />
-                  <p className="text-sm font-medium">{alert.message}</p>
+                  <AlertTriangle
+                    className="h-5 w-5 shrink-0 mt-0.5"
+                    style={{ color: alert.severity === 'critical' ? 'var(--color-danger)' : 'var(--color-warning)' }}
+                  />
+                  <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)]">{alert.message}</p>
                 </button>
               ))}
             </div>
           )}
 
           {data.alerts.length === 0 && (
-            <div className="rounded-2xl bg-green-50 p-4 text-center">
-              <p className="text-sm font-medium text-green-700">No active alerts</p>
-            </div>
+            <Card padding="compact" className="bg-[color:var(--color-success-bg)] text-center">
+              <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[color:var(--color-success)]">
+                No active alerts
+              </p>
+            </Card>
           )}
         </>
       )}
 
       {!loading && !data && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <DollarSign className="h-12 w-12 text-[var(--muted-foreground)] mb-4" />
-          <h3 className="text-lg font-medium mb-1">No data yet</h3>
-          <p className="text-sm text-[var(--muted-foreground)]">Dashboard will populate once orders are processed today.</p>
-        </div>
+        <EmptyState icon={DollarSign} title="No data yet" description="Dashboard will populate once orders are processed today." />
       )}
     </div>
   )

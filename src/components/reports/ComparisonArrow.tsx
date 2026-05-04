@@ -22,14 +22,14 @@ export function ComparisonArrow({ value, invertColors = false, showValue = true,
 
   if (isNeutral) {
     return (
-      <span className={`inline-flex items-center gap-0.5 ${sizeClasses[size].text} text-[var(--muted-foreground)]`}>
+      <span className={`inline-flex items-center gap-0.5 ${sizeClasses[size].text} text-[var(--color-text-muted)]`}>
         <Minus className={sizeClasses[size].icon} />
         {showValue && <span>0.0%</span>}
       </span>
     )
   }
 
-  const colorClass = isGood ? 'text-[var(--success)]' : 'text-[var(--error)]'
+  const colorClass = isGood ? 'text-[color:var(--color-success)]' : 'text-[color:var(--color-danger)]'
   const Icon = isPositive ? ArrowUpRight : ArrowDownRight
 
   return (

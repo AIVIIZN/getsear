@@ -3,7 +3,7 @@
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 
 interface TrendWeekDisplay {
   week_start: string
@@ -30,7 +30,7 @@ function TrendTooltip({ active, payload, label }: { active?: boolean; payload?: 
         Value: <span className="font-medium">{payload[0].value.toLocaleString()}</span>
       </p>
       {d.is_deviation && (
-        <p className="text-sm font-medium" style={{ color: d.deviation_pct > 0 ? '#16A34A' : '#DC2626' }}>
+        <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)]" style={{ color: d.deviation_pct > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
           {d.deviation_pct > 0 ? '+' : ''}{d.deviation_pct.toFixed(1)}% from avg
         </p>
       )}
@@ -43,35 +43,35 @@ export function TrendLineChart({ data, metricLabel, average, formatValue }: Tren
   const band = average * 0.1 // 10% band
 
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">13-Week {metricLabel} Trend</CardTitle>
-          <p className="text-xs text-[var(--muted-foreground)]">
+          <CardTitle>13-Week {metricLabel} Trend</CardTitle>
+          <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
             Avg: {formatter(average)}
           </p>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#007AFF" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               {/* Average band (shaded area) */}
-              <ReferenceArea y1={average - band} y2={average + band} fill="#007AFF" fillOpacity={0.06} />
+              <ReferenceArea y1={average - band} y2={average + band} fill="var(--color-primary)" fillOpacity={0.06} />
               <XAxis dataKey="week_number" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={{ stroke: 'var(--border)' }} label={{ value: 'Week', position: 'insideBottomRight', offset: -5, style: { fontSize: 11, fill: 'var(--muted-foreground)' } }} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatter(v)} />
               <Tooltip content={<TrendTooltip />} />
               <Line
                 type="monotone"
                 dataKey="value"
-                stroke="#007AFF"
+                stroke="var(--color-primary)"
                 strokeWidth={2.5}
                 dot={(props) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,7 +87,7 @@ export function TrendLineChart({ data, metricLabel, average, formatValue }: Tren
                       cx={cx}
                       cy={cy}
                       r={isDev ? 6 : 4}
-                      fill={isDev ? (devPct > 0 ? '#16A34A' : '#DC2626') : '#007AFF'}
+                      fill={isDev ? (devPct > 0 ? 'var(--color-success)' : 'var(--color-danger)') : 'var(--color-primary)'}
                       stroke="white"
                       strokeWidth={2}
                     />
@@ -98,7 +98,7 @@ export function TrendLineChart({ data, metricLabel, average, formatValue }: Tren
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }

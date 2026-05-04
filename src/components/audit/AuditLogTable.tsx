@@ -1,11 +1,11 @@
 "use client"
 
 /**
- * V5.4.3 — table renderer for the audit log back-office page.
+ * V6 — table renderer for the audit log back-office page.
  *
  * Each row shows: timestamp, action (with color coding), actor, manager
- * PIN authorizer (if any), entity, and a "View" button that opens a
- * details panel with full before/after JSON + reason.
+ * PIN authorizer (if any), entity, and an inline expand affordance that
+ * reveals the full description, reason, and before/after JSON.
  *
  * Pure presentational — receives rows + handlers from the parent page.
  */
@@ -16,14 +16,13 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { EmptyState } from "@/components/shared/EmptyState"
+} from "@/components/ui-v2/data/Table"
+import { Badge, type BadgeProps } from "@/components/ui-v2/data/Badge"
+import { Button } from "@/components/ui-v2/Button"
+import { Skeleton } from "@/components/ui-v2/data/Skeleton"
+import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
 
 export interface AuditTableRow {
   id: string
@@ -72,10 +71,10 @@ const SENSITIVE = new Set([
   "customer_data_exported",
 ])
 
-function actionVariant(action: string): "destructive" | "default" | "secondary" {
-  if (DESTRUCTIVE.has(action)) return "destructive"
-  if (SENSITIVE.has(action)) return "default"
-  return "secondary"
+function actionVariant(action: string): BadgeProps["variant"] {
+  if (DESTRUCTIVE.has(action)) return "danger"
+  if (SENSITIVE.has(action)) return "warning"
+  return "default"
 }
 
 function fmtTimestamp(iso: string): string {
@@ -116,28 +115,40 @@ export function AuditLogTable({
   const showingFrom = total === 0 ? 0 : page * pageSize + 1
   const showingTo = Math.min(total, (page + 1) * pageSize)
 
+  if (loading && rows.length === 0) {
+    return (
+      <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)]">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} variant="table-row" />
+        ))}
+      </div>
+    )
+  }
+
   if (!loading && rows.length === 0) {
     return (
-      <EmptyState
-        icon={FileSearch}
-        title="No audit entries"
-        description="No privileged actions match these filters."
-      />
+      <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)]">
+        <EmptyState
+          icon={FileSearch}
+          title="No audit entries"
+          description="No privileged actions match these filters."
+        />
+      </div>
     )
   }
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-10" />
-            <TableHead className="w-44">Timestamp</TableHead>
-            <TableHead>Action</TableHead>
-            <TableHead>Actor</TableHead>
-            <TableHead>Manager PIN</TableHead>
-            <TableHead>Entity</TableHead>
-            <TableHead className="w-24 text-right">Details</TableHead>
+            <TableCell header className="w-[40px]" />
+            <TableCell header className="w-[180px]">Timestamp</TableCell>
+            <TableCell header>Action</TableCell>
+            <TableCell header>Actor</TableCell>
+            <TableCell header>Manager PIN</TableCell>
+            <TableCell header>Entity</TableCell>
+            <TableCell header align="right" className="w-[120px]">IP</TableCell>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -145,14 +156,14 @@ export function AuditLogTable({
             const open = expanded.has(row.id)
             return (
               <React.Fragment key={row.id}>
-                <TableRow className={open ? "border-b-0" : ""}>
-                  <TableCell className="py-2">
+                <TableRow>
+                  <TableCell>
                     <Button
                       variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
+                      size="sm"
                       onClick={() => toggleRow(row.id)}
                       aria-label={open ? "Collapse" : "Expand"}
+                      className="h-[28px] w-[28px] px-0"
                     >
                       {open ? (
                         <ChevronDown className="h-4 w-4" />
@@ -161,17 +172,17 @@ export function AuditLogTable({
                       )}
                     </Button>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="font-mono text-[length:var(--type-caption-1-size)]">
                     {fmtTimestamp(row.created_at)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-[var(--space-2)]">
                       <Badge variant={actionVariant(row.action)}>
                         {row.action.replace(/_/g, " ")}
                       </Badge>
                       {row.manager_pin_user_id && (
                         <ShieldCheck
-                          className="h-4 w-4 text-emerald-600"
+                          className="h-4 w-4 text-[color:var(--color-success)]"
                           aria-label="Manager-PIN gated"
                         />
                       )}
@@ -179,12 +190,16 @@ export function AuditLogTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-sm">{row.user_name ?? "—"}</span>
+                      <span className="text-[length:var(--type-subhead-size)]">
+                        {row.user_name ?? "—"}
+                      </span>
                       {row.actor_email && (
-                        <span className="text-xs text-muted-foreground">{row.actor_email}</span>
+                        <span className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                          {row.actor_email}
+                        </span>
                       )}
                       {row.user_role && (
-                        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                        <span className="text-[length:var(--type-caption-2-size)] uppercase tracking-wide text-[color:var(--color-text-muted)]">
                           {row.user_role}
                         </span>
                       )}
@@ -193,50 +208,66 @@ export function AuditLogTable({
                   <TableCell>
                     {row.manager_pin_user_id ? (
                       <div className="flex flex-col">
-                        <span className="text-sm">{row.manager_pin_user_name ?? "—"}</span>
+                        <span className="text-[length:var(--type-subhead-size)]">
+                          {row.manager_pin_user_name ?? "—"}
+                        </span>
                         {row.manager_pin_user_email && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
                             {row.manager_pin_user_email}
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                        —
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-sm">{row.entity_type}</span>
+                      <span className="text-[length:var(--type-subhead-size)]">
+                        {row.entity_type}
+                      </span>
                       {row.entity_id && (
-                        <span className="font-mono text-[11px] text-muted-foreground">
+                        <span className="font-mono text-[length:var(--type-caption-2-size)] text-[color:var(--color-text-muted)]">
                           {row.entity_id.slice(0, 8)}…
                         </span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right text-xs text-muted-foreground">
+                  <TableCell
+                    align="right"
+                    className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]"
+                  >
                     {row.ip_address ?? ""}
                   </TableCell>
                 </TableRow>
                 {open && (
-                  <TableRow className="bg-muted/30">
-                    <TableCell colSpan={7} className="py-3">
-                      <div className="grid gap-3 px-2 md:grid-cols-2">
+                  <TableRow className="bg-[color:var(--color-bg-subtle)]">
+                    <TableCell
+                      colSpan={7}
+                      className="py-[var(--space-3)]"
+                    >
+                      <div className="grid gap-[var(--space-3)] px-[var(--space-2)] md:grid-cols-2">
                         <div>
-                          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] uppercase tracking-wide text-[color:var(--color-text-muted)]">
                             Description
                           </div>
-                          <div className="mt-1 text-sm">{row.description}</div>
+                          <div className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)]">
+                            {row.description}
+                          </div>
                           {row.reason && (
                             <>
-                              <div className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              <div className="mt-[var(--space-3)] text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] uppercase tracking-wide text-[color:var(--color-text-muted)]">
                                 Reason
                               </div>
-                              <div className="mt-1 text-sm">{row.reason}</div>
+                              <div className="mt-[var(--space-1)] text-[length:var(--type-subhead-size)]">
+                                {row.reason}
+                              </div>
                             </>
                           )}
                         </div>
-                        <div className="grid gap-2">
+                        <div className="grid gap-[var(--space-2)]">
                           <StateBlock label="Before" value={row.before_state} />
                           <StateBlock label="After" value={row.after_state} />
                         </div>
@@ -247,18 +278,10 @@ export function AuditLogTable({
               </React.Fragment>
             )
           })}
-
-          {loading && rows.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                Loading…
-              </TableCell>
-            </TableRow>
-          )}
         </TableBody>
       </Table>
 
-      <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between border-t border-[color:var(--color-border)] px-[var(--space-4)] py-[var(--space-3)] text-[length:var(--type-subhead-size)] text-[color:var(--color-text-muted)]">
         <div>
           {total > 0 ? (
             <>
@@ -269,20 +292,20 @@ export function AuditLogTable({
             "No results"
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-[var(--space-2)]">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => onPageChange(Math.max(0, page - 1))}
             disabled={loading || page === 0}
           >
             Previous
           </Button>
-          <span className="px-2 text-xs">
+          <span className="px-[var(--space-2)] text-[length:var(--type-caption-1-size)]">
             Page {page + 1} of {totalPages}
           </span>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
             disabled={loading || page + 1 >= totalPages}
@@ -295,20 +318,26 @@ export function AuditLogTable({
   )
 }
 
-function StateBlock({ label, value }: { label: string; value: Record<string, unknown> | null }) {
+function StateBlock({
+  label,
+  value,
+}: {
+  label: string
+  value: Record<string, unknown> | null
+}) {
   return (
     <div>
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] uppercase tracking-wide text-[color:var(--color-text-muted)]">
         {label}
       </div>
       {value ? (
-        <ScrollArea className="mt-1 max-h-48 rounded-md border bg-background">
-          <pre className="whitespace-pre-wrap break-all p-2 text-[11px] leading-tight">
-            {JSON.stringify(value, null, 2)}
-          </pre>
-        </ScrollArea>
+        <pre className="mt-[var(--space-1)] max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-[var(--space-2)] text-[length:var(--type-caption-2-size)] leading-tight">
+          {JSON.stringify(value, null, 2)}
+        </pre>
       ) : (
-        <div className="mt-1 text-xs italic text-muted-foreground">—</div>
+        <div className="mt-[var(--space-1)] text-[length:var(--type-caption-1-size)] italic text-[color:var(--color-text-muted)]">
+          —
+        </div>
       )}
     </div>
   )

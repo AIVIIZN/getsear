@@ -3,7 +3,7 @@
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 
 interface VoidCompTrendChartProps {
   data: Array<{ date: string; voids: number; comps: number; discounts: number }>
@@ -30,11 +30,11 @@ export function VoidCompTrendChart({ data }: VoidCompTrendChartProps) {
   }))
 
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Voids, Comps & Discounts by Day</CardTitle>
+        <CardTitle>Voids, Comps & Discounts by Day</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={formatted} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -43,13 +43,13 @@ export function VoidCompTrendChart({ data }: VoidCompTrendChartProps) {
               <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${v}`} />
               <Tooltip content={<ChartTooltip />} />
               <Legend />
-              <Bar dataKey="voids" name="Voids" fill="#DC2626" radius={[2, 2, 0, 0]} stackId="a" maxBarSize={32} />
-              <Bar dataKey="comps" name="Comps" fill="#D97706" radius={[0, 0, 0, 0]} stackId="a" maxBarSize={32} />
-              <Bar dataKey="discounts" name="Discounts" fill="#2563EB" radius={[2, 2, 0, 0]} stackId="a" maxBarSize={32} />
+              <Bar dataKey="voids" name="Voids" fill="var(--color-danger)" radius={[2, 2, 0, 0]} stackId="a" maxBarSize={32} />
+              <Bar dataKey="comps" name="Comps" fill="var(--color-warning)" radius={[0, 0, 0, 0]} stackId="a" maxBarSize={32} />
+              <Bar dataKey="discounts" name="Discounts" fill="var(--color-primary-active)" radius={[2, 2, 0, 0]} stackId="a" maxBarSize={32} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }

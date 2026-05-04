@@ -1,9 +1,27 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { Calendar, ChevronDown } from 'lucide-react'
+/**
+ * DateRangePicker — V6 ui-v2 build.
+ *
+ * Preset menu via ui-v2 Select; custom range via ui-v2 Text inputs of
+ * type="date". Same height + token-driven styling as the rest of the
+ * back-office filter bars.
+ */
 
-export type DatePreset = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom'
+import { useState, useEffect, useRef } from 'react'
+import { Calendar } from 'lucide-react'
+import { Select } from '@/components/ui-v2/inputs/Select'
+import { Text } from '@/components/ui-v2/inputs/Text'
+import { Button } from '@/components/ui-v2/Button'
+
+export type DatePreset =
+  | 'today'
+  | 'yesterday'
+  | 'this_week'
+  | 'last_week'
+  | 'this_month'
+  | 'last_month'
+  | 'custom'
 
 interface DateRangePickerProps {
   onRangeChange: (preset: DatePreset, dateFrom: string, dateTo: string) => void
@@ -33,7 +51,10 @@ function getDateRange(preset: DatePreset): { from: string; to: string } {
       lastWeekEnd.setDate(lastWeekEnd.getDate() - lastWeekEnd.getDay() - 1)
       const lastWeekStart = new Date(lastWeekEnd)
       lastWeekStart.setDate(lastWeekStart.getDate() - 6)
-      return { from: lastWeekStart.toISOString().split('T')[0], to: lastWeekEnd.toISOString().split('T')[0] }
+      return {
+        from: lastWeekStart.toISOString().split('T')[0],
+        to: lastWeekEnd.toISOString().split('T')[0],
+      }
     }
     case 'this_month': {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -42,120 +63,91 @@ function getDateRange(preset: DatePreset): { from: string; to: string } {
     case 'last_month': {
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
-      return { from: lastMonthStart.toISOString().split('T')[0], to: lastMonthEnd.toISOString().split('T')[0] }
+      return {
+        from: lastMonthStart.toISOString().split('T')[0],
+        to: lastMonthEnd.toISOString().split('T')[0],
+      }
     }
     case 'custom':
       return { from: today, to: today }
   }
 }
 
-const PRESETS: { label: string; value: DatePreset }[] = [
-  { label: 'Today', value: 'today' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'This Week', value: 'this_week' },
-  { label: 'Last Week', value: 'last_week' },
-  { label: 'This Month', value: 'this_month' },
-  { label: 'Last Month', value: 'last_month' },
-  { label: 'Custom Range', value: 'custom' },
+const PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'last_week', label: 'Last Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'custom', label: 'Custom Range' },
 ]
 
-export function DateRangePicker({ onRangeChange, initialPreset = 'today' }: DateRangePickerProps) {
+export function DateRangePicker({
+  onRangeChange,
+  initialPreset = 'today',
+}: DateRangePickerProps) {
   const [activePreset, setActivePreset] = useState<DatePreset>(initialPreset)
-  const [showCustom, setShowCustom] = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown on outside click
+  // Keep onRangeChange in a ref so the user-supplied callback doesn't trigger
+  // re-fires when the parent re-renders with an inline arrow function.
+  const onRangeChangeRef = useRef(onRangeChange)
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    onRangeChangeRef.current = onRangeChange
+  }, [onRangeChange])
 
-  const handlePresetClick = (preset: DatePreset) => {
+  const handlePresetChange = (preset: DatePreset) => {
     setActivePreset(preset)
-    setDropdownOpen(false)
-    if (preset === 'custom') {
-      setShowCustom(true)
-      return
-    }
-    setShowCustom(false)
+    if (preset === 'custom') return
     const range = getDateRange(preset)
-    onRangeChange(preset, range.from, range.to)
+    onRangeChangeRef.current(preset, range.from, range.to)
   }
 
   const handleCustomApply = () => {
     if (customFrom && customTo) {
-      onRangeChange('custom', customFrom, customTo)
-      setShowCustom(false)
+      onRangeChangeRef.current('custom', customFrom, customTo)
     }
   }
 
-  const activeLabel = PRESETS.find((p) => p.value === activePreset)?.label ?? 'Today'
-
   return (
-    <div className="flex items-center gap-2">
-      <div className="relative" ref={dropdownRef}>
-        <button
-          type="button"
-          onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium hover:bg-[var(--secondary)] transition-colors"
-          style={{ height: 44, minWidth: 140 }}
-        >
-          <Calendar className="h-4 w-4 text-[var(--muted-foreground)]" />
-          {activeLabel}
-          <ChevronDown className="h-3.5 w-3.5 text-[var(--muted-foreground)] ml-auto" />
-        </button>
-
-        {dropdownOpen && (
-          <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl border border-[var(--border)] bg-white shadow-warm-lg overflow-hidden">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                type="button"
-                onClick={() => handlePresetClick(preset.value)}
-                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--secondary)] transition-colors ${
-                  activePreset === preset.value ? 'bg-[var(--accent)] text-[var(--primary)] font-medium' : 'text-[var(--foreground)]'
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        )}
+    <div className="flex items-center gap-[var(--space-2)]">
+      <div className="min-w-[160px]">
+        <Select<DatePreset>
+          options={PRESET_OPTIONS}
+          value={activePreset}
+          onChange={handlePresetChange}
+          ariaLabel="Date range preset"
+        />
       </div>
 
-      {showCustom && (
-        <div className="flex items-center gap-2">
-          <input
+      {activePreset === 'custom' && (
+        <div className="flex items-center gap-[var(--space-2)]">
+          <Text
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-white px-3 text-sm"
-            style={{ height: 44 }}
+            aria-label="Custom range from"
+            leadingIcon={<Calendar className="h-4 w-4" />}
           />
-          <span className="text-sm text-[var(--muted-foreground)]">to</span>
-          <input
+          <span className="text-[length:var(--type-footnote-size)] text-[color:var(--color-text-muted)]">
+            to
+          </span>
+          <Text
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-white px-3 text-sm"
-            style={{ height: 44 }}
+            aria-label="Custom range to"
+            leadingIcon={<Calendar className="h-4 w-4" />}
           />
-          <button
-            type="button"
+          <Button
+            size="md"
+            variant="primary"
             onClick={handleCustomApply}
-            className="rounded-xl bg-[var(--primary)] px-4 text-sm font-medium text-white hover:opacity-90 transition-opacity"
-            style={{ height: 44 }}
+            disabled={!customFrom || !customTo}
           >
             Apply
-          </button>
+          </Button>
         </div>
       )}
     </div>

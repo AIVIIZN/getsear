@@ -1,7 +1,7 @@
 'use client'
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 
 interface PLWaterfallChartProps {
   revenue: number
@@ -35,7 +35,7 @@ export function PLWaterfallChart({ revenue, cogs, labor, grossProfit }: PLWaterf
       base: 0,
       value: revenue,
       displayValue: revenue,
-      fill: '#007AFF',
+      fill: 'var(--color-primary)',
       pct: '100%',
     },
     {
@@ -43,7 +43,7 @@ export function PLWaterfallChart({ revenue, cogs, labor, grossProfit }: PLWaterf
       base: revenue - cogs,
       value: cogs,
       displayValue: -cogs,
-      fill: '#DC2626',
+      fill: 'var(--color-danger)',
       pct: revenue > 0 ? `${((cogs / revenue) * 100).toFixed(1)}% of revenue` : '0%',
     },
     {
@@ -51,7 +51,7 @@ export function PLWaterfallChart({ revenue, cogs, labor, grossProfit }: PLWaterf
       base: revenue - cogs - labor,
       value: labor,
       displayValue: -labor,
-      fill: '#D97706',
+      fill: 'var(--color-warning)',
       pct: revenue > 0 ? `${((labor / revenue) * 100).toFixed(1)}% of revenue` : '0%',
     },
     {
@@ -59,17 +59,17 @@ export function PLWaterfallChart({ revenue, cogs, labor, grossProfit }: PLWaterf
       base: 0,
       value: grossProfit,
       displayValue: grossProfit,
-      fill: grossProfit >= 0 ? '#16A34A' : '#DC2626',
+      fill: grossProfit >= 0 ? 'var(--color-success)' : 'var(--color-danger)',
       pct: revenue > 0 ? `${((grossProfit / revenue) * 100).toFixed(1)}% margin` : '0%',
     },
   ]
 
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">P&L Waterfall</CardTitle>
+        <CardTitle>P&L Waterfall</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -86,7 +86,7 @@ export function PLWaterfallChart({ revenue, cogs, labor, grossProfit }: PLWaterf
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }

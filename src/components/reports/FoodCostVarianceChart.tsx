@@ -1,7 +1,7 @@
 'use client'
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 
 interface FoodCostVarianceChartProps {
   data: Array<{ name: string; theoretical_cost: number; actual_cost: number; is_flagged: boolean }>
@@ -34,11 +34,11 @@ export function FoodCostVarianceChart({ data }: FoodCostVarianceChartProps) {
     }))
 
   return (
-    <Card className="shadow-warm-sm">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Theoretical vs Actual Cost (Top 15 by Variance)</CardTitle>
+        <CardTitle>Theoretical vs Actual Cost (Top 15 by Variance)</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sorted} layout="vertical" margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
@@ -47,16 +47,16 @@ export function FoodCostVarianceChart({ data }: FoodCostVarianceChartProps) {
               <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} width={120} />
               <Tooltip content={<VarianceTooltip />} />
               <Legend />
-              <Bar dataKey="theoretical_cost" name="Theoretical" fill="#2563EB" radius={[0, 2, 2, 0]} maxBarSize={16} />
+              <Bar dataKey="theoretical_cost" name="Theoretical" fill="var(--color-primary-active)" radius={[0, 2, 2, 0]} maxBarSize={16} />
               <Bar dataKey="actual_cost" name="Actual" radius={[0, 2, 2, 0]} maxBarSize={16}>
                 {sorted.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.is_flagged ? '#DC2626' : '#D97706'} />
+                  <Cell key={`cell-${index}`} fill={entry.is_flagged ? 'var(--color-danger)' : 'var(--color-warning)'} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }
