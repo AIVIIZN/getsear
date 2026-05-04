@@ -11,6 +11,7 @@
     "reset": "npx tsx src/scripts/reset.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:dev": "playwright test --config=playwright.dev.config.ts",
     "db:diff": "node scripts/db-diff.mjs"
   },
   "dependencies": {
