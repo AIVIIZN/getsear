@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
     let body: unknown
     try {
       body = await request.json()
-    } catch {
+    } catch (err) {
+      console.error('[auth/pin-login] invalid JSON body', err)
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
@@ -187,20 +188,20 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.pin_hash) {
-      // Distinct error here — the cashier needs to know to fall back to email.
+      // Generic 401 — distinguishing "no PIN configured" from "wrong PIN" or
+      // "no such user" via status code or message would let an attacker
+      // enumerate accounts. Log internal reason for ops visibility, but the
+      // response is identical to the wrong-PIN / unknown-user paths.
       rlog.warn('auth.pin_login.failed', {
         user_id,
         org_id: user.org_id,
         reason: 'no_pin_set',
-        status: 400,
+        status: 401,
         duration_ms: Date.now() - t0,
       })
       const res = NextResponse.json(
-        {
-          error:
-            'PIN login is not set up for this account. Use email login instead.',
-        },
-        { status: 400 }
+        { error: GENERIC_AUTH_ERROR },
+        { status: 401 }
       )
       applyRateLimitHeaders(res.headers, userRl)
       return res

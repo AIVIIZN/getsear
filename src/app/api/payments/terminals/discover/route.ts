@@ -17,6 +17,7 @@ import { getAuthUser } from '@/lib/api/auth'
 import { validateManagerPin } from '@/lib/auth/manager-pin'
 import { requireProcessorBinding } from '@/lib/payments/processor-binding'
 import { autoDetect } from '@/lib/payments/auto-detect'
+import { audit } from '@/lib/audit/log'
 
 const bodySchema = z.object({
   manager_pin: z.string().min(4).max(10),
@@ -69,6 +70,22 @@ export async function POST(request: NextRequest) {
 
   const devices = await autoDetect(binding.processor, {
     timeoutMs: parsed.data.timeout_ms ?? 5000,
+  })
+
+  // CLAUDE.md mandates an audit_log entry for every manager-PIN-gated action.
+  await audit.record({
+    actor: user,
+    manager_pin_user_id: validatingManagerId,
+    action: 'terminal_discovered',
+    entity_type: 'terminal',
+    entity_id: null,
+    description: `Terminal discovery scan (${binding.processor}) — ${devices.length} device(s) found`,
+    after_state: {
+      processor: binding.processor,
+      device_count: devices.length,
+      timeout_ms: parsed.data.timeout_ms ?? 5000,
+    },
+    location_id: null,
   })
 
   return NextResponse.json({ data: devices })
