@@ -17,8 +17,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const supabase = createAdminClient()
 
   // Verify customer belongs to org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: customer } = await (supabase.from('customers') as any)
+  const { data: customer } = await supabase.from('customers')
     .select('id')
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -28,9 +27,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (!customer) {
     return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error, count } = await (supabase.from('orders') as any)
+  const { data, error, count } = await supabase.from('orders')
     .select('id, order_number, status, order_type, subtotal, tax_total, total, item_count, created_at, closed_at', { count: 'exact' })
     .eq('customer_id', id)
     .eq('org_id', user.org_id)

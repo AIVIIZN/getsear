@@ -34,9 +34,7 @@ export async function POST(request: NextRequest) {
   const orParts: string[] = []
   if (parsed.data.phone) orParts.push(`phone.eq.${parsed.data.phone}`)
   if (parsed.data.email) orParts.push(`email.eq.${parsed.data.email}`)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('customers') as any)
+  const { data, error } = await supabase.from('customers')
     .select('id, first_name, last_name, email, phone, is_vip, tags, total_visits, total_spend, last_visit_at, allergies')
     .eq('org_id', user.org_id)
     .is('deleted_at', null)

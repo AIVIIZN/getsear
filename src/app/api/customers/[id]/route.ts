@@ -24,9 +24,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params
   const supabase = createAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: customer, error } = await (supabase.from('customers') as any)
+  const { data: customer, error } = await supabase.from('customers')
     .select('*')
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -38,15 +36,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 
   // Fetch addresses
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: addresses } = await (supabase.from('customer_addresses') as any)
+  const { data: addresses } = await supabase.from('customer_addresses')
     .select('*')
     .eq('customer_id', id)
     .order('is_default', { ascending: false })
 
   // Fetch order count
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count: orderCount } = await (supabase.from('orders') as any)
+  const { count: orderCount } = await supabase.from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('customer_id', id)
     .eq('org_id', user.org_id)
@@ -85,9 +81,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   const supabase = createAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('customers') as any)
+  const { data, error } = await supabase.from('customers')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -115,9 +109,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params
   const supabase = createAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('customers') as any)
+  const { error } = await supabase.from('customers')
     .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('org_id', user.org_id)

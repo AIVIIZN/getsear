@@ -79,7 +79,7 @@ export default function TaxRatesPage() {
   function openEdit(rate: TaxRate) {
     setEditingRate(rate);
     setFormName(rate.name);
-    setFormRate(rate.rate);
+    setFormRate(String(rate.rate));
     setFormIsDefault(rate.is_default);
     setFormIsInclusive(rate.is_inclusive);
     setDialogOpen(true);
@@ -196,7 +196,7 @@ export default function TaxRatesPage() {
                     {rate.name}
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    {parseFloat(rate.rate).toFixed(2)}%
+                    {rate.rate.toFixed(2)}%
                   </TableCell>
                   <TableCell>
                     <Badge variant="default">

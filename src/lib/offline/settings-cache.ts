@@ -17,8 +17,12 @@ export async function syncSettings(
 
   onProgress?.(0, 'Loading location settings...')
 
-  // Fetch location settings
-  const { data: settings, error: settingsError } = await supabase
+  // Fetch location settings.
+  // TODO(supabase-type-gen): location_settings table is not in the public schema yet
+  // (V8 onboarding will introduce it). Use an untyped client until the table lands
+  // so the typed Database union doesn't reject the relation name.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settings, error: settingsError } = await (supabase as any)
     .from('location_settings')
     .select('*')
     .eq('location_id', locationId)

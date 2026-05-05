@@ -23,8 +23,7 @@ export async function trackUsage(record: UsageRecord): Promise<void> {
   try {
     const supabase = createAdminClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('ai_usage') as any).insert({
+    await supabase.from('ai_usage').insert({
       org_id: record.orgId,
       user_id: record.userId,
       tokens_in: record.inputTokens,
@@ -62,13 +61,12 @@ export async function getUsageSummary(orgId: string): Promise<UsageSummary> {
     .eq('org_id', orgId)
     .gte('created_at', todayStart)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const todayRecords = (todayData as any[]) ?? []
+  const todayRecords = todayData ?? []
   const today = {
     queries: todayRecords.length,
     tokenIn: todayRecords.reduce((s, r) => s + (r.tokens_in ?? 0), 0),
     tokenOut: todayRecords.reduce((s, r) => s + (r.tokens_out ?? 0), 0),
-    cost: todayRecords.reduce((s, r) => s + parseFloat(r.estimated_cost ?? '0'), 0),
+    cost: todayRecords.reduce((s, r) => s + (r.estimated_cost ?? 0), 0),
   }
 
   // Month's usage
@@ -78,13 +76,12 @@ export async function getUsageSummary(orgId: string): Promise<UsageSummary> {
     .eq('org_id', orgId)
     .gte('created_at', monthStart)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const monthRecords = (monthData as any[]) ?? []
+  const monthRecords = monthData ?? []
   const thisMonth = {
     queries: monthRecords.length,
     tokenIn: monthRecords.reduce((s, r) => s + (r.tokens_in ?? 0), 0),
     tokenOut: monthRecords.reduce((s, r) => s + (r.tokens_out ?? 0), 0),
-    cost: monthRecords.reduce((s, r) => s + parseFloat(r.estimated_cost ?? '0'), 0),
+    cost: monthRecords.reduce((s, r) => s + (r.estimated_cost ?? 0), 0),
   }
 
   // By type
@@ -93,7 +90,7 @@ export async function getUsageSummary(orgId: string): Promise<UsageSummary> {
     const type = r.query_type ?? 'unknown'
     const existing = typeMap.get(type) ?? { queries: 0, cost: 0 }
     existing.queries += 1
-    existing.cost += parseFloat(r.estimated_cost ?? '0')
+    existing.cost += r.estimated_cost ?? 0
     typeMap.set(type, existing)
   }
 

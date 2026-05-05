@@ -13,9 +13,7 @@ export async function POST() {
 
   // In production: revoke tokens via Intuit revoke endpoint
   // POST https://developer.api.intuit.com/v2/oauth2/tokens/revoke
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('accounting_integrations') as any)
+  const { error } = await supabase.from('accounting_integrations')
     .update({
       is_connected: false,
       access_token: null,

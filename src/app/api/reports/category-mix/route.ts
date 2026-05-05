@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let countQuery = (supabase.from('order_items') as any)
+   
+  let countQuery = supabase.from('order_items')
     .select('id', { count: 'exact', head: true })
     .eq('org_id', user.org_id)
   if (locationId) countQuery = countQuery.eq('location_id', locationId)
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Real: join order_items → menu_items → menu_categories
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('order_items') as any)
+   
+  let query = supabase.from('order_items')
     .select('quantity, price, menu_item:menu_items(category_id, category:menu_categories(name))')
     .eq('org_id', user.org_id)
     .gte('created_at', `${dateFrom}T00:00:00Z`)
@@ -46,11 +46,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ is_mock: false, data: null, error: error.message }, { status: 500 })
   }
 
-  // Aggregate by category
+  // Aggregate by category. Supabase types embedded relations as arrays even
+  // when the FK is many-to-one, so we narrow to the first row.
   const catMap = new Map<string, number>()
   let totalSales = 0
   for (const item of (data ?? [])) {
-    const catName = item.menu_item?.category?.name ?? 'Uncategorized'
+    const menuItem = Array.isArray(item.menu_item) ? item.menu_item[0] : item.menu_item
+    const category = menuItem
+      ? (Array.isArray(menuItem.category) ? menuItem.category[0] : menuItem.category)
+      : null
+    const catName = category?.name ?? 'Uncategorized'
     const sales = (Number(item.quantity) || 0) * (Number(item.price) || 0)
     catMap.set(catName, (catMap.get(catName) ?? 0) + sales)
     totalSales += sales
