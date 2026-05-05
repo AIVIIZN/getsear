@@ -85,8 +85,9 @@ EOF
     fi
     ;;
 
-  # --- Block DDL + schema_migrations writes via Supabase MCP ---
-  mcp__claude_ai_Supabase__execute_sql|mcp__claude_ai_Supabase__apply_migration)
+  # --- Block DDL + schema_migrations writes via execute_sql ---
+  # apply_migration is the CANONICAL migration path and is intentionally NOT blocked.
+  mcp__claude_ai_Supabase__execute_sql)
     # P1: anchor to the START of the trimmed query so that DDL keywords inside
     # string literals ("SELECT 'CREATE TABLE' AS msg") or line comments
     # ("-- ALTER ...") do not trigger a false block.
@@ -94,19 +95,19 @@ EOF
     if [[ "$trimmed" =~ ^[[:space:]]*(CREATE|ALTER|DROP|GRANT|REVOKE|TRUNCATE)[[:space:]] ]] \
        || [[ "$trimmed" =~ ^[[:space:]]*INSERT[[:space:]]+INTO[[:space:]]+supabase_migrations ]]; then
       cat >&2 <<EOF
-BLOCKED: orchestrator inline DDL or schema_migrations write detected
-in $tool_name. Dispatch the supabase or migration-author agent
-instead.
-
-  supabase agent       → edge functions, types regen, RPCs, storage,
-                          auth flows, advisors
-  migration-author     → schema DDL, RLS policies, indexes, paired
-                          rollback files
+BLOCKED: DDL or schema_migrations write detected in execute_sql.
+Dispatch the migration-author agent to write a proper migration file,
+then apply via apply_migration (which is the canonical path and is NOT blocked).
 
 Read-only queries (SELECT, EXPLAIN) are fine via execute_sql.
 EOF
       exit 2
     fi
+    ;;
+
+  # apply_migration is intentionally allowed — it's the canonical migration path
+  mcp__claude_ai_Supabase__apply_migration)
+    : # always allow
     ;;
 esac
 
