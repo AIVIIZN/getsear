@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-05T23:30:00Z
+last_updated_at: 2026-05-06T00:30:00Z
 current_version: V7
-current_batch: "Cross-cutting audit (11 agents) + SEC/DATA/LOAD fix batch SHIPPED (commit 680b76f). 13 P0s found across 7 domains; this batch closed: SEC-1a (canonical manager-PIN + Redis pin-login + 3 P2 fixes), SEC-1b (auth_hook narrow), SEC-4 inline-applied, DATA-1 (phantom V7.2.1 align), DATA-2 (database.ts regen + 33 as-any removed + 5 type bugs fixed), DATA-3 (ai_sales_summary dead-code removed), LOAD (V7.3 UUIDv4+201+server-total fixes). Remaining P0s for next batch: SEC-2 (9 RLS-no-policy tables), MARK (Resend webhook + status enum), DEVOPS (verify VM commit + commit ecosystem.config.js)."
+current_batch: "SEC-2 SHIPPED (commit c6dc7d5). 45 RLS policies on 9 lockout tables (drive_thru_cars, drive_thru_lanes, inventory_waste_log, order_throttle_config, print_queue, print_routing, printers, receipt_config, shift_marketplace) — tenant_select/insert/update/delete + service_role_bypass each. schema_migrations row aligned to 20260505030000 (no drift). Hook design fix (c6dc7d5): apply_migration allowed unconditionally; only execute_sql DDL blocked. Remaining P0s: MARK-1 (no Resend webhook handler), MARK-2 (unconstrained text status columns), DEVOPS-1 (verify VM commit + commit ecosystem.config.js)."
 in_flight: {}
 status: handoff_2026_05_05
 handoff_doc: SESSION_HANDOFF_2026_05_05.md
