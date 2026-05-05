@@ -3,5 +3,18 @@
     "allow": [
       "Read(//Users/ianrakow/.claude/**)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|mcp__claude_ai_Supabase__execute_sql|mcp__claude_ai_Supabase__apply_migration",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/ianrakow/Desktop/getsear/.claude/hooks/no-inline-source-edit.sh"
+          }
+        ]
+      }
+    ]
   }
 }
