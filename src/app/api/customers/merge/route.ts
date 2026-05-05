@@ -36,8 +36,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Fetch both customers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: primary, error: pErr } = await (supabase.from('customers') as any)
+  const { data: primary, error: pErr } = await supabase.from('customers')
     .select('*')
     .eq('id', primary_id)
     .eq('org_id', user.org_id)
@@ -47,9 +46,7 @@ export async function POST(request: NextRequest) {
   if (pErr || !primary) {
     return NextResponse.json({ error: 'Primary customer not found' }, { status: 404 })
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: secondary, error: sErr } = await (supabase.from('customers') as any)
+  const { data: secondary, error: sErr } = await supabase.from('customers')
     .select('*')
     .eq('id', secondary_id)
     .eq('org_id', user.org_id)
@@ -80,8 +77,7 @@ export async function POST(request: NextRequest) {
 
   // Update primary with merged data
   const now = new Date().toISOString()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('customers') as any)
+  await supabase.from('customers')
     .update({
       total_visits: combinedVisits,
       total_spend: combinedSpend.toFixed(2),
@@ -96,27 +92,23 @@ export async function POST(request: NextRequest) {
     .eq('id', primary_id)
 
   // Move orders from secondary to primary
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('orders') as any)
+  await supabase.from('orders')
     .update({ customer_id: primary_id, updated_at: now })
     .eq('customer_id', secondary_id)
     .eq('org_id', user.org_id)
 
   // Move addresses from secondary to primary
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('customer_addresses') as any)
+  await supabase.from('customer_addresses')
     .update({ customer_id: primary_id })
     .eq('customer_id', secondary_id)
 
   // Soft-delete secondary
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('customers') as any)
+  await supabase.from('customers')
     .update({ deleted_at: now, updated_at: now })
     .eq('id', secondary_id)
 
   // Create audit log entry
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('audit_log') as any)
+  await supabase.from('audit_log')
     .insert({
       org_id: user.org_id,
       user_id: user.id,
@@ -132,8 +124,7 @@ export async function POST(request: NextRequest) {
     })
 
   // Fetch updated primary
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: merged } = await (supabase.from('customers') as any)
+  const { data: merged } = await supabase.from('customers')
     .select('*')
     .eq('id', primary_id)
     .single()

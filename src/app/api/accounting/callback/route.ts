@@ -38,8 +38,7 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Upsert the integration record
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: dbError } = await (supabase.from('accounting_integrations') as any)
+  const { error: dbError } = await supabase.from('accounting_integrations')
     .upsert(
       {
         org_id: user.org_id,

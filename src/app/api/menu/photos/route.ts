@@ -72,8 +72,8 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Verify item belongs to org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: item, error: itemErr } = await (supabase.from('menu_items') as any)
+   
+  const { data: item, error: itemErr } = await supabase.from('menu_items')
     .select('id')
     .eq('id', itemId)
     .eq('org_id', user.org_id)
@@ -110,9 +110,11 @@ export async function POST(request: NextRequest) {
 
   const publicUrl = urlData.publicUrl
 
-  // Get max sort_order for this item's photos
+  // Get max sort_order for this item's photos.
+  // TODO(supabase-type-gen): menu_item_photos table is referenced here but not yet
+  // present in the public schema; remove the cast once the table is added.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: maxRow } = await (supabase.from('menu_item_photos') as any)
+  const { data: maxRow } = await (supabase as any).from('menu_item_photos')
     .select('sort_order')
     .eq('item_id', itemId)
     .eq('org_id', user.org_id)
@@ -124,9 +126,11 @@ export async function POST(request: NextRequest) {
   const nextSortOrder = (maxRow?.sort_order ?? -1) + 1
   const isPrimary = nextSortOrder === 0
 
-  // Insert photo record
+  // Insert photo record.
+  // TODO(supabase-type-gen): menu_item_photos table is referenced here but not yet
+  // present in the public schema; remove the cast once the table is added.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: photo, error: insertError } = await (supabase.from('menu_item_photos') as any)
+  const { data: photo, error: insertError } = await (supabase as any).from('menu_item_photos')
     .insert({
       org_id: user.org_id,
       item_id: itemId,
@@ -146,8 +150,7 @@ export async function POST(request: NextRequest) {
 
   // If primary, update the menu item's image_url
   if (isPrimary) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('menu_items') as any)
+    await supabase.from('menu_items')
       .update({ image_url: publicUrl })
       .eq('id', itemId)
   }

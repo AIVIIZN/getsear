@@ -117,7 +117,7 @@ export async function POST(
       if (managers) {
         for (const mgr of managers as Array<{ id: string; pin_hash: string | null }>) {
           if (!mgr.pin_hash) continue
-          // eslint-disable-next-line no-await-in-loop
+           
           if (await compare(manager_pin, mgr.pin_hash)) {
             pinValid = true
             approvingManagerId = mgr.id

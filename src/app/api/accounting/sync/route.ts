@@ -32,8 +32,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Verify QBO is connected
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: integration } = await (supabase.from('accounting_integrations') as any)
+  const { data: integration } = await supabase.from('accounting_integrations')
     .select('is_connected')
     .eq('org_id', user.org_id)
     .eq('provider', 'quickbooks')
@@ -48,9 +47,7 @@ export async function POST(request: NextRequest) {
 
   // In production: call QBO API to create journal entries / invoices based on sync_type
   // For now, mock the sync by logging it as completed
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: syncLog, error } = await (supabase.from('accounting_sync_log') as any)
+  const { data: syncLog, error } = await supabase.from('accounting_sync_log')
     .insert({
       org_id: user.org_id,
       sync_type: parsed.data.sync_type,
@@ -69,8 +66,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Update last_sync_at on the integration record
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('accounting_integrations') as any)
+  await supabase.from('accounting_integrations')
     .update({
       last_sync_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

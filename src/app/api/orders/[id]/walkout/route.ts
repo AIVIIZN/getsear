@@ -44,9 +44,8 @@ export async function POST(
   const supabase = createAdminClient()
 
   // Get the order
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order } = await (supabase.from('orders') as any)
-    .select('id, org_id, status, total, location_id, server_id, table_id')
+  const { data: order } = await supabase.from('orders')
+    .select('id, org_id, status, total, location_id, server_id, table_id, metadata')
     .eq('id', orderId)
     .eq('org_id', user.org_id)
     .single()
@@ -106,8 +105,8 @@ export async function POST(
   // Update order status to walkout
   // The schema uses 'voided' status since there's no 'walkout' enum value,
   // but we track the walkout in metadata and audit log
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updatedOrder, error: updateError } = await (supabase.from('orders') as any)
+   
+  const { data: updatedOrder, error: updateError } = await supabase.from('orders')
     .update({
       status: 'voided',
       voided_at: new Date().toISOString(),
@@ -135,8 +134,8 @@ export async function POST(
   }
 
   // Create audit log entry
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('order_modifications') as any).insert({
+   
+  await supabase.from('order_modifications').insert({
     org_id: user.org_id,
     order_id: orderId,
     modification_type: 'walkout',
@@ -154,8 +153,8 @@ export async function POST(
 
   // Release the table if applicable
   if (order.table_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('tables') as any)
+     
+    await supabase.from('tables')
       .update({
         status: 'available',
         current_order_id: null,

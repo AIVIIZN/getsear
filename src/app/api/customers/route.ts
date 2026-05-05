@@ -29,9 +29,7 @@ export async function GET(request: NextRequest) {
   const offset = (page - 1) * limit
 
   const supabase = createAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('customers') as any)
+  let query = supabase.from('customers')
     .select('*', { count: 'exact' })
     .eq('org_id', user.org_id)
     .is('deleted_at', null)
@@ -88,8 +86,7 @@ export async function POST(request: NextRequest) {
 
   // Check for duplicates by phone or email
   if (parsed.data.phone || parsed.data.email) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let dupQuery = (supabase.from('customers') as any)
+    let dupQuery = supabase.from('customers')
       .select('id, first_name, last_name, email, phone')
       .eq('org_id', user.org_id)
       .is('deleted_at', null)
@@ -112,9 +109,7 @@ export async function POST(request: NextRequest) {
       )
     }
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('customers') as any)
+  const { data, error } = await supabase.from('customers')
     .insert({
       org_id: user.org_id,
       ...parsed.data,

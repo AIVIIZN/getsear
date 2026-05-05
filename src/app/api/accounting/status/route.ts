@@ -10,9 +10,7 @@ export async function GET() {
   if (roleErr) return roleErr
 
   const supabase = createAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('accounting_integrations') as any)
+  const { data, error } = await supabase.from('accounting_integrations')
     .select('is_connected, realm_id, last_sync_at, settings, updated_at')
     .eq('org_id', user.org_id)
     .eq('provider', 'quickbooks')

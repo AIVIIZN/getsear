@@ -36,8 +36,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Fetch waitlist entry
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: entry, error: fetchErr } = await (supabase.from('waitlist_entries') as any)
+  const { data: entry, error: fetchErr } = await supabase.from('waitlist_entries')
     .select('id, customer_name, customer_phone, party_size, status, location_id')
     .eq('id', parsed.data.waitlist_entry_id)
     .eq('org_id', user.org_id)
@@ -59,8 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Get location name for SMS
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: location } = await (supabase.from('locations') as any)
+  const { data: location } = await supabase.from('locations')
     .select('name')
     .eq('id', entry.location_id)
     .single()
@@ -83,8 +81,7 @@ export async function POST(request: NextRequest) {
 
   // Update waitlist entry status to notified
   const now = new Date().toISOString()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('waitlist_entries') as any)
+  await supabase.from('waitlist_entries')
     .update({
       status: 'notified',
       notified_at: now,

@@ -23,9 +23,7 @@ export async function GET() {
   if (roleErr) return roleErr
 
   const supabase = createAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('accounting_integrations') as any)
+  const { data, error } = await supabase.from('accounting_integrations')
     .select('settings')
     .eq('org_id', user.org_id)
     .eq('provider', 'quickbooks')
@@ -63,8 +61,7 @@ export async function PATCH(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Fetch existing settings to merge
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (supabase.from('accounting_integrations') as any)
+  const { data: existing } = await supabase.from('accounting_integrations')
     .select('settings')
     .eq('org_id', user.org_id)
     .eq('provider', 'quickbooks')
@@ -76,8 +73,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   // Upsert so it works even if no row exists yet
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('accounting_integrations') as any)
+  const { data, error } = await supabase.from('accounting_integrations')
     .upsert(
       {
         org_id: user.org_id,

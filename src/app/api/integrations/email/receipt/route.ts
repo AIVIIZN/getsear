@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   // Fetch order with items
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order, error: orderError } = await (supabase.from('orders') as any)
+   
+  const { data: order, error: orderError } = await supabase.from('orders')
     .select(`
       id, order_number, order_type, subtotal, tax_total, tip_amount, total,
       status, created_at, server_id, customer_id,
@@ -41,14 +41,14 @@ export async function POST(request: NextRequest) {
   }
 
   // Fetch order items
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items } = await (supabase.from('order_items') as any)
+   
+  const { data: items } = await supabase.from('order_items')
     .select('id, name, quantity, unit_price, modifiers')
     .eq('order_id', parsed.data.order_id)
 
   // Fetch payment method
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: payment } = await (supabase.from('payments') as any)
+   
+  const { data: payment } = await supabase.from('payments')
     .select('payment_method, card_brand, last_four')
     .eq('order_id', parsed.data.order_id)
     .eq('type', 'payment')
@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
   // Fetch server name
   let serverName: string | undefined
   if (order.server_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: server } = await (supabase.from('users') as any)
+     
+    const { data: server } = await supabase.from('users')
       .select('first_name, last_name')
       .eq('id', order.server_id)
       .maybeSingle()
@@ -72,8 +72,8 @@ export async function POST(request: NextRequest) {
   // Fetch customer name
   let customerName: string | undefined
   if (order.customer_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: customer } = await (supabase.from('customers') as any)
+     
+    const { data: customer } = await supabase.from('customers')
       .select('first_name, last_name')
       .eq('id', order.customer_id)
       .maybeSingle()
@@ -82,7 +82,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const location = order.location
+  // Supabase types treat embedded relations as arrays even when the FK is
+  // many-to-one. Take the first row.
+  const location = Array.isArray(order.location) ? order.location[0] : order.location
   const locationAddress = location
     ? `${location.address_line1 ?? ''}, ${location.city ?? ''}, ${location.state ?? ''} ${location.zip ?? ''}`
     : ''

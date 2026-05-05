@@ -3,6 +3,11 @@
  *
  * Each function builds a Supabase query for a specific data domain.
  * All queries are scoped by org_id and location_id for security.
+ *
+ * TODO(supabase-type-gen): the helpers below take an untyped `SupabaseClient`
+ * (no `<Database>` generic), so `.data` is unknown and we narrow with
+ * `as <shape>[]`. Plumbing the typed client through the call chain would let
+ * us drop those casts; deferred to V8 onboarding.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -22,6 +27,15 @@ type QueryResult = { data: any; error: any }
 
 /**
  * Query sales from orders + order_items tables.
+ *
+ * NOTE: An earlier draft attempted to call an `ai_sales_summary` Postgres RPC
+ * for the day/total grouping path and fall back to the JS aggregator when the
+ * RPC was missing. The RPC was never shipped (no entry in `pg_proc` and no
+ * migration creates it), so the fallback was always the live code path. The
+ * RPC branch was removed in DATA-3 (2026-05-05) to delete the dead code and
+ * avoid the false impression of a server-side aggregate. If a future task
+ * adds the RPC, restore the fast path here and ensure the SQL definition
+ * tenant-scopes inside the body (don't rely on RLS alone).
  */
 export async function querySalesData(
   supabase: SupabaseClient,
@@ -31,31 +45,11 @@ export async function querySalesData(
 ): Promise<QueryResult> {
   const { orgId, locationId } = scope
   const { startDate, endDate } = dates
-  const { groupBy, orderType } = options
 
-  // Base: aggregate orders
-  if (!groupBy || groupBy === 'day') {
-    const query = supabase.rpc('ai_sales_summary', {
-      p_org_id: orgId,
-      p_location_id: locationId,
-      p_start_date: startDate,
-      p_end_date: endDate,
-      p_group_by: groupBy ?? 'total',
-      p_order_type: orderType ?? null,
-    })
-
-    const result = await query
-    if (result.error) {
-      // Fallback to direct query if RPC doesn't exist
-      return fallbackSalesQuery(supabase, scope, dates, options)
-    }
-    return result
-  }
-
-  return fallbackSalesQuery(supabase, scope, dates, options)
+  return aggregateSalesData(supabase, { orgId, locationId }, { startDate, endDate }, options)
 }
 
-async function fallbackSalesQuery(
+async function aggregateSalesData(
   supabase: SupabaseClient,
   scope: ScopeParams,
   dates: DateRange,
@@ -235,7 +229,7 @@ export async function queryLaborData(
   const totalBreakMinutes = entries.reduce((sum, e) => sum + (e.break_minutes ?? 0), 0)
 
   // Get sales for labor % calculation
-  const salesResult = await fallbackSalesQuery(supabase, scope, dates, {})
+  const salesResult = await aggregateSalesData(supabase, scope, dates, {})
   const salesRevenue = salesResult.data?.summary?.total_revenue_cents ?? 0
   const laborPct = salesRevenue > 0 ? ((totalPayCents / salesRevenue) * 100).toFixed(1) : 'N/A'
 
@@ -498,7 +492,7 @@ export async function queryFoodCostData(
   const totalWasteCents = waste.reduce((sum, w) => sum + (w.cost_cents ?? 0), 0)
 
   // Get sales for food cost % calc
-  const salesResult = await fallbackSalesQuery(supabase, scope, dates, {})
+  const salesResult = await aggregateSalesData(supabase, scope, dates, {})
   const totalRevenue = salesResult.data?.summary?.total_revenue_cents ?? 0
   const wastePct = totalRevenue > 0 ? ((totalWasteCents / totalRevenue) * 100).toFixed(1) : 'N/A'
 
@@ -1074,8 +1068,8 @@ export async function comparePeriods(
   // Fetch data for both periods
   if (['revenue', 'covers', 'avg_check'].includes(metric)) {
     const [aResult, bResult] = await Promise.all([
-      fallbackSalesQuery(supabase, scope, periodA, {}),
-      fallbackSalesQuery(supabase, scope, periodB, {}),
+      aggregateSalesData(supabase, scope, periodA, {}),
+      aggregateSalesData(supabase, scope, periodB, {}),
     ])
     const aSummary = aResult.data?.summary
     const bSummary = bResult.data?.summary

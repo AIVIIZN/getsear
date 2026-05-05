@@ -335,7 +335,15 @@ export function WorkstationTerminalsTab() {
               <TableBody>
                 {terminals.map((term) => {
                   const online = isOnline(term.last_heartbeat_at);
-                  const fp = term.device_fingerprint;
+                  // device_fingerprint is jsonb in the DB; we know the shape
+                  // (set by terminals/register), so narrow it here.
+                  const fp = term.device_fingerprint as {
+                    user_agent?: string;
+                    screen_width?: number;
+                    screen_height?: number;
+                    platform?: string;
+                    standalone?: boolean;
+                  } | null;
                   return (
                     <TableRow key={term.id} className="even:bg-muted/20">
                       <TableCell className="pl-4 font-medium">
@@ -624,36 +632,40 @@ export function WorkstationTerminalsTab() {
                 </div>
               </div>
 
-              {configureTerminal.device_fingerprint && (
-                <div className="space-y-3">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Device Information
-                  </Label>
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-4 space-y-2">
-                    <InfoRow
-                      label="Platform"
-                      value={configureTerminal.device_fingerprint.platform}
-                    />
-                    <InfoRow
-                      label="Screen"
-                      value={`${configureTerminal.device_fingerprint.screen_width} x ${configureTerminal.device_fingerprint.screen_height}`}
-                    />
-                    <InfoRow
-                      label="Standalone"
-                      value={
-                        configureTerminal.device_fingerprint.standalone
-                          ? "Yes"
-                          : "No"
-                      }
-                    />
-                    <InfoRow
-                      label="User Agent"
-                      value={configureTerminal.device_fingerprint.user_agent}
-                      truncate
-                    />
+              {(() => {
+                // device_fingerprint is jsonb; we know the shape (set on register).
+                const cfp = configureTerminal.device_fingerprint as {
+                  user_agent?: string;
+                  screen_width?: number;
+                  screen_height?: number;
+                  platform?: string;
+                  standalone?: boolean;
+                } | null;
+                if (!cfp) return null;
+                return (
+                  <div className="space-y-3">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Device Information
+                    </Label>
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-4 space-y-2">
+                      <InfoRow label="Platform" value={cfp.platform} />
+                      <InfoRow
+                        label="Screen"
+                        value={`${cfp.screen_width} x ${cfp.screen_height}`}
+                      />
+                      <InfoRow
+                        label="Standalone"
+                        value={cfp.standalone ? "Yes" : "No"}
+                      />
+                      <InfoRow
+                        label="User Agent"
+                        value={cfp.user_agent}
+                        truncate
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           )}
 
@@ -686,9 +698,10 @@ function InfoRow({
   truncate,
 }: {
   label: string;
-  value: string;
+  value: string | undefined;
   truncate?: boolean;
 }) {
+  const display = value ?? "—";
   return (
     <div className="flex items-start justify-between gap-4">
       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
@@ -698,9 +711,9 @@ function InfoRow({
         className={`text-xs text-foreground text-right ${
           truncate ? "max-w-[260px] truncate" : ""
         }`}
-        title={truncate ? value : undefined}
+        title={truncate ? display : undefined}
       >
-        {value}
+        {display}
       </span>
     </div>
   );
