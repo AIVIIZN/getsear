@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { compare } from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { validateManagerPin } from '@/lib/auth/manager-pin'
 import {
   assertTransition,
   IllegalTransitionError,
@@ -287,28 +287,3 @@ export async function POST(
   })
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function validateManagerPin(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  orgId: string,
-  pin: string
-): Promise<string | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: managers } = await (supabase.from('users') as any)
-    .select('id, pin_hash')
-    .eq('org_id', orgId)
-    .in('role', ['owner', 'admin', 'manager'])
-
-  if (!managers || managers.length === 0) return null
-
-  for (const mgr of managers as Array<{ id: string; pin_hash: string | null }>) {
-    if (!mgr.pin_hash) continue
-    const ok = await compare(pin, mgr.pin_hash)
-    if (ok) return mgr.id
-  }
-  return null
-}

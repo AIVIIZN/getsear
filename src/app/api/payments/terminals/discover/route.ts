@@ -12,9 +12,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { compare } from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { validateManagerPin } from '@/lib/auth/manager-pin'
 import { requireProcessorBinding } from '@/lib/payments/processor-binding'
 import { autoDetect } from '@/lib/payments/auto-detect'
 
@@ -42,33 +42,14 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Validate manager PIN against any owner/admin/manager in the same org.
+  // SEC-1a: canonical helper validates against ACTIVE managers only.
   const supabase = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: managers } = await (supabase.from('users') as any)
-    .select('id, pin_hash')
-    .eq('org_id', user.org_id)
-    .eq('is_active', true)
-    .in('role', ['owner', 'admin', 'manager'])
-    .not('pin_hash', 'is', null)
-
-  if (!managers || managers.length === 0) {
-    return NextResponse.json(
-      { error: 'No managers configured for PIN validation' },
-      { status: 403 }
-    )
-  }
-
-  let pinValid = false
-  for (const mgr of managers as Array<{ pin_hash: string | null }>) {
-    if (!mgr.pin_hash) continue
-    if (await compare(parsed.data.manager_pin, mgr.pin_hash)) {
-      pinValid = true
-      break
-    }
-  }
-
-  if (!pinValid) {
+  const validatingManagerId = await validateManagerPin(
+    supabase,
+    user.org_id,
+    parsed.data.manager_pin
+  )
+  if (!validatingManagerId) {
     return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
   }
 

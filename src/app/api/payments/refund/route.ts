@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { getValorClient } from '@/lib/payments/valor-client-loader'
-import { compare } from 'bcryptjs'
+import { validateManagerPin } from '@/lib/auth/manager-pin'
 import {
   assertTransition,
   IllegalTransitionError,
@@ -204,28 +204,10 @@ export async function POST(request: NextRequest) {
   }
 
   // ----- 4. Manager PIN check (always required for refunds) ----------------
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: managers } = await (supabase.from('users') as any)
-    .select('id, pin_hash')
-    .eq('org_id', user.org_id)
-    .in('role', ['manager', 'admin', 'owner'])
-
-  let pinValid = false
-  let approvedByManagerId: string | null = null
-  if (managers) {
-    for (const mgr of managers as Array<{ id: string; pin_hash: string | null }>) {
-      if (mgr.pin_hash) {
-        const ok = await compare(manager_pin, mgr.pin_hash)
-        if (ok) {
-          pinValid = true
-          approvedByManagerId = mgr.id
-          break
-        }
-      }
-    }
-  }
-
-  if (!pinValid) {
+  // SEC-1a: canonical helper from @/lib/auth/manager-pin filters is_active=true
+  // so terminated managers cannot authorise refunds via stale pin_hash.
+  const approvedByManagerId = await validateManagerPin(supabase, user.org_id, manager_pin)
+  if (!approvedByManagerId) {
     return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
   }
 
