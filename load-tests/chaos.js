@@ -404,7 +404,9 @@ function runOrderFlow(menuItems, cookieHeader) {
     { headers }
   )
   if (f5) return { success: false, hadChaos: true }
-  if (r5.status !== 200) return { success: false, hadChaos: false }
+  // POST /api/payments/process returns 201 on success (verified in
+  // src/app/api/payments/process/route.ts — the route returns status 201).
+  if (r5.status !== 201) return { success: false, hadChaos: false }
 
   let payStatus
   try {

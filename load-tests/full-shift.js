@@ -23,6 +23,7 @@ import { check, group, sleep } from 'k6'
 import exec from 'k6/execution'
 import { Counter, Rate, Trend } from 'k6/metrics'
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
+import { uuidv4 } from 'k6/crypto'
 
 // ---------------------------------------------------------------------------
 // Configuration — all secrets come from env, never hardcoded.
@@ -67,6 +68,7 @@ export const options = {
       duration: '12m',
       gracefulStop: '30s',
       tags: { scenario: 'terminal' },
+      exec: 'terminalScenario',
     },
     /**
      * KDS scenario: 4 VUs polling /api/kds/tickets every 2s, simulating
@@ -197,18 +199,27 @@ function pickRandomItems(menuItems, count) {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: generate a UUID-shaped idempotency key
+// Helper: generate a real UUIDv4 idempotency key.
+//
+// The server's withIdempotency middleware (src/lib/api/idempotency.ts) validates
+// the Idempotency-Key header against:
+//   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+// Only strict UUIDv4 strings pass; anything else returns 400. k6/crypto.uuidv4()
+// produces a conformant v4 UUID. The prefix param is kept for call-site clarity
+// but is NOT incorporated into the key (would break the regex).
 // ---------------------------------------------------------------------------
-function idempotencyKey(prefix) {
-  // k6 doesn't have crypto.randomUUID — approximate with Date + Math.random
-  const rand = () => Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0')
-  return `${prefix}-${Date.now().toString(16)}-${rand()}-${rand()}-${rand()}-${rand()}${rand()}${rand()}`
+// eslint-disable-next-line no-unused-vars
+function idempotencyKey(_prefix) {
+  return uuidv4()
 }
 
 // ---------------------------------------------------------------------------
-// TERMINAL scenario — default export (runs for the "terminal" executor)
+// TERMINAL scenario — named export required by exec: 'terminalScenario'.
+// k6 routes exec: by named export; default export alone is not sufficient.
+// We also re-export as default so `k6 run full-shift.js` without explicit
+// scenario config still works (default is the fallback entrypoint).
 // ---------------------------------------------------------------------------
-export default function terminalScenario(data) {
+export function terminalScenario(data) {
   const { menuItems, cookieHeader } = data
 
   // Auth via cookie set in setup() — see top-of-file comment on rate-limit
@@ -266,7 +277,6 @@ export default function terminalScenario(data) {
   // -------------------------------------------------------------------------
   const itemCount = randomIntBetween(2, 4)
   const selectedItems = pickRandomItems(menuItems, itemCount)
-  let orderTotal = 0
 
   // If menu pool is empty (setup couldn't fetch), we still exercise the
   // endpoint with a synthetic item — this validates auth/routing while
@@ -279,8 +289,6 @@ export default function terminalScenario(data) {
   for (const item of itemsToAdd) {
     group('add_item', () => {
       const unitPrice = item.price ? item.price : '10.00'
-      const priceCents = Math.round(parseFloat(unitPrice) * 100)
-      orderTotal += priceCents
 
       const body = {
         menu_item_id: item.id || '00000000-0000-0000-0000-000000000000',
@@ -318,11 +326,42 @@ export default function terminalScenario(data) {
   }
 
   // -------------------------------------------------------------------------
+  // 2b. Fetch server-computed order total (includes tax applied by
+  //     recalculateOrderTotals). The client-side item prices are pre-tax;
+  //     paying that amount under-pays every order. Using order.total from the
+  //     server ensures the payment amount matches what the server expects.
+  // -------------------------------------------------------------------------
+  let amountCents = 1500 // fallback if fetch fails
+  group('fetch_order_total', () => {
+    const res = http.get(
+      `${BASE_URL}/api/orders/${orderId}`,
+      {
+        headers: authHeaders(cookieHeader),
+        tags: { type: 'order_fetch' },
+      }
+    )
+
+    check(res, {
+      'fetch_order_total: status 200': (r) => r.status === 200,
+    })
+
+    if (res.status === 200) {
+      try {
+        const total = parseFloat(res.json('data.total') || '0')
+        if (total > 0) {
+          amountCents = Math.round(total * 100)
+        }
+      } catch (_) {
+        // keep fallback
+      }
+    }
+  })
+
+  // -------------------------------------------------------------------------
   // 3. Process cash payment
-  //    amount_cents = computed from items above (or a fixed floor if zero)
+  //    amount_cents = server-computed tax-inclusive total (fetched above)
   // -------------------------------------------------------------------------
   group('process_payment', () => {
-    const amountCents = orderTotal > 0 ? orderTotal : 1500
     const tenderedCents = amountCents + 100 // round up $1 to simulate change
 
     const body = {
@@ -411,3 +450,8 @@ export function kdsScenario(data) {
   // 2s polling interval (matches real KDS refresh rate)
   sleep(2)
 }
+
+// k6 requires a default export. Both scenarios use exec: routing above, so
+// the default is only invoked if someone runs k6 without explicit scenario
+// config — in that case, run the terminal flow.
+export default terminalScenario
