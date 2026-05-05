@@ -90,6 +90,7 @@ export type AuditAction =
   | 'org_settings_changed'
   | 'terminal_registered'
   | 'terminal_removed'
+  | 'terminal_discovered'
   // Menu
   | 'menu_photo_generated'
 

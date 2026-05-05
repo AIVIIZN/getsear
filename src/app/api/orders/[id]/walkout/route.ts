@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { compare } from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { validateManagerPin } from '@/lib/auth/manager-pin'
 
 const walkoutSchema = z.object({
   /** Manager PIN for authorization (bcrypt-hashed in DB) */
@@ -62,40 +62,46 @@ export async function POST(
     )
   }
 
-  // Validate manager PIN
-  // Find managers at this location and check their PINs
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: managers } = await (supabase.from('users') as any)
-    .select('id, pin_hash, first_name, last_name, role')
-    .eq('org_id', user.org_id)
-    .in('role', ['owner', 'admin', 'manager'])
-
-  if (!managers || managers.length === 0) {
-    return NextResponse.json(
-      { error: 'No managers found for PIN validation' },
-      { status: 400 }
-    )
-  }
-
-  let validatingManager: { id: string; first_name: string; last_name: string; role: string } | null = null
-
-  for (const manager of managers) {
-    if (!manager.pin_hash) continue
-    const isValid = await compare(parsed.data.manager_pin, manager.pin_hash)
-    if (isValid) {
-      validatingManager = manager
-      break
-    }
-  }
-
-  if (!validatingManager) {
+  // SEC-1a: validate the PIN against ACTIVE managers via the canonical helper.
+  // The helper filters is_active=true so terminated managers can't authorise.
+  const validatingManagerId = await validateManagerPin(
+    supabase,
+    user.org_id,
+    parsed.data.manager_pin
+  )
+  if (!validatingManagerId) {
     return NextResponse.json(
       { error: 'Invalid manager PIN' },
       { status: 403 }
     )
   }
 
+  // Hydrate the manager's display name for the walkout metadata. The canonical
+  // helper returns just the id; we still need first/last_name for human-readable
+  // audit + the response shape that older clients render.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: managerRow } = await (supabase.from('users') as any)
+    .select('id, first_name, last_name, role')
+    .eq('id', validatingManagerId)
+    .eq('org_id', user.org_id)
+    .single()
+
+  const validatingManager = (managerRow as {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    role: string
+  } | null) ?? {
+    id: validatingManagerId,
+    first_name: null,
+    last_name: null,
+    role: 'manager',
+  }
+
   const houseLoss = parseFloat(order.total || '0')
+  const managerName =
+    [validatingManager.first_name, validatingManager.last_name].filter(Boolean).join(' ') ||
+    'Manager'
 
   // Update order status to walkout
   // The schema uses 'voided' status since there's no 'walkout' enum value,
@@ -113,7 +119,7 @@ export async function POST(
           house_loss: houseLoss.toFixed(2),
           notes: parsed.data.notes ?? null,
           manager_id: validatingManager.id,
-          manager_name: `${validatingManager.first_name} ${validatingManager.last_name}`,
+          manager_name: managerName,
           reported_by: user.id,
           walkout_at: new Date().toISOString(),
         },
@@ -139,7 +145,7 @@ export async function POST(
       house_loss: houseLoss,
       notes: parsed.data.notes ?? null,
       manager_id: validatingManager.id,
-      manager_name: `${validatingManager.first_name} ${validatingManager.last_name}`,
+      manager_name: managerName,
       server_id: order.server_id,
       table_id: order.table_id,
     },
@@ -163,7 +169,7 @@ export async function POST(
       order_id: orderId,
       status: 'walkout',
       house_loss: houseLoss.toFixed(2),
-      approved_by: `${validatingManager.first_name} ${validatingManager.last_name}`,
+      approved_by: managerName,
       walkout_at: new Date().toISOString(),
     },
   })

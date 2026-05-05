@@ -12,11 +12,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { compare } from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
+import { validateManagerPin } from '@/lib/auth/manager-pin'
 import { requireProcessorBinding } from '@/lib/payments/processor-binding'
 import { autoDetect } from '@/lib/payments/auto-detect'
+import { audit } from '@/lib/audit/log'
 
 const bodySchema = z.object({
   manager_pin: z.string().min(4).max(10),
@@ -42,33 +43,14 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Validate manager PIN against any owner/admin/manager in the same org.
+  // SEC-1a: canonical helper validates against ACTIVE managers only.
   const supabase = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: managers } = await (supabase.from('users') as any)
-    .select('id, pin_hash')
-    .eq('org_id', user.org_id)
-    .eq('is_active', true)
-    .in('role', ['owner', 'admin', 'manager'])
-    .not('pin_hash', 'is', null)
-
-  if (!managers || managers.length === 0) {
-    return NextResponse.json(
-      { error: 'No managers configured for PIN validation' },
-      { status: 403 }
-    )
-  }
-
-  let pinValid = false
-  for (const mgr of managers as Array<{ pin_hash: string | null }>) {
-    if (!mgr.pin_hash) continue
-    if (await compare(parsed.data.manager_pin, mgr.pin_hash)) {
-      pinValid = true
-      break
-    }
-  }
-
-  if (!pinValid) {
+  const validatingManagerId = await validateManagerPin(
+    supabase,
+    user.org_id,
+    parsed.data.manager_pin
+  )
+  if (!validatingManagerId) {
     return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
   }
 
@@ -88,6 +70,22 @@ export async function POST(request: NextRequest) {
 
   const devices = await autoDetect(binding.processor, {
     timeoutMs: parsed.data.timeout_ms ?? 5000,
+  })
+
+  // CLAUDE.md mandates an audit_log entry for every manager-PIN-gated action.
+  await audit.record({
+    actor: user,
+    manager_pin_user_id: validatingManagerId,
+    action: 'terminal_discovered',
+    entity_type: 'terminal',
+    entity_id: null,
+    description: `Terminal discovery scan (${binding.processor}) — ${devices.length} device(s) found`,
+    after_state: {
+      processor: binding.processor,
+      device_count: devices.length,
+      timeout_ms: parsed.data.timeout_ms ?? 5000,
+    },
+    location_id: null,
   })
 
   return NextResponse.json({ data: devices })
