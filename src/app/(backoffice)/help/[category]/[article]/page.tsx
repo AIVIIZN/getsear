@@ -3,7 +3,7 @@
 import { use } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
-import { HELP_CATEGORIES, HELP_ARTICLES } from '../../page'
+import { HELP_CATEGORIES, HELP_ARTICLES } from '../../content'
 
 export default function HelpArticlePage({
   params,
