@@ -1,4 +1,4 @@
--- Inverse of supabase/migrations/20260524124110_constrain_marketing_statuses.sql
+-- Inverse of supabase/migrations/20260524125212_constrain_marketing_statuses.sql
 
 BEGIN;
 

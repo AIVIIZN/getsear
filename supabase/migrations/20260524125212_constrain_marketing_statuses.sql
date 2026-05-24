@@ -1,7 +1,7 @@
--- 20260524124110_constrain_marketing_statuses.sql
+-- 20260524125212_constrain_marketing_statuses.sql
 -- Task: MARK-2 — constrain campaign and campaign_recipients status drift
 -- One-way migration; rollback in
---   supabase/_rollbacks/20260524124110_constrain_marketing_statuses.rollback.sql
+--   supabase/_rollbacks/20260524125212_constrain_marketing_statuses.rollback.sql
 
 BEGIN;
 
