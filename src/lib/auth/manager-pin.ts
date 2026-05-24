@@ -165,7 +165,7 @@ export async function verifyManagerPinWithRateLimit(args: {
 
   // Quick PIN-format guard. We deliberately do NOT consume an extra rate-limit
   // slot here — slots already incremented above are sufficient.
-  if (typeof pin !== 'string' || pin.length < 4 || pin.length > 8) {
+  if (typeof pin !== 'string' || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
     await recordPinFailure({
       caller,
       reason: 'invalid_format',

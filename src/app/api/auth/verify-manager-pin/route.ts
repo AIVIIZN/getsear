@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { verifyManagerPinWithRateLimit } from '@/lib/auth/manager-pin'
 import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
 
+const verifyManagerPinBodySchema = z.object({
+  pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only'),
+})
+
 /**
  * POST /api/auth/verify-manager-pin
  *
- * Verifies a 4-digit PIN belongs to a user with manager/admin/owner role.
+ * Verifies a 4-6 digit PIN belongs to a user with manager/admin/owner role.
  * Used for mid-shift approvals (voids, comps, discounts, overrides).
  * Does NOT create a session — just validates and returns the manager's identity.
  *
@@ -21,17 +26,21 @@ export async function POST(request: NextRequest) {
   const caller = await getAuthUser()
   if (caller instanceof NextResponse) return caller
 
-  let body: { pin?: string }
+  let body: unknown
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { pin } = body
-  if (!pin || typeof pin !== 'string' || pin.length !== 4) {
-    return NextResponse.json({ error: 'A 4-digit PIN is required' }, { status: 400 })
+  const parsed = verifyManagerPinBodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'A 4-6 digit PIN is required', details: parsed.error.issues },
+      { status: 400 },
+    )
   }
+  const { pin } = parsed.data
 
   const supabase = createAdminClient()
   const result = await verifyManagerPinWithRateLimit({

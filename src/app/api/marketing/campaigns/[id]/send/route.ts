@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { compare } from 'bcryptjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { validateManagerPin } from '@/lib/auth/manager-pin'
 import { resolveRecipients, type CampaignChannel } from '@/lib/marketing/recipients'
 import {
   enqueueCampaignEmails,
@@ -30,11 +30,14 @@ import {
  */
 
 const sendBodySchema = z.object({
-  /** 4–8 digit PIN; only consulted when campaign.requires_approval. */
-  manager_pin: z.string().min(4).max(8).optional(),
+  /** 4-6 digit PIN; only consulted when campaign.requires_approval. */
+  manager_pin: z
+    .string()
+    .min(4)
+    .max(6)
+    .regex(/^\d+$/, 'PIN must be digits only')
+    .optional(),
 })
-
-const MANAGER_ROLES = ['manager', 'admin', 'owner', 'platform_admin']
 
 export async function POST(
   request: NextRequest,
@@ -92,47 +95,24 @@ export async function POST(
 
   // 2. Manager-PIN gate ------------------------------------------------------
   if (campaign.requires_approval === true) {
-    const callerIsManager = MANAGER_ROLES.includes(user.role)
-    if (!callerIsManager) {
-      if (!manager_pin) {
-        return NextResponse.json(
-          {
-            error: 'This campaign requires manager approval. Provide manager_pin.',
-            requires_manager_pin: true,
-          },
-          { status: 403 },
-        )
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: managers } = await (supabase.from('users') as any)
-        .select('id, pin_hash')
-        .eq('org_id', user.org_id)
-        .eq('is_active', true)
-        .in('role', ['manager', 'admin', 'owner'])
-        .not('pin_hash', 'is', null)
-
-      let pinValid = false
-      let approvingManagerId: string | null = null
-      if (managers) {
-        for (const mgr of managers as Array<{ id: string; pin_hash: string | null }>) {
-          if (!mgr.pin_hash) continue
-           
-          if (await compare(manager_pin, mgr.pin_hash)) {
-            pinValid = true
-            approvingManagerId = mgr.id
-            break
-          }
-        }
-      }
-
-      if (!pinValid) {
-        return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
-      }
-      // approvingManagerId is captured for the future audit-log task; not
-      // persisted yet because the audit_log row lives in a sister batch.
-      void approvingManagerId
+    if (!manager_pin) {
+      return NextResponse.json(
+        {
+          error: 'This campaign requires manager approval. Provide manager_pin.',
+          requires_manager_pin: true,
+        },
+        { status: 403 },
+      )
     }
+
+    const approvingManagerId = await validateManagerPin(supabase, user.org_id, manager_pin)
+    if (!approvingManagerId) {
+      return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+    }
+
+    // approvingManagerId is captured for the future audit-log task; not
+    // persisted yet because the audit_log row lives in a sister batch.
+    void approvingManagerId
   }
 
   // 3. Scheduling check ------------------------------------------------------
