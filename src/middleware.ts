@@ -11,6 +11,7 @@ const PUBLIC_ROUTES = [
   '/favicon.ico',
   '/api/auth',
   '/api/webhooks',
+  '/api/integrations/resend/webhook',
   '/api/terminals/activate',
   '/api/terminals/heartbeat',
   '/api/observability/rum',
