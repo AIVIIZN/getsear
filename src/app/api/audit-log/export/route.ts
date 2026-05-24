@@ -44,7 +44,7 @@ const querySchema = z.object({
   action: z.string().min(1).max(64).optional(),
   entity_type: z.string().min(1).max(64).optional(),
   search: z.string().max(200).optional(),
-  manager_pin: z.string().min(4).max(10),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only'),
   /** Hard cap to keep the file shippable. */
   limit: z.coerce.number().int().positive().max(50_000).optional(),
 })

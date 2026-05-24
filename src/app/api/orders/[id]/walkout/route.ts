@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
-import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
+import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
 
 const walkoutSchema = z.object({
   /** Manager PIN for authorization (bcrypt-hashed in DB) */
-  manager_pin: z.string().min(4).max(10),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only'),
   notes: z.string().max(2000).optional(),
 })
 
@@ -63,17 +64,28 @@ export async function POST(
 
   // SEC-1a: validate the PIN against ACTIVE managers via the canonical helper.
   // The helper filters is_active=true so terminated managers can't authorise.
-  const validatingManagerId = await validateManagerPin(
+  const pinResult = await validateManagerPinForAction({
+    actor: user,
+    pin: parsed.data.manager_pin,
+    request,
     supabase,
-    user.org_id,
-    parsed.data.manager_pin
-  )
-  if (!validatingManagerId) {
+  })
+  if (pinResult.kind === 'rate_limited') {
+    const res = NextResponse.json(
+      { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
+      { status: 429 }
+    )
+    applyRateLimitHeaders(res.headers, pinResult.rateLimit)
+    res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
+    return res
+  }
+  if (pinResult.kind === 'invalid') {
     return NextResponse.json(
       { error: 'Invalid manager PIN' },
       { status: 403 }
     )
   }
+  const validatingManagerId = pinResult.manager_user_id
 
   // Hydrate the manager's display name for the walkout metadata. The canonical
   // helper returns just the id; we still need first/last_name for human-readable

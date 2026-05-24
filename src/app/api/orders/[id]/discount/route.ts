@@ -5,7 +5,8 @@ import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
 import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
-import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
+import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
 
 const discountSchema = z.object({
   name: z.string().min(1).max(200),
@@ -13,7 +14,7 @@ const discountSchema = z.object({
   value: z.number().positive().max(100),
   order_item_id: z.string().uuid().nullable().optional(),
   reason: z.string().max(500).nullable().optional(),
-  manager_pin: z.string().min(4).max(8).optional(),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only').optional(),
 })
 
 /**
@@ -144,13 +145,28 @@ export async function POST(
       )
     }
 
-    managerPinUserId = await validateManagerPin(supabase, user.org_id, manager_pin)
-    if (!managerPinUserId) {
+    const pinResult = await validateManagerPinForAction({
+      actor: user,
+      pin: manager_pin,
+      request,
+      supabase,
+    })
+    if (pinResult.kind === 'rate_limited') {
+      const res = NextResponse.json(
+        { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
+        { status: 429 }
+      )
+      applyRateLimitHeaders(res.headers, pinResult.rateLimit)
+      res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
+      return res
+    }
+    if (pinResult.kind === 'invalid') {
       return NextResponse.json(
         { error: 'Invalid manager PIN' },
         { status: 403 }
       )
     }
+    managerPinUserId = pinResult.manager_user_id
   }
 
   // -------- Capture before-state ------------------------------------------

@@ -2,13 +2,12 @@
  * Manager-PIN gating — centralised validation with brute-force protection.
  *
  * V5.99.7 (security remediation):
- *   - Single canonical `validateManagerPin(supabase, orgId, pin)` used by every
- *     privileged route (void, comp, walkout, refund, payments/void, drawer-open,
- *     discount, etc.). Filters by is_active=true so terminated managers cannot
- *     authorise actions until pin_hash is rotated.
- *   - `verifyManagerPinWithRateLimit(...)` adds Redis-backed rate limit + per-org
- *     lockout + audit-log entries on every failure and on lockout — fixing the
- *     ~17-min keyspace brute force on /api/auth/verify-manager-pin.
+ *   - `validateManagerPinForAction(...)` is the canonical request-aware helper
+ *     for privileged routes (void, comp, walkout, refund, payments/void,
+ *     discount, etc.). It filters by is_active=true, rate-limits attempts, and
+ *     audits every failure / lockout.
+ *   - `validateManagerPin(...)` remains a basic 4-6 digit bcrypt check for
+ *     legacy non-request contexts.
  *
  * SCOPE — only the bare PIN check + rate limit/audit. Threshold logic (e.g.
  * "voids over $100 require PIN") stays in the route so amount/role policy is
@@ -55,6 +54,23 @@ export type RateLimitedPinResult =
       ipRateLimit: RateLimitResult
     }
 
+export type ManagerPinActionResult =
+  | {
+      kind: 'rate_limited'
+      scope: 'ip' | 'user' | 'org'
+      rateLimit: RateLimitResult
+    }
+  | {
+      kind: 'invalid'
+      manager_user_id: null
+      ipRateLimit: RateLimitResult
+    }
+  | {
+      kind: 'valid'
+      manager_user_id: string
+      ipRateLimit: RateLimitResult
+    }
+
 // ---------------------------------------------------------------------------
 // Manager-PIN check (basic) — used by mutating routes that already gate on
 // role/threshold and only need to verify the supplied PIN.
@@ -64,9 +80,8 @@ const MANAGER_ROLES = ['owner', 'admin', 'manager'] as const
 
 /**
  * Basic PIN validation, NO rate limit. Returns the manager user_id whose PIN
- * matched (active managers only) or null. Use this in mutating routes
- * (void/comp/discount/refund) where rate limit is enforced upstream by IP+user
- * or where a single failed PIN attempt is acceptable.
+ * matched (active managers only) or null. Request handlers should prefer
+ * validateManagerPinForAction so failed approvals are audited/rate-limited.
  */
 export async function validateManagerPin(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): replace with typed Supabase client once supabase-generated types cover all helper signatures
@@ -74,29 +89,34 @@ export async function validateManagerPin(
   orgId: string,
   pin: string
 ): Promise<string | null> {
-  if (!pin || typeof pin !== 'string') return null
+  if (!isPinFormatValid(pin)) return null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types include the chain return shape on `.from('users')`
-  const { data: managers } = await (supabase.from('users') as any)
-    .select('id, pin_hash')
-    .eq('org_id', orgId)
-    .eq('is_active', true)
-    .in('role', MANAGER_ROLES as unknown as string[])
-    .not('pin_hash', 'is', null)
+  const manager = await findActiveManagerByPin(supabase, orgId, pin)
+  return manager?.id ?? null
+}
 
-  if (!managers || managers.length === 0) return null
+export async function validateManagerPinForAction(args: {
+  actor: AuthUser
+  pin: string
+  request: NextRequest | Request
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): replace with typed Supabase client once supabase-generated types cover all helper signatures
+  supabase: any
+}): Promise<ManagerPinActionResult> {
+  const result = await verifyManagerPinWithRateLimit({
+    caller: args.actor,
+    pin: args.pin,
+    request: args.request,
+    supabase: args.supabase,
+  })
 
-  for (const mgr of managers as Array<{ id: string; pin_hash: string | null }>) {
-    if (!mgr.pin_hash) continue
-    try {
-      const ok = await bcrypt.compare(pin, mgr.pin_hash)
-      if (ok) return mgr.id
-    } catch {
-      // bcrypt errors -> treat as no-match, continue
-      continue
+  if (result.kind === 'valid') {
+    return {
+      kind: 'valid',
+      manager_user_id: result.manager_user_id,
+      ipRateLimit: result.ipRateLimit,
     }
   }
-  return null
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +185,7 @@ export async function verifyManagerPinWithRateLimit(args: {
 
   // Quick PIN-format guard. We deliberately do NOT consume an extra rate-limit
   // slot here — slots already incremented above are sufficient.
-  if (typeof pin !== 'string' || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+  if (!isPinFormatValid(pin)) {
     await recordPinFailure({
       caller,
       reason: 'invalid_format',
@@ -176,13 +196,7 @@ export async function verifyManagerPinWithRateLimit(args: {
   }
 
   // 4. Walk active managers and bcrypt-compare.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types include the chain return shape on `.from('users')`
-  const { data: managers } = await (supabase.from('users') as any)
-    .select('id, display_name, first_name, last_name, email, role, pin_hash')
-    .eq('org_id', caller.org_id)
-    .eq('is_active', true)
-    .in('role', MANAGER_ROLES as unknown as string[])
-    .not('pin_hash', 'is', null)
+  const managers = await loadActiveManagersWithPin(supabase, caller.org_id)
 
   if (!managers || managers.length === 0) {
     await recordPinFailure({
@@ -194,34 +208,19 @@ export async function verifyManagerPinWithRateLimit(args: {
     return { kind: 'invalid', manager_user_id: null, ipRateLimit: ipRl }
   }
 
-  for (const mgr of managers as Array<{
-    id: string
-    display_name: string | null
-    first_name: string | null
-    last_name: string | null
-    email: string | null
-    role: string
-    pin_hash: string | null
-  }>) {
-    if (!mgr.pin_hash) continue
-    try {
-      const ok = await bcrypt.compare(pin, mgr.pin_hash)
-      if (ok) {
-        const displayName =
-          mgr.display_name ||
-          [mgr.first_name, mgr.last_name].filter(Boolean).join(' ') ||
-          mgr.email ||
-          'Manager'
-        return {
-          kind: 'valid',
-          manager_user_id: mgr.id,
-          manager_role: mgr.role,
-          manager_display_name: displayName,
-          ipRateLimit: ipRl,
-        }
-      }
-    } catch {
-      continue
+  const manager = await matchManagerPin(managers, pin)
+  if (manager) {
+    const displayName =
+      manager.display_name ||
+      [manager.first_name, manager.last_name].filter(Boolean).join(' ') ||
+      manager.email ||
+      'Manager'
+    return {
+      kind: 'valid',
+      manager_user_id: manager.id,
+      manager_role: manager.role,
+      manager_display_name: displayName,
+      ipRateLimit: ipRl,
     }
   }
 
@@ -239,6 +238,62 @@ export async function verifyManagerPinWithRateLimit(args: {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function isPinFormatValid(pin: string): boolean {
+  return typeof pin === 'string' && pin.length >= 4 && pin.length <= 6 && /^\d+$/.test(pin)
+}
+
+async function findActiveManagerByPin(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): replace with typed Supabase client once supabase-generated types cover all helper signatures
+  supabase: any,
+  orgId: string,
+  pin: string
+): Promise<ManagerPinRow | null> {
+  const managers = await loadActiveManagersWithPin(supabase, orgId)
+  if (!managers || managers.length === 0) return null
+  return matchManagerPin(managers, pin)
+}
+
+interface ManagerPinRow {
+  id: string
+  display_name: string | null
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  role: string
+  pin_hash: string | null
+}
+
+async function loadActiveManagersWithPin(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): replace with typed Supabase client once supabase-generated types cover all helper signatures
+  supabase: any,
+  orgId: string
+): Promise<ManagerPinRow[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO(5.99.7): drop cast when Supabase generated-types include the chain return shape on `.from('users')`
+  const { data: managers } = await (supabase.from('users') as any)
+    .select('id, display_name, first_name, last_name, email, role, pin_hash')
+    .eq('org_id', orgId)
+    .eq('is_active', true)
+    .in('role', MANAGER_ROLES as unknown as string[])
+    .not('pin_hash', 'is', null)
+
+  return (managers ?? []) as ManagerPinRow[]
+}
+
+async function matchManagerPin(managers: ManagerPinRow[], pin: string): Promise<ManagerPinRow | null> {
+  for (const mgr of managers) {
+    if (!mgr.pin_hash) continue
+    try {
+      const ok = await bcrypt.compare(pin, mgr.pin_hash)
+      if (ok) {
+        return mgr
+      }
+    } catch {
+      continue
+    }
+  }
+  return null
+}
 
 async function recordPinFailure(args: {
   caller: AuthUser

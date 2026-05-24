@@ -3,13 +3,14 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { getValorClient } from '@/lib/payments/valor-client-loader'
-import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
 import {
   assertTransition,
   IllegalTransitionError,
   type OrderState,
 } from '@/lib/orders/state-machine'
 import { audit } from '@/lib/audit/log'
+import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
 
 const REFUND_REASON_CODES = [
   'customer_request',
@@ -37,7 +38,7 @@ const baseSchema = z.object({
   payment_id: z.string().uuid(),
   reason: z.enum(REFUND_REASON_CODES),
   reason_detail: z.string().max(500).optional(),
-  manager_pin: z.string().min(4).max(8),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only'),
   is_unlinked: z.boolean().optional().default(false),
 })
 
@@ -206,10 +207,25 @@ export async function POST(request: NextRequest) {
   // ----- 4. Manager PIN check (always required for refunds) ----------------
   // SEC-1a: canonical helper from @/lib/auth/manager-pin filters is_active=true
   // so terminated managers cannot authorise refunds via stale pin_hash.
-  const approvedByManagerId = await validateManagerPin(supabase, user.org_id, manager_pin)
-  if (!approvedByManagerId) {
+  const pinResult = await validateManagerPinForAction({
+    actor: user,
+    pin: manager_pin,
+    request,
+    supabase,
+  })
+  if (pinResult.kind === 'rate_limited') {
+    const res = NextResponse.json(
+      { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
+      { status: 429 }
+    )
+    applyRateLimitHeaders(res.headers, pinResult.rateLimit)
+    res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
+    return res
+  }
+  if (pinResult.kind === 'invalid') {
     return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
   }
+  const approvedByManagerId = pinResult.manager_user_id
 
   // ----- 5. Optimistic-lock — intentionally skipped on payments ------------
   // 5.4.1 added `orders.version` and a BEFORE-UPDATE trigger but did NOT add

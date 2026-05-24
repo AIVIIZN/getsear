@@ -79,6 +79,7 @@ export type AuditAction =
   | 'manager_pin_changed'
   | 'manager_pin_verify_failed'
   | 'manager_pin_lockout'
+  | 'auth_login_failed'
   | 'staff_role_changed'
   | 'staff_clocked_out_by_manager'
   | 'auth_login_rate_limited'

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
 import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
 import {
   assertTransition,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/orders/state-machine'
 import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
+import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
 
 const compSchema = z.object({
   order_item_id: z.string().uuid().optional(),
@@ -31,7 +32,7 @@ const compSchema = z.object({
    * order, applies the comp, then closes it again with the new totals.
    * Manager-PIN is mandatory for post-close comps.
    */
-  manager_pin: z.string().min(4).max(10).optional(),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only').optional(),
 })
 
 /**
@@ -125,10 +126,25 @@ export async function POST(
       )
     }
 
-    approvedByManagerId = await validateManagerPin(supabase, user.org_id, manager_pin)
-    if (!approvedByManagerId) {
+    const pinResult = await validateManagerPinForAction({
+      actor: user,
+      pin: manager_pin,
+      request,
+      supabase,
+    })
+    if (pinResult.kind === 'rate_limited') {
+      const res = NextResponse.json(
+        { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
+        { status: 429 }
+      )
+      applyRateLimitHeaders(res.headers, pinResult.rateLimit)
+      res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
+      return res
+    }
+    if (pinResult.kind === 'invalid') {
       return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
     }
+    approvedByManagerId = pinResult.manager_user_id
 
     // State machine: closed -COMP_AFTER_CLOSE-> served (re-open to apply comp)
     try {
@@ -389,4 +405,3 @@ export async function POST(
 
   return NextResponse.json({ data: updatedOrder })
 }
-
