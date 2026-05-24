@@ -120,6 +120,14 @@ describe('validateManagerPin (basic)', () => {
     expect(result).toBe('mgr-1')
   })
 
+  it('supports the full 4-6 digit staff PIN contract', async () => {
+    const hash = await bcrypt.hash('123456', 10)
+    const supabase = makeFakeSupabase([{ id: 'mgr-1', pin_hash: hash, is_active: true }])
+
+    const result = await validateManagerPin(supabase, 'org-1', '123456')
+    expect(result).toBe('mgr-1')
+  })
+
   it('returns null on no match', async () => {
     const hash = await bcrypt.hash('9999', 10)
     const supabase = makeFakeSupabase([{ id: 'mgr-1', pin_hash: hash, is_active: true }])
