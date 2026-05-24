@@ -6,6 +6,24 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export type CampaignStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'sending'
+  | 'sent'
+  | 'paused'
+  | 'cancelled'
+  | 'failed'
+
+export type CampaignRecipientStatus =
+  | 'queued'
+  | 'sent'
+  | 'delivered'
+  | 'opened'
+  | 'clicked'
+  | 'bounced'
+  | 'failed'
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -503,7 +521,7 @@ export type Database = {
           org_id: string
           resend_message_id: string | null
           sent_at: string | null
-          status: string
+          status: CampaignRecipientStatus
           tracking_id: string
           updated_at: string | null
         }
@@ -522,7 +540,7 @@ export type Database = {
           org_id: string
           resend_message_id?: string | null
           sent_at?: string | null
-          status?: string
+          status?: CampaignRecipientStatus
           tracking_id?: string
           updated_at?: string | null
         }
@@ -541,7 +559,7 @@ export type Database = {
           org_id?: string
           resend_message_id?: string | null
           sent_at?: string | null
-          status?: string
+          status?: CampaignRecipientStatus
           tracking_id?: string
           updated_at?: string | null
         }
@@ -587,7 +605,7 @@ export type Database = {
           scheduled_for: string | null
           sent_at: string | null
           sms_body: string | null
-          status: string
+          status: CampaignStatus
           subject: string | null
           target_count: number | null
           target_segment: Json
@@ -610,7 +628,7 @@ export type Database = {
           scheduled_for?: string | null
           sent_at?: string | null
           sms_body?: string | null
-          status?: string
+          status?: CampaignStatus
           subject?: string | null
           target_count?: number | null
           target_segment: Json
@@ -633,7 +651,7 @@ export type Database = {
           scheduled_for?: string | null
           sent_at?: string | null
           sms_body?: string | null
-          status?: string
+          status?: CampaignStatus
           subject?: string | null
           target_count?: number | null
           target_segment?: Json

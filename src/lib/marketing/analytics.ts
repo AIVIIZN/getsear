@@ -26,6 +26,7 @@ export interface CampaignAnalytics {
   opened: number
   clicked: number
   bounced: number
+  failed: number
   opens_unique: number
   clicks_unique: number
 }
@@ -48,6 +49,7 @@ interface RecipientRollupRow {
  *   opened        = sum(open_count)        — total opens, including repeats
  *   clicked       = sum(click_count)       — total clicks, including repeats
  *   bounced       = rows with status='bounced'
+ *   failed        = rows with status='failed'
  *   opens_unique  = rows with opened_at not null
  *   clicks_unique = rows with clicked_at not null
  */
@@ -69,6 +71,7 @@ export async function getCampaignAnalytics(
       opened: 0,
       clicked: 0,
       bounced: 0,
+      failed: 0,
       opens_unique: 0,
       clicks_unique: 0,
     }
@@ -83,6 +86,7 @@ export async function getCampaignAnalytics(
   let opened = 0
   let clicked = 0
   let bounced = 0
+  let failed = 0
   let opens_unique = 0
   let clicks_unique = 0
 
@@ -91,13 +95,14 @@ export async function getCampaignAnalytics(
     if (SENT_STATES.has(status)) sent += 1
     if (DELIVERED_STATES.has(status)) delivered += 1
     if (status === 'bounced') bounced += 1
+    if (status === 'failed') failed += 1
     opened += r.open_count ?? 0
     clicked += r.click_count ?? 0
     if (r.opened_at) opens_unique += 1
     if (r.clicked_at) clicks_unique += 1
   }
 
-  return { sent, delivered, opened, clicked, bounced, opens_unique, clicks_unique }
+  return { sent, delivered, opened, clicked, bounced, failed, opens_unique, clicks_unique }
 }
 
 /**
