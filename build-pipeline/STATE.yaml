@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-06T00:30:00Z
+last_updated_at: 2026-05-24T04:32:00Z
 current_version: V7
-current_batch: "SEC-2 SHIPPED (commit c6dc7d5). 45 RLS policies on 9 lockout tables (drive_thru_cars, drive_thru_lanes, inventory_waste_log, order_throttle_config, print_queue, print_routing, printers, receipt_config, shift_marketplace) — tenant_select/insert/update/delete + service_role_bypass each. schema_migrations row aligned to 20260505030000 (no drift). Hook design fix (c6dc7d5): apply_migration allowed unconditionally; only execute_sql DDL blocked. Remaining P0s: MARK-1 (no Resend webhook handler), MARK-2 (unconstrained text status columns), DEVOPS-1 (verify VM commit + commit ecosystem.config.js)."
+current_batch: "SEC-2 SHIPPED (commit c6dc7d5). 45 RLS policies on 9 lockout tables (drive_thru_cars, drive_thru_lanes, inventory_waste_log, order_throttle_config, print_queue, print_routing, printers, receipt_config, shift_marketplace) — tenant_select/insert/update/delete + service_role_bypass each. schema_migrations row aligned to 20260505030000 (no drift). Hook design fix (c6dc7d5): apply_migration allowed unconditionally; only execute_sql DDL blocked. Remaining P0s: MARK-2 (unconstrained text status columns), DEVOPS-1 (verify VM commit + commit ecosystem.config.js). MARK-1 fixed in session-p-E/MARK-1."
 in_flight: {}
 status: handoff_2026_05_05
 handoff_doc: SESSION_HANDOFF_2026_05_05.md
