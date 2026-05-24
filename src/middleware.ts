@@ -1,4 +1,4 @@
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 import { log, makeReqId } from '@/lib/observability/logger'
 
@@ -6,6 +6,7 @@ const PUBLIC_ROUTES = [
   '/login',
   '/pin-login',
   '/register',
+  '/version',
   '/_next/static',
   '/_next/image',
   '/favicon.ico',
@@ -53,6 +54,12 @@ export async function middleware(request: NextRequest) {
       method: request.method,
       route: pathname,
     })
+  }
+
+  if (pathname === '/version') {
+    const response = NextResponse.next()
+    response.headers.set('x-request-id', reqId)
+    return response
   }
 
   // Public routes: refresh session for cookie hygiene but skip auth redirect.
