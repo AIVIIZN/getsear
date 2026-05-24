@@ -14,13 +14,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
-import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
+import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
 import { requireProcessorBinding } from '@/lib/payments/processor-binding'
 import { autoDetect } from '@/lib/payments/auto-detect'
 import { audit } from '@/lib/audit/log'
 
 const bodySchema = z.object({
-  manager_pin: z.string().min(4).max(10),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only'),
   timeout_ms: z.number().int().min(500).max(15000).optional(),
 })
 
@@ -45,14 +46,22 @@ export async function POST(request: NextRequest) {
 
   // SEC-1a: canonical helper validates against ACTIVE managers only.
   const supabase = createAdminClient()
-  const validatingManagerId = await validateManagerPin(
+  const pinResult = await validateManagerPinForAction({
+    actor: user,
+    pin: parsed.data.manager_pin,
+    request,
     supabase,
-    user.org_id,
-    parsed.data.manager_pin
-  )
-  if (!validatingManagerId) {
+  })
+  if (pinResult.kind === 'rate_limited') {
+    const res = NextResponse.json({ error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' }, { status: 429 })
+    applyRateLimitHeaders(res.headers, pinResult.rateLimit)
+    res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
+    return res
+  }
+  if (pinResult.kind === 'invalid') {
     return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
   }
+  const validatingManagerId = pinResult.manager_user_id
 
   // Resolve the org's bound processor — discovery is processor-aware.
   let binding

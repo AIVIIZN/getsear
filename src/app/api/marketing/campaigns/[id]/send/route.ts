@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
+import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
 import { resolveRecipients, type CampaignChannel } from '@/lib/marketing/recipients'
 import {
   enqueueCampaignEmails,
@@ -105,10 +106,25 @@ export async function POST(
       )
     }
 
-    const approvingManagerId = await validateManagerPin(supabase, user.org_id, manager_pin)
-    if (!approvingManagerId) {
+    const pinResult = await validateManagerPinForAction({
+      actor: user,
+      pin: manager_pin,
+      request,
+      supabase,
+    })
+    if (pinResult.kind === 'rate_limited') {
+      const res = NextResponse.json(
+        { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
+        { status: 429 }
+      )
+      applyRateLimitHeaders(res.headers, pinResult.rateLimit)
+      res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
+      return res
+    }
+    if (pinResult.kind === 'invalid') {
       return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
     }
+    const approvingManagerId = pinResult.manager_user_id
 
     // approvingManagerId is captured for the future audit-log task; not
     // persisted yet because the audit_log row lives in a sister batch.

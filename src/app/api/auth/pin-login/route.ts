@@ -28,7 +28,7 @@ type UserWithPin = Pick<
 
 const pinLoginSchema = z.object({
   user_id: z.string().uuid(),
-  pin: z.string().min(4).max(10),
+  pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only'),
 })
 
 const GENERIC_AUTH_ERROR = 'Incorrect PIN.'
@@ -163,6 +163,13 @@ export async function POST(request: NextRequest) {
         status: 401,
         duration_ms: Date.now() - t0,
       })
+      await recordPinLoginFailure({
+        request,
+        userId: user_id,
+        orgId: null,
+        ip,
+        reason: 'user_not_found',
+      })
       const res = NextResponse.json(
         { error: GENERIC_AUTH_ERROR },
         { status: 401 }
@@ -178,6 +185,13 @@ export async function POST(request: NextRequest) {
         reason: 'inactive_account',
         status: 401,
         duration_ms: Date.now() - t0,
+      })
+      await recordPinLoginFailure({
+        request,
+        userId: user.id,
+        orgId: user.org_id,
+        ip,
+        reason: 'inactive_account',
       })
       const res = NextResponse.json(
         { error: GENERIC_AUTH_ERROR },
@@ -199,6 +213,13 @@ export async function POST(request: NextRequest) {
         status: 401,
         duration_ms: Date.now() - t0,
       })
+      await recordPinLoginFailure({
+        request,
+        userId: user.id,
+        orgId: user.org_id,
+        ip,
+        reason: 'no_pin_set',
+      })
       const res = NextResponse.json(
         { error: GENERIC_AUTH_ERROR },
         { status: 401 }
@@ -216,6 +237,13 @@ export async function POST(request: NextRequest) {
         reason: 'invalid_pin',
         status: 401,
         duration_ms: Date.now() - t0,
+      })
+      await recordPinLoginFailure({
+        request,
+        userId: user.id,
+        orgId: user.org_id,
+        ip,
+        reason: 'invalid_pin',
       })
       const res = NextResponse.json(
         { error: GENERIC_AUTH_ERROR },
@@ -265,4 +293,28 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+async function recordPinLoginFailure(args: {
+  request: NextRequest
+  userId: string
+  orgId: string | null
+  ip: string
+  reason: string
+}): Promise<void> {
+  const { request, userId, orgId, ip, reason } = args
+  await audit.recordSystem({
+    action: 'auth_login_failed',
+    entity_type: 'user',
+    entity_id: userId,
+    org_id: orgId,
+    description: 'PIN login failed',
+    reason,
+    after_state: {
+      route: 'pin-login',
+      client_ip: ip,
+      reason,
+    },
+    request,
+  })
 }

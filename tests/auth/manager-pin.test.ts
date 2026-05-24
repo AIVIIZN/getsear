@@ -34,7 +34,11 @@ vi.mock('@/lib/audit/log', () => ({
 }))
 
 // Import AFTER vi.mock so the module wires to the mocks above.
-import { validateManagerPin, verifyManagerPinWithRateLimit } from '@/lib/auth/manager-pin'
+import {
+  validateManagerPin,
+  validateManagerPinForAction,
+  verifyManagerPinWithRateLimit,
+} from '@/lib/auth/manager-pin'
 import bcrypt from 'bcryptjs'
 
 const ALLOWED = (n: number) => ({
@@ -126,6 +130,20 @@ describe('validateManagerPin (basic)', () => {
 
     const result = await validateManagerPin(supabase, 'org-1', '123456')
     expect(result).toBe('mgr-1')
+  })
+
+  it('rejects non-numeric and overlong PINs before lookup', async () => {
+    let dbCalled = false
+    const supabase = {
+      from: () => {
+        dbCalled = true
+        return makeFakeSupabase([]).from()
+      },
+    }
+
+    await expect(validateManagerPin(supabase, 'org-1', '12ab')).resolves.toBeNull()
+    await expect(validateManagerPin(supabase, 'org-1', '1234567')).resolves.toBeNull()
+    expect(dbCalled).toBe(false)
   })
 
   it('returns null on no match', async () => {
@@ -333,5 +351,43 @@ describe('verifyManagerPinWithRateLimit', () => {
     })
 
     expect(dbCalled).toBe(false)
+  })
+})
+
+describe('validateManagerPinForAction', () => {
+  it('returns a manager id through the request-aware helper', async () => {
+    const hash = await bcrypt.hash('123456', 10)
+    const supabase = makeFakeSupabase([
+      { id: 'mgr-1', pin_hash: hash, is_active: true, role: 'manager', display_name: 'Marcus' },
+    ])
+
+    const result = await validateManagerPinForAction({
+      actor: caller,
+      pin: '123456',
+      request: makeFakeRequest(),
+      supabase,
+    })
+
+    expect(result.kind).toBe('valid')
+    if (result.kind === 'valid') expect(result.manager_user_id).toBe('mgr-1')
+  })
+
+  it('rate-limits and audits failed privileged approvals', async () => {
+    checkRateLimitMock.mockResolvedValueOnce(DENIED())
+
+    const result = await validateManagerPinForAction({
+      actor: caller,
+      pin: '1234',
+      request: makeFakeRequest(),
+      supabase: makeFakeSupabase([]),
+    })
+
+    expect(result.kind).toBe('rate_limited')
+    expect(auditRecordMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'manager_pin_verify_failed',
+        reason: 'rate_limit_ip',
+      })
+    )
   })
 })

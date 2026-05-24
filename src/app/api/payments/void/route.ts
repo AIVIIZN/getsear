@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { getValorClient } from '@/lib/payments/valor-client-loader'
-import { validateManagerPin } from '@/lib/auth/manager-pin'
+import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
 import { audit } from '@/lib/audit/log'
 import { checkRateLimit, applyRateLimitHeaders, getClientIp } from '@/lib/api/rate-limit'
 
@@ -20,7 +20,7 @@ const voidSchema = z.object({
   reason: z.enum(VOID_REASON_CODES),
   reason_detail: z.string().max(500).optional(),
   // PIN is REQUIRED for every actor — see SECURITY note on the route handler.
-  manager_pin: z.string().min(4).max(8),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only'),
 })
 
 /**
@@ -117,14 +117,29 @@ export async function POST(request: NextRequest) {
   // stolen manager session can't be used to void without the second factor.
   // The PIN may be the manager's own; verifyManagerPin returns the matching
   // active-manager user id which is recorded as the authoriser.
-  // (Zod has already enforced manager_pin presence + 4-8 digit length.)
-  const managerPinUserId = await validateManagerPin(supabase, user.org_id, manager_pin)
-  if (!managerPinUserId) {
+  // (Zod has already enforced manager_pin presence + 4-6 digit length.)
+  const pinResult = await validateManagerPinForAction({
+    actor: user,
+    pin: manager_pin,
+    request,
+    supabase,
+  })
+  if (pinResult.kind === 'rate_limited') {
+    const res = NextResponse.json(
+      { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
+      { status: 429 }
+    )
+    applyRateLimitHeaders(res.headers, pinResult.rateLimit)
+    res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
+    return res
+  }
+  if (pinResult.kind === 'invalid') {
     return NextResponse.json(
       { error: 'Invalid manager PIN' },
       { status: 403 }
     )
   }
+  const managerPinUserId = pinResult.manager_user_id
 
   // Call Valor void API for card payments
   const isCard = ['credit_card', 'debit_card', 'apple_pay', 'google_pay'].includes(
