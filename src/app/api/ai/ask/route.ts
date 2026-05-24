@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { sendMessage } from '@/lib/ai/claude-client'
+import { CLAUDE_MODEL, sendMessage } from '@/lib/ai/claude-client'
 import { getAskSystemPrompt } from '@/lib/ai/system-prompts'
 import { AI_TOOLS } from '@/lib/ai/tools'
 import { executeToolCall } from '@/lib/ai/tool-handlers'
@@ -24,6 +24,16 @@ const askSchema = z.object({
 })
 
 const MAX_TOOL_ROUNDS = 5
+const INPUT_COST_PER_TOKEN = 3 / 1_000_000
+const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000
+
+function estimateTokenCount(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
+function estimateCost(inputTokens: number, outputTokens: number): number {
+  return inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN
+}
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUser()
@@ -69,7 +79,30 @@ export async function POST(request: NextRequest) {
     query: message,
   })
   if (cached) {
-    return NextResponse.json({ response: cached, cached: true })
+    const estimatedInputTokensSaved = estimateTokenCount(
+      [message, ...history.map((h) => h.content)].join('\n')
+    )
+    const estimatedOutputTokensSaved = estimateTokenCount(cached)
+
+    return NextResponse.json({
+      response: cached,
+      cached: true,
+      model: CLAUDE_MODEL,
+      tokens: {
+        input: 0,
+        output: 0,
+        total: 0,
+      },
+      estimated_cost: 0,
+      estimated_cache_savings: {
+        input_tokens: estimatedInputTokensSaved,
+        output_tokens: estimatedOutputTokensSaved,
+        total_tokens: estimatedInputTokensSaved + estimatedOutputTokensSaved,
+        cost: estimateCost(estimatedInputTokensSaved, estimatedOutputTokensSaved),
+      },
+      tool_rounds: 0,
+      tool_calls: 0,
+    })
   }
 
   // Build system prompt
@@ -105,6 +138,10 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       queryType: 'ask',
     })
+    let totalInputTokens = response.inputTokens
+    let totalOutputTokens = response.outputTokens
+    let totalEstimatedCost = response.estimatedCost
+    let totalToolCalls = response.toolCalls.length
 
     let rounds = 0
     while (response.toolCalls.length > 0 && rounds < MAX_TOOL_ROUNDS) {
@@ -152,6 +189,10 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         queryType: 'ask',
       })
+      totalInputTokens += response.inputTokens
+      totalOutputTokens += response.outputTokens
+      totalEstimatedCost += response.estimatedCost
+      totalToolCalls += response.toolCalls.length
     }
 
     // Cache the response
@@ -165,11 +206,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       response: response.text,
       cached: false,
+      model: response.model,
       tokens: {
-        input: response.inputTokens,
-        output: response.outputTokens,
+        input: totalInputTokens,
+        output: totalOutputTokens,
+        total: totalInputTokens + totalOutputTokens,
       },
-      estimated_cost: response.estimatedCost,
+      estimated_cost: totalEstimatedCost,
+      estimated_cache_savings: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+        cost: 0,
+      },
+      tool_rounds: rounds,
+      tool_calls: totalToolCalls,
     })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)

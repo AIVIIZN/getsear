@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useAIStore } from '@/stores/ai-store'
 import { ChatMessage } from './ChatMessage'
 import { ChatSuggestions } from './ChatSuggestions'
+import { AIStatusBar } from './AIStatusBar'
 
 interface SearAskChatProps {
   compact?: boolean
@@ -129,6 +130,8 @@ export function SearAskChat({ compact = false }: SearAskChatProps) {
             <Send className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>
+
+        <AIStatusBar compact={compact} />
 
         {!compact && (
           <p className="mt-2 text-center text-caption-2 text-muted-foreground">

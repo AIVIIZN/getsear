@@ -12,6 +12,21 @@ export interface ChatMessage {
   isLoading?: boolean
 }
 
+export interface AIRuntimeStatus {
+  model: string
+  contextTokens: number
+  contextLimit: number
+  spentTokens: number
+  spentCost: number
+  cachedTokensSaved: number
+  cachedCostSaved: number
+  cacheHits: number
+  activeAgents: number
+  lastToolCalls: number
+  lastResponseCached: boolean
+  lastUpdated: string | null
+}
+
 export interface ChartData {
   type: 'bar' | 'line' | 'pie'
   title: string
@@ -65,6 +80,7 @@ interface AIState {
   currentConversation: Conversation | null
   conversations: Conversation[]
   isLoading: boolean
+  runtimeStatus: AIRuntimeStatus
 
   // Insights
   insights: Insight[]
@@ -128,12 +144,41 @@ function cleanResponseText(text: string): string {
     .trim()
 }
 
+function estimateTokenCount(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
+function estimateConversationContext(messages: ChatMessage[], nextMessage?: string): number {
+  const text = [
+    ...messages.map((m) => `${m.role}: ${m.content}`),
+    nextMessage ? `user: ${nextMessage}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  return estimateTokenCount(text)
+}
+
 export const useAIStore = create<AIState>()((set, get) => ({
   chatOpen: false,
   chatExpanded: false,
   currentConversation: null,
   conversations: [],
   isLoading: false,
+  runtimeStatus: {
+    model: 'claude-sonnet-4-6',
+    contextTokens: 0,
+    contextLimit: 200_000,
+    spentTokens: 0,
+    spentCost: 0,
+    cachedTokensSaved: 0,
+    cachedCostSaved: 0,
+    cacheHits: 0,
+    activeAgents: 0,
+    lastToolCalls: 0,
+    lastResponseCached: false,
+    lastUpdated: null,
+  },
 
   insights: [],
   insightsLoading: false,
@@ -204,6 +249,12 @@ export const useAIStore = create<AIState>()((set, get) => ({
       set({
         currentConversation: updatedConv,
         isLoading: true,
+        runtimeStatus: {
+          ...state.runtimeStatus,
+          contextTokens: estimateConversationContext(conv.messages, message),
+          activeAgents: 1,
+          lastUpdated: new Date().toISOString(),
+        },
         conversations: [
           updatedConv,
           ...get().conversations.filter((c) => c.id !== conv!.id),
@@ -231,6 +282,13 @@ export const useAIStore = create<AIState>()((set, get) => ({
 
         const data = await resp.json()
         const responseText = data.response ?? ''
+        const inputTokens = Number(data.tokens?.input ?? 0)
+        const outputTokens = Number(data.tokens?.output ?? 0)
+        const totalTokens = Number(data.tokens?.total ?? inputTokens + outputTokens)
+        const estimatedCost = Number(data.estimated_cost ?? 0)
+        const savedTokens = Number(data.estimated_cache_savings?.total_tokens ?? 0)
+        const savedCost = Number(data.estimated_cache_savings?.cost ?? 0)
+        const responseWasCached = Boolean(data.cached)
 
         const assistantMsg: ChatMessage = {
           id: nextMsgId(),
@@ -249,6 +307,20 @@ export const useAIStore = create<AIState>()((set, get) => ({
         set({
           currentConversation: finalConv,
           isLoading: false,
+          runtimeStatus: {
+            ...get().runtimeStatus,
+            model: data.model ?? get().runtimeStatus.model,
+            contextTokens: estimateConversationContext(finalConv.messages),
+            spentTokens: get().runtimeStatus.spentTokens + totalTokens,
+            spentCost: get().runtimeStatus.spentCost + estimatedCost,
+            cachedTokensSaved: get().runtimeStatus.cachedTokensSaved + savedTokens,
+            cachedCostSaved: get().runtimeStatus.cachedCostSaved + savedCost,
+            cacheHits: get().runtimeStatus.cacheHits + (responseWasCached ? 1 : 0),
+            activeAgents: 0,
+            lastToolCalls: Number(data.tool_calls ?? 0),
+            lastResponseCached: responseWasCached,
+            lastUpdated: new Date().toISOString(),
+          },
           conversations: [
             finalConv,
             ...get().conversations.filter((c) => c.id !== conv!.id),
@@ -275,6 +347,11 @@ export const useAIStore = create<AIState>()((set, get) => ({
         set({
           currentConversation: errorConv,
           isLoading: false,
+          runtimeStatus: {
+            ...get().runtimeStatus,
+            activeAgents: 0,
+            lastUpdated: new Date().toISOString(),
+          },
           conversations: [
             errorConv,
             ...get().conversations.filter((c) => c.id !== conv!.id),

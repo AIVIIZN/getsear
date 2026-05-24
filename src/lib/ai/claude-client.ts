@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { trackUsage } from './cost-tracker'
 
-const MODEL = 'claude-sonnet-4-6'
+export const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 4096
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 1000
@@ -41,6 +41,7 @@ export interface ClaudeResponse {
   text: string
   toolCalls: ClaudeToolUse[]
   stopReason: string | null
+  model: string
   inputTokens: number
   outputTokens: number
   estimatedCost: number
@@ -89,7 +90,7 @@ export async function sendMessage(params: {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const requestParams: Anthropic.MessageCreateParamsNonStreaming = {
-        model: MODEL,
+        model: CLAUDE_MODEL,
         max_tokens: MAX_TOKENS,
         system: systemPrompt,
         messages: messages as Anthropic.MessageParam[],
@@ -139,6 +140,7 @@ export async function sendMessage(params: {
         text,
         toolCalls,
         stopReason: response.stop_reason,
+        model: CLAUDE_MODEL,
         inputTokens,
         outputTokens,
         estimatedCost: cost,
