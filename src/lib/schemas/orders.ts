@@ -5,7 +5,7 @@ const orderTypes = [
 ] as const
 
 const orderStatuses = [
-  'draft', 'open', 'sent', 'in_progress', 'ready', 'served', 'closed', 'voided', 'refunded',
+  'draft', 'open', 'fired', 'ready', 'served', 'closed', 'voided', 'refunded',
 ] as const
 
 const orderSources = ['pos', 'online', 'kiosk', 'phone', 'catering'] as const

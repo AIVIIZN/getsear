@@ -99,10 +99,10 @@ export async function POST(
       .in('id', itemIds)
       .eq('org_id', user.org_id)
 
-    // Reset order status from 'ready' back to 'in_progress'
+    // Reset order status from 'ready' back to the active kitchen state.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('orders') as any)
-      .update({ status: 'in_progress' })
+      .update({ status: 'fired' })
       .eq('id', orderId)
       .eq('org_id', user.org_id)
       .eq('status', 'ready')

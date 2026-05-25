@@ -123,7 +123,7 @@ async function triggerPrinterFailover(
   const { data: pendingOrders } = await (supabase.from('orders') as any)
     .select('id, display_number, order_type, server_id, table_id, is_rush, created_at, notes')
     .eq('location_id', station.location_id)
-    .in('status', ['open', 'fired', 'sent', 'in_progress'])
+    .in('status', ['open', 'fired', 'ready'])
     .order('created_at', { ascending: true })
 
   if (!pendingOrders || pendingOrders.length === 0) return
