@@ -1,0 +1,71 @@
+name: restore-drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_s3_uri:
+        description: Full S3 URI of the .dump backup to restore. Leave blank to restore latest.
+        required: false
+  schedule:
+    - cron: '0 18 1 1,4,7,10 *'
+
+jobs:
+  restore-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install restore tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client awscli
+
+      - name: Check restore credentials
+        id: restore_credentials
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$STAGING_DATABASE_URL" ] || [ -z "$BACKUP_S3_BUCKET" ] || [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping restore drill because one or more restore secrets are not configured."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve backup URI
+        if: steps.restore_credentials.outputs.available == 'true'
+        id: backup
+        env:
+          INPUT_BACKUP_S3_URI: ${{ inputs.backup_s3_uri }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_PREFIX: ${{ vars.BACKUP_S3_PREFIX || 'sear-pos/postgres' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+        run: |
+          if [ -n "$INPUT_BACKUP_S3_URI" ]; then
+            echo "uri=$INPUT_BACKUP_S3_URI" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          latest_key=$(aws s3 ls "s3://${BACKUP_S3_BUCKET}/${BACKUP_S3_PREFIX}/" --recursive | awk '/sear-pos-pg-.*\.dump$/ {print $4}' | sort | tail -1)
+          if [ -z "$latest_key" ]; then
+            echo "No backup dump found" >&2
+            exit 1
+          fi
+          echo "uri=s3://${BACKUP_S3_BUCKET}/${latest_key}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore into staging and verify integrity
+        if: steps.restore_credentials.outputs.available == 'true'
+        env:
+          SEAR_RESTORE_TARGET: staging
+          STAGING_DATABASE_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+          BACKUP_S3_URI: ${{ steps.backup.outputs.uri }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+        run: bash scripts/restore-staging.sh
