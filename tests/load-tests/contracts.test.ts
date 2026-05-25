@@ -11,6 +11,8 @@ describe('CORE-3 load-test API contracts', () => {
   const addItemRoute = read('src/app/api/orders/[id]/items/route.ts')
   const kdsTicketsRoute = read('src/app/api/kds/tickets/route.ts')
   const paymentRoute = read('src/app/api/payments/process/route.ts')
+  const preauthRoute = read('src/app/api/payments/preauth/route.ts')
+  const preauthCaptureRoute = read('src/app/api/payments/preauth/[id]/capture/route.ts')
 
   it('posts the current order-item payload shape used by the route handler', () => {
     expect(addItemRoute).toContain('unit_price')
@@ -54,5 +56,12 @@ describe('CORE-3 load-test API contracts', () => {
   it('does not keep runnable stale legacy load scripts around', () => {
     expect(read('src/scripts/load-tests/dinner-rush.ts')).toContain('is retired')
     expect(read('src/scripts/load-tests/stress-test.ts')).toContain('is retired')
+  })
+
+  it('keeps bar-tab preauth aligned to the live payments and orders schema', () => {
+    expect(preauthRoute).toContain("status: authResult.success ? 'authorized' : 'declined'")
+    expect(preauthRoute).not.toContain('reference_number')
+    expect(preauthCaptureRoute).toContain("select('amount_paid, balance_due, total')")
+    expect(preauthCaptureRoute).not.toContain('total_cents')
   })
 })
