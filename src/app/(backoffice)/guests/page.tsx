@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
+  Upload,
   UserRound,
   UsersRound,
 } from "lucide-react"
@@ -114,6 +115,8 @@ type IdentityCandidate = {
   candidate_guest?: CandidateGuest | null
 }
 type CandidateGuest = { id: string; display_name: string; lifecycle_stage: string; total_visits?: number | null; total_spend?: string | number | null }
+type ImportValidationRow = { row_number: number; validation_status: "valid" | "invalid" | "duplicate"; errors: string[]; warnings: string[]; normalized_data: Record<string, unknown> }
+type ImportPreview = { summary: { original_row_count: number; valid_row_count: number; invalid_row_count: number; duplicate_row_count: number; suspicious_row_count: number }; rows: ImportValidationRow[] }
 
 const createGuestSchema = z.object({
   display_name: z.string().trim().min(1, "Name is required").max(240),
@@ -182,6 +185,11 @@ export default function GuestsPage() {
   const [profile, setProfile] = React.useState<UserProfile | null>(null)
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
+  const [importOpen, setImportOpen] = React.useState(false)
+  const [importCsv, setImportCsv] = React.useState("name,email,phone,birthday,consent,source\nAvery Stone,avery@example.com,512-555-0199,1990-04-12,yes,spreadsheet opt-in")
+  const [importPreview, setImportPreview] = React.useState<ImportPreview | null>(null)
+  const [importBusy, setImportBusy] = React.useState<"idle" | "validating" | "importing">("idle")
+  const [importError, setImportError] = React.useState<string | null>(null)
   const [noteDraft, setNoteDraft] = React.useState("")
   const [savingNote, setSavingNote] = React.useState(false)
   const createForm = useForm<CreateGuestInput>({ resolver: zodResolver(createGuestSchema), defaultValues: { display_name: "", email: "", phone: "" } })
@@ -304,6 +312,45 @@ export default function GuestsPage() {
     }
   }
 
+  function parseImportCsv() {
+    const lines = importCsv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    if (lines.length < 2) throw new Error("Add a header row and at least one guest row.")
+    const headers = lines[0].split(",").map((header) => header.trim())
+    return lines.slice(1).map((line) => {
+      const cells = line.split(",").map((cell) => cell.trim())
+      return headers.reduce<Record<string, string>>((row, header, index) => {
+        row[header] = cells[index] ?? ""
+        return row
+      }, {})
+    })
+  }
+
+  async function submitImport(commit: boolean) {
+    setImportBusy(commit ? "importing" : "validating")
+    setImportError(null)
+    try {
+      const json = await fetchJson<{ data: ImportPreview }>("/api/crm/imports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_type: "spreadsheet",
+          file_name: "guest-import.csv",
+          mapping: { display_name: "name", email: "email", phone: "phone", birthday: "birthday", consent_status: "consent", consent_source: "source" },
+          rows: parseImportCsv(),
+          commit,
+        }),
+      })
+      setImportPreview(json.data)
+      if (commit) {
+        await loadGuests(query)
+      }
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Import failed")
+    } finally {
+      setImportBusy("idle")
+    }
+  }
+
   return (
     <div className="flex h-[calc(100vh-var(--topbar-height)-var(--space-12))] min-h-[680px] flex-col gap-[var(--space-4)]">
       <header className="flex flex-wrap items-start justify-between gap-[var(--space-4)]">
@@ -311,7 +358,10 @@ export default function GuestsPage() {
           <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-semibold)] uppercase tracking-[var(--tracking-wide)] text-[var(--color-text-muted)]">GuestBrain CRM</p>
           <h1 className="text-[length:var(--type-title-1-size)] font-[var(--weight-semibold)] leading-[var(--type-line-height-tight)] text-[var(--color-text)]">Guests</h1>
         </div>
-        <Button size="md" leadingIcon={<Plus />} onClick={() => setCreateOpen(true)}>New guest</Button>
+        <div className="flex flex-wrap gap-[var(--space-2)]">
+          <Button variant="secondary" size="md" leadingIcon={<Upload />} onClick={() => setImportOpen(true)}>Import</Button>
+          <Button size="md" leadingIcon={<Plus />} onClick={() => setCreateOpen(true)}>New guest</Button>
+        </div>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] gap-[var(--space-4)] xl:grid-cols-[320px_minmax(0,1fr)_280px]">
@@ -379,6 +429,43 @@ export default function GuestsPage() {
               <Button type="submit" size="md" loading={createForm.formState.isSubmitting}>Create</Button>
             </ModalFooter>
           </form>
+        </ModalContent>
+      </Modal>
+
+      <Modal open={importOpen} onOpenChange={setImportOpen}>
+        <ModalContent className="max-w-[760px]">
+          <ModalHeader><ModalTitle>Import guests</ModalTitle></ModalHeader>
+          <ModalBody className="space-y-[var(--space-4)]">
+            <Textarea label="CSV rows" value={importCsv} onChange={(event) => setImportCsv(event.target.value)} rows={7} />
+            {importPreview ? (
+              <div className="rounded-[var(--radius-sm)] border border-[var(--color-border)]">
+                <div className="grid grid-cols-5 gap-[var(--space-2)] border-b border-[var(--color-border)] p-[var(--space-3)] text-center">
+                  <Metric label="Rows" value={String(importPreview.summary.original_row_count)} />
+                  <Metric label="Valid" value={String(importPreview.summary.valid_row_count)} />
+                  <Metric label="Invalid" value={String(importPreview.summary.invalid_row_count)} />
+                  <Metric label="Duplicates" value={String(importPreview.summary.duplicate_row_count)} />
+                  <Metric label="Warnings" value={String(importPreview.summary.suspicious_row_count)} />
+                </div>
+                <div className="max-h-[240px] overflow-y-auto p-[var(--space-3)]">
+                  {importPreview.rows.slice(0, 8).map((row) => (
+                    <div key={row.row_number} className="mb-[var(--space-2)] flex items-start justify-between gap-[var(--space-3)] rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] p-[var(--space-3)]">
+                      <div>
+                        <p className="text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">Row {row.row_number} - {String(row.normalized_data.display_name ?? "Unnamed guest")}</p>
+                        <p className="text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">{[...row.errors, ...row.warnings].join(", ") || "Ready to import"}</p>
+                      </div>
+                      <Badge variant={row.validation_status === "valid" ? "success" : row.validation_status === "duplicate" ? "warning" : "danger"}>{row.validation_status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {importError ? <p className="text-[length:var(--type-footnote-size)] text-[var(--color-danger)]">{importError}</p> : null}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="secondary" size="md" onClick={() => setImportOpen(false)}>Close</Button>
+            <Button variant="secondary" size="md" loading={importBusy === "validating"} onClick={() => submitImport(false)}>Validate</Button>
+            <Button size="md" loading={importBusy === "importing"} disabled={!importPreview || importPreview.summary.valid_row_count === 0} onClick={() => submitImport(true)}>Import valid rows</Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </div>

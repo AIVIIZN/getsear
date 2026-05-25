@@ -83,6 +83,9 @@ export const guestConsentStatusSchema = z.enum(['granted', 'revoked', 'unknown']
 export const suppressionReasonSchema = z.enum(['revoked_consent', 'unsubscribe', 'bounce', 'complaint', 'privacy_request', 'manual', 'legal_hold'])
 export const privacyRequestTypeSchema = z.enum(['export', 'delete', 'correct', 'do_not_contact', 'opt_out_sale_sharing', 'limit_sensitive_use'])
 export const privacyRequestStatusSchema = z.enum(['submitted', 'needs_verification', 'approved', 'in_progress', 'completed', 'rejected', 'cancelled'])
+export const crmImportSourceTypeSchema = z.enum(['csv', 'pos_customers', 'mailchimp', 'constant_contact', 'toast', 'square', 'opentable', 'reservation_system', 'loyalty', 'gift_cards', 'spreadsheet'])
+export const crmImportJobStatusSchema = z.enum(['draft', 'validated', 'importing', 'completed', 'completed_with_errors', 'failed', 'rolled_back'])
+export const crmImportRowStatusSchema = z.enum(['valid', 'invalid', 'duplicate', 'imported', 'skipped', 'rolled_back'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -260,6 +263,42 @@ export const updatePrivacyRequestSchema = z.object({
   action: z.enum(['approve', 'start', 'complete_export', 'complete_delete', 'complete_suppression', 'reject', 'cancel']),
   note: z.string().trim().max(1000).optional().nullable(),
   metadata: metadataSchema,
+})
+
+export const crmImportFieldMappingSchema = z.object({
+  display_name: z.string().trim().min(1).default('display_name'),
+  first_name: z.string().trim().optional().nullable(),
+  last_name: z.string().trim().optional().nullable(),
+  email: z.string().trim().optional().nullable(),
+  phone: z.string().trim().optional().nullable(),
+  birthday: z.string().trim().optional().nullable(),
+  consent_status: z.string().trim().optional().nullable(),
+  consent_source: z.string().trim().optional().nullable(),
+})
+
+export const crmImportMergeRulesSchema = z.object({
+  duplicate_strategy: z.enum(['skip', 'merge_safe_fields']).default('skip'),
+  require_consent_for_marketing: z.boolean().default(true),
+  rollback_safe: z.boolean().default(true),
+})
+
+export const createCrmImportJobSchema = z.object({
+  source_type: crmImportSourceTypeSchema,
+  location_id: optionalUuidSchema,
+  file_name: z.string().trim().min(1).max(240),
+  mapping: crmImportFieldMappingSchema,
+  merge_rules: crmImportMergeRulesSchema.default({
+    duplicate_strategy: 'skip',
+    require_consent_for_marketing: true,
+    rollback_safe: true,
+  }),
+  rows: z.array(z.record(z.string(), z.unknown())).min(1).max(500),
+  commit: z.boolean().default(false),
+})
+
+export const listCrmImportJobsQuerySchema = z.object({
+  status: crmImportJobStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
 })
 
 export const listGuestsQuerySchema = z.object({
