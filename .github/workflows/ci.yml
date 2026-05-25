@@ -39,3 +39,9 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
           NEXT_PUBLIC_APP_URL: https://getsear.com
           NODE_ENV: production
+          SENTRY_DSN: ""
+          NEXT_PUBLIC_SENTRY_DSN: ""
+          SENTRY_AUTH_TOKEN: ""
+          SENTRY_ORG: ""
+          SENTRY_PROJECT: ""
+          SENTRY_RELEASE: ${{ github.sha }}
