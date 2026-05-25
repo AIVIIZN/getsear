@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
 import { classifyCrmFeedback, crmComplaintSummary, crmFeedbackReadRoles, crmFeedbackManageRoles } from '@/lib/crm/feedback'
-import { createRecoveryCaseFromComplaint } from '@/lib/crm/recovery'
+import { buildReviewRequestDraft, createRecoveryCaseFromComplaint } from '@/lib/crm/recovery'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createCrmSurveyResponseSchema, listCrmFeedbackQuerySchema } from '@/lib/schemas/crm'
 
@@ -97,6 +97,9 @@ export async function POST(request: NextRequest) {
 
   let complaint = null
   let recoveryCase = null
+  let reviewRequestDraft = null
+  let managerNotification = null
+  let operationsInsight = null
   if (classification.sentiment === 'negative') {
     const { data: complaintRow, error: complaintError } = await db
       .from('crm_complaints')
@@ -127,6 +130,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Feedback saved but recovery case creation failed' }, { status: 409 })
     }
     recoveryCase = caseRow
+    operationsInsight = await createRepeatedIssueInsight({
+      db,
+      orgId: user.org_id,
+      locationId,
+      topic: classification.topics[0] ?? null,
+      complaintId: complaintRow.id,
+    })
+  } else if (parsed.data.rating === 5) {
+    reviewRequestDraft = buildReviewRequestDraft({
+      rating: parsed.data.rating,
+      surveyResponseId: response.id,
+      guestId: references.guest_id,
+      reviewUrl: typeof parsed.data.metadata.public_review_url === 'string' ? parsed.data.metadata.public_review_url : null,
+    })
+  }
+
+  if (classification.topics.includes('staff_compliment') && locationId) {
+    managerNotification = await notifyManagerOfStaffCompliment({
+      db,
+      orgId: user.org_id,
+      locationId,
+      guestId: references.guest_id,
+      orderId: parsed.data.order_id ?? null,
+      staffUserId: references.staff_user_id,
+      actorUserId: user.id,
+      responseId: response.id,
+      body: parsed.data.response_text ?? null,
+    })
   }
 
   if (references.guest_id) {
@@ -138,10 +169,22 @@ export async function POST(request: NextRequest) {
       event_source: parsed.data.source_type,
       actor_user_id: user.id,
       order_id: parsed.data.order_id ?? null,
-      title: classification.sentiment === 'negative' ? 'Negative feedback routed to recovery' : 'Guest feedback received',
+      title: classification.sentiment === 'negative'
+        ? 'Negative feedback routed to recovery'
+        : reviewRequestDraft
+          ? 'Five-star feedback ready for public review ask'
+          : 'Guest feedback received',
       body: parsed.data.response_text ?? null,
-      visibility: classification.sentiment === 'negative' ? 'manager' : 'service',
-      metadata: { response_id: response.id, complaint_id: complaint?.id ?? null, recovery_case_id: recoveryCase?.id ?? null, topics: classification.topics },
+      visibility: classification.sentiment === 'negative' || reviewRequestDraft ? 'manager' : 'service',
+      metadata: {
+        response_id: response.id,
+        complaint_id: complaint?.id ?? null,
+        recovery_case_id: recoveryCase?.id ?? null,
+        review_request_draft: reviewRequestDraft,
+        manager_notification: managerNotification,
+        operations_insight: operationsInsight,
+        topics: classification.topics,
+      },
     })
   }
 
@@ -150,13 +193,23 @@ export async function POST(request: NextRequest) {
     action: classification.sentiment === 'negative' ? 'crm_negative_feedback_routed' : 'crm_feedback_created',
     entity_type: 'crm_survey_response',
     entity_id: response.id,
-    after_state: { response, complaint, recovery_case: recoveryCase } as Record<string, unknown>,
+    after_state: { response, complaint, recovery_case: recoveryCase, review_request_draft: reviewRequestDraft, manager_notification: managerNotification, operations_insight: operationsInsight } as Record<string, unknown>,
     description: classification.sentiment === 'negative' ? 'Captured negative feedback and routed it to recovery' : 'Captured CRM feedback',
     request,
     location_id: locationId,
   })
 
-  return NextResponse.json({ data: { response, complaint, recovery_case: recoveryCase, recovery_required: classification.sentiment === 'negative' } }, { status: 201 })
+  return NextResponse.json({
+    data: {
+      response,
+      complaint,
+      recovery_case: recoveryCase,
+      recovery_required: classification.sentiment === 'negative',
+      review_request_draft: reviewRequestDraft,
+      manager_notification: managerNotification,
+      operations_insight: operationsInsight,
+    },
+  }, { status: 201 })
 }
 
 async function resolveFeedbackReferences(input: {
@@ -237,4 +290,100 @@ function complaintSourceType(sourceType: string): string {
   if (sourceType === 'manual') return 'manual_entry'
   if (sourceType === 'review_import') return 'review'
   return sourceType
+}
+
+async function notifyManagerOfStaffCompliment(input: {
+  db: ReturnType<typeof createAdminClient>
+  orgId: string
+  locationId: string
+  guestId: string | null
+  orderId: string | null
+  staffUserId: string | null
+  actorUserId: string
+  responseId: string
+  body: string | null
+}) {
+  const title = 'Staff compliment captured'
+  const summary = input.body?.trim() || 'A guest left positive staff feedback.'
+
+  if (input.guestId) {
+    await input.db.from('guest_timeline_events').insert({
+      org_id: input.orgId,
+      location_id: input.locationId,
+      guest_id: input.guestId,
+      event_type: 'crm.staff_compliment.manager_notice',
+      event_source: 'crm_feedback',
+      actor_user_id: input.actorUserId,
+      order_id: input.orderId,
+      title,
+      body: summary,
+      visibility: 'manager',
+      metadata: { response_id: input.responseId, staff_user_id: input.staffUserId },
+    })
+  }
+
+  await input.db.from('ai_insights').insert({
+    org_id: input.orgId,
+    location_id: input.locationId,
+    category: 'general',
+    priority: 'low',
+    title,
+    summary,
+    details: 'Positive guest feedback mentioned a staff compliment. Review it with the manager before using it in coaching or recognition.',
+    metric_value: null,
+    comparison_text: null,
+  })
+
+  return { status: 'manager_notified', channel: 'timeline_and_insights' }
+}
+
+async function createRepeatedIssueInsight(input: {
+  db: ReturnType<typeof createAdminClient>
+  orgId: string
+  locationId: string | null
+  topic: string | null
+  complaintId: string
+}) {
+  if (!input.locationId || !input.topic) return null
+
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const { count } = await input.db
+    .from('crm_complaints')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', input.orgId)
+    .eq('location_id', input.locationId)
+    .contains('topics', [input.topic])
+    .gte('created_at', since)
+
+  if ((count ?? 0) < 3) return null
+
+  const title = `Repeated ${input.topic.replaceAll('_', ' ')} feedback`
+  const { data: existing } = await input.db
+    .from('ai_insights')
+    .select('id')
+    .eq('org_id', input.orgId)
+    .eq('location_id', input.locationId)
+    .eq('title', title)
+    .eq('is_dismissed', false)
+    .gte('generated_at', since)
+    .maybeSingle()
+  if (existing) return { status: 'existing_insight', insight_id: existing.id }
+
+  const { data } = await input.db
+    .from('ai_insights')
+    .insert({
+      org_id: input.orgId,
+      location_id: input.locationId,
+      category: 'general',
+      priority: 'medium',
+      title,
+      summary: `${count} complaints in the last 30 days mention ${input.topic.replaceAll('_', ' ')}.`,
+      details: 'Service recovery detected a repeated issue pattern. Review staffing, prep, or service steps before the next rush.',
+      metric_value: String(count),
+      comparison_text: '30-day complaint pattern',
+    })
+    .select('id')
+    .single()
+
+  return { status: 'created_insight', insight_id: data?.id ?? null, complaint_id: input.complaintId, count }
 }

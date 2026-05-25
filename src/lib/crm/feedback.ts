@@ -35,7 +35,7 @@ export function classifyCrmFeedback(input: {
 
   let sentiment = input.provided_sentiment
   if (!sentiment) {
-    if ((input.rating != null && input.rating <= 2) || (input.nps_score != null && input.nps_score <= 6) || negativeWords.test(text)) {
+    if ((input.rating != null && input.rating <= 3) || (input.nps_score != null && input.nps_score <= 6) || negativeWords.test(text)) {
       sentiment = 'negative'
     } else if ((input.rating != null && input.rating >= 4) || (input.nps_score != null && input.nps_score >= 9) || positiveWords.test(text)) {
       sentiment = 'positive'
