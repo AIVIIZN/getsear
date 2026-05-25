@@ -43,6 +43,8 @@ type Guest = {
   guest_contact_points?: ContactPoint[]
   guest_preferences?: Preference[]
   guest_allergies?: Allergy[]
+  guest_consents?: GuestConsent[]
+  suppression_entries?: SuppressionEntry[]
   guest_tags?: GuestTag[]
   notes?: Note[]
 }
@@ -50,6 +52,21 @@ type Guest = {
 type ContactPoint = { id: string; contact_type: string; value: string; is_primary?: boolean }
 type Preference = { id: string; preference_category: string; preference_key: string; preference_value?: Record<string, unknown> }
 type Allergy = { id: string; allergen: string; severity: string; reaction_notes?: string | null }
+type ConsentChannel = "email" | "sms" | "push" | "in_app" | "phone" | "mail"
+type ConsentPurpose = "marketing" | "transactional" | "loyalty" | "reservation" | "feedback" | "personalization"
+type ConsentStatus = "granted" | "revoked" | "unknown"
+type GuestConsent = {
+  id: string
+  channel: ConsentChannel
+  purpose: ConsentPurpose
+  status: ConsentStatus
+  source: string
+  proof?: Record<string, unknown> | null
+  captured_at: string
+  revoked_at?: string | null
+  consent_policy_versions?: { version_label: string; language: string; effective_at: string } | null
+}
+type SuppressionEntry = { id: string; channel: ConsentChannel; purpose: ConsentPurpose | "all"; reason: string; source: string; suppressed_at: string; proof?: Record<string, unknown> | null }
 type GuestTag = { id: string; crm_tags?: { name: string; slug: string; tag_category: string; is_sensitive?: boolean } | null }
 type Note = { id: string; note_category: string; body: string; visibility: string }
 type TimelineEvent = { id: string; event_at: string; event_type: string; title: string; body?: string | null; visibility: string }
@@ -101,6 +118,11 @@ function formatCurrency(value: string | number | null | undefined) {
 function formatDate(value: string | null | undefined) {
   if (!value) return "Not recorded"
   return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Not recorded"
+  return new Date(value).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
 }
 
 function primaryContact(guest: Guest, type: string) {
@@ -166,21 +188,23 @@ export default function GuestsPage() {
     }
     setDetailState("loading")
     setIdentityState("loading")
-    Promise.all([
+    Promise.allSettled([
       fetchJson<{ data: Guest }>(`/api/crm/guests/${selectedId}`),
       fetchJson<{ data: TimelineEvent[] }>(`/api/crm/guests/${selectedId}/timeline?limit=25`),
       fetchJson<{ data: OrderRecord[] }>(`/api/crm/guests/${selectedId}/orders?limit=10`),
       fetchJson<{ data: IdentityCandidate[] }>(`/api/crm/identity/candidates?guest_id=${selectedId}&limit=8`),
-    ]).then(([guestJson, timelineJson, ordersJson, identityJson]) => {
-      setSelectedGuest(guestJson.data)
-      setTimeline(timelineJson.data)
-      setOrders(ordersJson.data)
-      setIdentityCandidates(identityJson.data)
+    ]).then(([guestResult, timelineResult, ordersResult, identityResult]) => {
+      if (guestResult.status !== "fulfilled") {
+        setDetailState("error")
+        setIdentityState("error")
+        return
+      }
+      setSelectedGuest(guestResult.value.data)
+      setTimeline(timelineResult.status === "fulfilled" ? timelineResult.value.data : [])
+      setOrders(ordersResult.status === "fulfilled" ? ordersResult.value.data : [])
+      setIdentityCandidates(identityResult.status === "fulfilled" ? identityResult.value.data : [])
       setDetailState("ready")
-      setIdentityState("ready")
-    }).catch(() => {
-      setDetailState("error")
-      setIdentityState("error")
+      setIdentityState(identityResult.status === "fulfilled" ? "ready" : "error")
     })
   }, [selectedId])
 
@@ -427,8 +451,115 @@ function Notes({ guest, noteDraft, setNoteDraft, savingNote, addNote }: { guest:
   return <div className="space-y-[var(--space-4)]"><Textarea label="Hospitality note" value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add a service-safe note for the next visit" /><Button size="md" disabled={!noteDraft.trim()} loading={savingNote} onClick={addNote}>Add note</Button><div className="divide-y divide-[var(--color-border)]">{guest.notes?.length ? guest.notes.map((note) => <Row key={note.id} title={note.note_category} body={note.body} />) : <InlineState icon={NotebookTabs} title="No visible notes" body="Manager and owner-only notes stay hidden from staff roles." />}</div></div>
 }
 
+const consentMatrix: Array<{ channel: ConsentChannel; purpose: ConsentPurpose; label: string; help: string }> = [
+  { channel: "email", purpose: "marketing", label: "Email marketing", help: "Campaigns, promotions, and winback offers." },
+  { channel: "sms", purpose: "marketing", label: "SMS marketing", help: "Text campaigns and limited-time offers." },
+  { channel: "email", purpose: "transactional", label: "Email receipts", help: "Receipts and service messages tied to an order." },
+  { channel: "sms", purpose: "transactional", label: "Text receipts", help: "SMS receipts and order-status messages." },
+  { channel: "email", purpose: "loyalty", label: "Loyalty email", help: "Rewards enrollment and points updates." },
+  { channel: "sms", purpose: "loyalty", label: "Loyalty SMS", help: "Rewards updates by text." },
+  { channel: "email", purpose: "reservation", label: "Reservation email", help: "Reservation reminders and changes." },
+  { channel: "sms", purpose: "feedback", label: "Feedback SMS", help: "Post-visit feedback requests." },
+]
+
+function consentKey(channel: ConsentChannel, purpose: ConsentPurpose) {
+  return `${channel}:${purpose}`
+}
+
+function consentTone(status: ConsentStatus): "success" | "warning" | "default" {
+  if (status === "granted") return "success"
+  if (status === "revoked") return "warning"
+  return "default"
+}
+
+function proofSummary(proof: Record<string, unknown> | null | undefined) {
+  if (!proof) return "No proof captured"
+  const surface = typeof proof.ui_surface === "string" ? proof.ui_surface : typeof proof.captured_via === "string" ? proof.captured_via : "Consent center"
+  const version = typeof proof.language_version === "string" ? proof.language_version : typeof proof.policy_key === "string" ? proof.policy_key : "current language"
+  return `${surface} - ${version}`
+}
+
 function DataConsent({ guest }: { guest: Guest }) {
-  return <Panel title="Profile data"><Row title="Birthday" body={formatDate(guest.birthday)} /><Row title="Contacts" body={`${guest.guest_contact_points?.length ?? 0} contact points`} /><Row title="Tags" body={`${guest.guest_tags?.length ?? 0} assigned tags`} /></Panel>
+  const [consents, setConsents] = React.useState<GuestConsent[]>(guest.guest_consents ?? [])
+  const [suppressions, setSuppressions] = React.useState<SuppressionEntry[]>(guest.suppression_entries ?? [])
+  const [busyKey, setBusyKey] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  const consentByKey = new Map(consents.map((consent) => [consentKey(consent.channel, consent.purpose), consent]))
+
+  React.useEffect(() => {
+    setConsents(guest.guest_consents ?? [])
+    setSuppressions(guest.suppression_entries ?? [])
+    setError(null)
+  }, [guest.id, guest.guest_consents, guest.suppression_entries])
+
+  async function updateConsent(item: { channel: ConsentChannel; purpose: ConsentPurpose }, status: ConsentStatus) {
+    const key = consentKey(item.channel, item.purpose)
+    setBusyKey(key)
+    setError(null)
+    try {
+      await fetchJson<{ data: GuestConsent[] }>(`/api/crm/guests/${guest.id}/consents`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consents: [{
+            channel: item.channel,
+            purpose: item.purpose,
+            status,
+            source: "guest_360",
+            proof: { captured_via: "guest_360_consent_center", language_version: "crm-v3.1-consent-center" },
+          }],
+        }),
+      })
+      const refreshed = await fetchJson<{ data: GuestConsent[]; suppressions: SuppressionEntry[] }>(`/api/crm/guests/${guest.id}/consents`)
+      setConsents(refreshed.data)
+      setSuppressions(refreshed.suppressions)
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Consent update failed")
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
+  return (
+    <div className="space-y-[var(--space-4)]">
+      {error ? <p className="rounded-[var(--radius-sm)] bg-[var(--color-danger-bg)] p-[var(--space-3)] text-[length:var(--type-footnote-size)] text-[var(--color-danger)]">{error}</p> : null}
+      <Panel title="Profile data">
+        <Row title="Birthday" body={formatDate(guest.birthday)} />
+        <Row title="Contacts" body={`${guest.guest_contact_points?.length ?? 0} contact points`} />
+        <Row title="Tags" body={`${guest.guest_tags?.length ?? 0} assigned tags`} />
+      </Panel>
+      <Panel title="Consent center">
+        <div className="divide-y divide-[var(--color-border)]">
+          {consentMatrix.map((item) => {
+            const consent = consentByKey.get(consentKey(item.channel, item.purpose))
+            const status = consent?.status ?? "unknown"
+            const key = consentKey(item.channel, item.purpose)
+            return (
+              <div key={key} className="flex flex-wrap items-start justify-between gap-[var(--space-3)] py-[var(--space-3)]">
+                <div className="min-w-[220px] flex-1">
+                  <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+                    <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text)]">{item.label}</p>
+                    <Badge variant={consentTone(status)}>{status}</Badge>
+                  </div>
+                  <p className="mt-[var(--space-1)] text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">{item.help}</p>
+                  <p className="mt-[var(--space-1)] text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">{proofSummary(consent?.proof)} - captured {formatDateTime(consent?.captured_at)}</p>
+                </div>
+                <div className="flex gap-[var(--space-2)]">
+                  <Button size="sm" variant={status === "granted" ? "primary" : "secondary"} loading={busyKey === key} disabled={busyKey === key} onClick={() => updateConsent(item, "granted")}>Grant</Button>
+                  <Button size="sm" variant={status === "revoked" ? "destructive" : "secondary"} loading={busyKey === key} disabled={busyKey === key} onClick={() => updateConsent(item, "revoked")}>Revoke</Button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Panel>
+      <Panel title="Suppression history">
+        {suppressions.length ? suppressions.map((suppression) => (
+          <Row key={suppression.id} title={`${suppression.channel} ${suppression.purpose} - ${suppression.reason.replaceAll("_", " ")}`} body={`${suppression.source} - ${formatDateTime(suppression.suppressed_at)} - ${proofSummary(suppression.proof)}`} />
+        )) : <InlineState icon={ShieldCheck} title="No active suppression history" body="Revoked consent, unsubscribe, bounce, complaint, and privacy-request suppressions appear here." />}
+      </Panel>
+    </div>
+  )
 }
 
 function Warnings({ guest }: { guest: Guest }) {

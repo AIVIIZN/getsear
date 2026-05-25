@@ -77,6 +77,11 @@ export const crmTagCategorySchema = z.enum([
   'system',
 ])
 
+export const guestConsentChannelSchema = z.enum(['email', 'sms', 'push', 'in_app', 'phone', 'mail'])
+export const guestConsentPurposeSchema = z.enum(['marketing', 'transactional', 'loyalty', 'reservation', 'feedback', 'personalization'])
+export const guestConsentStatusSchema = z.enum(['granted', 'revoked', 'unknown'])
+export const suppressionReasonSchema = z.enum(['revoked_consent', 'unsubscribe', 'bounce', 'complaint', 'privacy_request', 'manual', 'legal_hold'])
+
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -224,6 +229,17 @@ export const createGuestTimelineEventSchema = z.object({
   title: z.string().trim().min(1).max(240),
   body: z.string().trim().max(2000).optional().nullable(),
   visibility: guestVisibilitySchema.default('service'),
+  metadata: metadataSchema,
+})
+
+export const upsertGuestConsentSchema = z.object({
+  contact_point_id: optionalUuidSchema,
+  channel: guestConsentChannelSchema,
+  purpose: guestConsentPurposeSchema,
+  status: guestConsentStatusSchema,
+  source: z.string().trim().min(1).max(120).default('manual'),
+  proof: metadataSchema,
+  policy_version_id: optionalUuidSchema,
   metadata: metadataSchema,
 })
 

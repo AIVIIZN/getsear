@@ -131,6 +131,41 @@ async function upsertContactPoint(params: {
   })
 }
 
+async function upsertCheckoutConsent(params: {
+  supabase: ReturnType<typeof createAdminClient>
+  orgId: string
+  locationId: string | null
+  guestId: string
+  userId: string
+  contactPointId: string | null
+  channel: 'email' | 'sms'
+  purpose: 'marketing' | 'transactional' | 'loyalty'
+  granted: boolean
+  source: string
+  proof: Record<string, unknown>
+  capturedAt: string
+}) {
+  const status = params.granted ? 'granted' : 'unknown'
+  await params.supabase
+    .from('guest_consents')
+    .upsert({
+      org_id: params.orgId,
+      location_id: params.locationId,
+      guest_id: params.guestId,
+      contact_point_id: params.contactPointId,
+      channel: params.channel,
+      purpose: params.purpose,
+      status,
+      source: params.source,
+      proof: params.proof,
+      captured_by_user_id: params.userId,
+      captured_at: params.capturedAt,
+      revoked_at: null,
+      metadata: {},
+      updated_at: params.capturedAt,
+    }, { onConflict: 'org_id,guest_id,channel,purpose' })
+}
+
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
@@ -231,6 +266,76 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         guestId,
         contact,
         metadata: checkoutCapture,
+      })
+    }
+
+    const { data: contactRows } = await supabase
+      .from('guest_contact_points')
+      .select('id, contact_type')
+      .eq('org_id', user.org_id)
+      .eq('guest_id', guestId)
+      .is('deleted_at', null)
+      .in('contact_type', ['email', 'phone'])
+
+    const contactPointByType = new Map((contactRows ?? []).map((row: { id: string; contact_type: string }) => [row.contact_type, row.id]))
+    if (email) {
+      await upsertCheckoutConsent({
+        supabase,
+        orgId: user.org_id,
+        locationId: order.location_id,
+        guestId,
+        userId: user.id,
+        contactPointId: contactPointByType.get('email') ?? null,
+        channel: 'email',
+        purpose: 'transactional',
+        granted: parsed.data.consent.email_receipts,
+        source: 'pos_checkout',
+        proof: consentProof,
+        capturedAt: now,
+      })
+      await upsertCheckoutConsent({
+        supabase,
+        orgId: user.org_id,
+        locationId: order.location_id,
+        guestId,
+        userId: user.id,
+        contactPointId: contactPointByType.get('email') ?? null,
+        channel: 'email',
+        purpose: 'marketing',
+        granted: parsed.data.consent.marketing_email,
+        source: 'pos_checkout',
+        proof: consentProof,
+        capturedAt: now,
+      })
+    }
+    if (phone) {
+      await upsertCheckoutConsent({
+        supabase,
+        orgId: user.org_id,
+        locationId: order.location_id,
+        guestId,
+        userId: user.id,
+        contactPointId: contactPointByType.get('phone') ?? null,
+        channel: 'sms',
+        purpose: 'transactional',
+        granted: parsed.data.consent.sms_receipts,
+        source: 'pos_checkout',
+        proof: consentProof,
+        capturedAt: now,
+      })
+      await upsertCheckoutConsent({
+        supabase,
+        orgId: user.org_id,
+        locationId: order.location_id,
+        guestId,
+        userId: user.id,
+        contactPointId: contactPointByType.get('phone') ?? null,
+        channel: 'sms',
+        purpose: 'marketing',
+        granted: parsed.data.consent.marketing_sms,
+        source: 'pos_checkout',
+        proof: consentProof,
+        capturedAt: now,
       })
     }
 
