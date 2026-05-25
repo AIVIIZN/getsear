@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCrmGuestPermissions } from '@/lib/crm/api'
 import type { User } from '@/types/database'
 
 type UserProfile = Pick<
@@ -61,6 +62,7 @@ export async function GET() {
         org_id: profile.org_id,
         location_ids: profile.location_ids ?? [],
         avatar_url: profile.avatar_url,
+        crm_permissions: getCrmGuestPermissions(profile),
       },
     })
   } catch {

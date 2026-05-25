@@ -8,8 +8,10 @@ import {
   crmGuestReadRoles,
   crmGuestWriteRoles,
   escapePostgrestLikePattern,
+  getCrmGuestPermissions,
   hashGuestContactValue,
   normalizeGuestContactValue,
+  sanitizeGuestForCrmRole,
 } from '@/lib/crm/api'
 import {
   createGuestContactPointSchema,
@@ -36,6 +38,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { page, limit, sort_by, sort_dir, search, preference, tag_id, lifecycle_stage, birthday, location_id, last_visit_after, last_visit_before } = parsed.data
+  const sortBy = sort_by === 'total_spend' && !getCrmGuestPermissions(user).can_view_revenue_attribution ? 'last_visit_at' : sort_by
   const offset = (page - 1) * limit
   const supabase = createAdminClient()
   let guestIdsFromSignals: string[] | null = null
@@ -120,7 +123,7 @@ export async function GET(request: NextRequest) {
   if (last_visit_before) query = query.lte('last_visit_at', last_visit_before)
 
   const { data, error, count } = await query
-    .order(sort_by, { ascending: sort_dir === 'asc' })
+    .order(sortBy, { ascending: sort_dir === 'asc' })
     .range(offset, offset + limit - 1)
 
   if (error) {
@@ -128,7 +131,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    data: data ?? [],
+    data: (data ?? []).map((guest) => sanitizeGuestForCrmRole(guest as Record<string, unknown>, user)),
     pagination: {
       page,
       limit,

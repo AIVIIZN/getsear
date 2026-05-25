@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
-import { crmGuestReadRoles } from '@/lib/crm/api'
+import { crmGuestReadRoles, sanitizeGuestOrderForCrmRole } from '@/lib/crm/api'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -77,6 +77,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const right = new Date((b as { created_at: string }).created_at).getTime()
       return right - left
     })
+    .map((order) => sanitizeGuestOrderForCrmRole(order as Record<string, unknown>, user))
 
   return NextResponse.json({
     data,
