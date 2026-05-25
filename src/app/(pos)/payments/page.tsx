@@ -9,7 +9,7 @@ import { MoneyDisplay } from '@/components/shared/MoneyDisplay'
 import { PaymentMethodGrid, type PaymentMethodChoice } from '@/components/payments/PaymentMethodGrid'
 import { CashTender } from '@/components/payments/CashTender'
 import { TipSelector } from '@/components/payments/TipSelector'
-import { ReceiptOptions, type ReceiptChoice } from '@/components/payments/ReceiptOptions'
+import { ReceiptOptions, type ReceiptCapturePayload, type ReceiptChoice } from '@/components/payments/ReceiptOptions'
 import { PaymentComplete } from '@/components/payments/PaymentComplete'
 import { CardProcessing } from '@/components/payments/CardProcessing'
 import { GiftCardFlow } from '@/components/payments/GiftCardFlow'
@@ -207,13 +207,46 @@ function PaymentsPage() {
     [paymentResult.paymentId]
   )
 
-  const handleReceiptChoice = useCallback(async (choice: ReceiptChoice) => {
-    if (choice === 'email' || choice === 'text') {
+  const handleReceiptChoice = useCallback(async (choice: ReceiptChoice, payload: ReceiptCapturePayload) => {
+    try {
+      await fetch(`/api/orders/${orderId}/checkout-capture`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payload,
+          receipt_choice: choice,
+        }),
+      })
+    } catch {
+      // Receipt capture is best-effort after payment approval.
+    }
+
+    if (choice === 'email' && payload.email) {
       try {
-        await fetch(`/api/orders/${orderId}/receipt`, {
+        await fetch('/api/integrations/email/receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: choice }),
+          body: JSON.stringify({
+            location_id: locationId,
+            order_id: orderId,
+            email: payload.email,
+          }),
+        })
+      } catch {
+        // Silent — receipt delivery is best-effort
+      }
+    } else if (choice === 'text' && payload.phone) {
+      try {
+        await fetch('/api/integrations/sms/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location_id: locationId,
+            to: payload.phone,
+            template_type: 'order_ready',
+            custom_body: `Receipt for your Sear order: ${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com')}/feedback/${orderId}`,
+            idempotency_key: `receipt:${orderId}:${payload.phone}`,
+          }),
         })
       } catch {
         // Silent — receipt delivery is best-effort
@@ -230,7 +263,7 @@ function PaymentsPage() {
       }
     }
     setFlowState('complete')
-  }, [orderId])
+  }, [locationId, orderId])
 
   const handleDone = useCallback(() => {
     clearCurrentOrder()
@@ -345,7 +378,11 @@ function PaymentsPage() {
 
           {flowState === 'receipt_prompt' && (
             <div className="animate-slide-in-right">
-              <ReceiptOptions onSelect={handleReceiptChoice} />
+              <ReceiptOptions
+                defaultEmail={currentOrder?.guest?.email}
+                defaultPhone={currentOrder?.guest?.phone}
+                onSelect={handleReceiptChoice}
+              />
             </div>
           )}
 

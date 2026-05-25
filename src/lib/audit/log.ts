@@ -96,6 +96,7 @@ export type AuditAction =
   | 'crm_guest_merge_dismissed'
   | 'crm_guest_kept_separate'
   | 'crm_guest_household_marked'
+  | 'crm_guest_consent_updated'
   // Tenant admin
   | 'audit_log_exported'
   | 'org_settings_changed'
