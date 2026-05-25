@@ -33,7 +33,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const supabase = createAdminClient()
   const { data: guest, error } = await supabase
     .from('guests')
-    .select('*, guest_contact_points(id, contact_type, label, value, normalized_value, is_primary, is_verified, source), guest_preferences(*), guest_allergies(*), guest_tags(id, tag_id, crm_tags(id, name, slug, tag_category, color_token, is_sensitive))')
+    .select('*, guest_contact_points(id, contact_type, label, value, normalized_value, is_primary, is_verified, source), guest_preferences(*), guest_allergies(*), guest_consents(*, consent_policy_versions(id, policy_key, version_label, language, effective_at)), suppression_entries(*), guest_tags(id, tag_id, crm_tags(id, name, slug, tag_category, color_token, is_sensitive))')
     .eq('id', id)
     .eq('org_id', user.org_id)
     .is('deleted_at', null)

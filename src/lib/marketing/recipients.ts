@@ -69,6 +69,11 @@ export interface ResolveRecipientsArgs {
 
 const DEFAULT_MAX_RECIPIENTS = 50_000
 
+function requiredConsentChannels(channel: CampaignChannel): Array<'email' | 'sms'> {
+  if (channel === 'both') return ['email', 'sms']
+  return [channel]
+}
+
 /**
  * Resolve a campaign's segment to the list of customers that should receive it.
  *
@@ -151,5 +156,61 @@ export async function resolveRecipients(
     throw new Error(`Failed to resolve recipients: ${error.message}`)
   }
 
-  return (data ?? []) as RecipientCustomer[]
+  const candidates = (data ?? []) as RecipientCustomer[]
+  if (candidates.length === 0) return []
+
+  const { data: guestLinks, error: guestError } = await supabase
+    .from('guests')
+    .select('id, legacy_customer_id')
+    .eq('org_id', orgId)
+    .in('legacy_customer_id', candidates.map((customer) => customer.id))
+    .is('deleted_at', null)
+
+  if (guestError) {
+    throw new Error(`Failed to resolve guest consent links: ${guestError.message}`)
+  }
+
+  const customerToGuest = new Map((guestLinks ?? []).map((guest: { id: string; legacy_customer_id: string }) => [guest.legacy_customer_id, guest.id]))
+  const guestIds = Array.from(customerToGuest.values())
+  if (guestIds.length === 0) return []
+
+  const channels = requiredConsentChannels(channel)
+  const { data: consents, error: consentError } = await supabase
+    .from('guest_consents')
+    .select('guest_id, channel, purpose, status')
+    .eq('org_id', orgId)
+    .eq('purpose', 'marketing')
+    .eq('status', 'granted')
+    .in('channel', channels)
+    .in('guest_id', guestIds)
+
+  if (consentError) {
+    throw new Error(`Failed to resolve guest consent: ${consentError.message}`)
+  }
+
+  const { data: suppressions, error: suppressionError } = await supabase
+    .from('suppression_entries')
+    .select('guest_id, channel, purpose, expires_at')
+    .eq('org_id', orgId)
+    .in('guest_id', guestIds)
+    .in('channel', channels)
+    .in('purpose', ['marketing', 'all'])
+
+  if (suppressionError) {
+    throw new Error(`Failed to resolve guest suppressions: ${suppressionError.message}`)
+  }
+
+  const granted = new Set((consents ?? []).map((row: { guest_id: string; channel: string }) => `${row.guest_id}:${row.channel}`))
+  const now = Date.now()
+  const activeSuppressions = (suppressions ?? []).filter((row: { expires_at?: string | null }) => {
+    if (!row.expires_at) return true
+    return new Date(row.expires_at).getTime() > now
+  })
+  const suppressed = new Set(activeSuppressions.map((row: { guest_id: string; channel: string }) => `${row.guest_id}:${row.channel}`))
+
+  return candidates.filter((customer) => {
+    const guestId = customerToGuest.get(customer.id)
+    if (!guestId) return false
+    return channels.every((consentChannel) => granted.has(`${guestId}:${consentChannel}`) && !suppressed.has(`${guestId}:${consentChannel}`))
+  })
 }

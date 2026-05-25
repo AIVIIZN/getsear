@@ -3,6 +3,7 @@ import type { AuthUser } from '@/lib/api/auth'
 
 export const crmGuestReadRoles = ['platform_admin', 'owner', 'admin', 'manager', 'server', 'bartender', 'cashier', 'host', 'marketing', 'analyst'] as const
 export const crmGuestWriteRoles = ['platform_admin', 'owner', 'admin', 'manager', 'server', 'bartender', 'cashier', 'host'] as const
+export const crmConsentWriteRoles = ['platform_admin', 'owner', 'admin', 'manager', 'marketing'] as const
 export const crmGuestManagerRoles = ['platform_admin', 'owner', 'admin', 'manager'] as const
 export const crmGuestOwnerRoles = ['platform_admin', 'owner', 'admin'] as const
 
@@ -67,4 +68,15 @@ export function buildGuestDisplayName(input: {
   if (preferred) return preferred
   const name = [input.first_name, input.last_name].map((part) => part?.trim()).filter(Boolean).join(' ')
   return name || 'Guest'
+}
+
+export function consentPolicyKey(channel: 'email' | 'sms' | 'push' | 'in_app' | 'phone' | 'mail', purpose: string): string {
+  if (channel === 'email' && purpose === 'marketing') return 'email_marketing'
+  if (channel === 'sms' && purpose === 'marketing') return 'sms_marketing'
+  if (purpose === 'transactional') return 'transactional'
+  if (purpose === 'loyalty') return 'loyalty'
+  if (purpose === 'reservation') return 'reservation'
+  if (purpose === 'feedback') return 'feedback'
+  if (purpose === 'personalization') return 'personalization'
+  return 'push'
 }
