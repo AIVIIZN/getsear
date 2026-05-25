@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   BarChart3, DollarSign, Users, ChefHat, UserCheck,
   CreditCard, Banknote, Receipt, Timer, AlertTriangle,
-  TrendingUp, LineChart, Salad, LayoutDashboard,
+  TrendingUp, LineChart, Salad, LayoutDashboard, Sparkles,
 } from 'lucide-react'
 
 const REPORT_TABS = [
@@ -24,6 +24,7 @@ const REPORT_TABS = [
   { label: 'Servers', href: '/reports/server-performance', icon: UserCheck },
   { label: 'Trends', href: '/reports/trends', icon: LineChart },
   { label: 'Dashboard', href: '/reports/dashboard', icon: LayoutDashboard },
+  { label: 'Builder', href: '/reports/builder', icon: Sparkles },
 ]
 
 export default function ReportsLayout({ children }: { children: React.ReactNode }) {
