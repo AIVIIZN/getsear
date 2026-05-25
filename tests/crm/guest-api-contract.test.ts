@@ -55,6 +55,10 @@ describe('CRM-V1.2 guest API contract', () => {
         { id: 'note-2', note_category: 'service_recovery', visibility: 'service', body: 'Complaint detail' },
         { id: 'note-3', note_category: 'sensitive', visibility: 'manager', body: 'Internal note' },
       ],
+      guest_tags: [
+        { id: 'tag-1', assignment_reason: 'Likes booths', crm_tags: { slug: 'booth-fan', is_sensitive: false } },
+        { id: 'tag-2', assignment_reason: 'VIP has not visited in 60 days', crm_tags: { slug: 'at-risk-vip', is_sensitive: true } },
+      ],
     }, { role: 'server' })
 
     expect(guest.total_spend).toBeNull()
@@ -64,6 +68,8 @@ describe('CRM-V1.2 guest API contract', () => {
     expect(guest.suppression_entries).toEqual([])
     expect(guest.notes).toHaveLength(1)
     expect(guest.notes[0].note_category).toBe('hospitality')
+    expect(guest.guest_tags).toHaveLength(1)
+    expect(guest.guest_tags[0].crm_tags.slug).toBe('booth-fan')
     expect(guest.crm_permissions.can_view_revenue_attribution).toBe(false)
     expect(sanitizeGuestOrderForCrmRole({ id: 'order-1', subtotal: 100, tax_total: 8, total: 108 }, { role: 'server' })).toEqual({
       id: 'order-1',
@@ -301,5 +307,32 @@ describe('CRM-V1.2 guest API contract', () => {
     expect(orderPanel).toContain('onTotalsChanged={updateCurrentOrderTotals}')
     expect(receiptRoute).toContain('crm_loyalty_receipt')
     expect(receiptTemplate).toContain('Rewards progress')
+  })
+
+  it('ships smart tag recalculation with source explanations and sensitive tag visibility', () => {
+    const intelligence = read('src/lib/crm/intelligence.ts')
+    const intelligenceRoute = read('src/app/api/crm/guests/[id]/intelligence/route.ts')
+    const guestApi = read('src/lib/crm/api.ts')
+
+    expect(intelligence).toContain('calculateGuestSmartTags')
+    expect(intelligence).toContain("slug: 'first-time'")
+    expect(intelligence).toContain("slug: 'second-visit'")
+    expect(intelligence).toContain("slug: 'regular'")
+    expect(intelligence).toContain("slug: 'lapsed-regular'")
+    expect(intelligence).toContain("slug: 'at-risk-vip'")
+    expect(intelligence).toContain("slug: 'high-ltv'")
+    expect(intelligence).toContain("slug: 'wine-lover'")
+    expect(intelligence).toContain("slug: 'brunch-regular'")
+    expect(intelligence).toContain("slug: 'delivery-only'")
+    expect(intelligence).toContain("slug: 'discount-sensitive'")
+    expect(intelligence).toContain("slug: 'birthday-this-month'")
+    expect(intelligence).toContain("slug: 'complaint-unresolved'")
+    expect(intelligence).toContain("assignment_source: 'auto_rule'")
+    expect(intelligence).toContain('manual_override_supported')
+    expect(intelligence).toContain('suppressed_slugs')
+    expect(intelligence).toContain('crm_auto_tags')
+    expect(intelligenceRoute).toContain('recalculateGuestIntelligence')
+    expect(guestApi).toContain('sanitizeGuestTags')
+    expect(guestApi).toContain('can_view_internal_manager_notes')
   })
 })

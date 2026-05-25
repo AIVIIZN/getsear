@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateGuestIntelligence, type GuestLifecycleStage } from '@/lib/crm/intelligence'
+import { calculateGuestIntelligence, calculateGuestSmartTags, type GuestLifecycleStage } from '@/lib/crm/intelligence'
 
 function order(overrides: {
   id: string
@@ -7,6 +7,7 @@ function order(overrides: {
   closed_at: string
   order_type?: string
   location_id?: string
+  discount_total?: number
 }) {
   return {
     id: overrides.id,
@@ -15,6 +16,7 @@ function order(overrides: {
     created_at: overrides.closed_at,
     order_type: overrides.order_type ?? 'dine_in',
     location_id: overrides.location_id ?? '00000000-0000-0000-0000-000000000001',
+    discount_total: overrides.discount_total ?? 0,
   }
 }
 
@@ -73,5 +75,38 @@ describe('CRM guest intelligence', () => {
 
     expect(summary.lifecycle_stage).toBe(expected)
     expect(summary.lifecycle_explanation.length).toBeGreaterThan(10)
+  })
+
+  it('derives source-backed smart tags with explanations from intelligence', () => {
+    const summary = calculateGuestIntelligence({
+      previousStage: 'unknown',
+      now: new Date('2026-05-25T12:00:00.000Z'),
+      categoryByMenuItemId: new Map([
+        ['00000000-0000-0000-0000-000000000102', 'Wine'],
+      ]),
+      orders: [
+        order({ id: '00000000-0000-0000-0000-000000000301', total: 250, closed_at: '2026-05-01T12:00:00.000Z', order_type: 'delivery', discount_total: 10 }),
+        order({ id: '00000000-0000-0000-0000-000000000302', total: 250, closed_at: '2026-05-02T12:00:00.000Z', order_type: 'delivery', discount_total: 5 }),
+        order({ id: '00000000-0000-0000-0000-000000000303', total: 250, closed_at: '2026-05-03T12:00:00.000Z', order_type: 'delivery' }),
+        order({ id: '00000000-0000-0000-0000-000000000304', total: 250, closed_at: '2026-05-04T12:00:00.000Z', order_type: 'delivery' }),
+      ],
+      items: [
+        { order_id: '00000000-0000-0000-0000-000000000301', menu_item_id: '00000000-0000-0000-0000-000000000102', name: 'Cabernet', quantity: 2, line_total: 48 },
+      ],
+    })
+
+    const tags = calculateGuestSmartTags({
+      summary,
+      birthday: '1990-05-10',
+      now: new Date('2026-05-25T12:00:00.000Z'),
+    })
+    const slugs = tags.map((tag) => tag.slug)
+
+    expect(slugs).toContain('high-ltv')
+    expect(slugs).toContain('wine-lover')
+    expect(slugs).toContain('delivery-only')
+    expect(slugs).toContain('discount-sensitive')
+    expect(slugs).toContain('birthday-this-month')
+    expect(tags.every((tag) => tag.reason.length > 10)).toBe(true)
   })
 })
