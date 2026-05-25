@@ -17,7 +17,11 @@ export async function syncStaff(
   const now = new Date().toISOString()
 
   onProgress?.(0, 'Loading staff roster...')
-  const { data: staff, error } = await supabase
+  // TODO(supabase-type-gen): `staff` is a future-schema compatibility table
+  // and is not present in the live public schema yet. Keep this one relation
+  // untyped until the staff/offline-cache schema task lands.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: staff, error } = await (supabase as any)
     .from('staff')
     .select('id, display_name, email, role, pin_hash, is_active, avatar_color')
     .eq('location_id', locationId)
