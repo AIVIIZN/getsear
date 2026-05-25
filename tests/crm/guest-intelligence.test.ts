@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculateGuestIntelligence, calculateGuestSmartTags, type GuestLifecycleStage } from '@/lib/crm/intelligence'
+import { calculateGuestMenuPreferenceGraph } from '@/lib/crm/menu-preferences'
 
 function order(overrides: {
   id: string
@@ -108,5 +109,59 @@ describe('CRM guest intelligence', () => {
     expect(slugs).toContain('discount-sensitive')
     expect(slugs).toContain('birthday-this-month')
     expect(tags.every((tag) => tag.reason.length > 10)).toBe(true)
+  })
+
+  it('builds a source-backed menu preference graph for staff and owner insights', () => {
+    const ribeyeId = '00000000-0000-0000-0000-000000000501'
+    const categoryByMenuItemId = new Map([[ribeyeId, 'Steaks']])
+    const orders = [
+      order({ id: '00000000-0000-0000-0000-000000000601', total: 48, closed_at: '2026-05-01T18:00:00.000Z' }),
+      order({ id: '00000000-0000-0000-0000-000000000602', total: 52, closed_at: '2026-05-08T18:30:00.000Z' }),
+      order({ id: '00000000-0000-0000-0000-000000000603', total: 54, closed_at: '2026-05-15T19:00:00.000Z' }),
+    ]
+
+    const graph = calculateGuestMenuPreferenceGraph({
+      orders,
+      categoryByMenuItemId,
+      complaintTexts: ['Guest said the Ribeye was overcooked last visit.'],
+      items: [
+        {
+          id: '00000000-0000-0000-0000-000000000701',
+          order_id: orders[0].id,
+          menu_item_id: ribeyeId,
+          name: 'Ribeye',
+          quantity: 1,
+          line_total: 42,
+          order_item_modifiers: [{ name: 'Medium rare', quantity: 1 }],
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000702',
+          order_id: orders[1].id,
+          menu_item_id: ribeyeId,
+          name: 'Ribeye',
+          quantity: 1,
+          line_total: 44,
+          order_item_modifiers: [{ name: 'Medium rare', quantity: 1 }],
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000703',
+          order_id: orders[2].id,
+          menu_item_id: ribeyeId,
+          name: 'Ribeye',
+          quantity: 1,
+          line_total: 46,
+          order_item_modifiers: [{ name: 'Medium rare', quantity: 1 }],
+        },
+      ],
+    })
+
+    expect(graph.model_inference).toBe(false)
+    expect(graph.item_preferences[0]).toMatchObject({ label: 'Ribeye', source_count: 3, repeat_rate: 1 })
+    expect(graph.category_preferences[0]).toMatchObject({ label: 'Steaks', source_count: 3 })
+    expect(graph.modifier_preferences[0]).toMatchObject({ label: 'Medium rare', source_count: 3 })
+    expect(graph.daypart_preferences[0]).toMatchObject({ daypart: 'dinner', source_count: 3 })
+    expect(graph.staff_suggestions[0].body).toContain('closed checks')
+    expect(graph.owner_insights.item_to_repeat[0]).toMatchObject({ item: 'Ribeye', repeat_order_count: 3 })
+    expect(graph.owner_insights.item_to_complaint[0]).toMatchObject({ item: 'Ribeye', complaint_count: 1 })
   })
 })

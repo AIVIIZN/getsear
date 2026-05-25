@@ -41,6 +41,7 @@ type Guest = {
   total_visits?: number | null
   total_spend?: string | number | null
   last_visit_at?: string | null
+  metadata?: GuestMetadata | null
   guest_contact_points?: ContactPoint[]
   guest_preferences?: Preference[]
   guest_allergies?: Allergy[]
@@ -53,7 +54,7 @@ type Guest = {
 }
 
 type ContactPoint = { id: string; contact_type: string; value: string; is_primary?: boolean }
-type Preference = { id: string; preference_category: string; preference_key: string; preference_value?: Record<string, unknown> }
+type Preference = { id: string; preference_category: string; preference_key: string; preference_value?: Record<string, unknown>; confidence?: string | number | null; source?: string | null }
 type Allergy = { id: string; allergen: string; severity: string; reaction_notes?: string | null }
 type ConsentChannel = "email" | "sms" | "push" | "in_app" | "phone" | "mail"
 type ConsentPurpose = "marketing" | "transactional" | "loyalty" | "reservation" | "feedback" | "personalization"
@@ -101,6 +102,17 @@ type CrmGuestPermissions = {
   can_manage_consent: boolean
   can_manage_privacy_requests: boolean
   can_export_guest_data: boolean
+}
+type MenuStaffSuggestion = { title: string; body: string; confidence: number; source_count: number; source: string }
+type MenuOwnerInsight = {
+  item_to_repeat?: Array<{ item: string; repeat_order_count: number; repeat_rate: number; confidence: number; reason: string }>
+  item_to_complaint?: Array<{ item: string; complaint_count: number; confidence: number; reason: string }>
+}
+type GuestMetadata = {
+  crm_menu_preferences?: {
+    staff_suggestions?: MenuStaffSuggestion[]
+    owner_insights?: MenuOwnerInsight
+  }
 }
 type UserProfile = { role: string; crm_permissions?: CrmGuestPermissions }
 type IdentityCandidate = {
@@ -154,6 +166,11 @@ function formatDate(value: string | null | undefined) {
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "Not recorded"
   return new Date(value).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
+}
+
+function formatPercent(value: string | number | null | undefined) {
+  const numeric = typeof value === "string" ? Number(value) : value ?? 0
+  return `${Math.round((Number.isFinite(numeric) ? numeric : 0) * 100)}%`
 }
 
 function primaryContact(guest: Guest, type: string) {
@@ -547,12 +564,72 @@ function IdentityResolution({ candidates, state, busyId, error, resolveIdentity 
 }
 
 function Overview({ guest, timeline, canViewRevenue }: { guest: Guest; timeline: TimelineEvent[]; canViewRevenue: boolean }) {
+  const menuSuggestions = guest.metadata?.crm_menu_preferences?.staff_suggestions ?? []
+  const ownerInsights = guest.metadata?.crm_menu_preferences?.owner_insights
   return (
     <div className="grid gap-[var(--space-4)] lg:grid-cols-2">
       <Panel title="Hospitality warnings"><Warnings guest={guest} /></Panel>
-      <Panel title="Preferences">{guest.guest_preferences?.length ? guest.guest_preferences.map((pref) => <Row key={pref.id} title={pref.preference_key} body={pref.preference_category} />) : <InlineState icon={Sparkles} title="No preferences recorded" body="Preferences appear after server notes or POS-linked history." />}</Panel>
+      <Panel title="Menu memory"><MenuMemory preferences={guest.guest_preferences ?? []} suggestions={menuSuggestions} /></Panel>
       {canViewRevenue ? <Panel title="Guest value"><Metric label="Lifetime spend" value={formatCurrency(guest.total_spend)} /><Metric label="Total visits" value={String(guest.total_visits ?? 0)} /></Panel> : null}
+      {canViewRevenue ? <Panel title="Owner patterns"><OwnerPatterns insights={ownerInsights} /></Panel> : null}
       <Panel title="Timeline"><Timeline events={timeline.slice(0, 6)} emptyTitle="No timeline events yet" /></Panel>
+    </div>
+  )
+}
+
+function menuPreferenceLabel(pref: Preference) {
+  const value = pref.preference_value
+  const label = typeof value?.label === "string" ? value.label : pref.preference_key.replace(/^[^:]+:/, "")
+  const reason = typeof value?.reason === "string" ? value.reason : pref.preference_category
+  return { label, reason }
+}
+
+function MenuMemory({ preferences, suggestions }: { preferences: Preference[]; suggestions: MenuStaffSuggestion[] }) {
+  const menuPreferences = preferences.filter((pref) => pref.preference_category === "menu").slice(0, 6)
+  if (!menuPreferences.length && !suggestions.length) {
+    return <InlineState icon={Sparkles} title="No menu memory yet" body="Source-backed item, modifier, and daypart suggestions appear after repeat linked checks." />
+  }
+
+  return (
+    <div className="space-y-[var(--space-4)]">
+      {suggestions.length ? (
+        <div className="space-y-[var(--space-2)]">
+          {suggestions.map((suggestion) => (
+            <div key={`${suggestion.source}-${suggestion.title}`} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-[var(--space-3)]">
+              <div className="flex items-center justify-between gap-[var(--space-3)]">
+                <span className="text-[length:var(--type-callout-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">{suggestion.title}</span>
+                <Badge variant="info">{formatPercent(suggestion.confidence)}</Badge>
+              </div>
+              <p className="mt-[var(--space-1)] text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">{suggestion.body}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="divide-y divide-[var(--color-border)]">
+        {menuPreferences.map((pref) => {
+          const { label, reason } = menuPreferenceLabel(pref)
+          return <Row key={pref.id} title={`${label} · ${formatPercent(pref.confidence)}`} body={reason} />
+        })}
+      </div>
+    </div>
+  )
+}
+
+function OwnerPatterns({ insights }: { insights?: MenuOwnerInsight }) {
+  const repeat = insights?.item_to_repeat ?? []
+  const complaints = insights?.item_to_complaint ?? []
+  if (!repeat.length && !complaints.length) {
+    return <InlineState icon={Sparkles} title="No owner patterns yet" body="Repeat and complaint links appear only when closed checks provide enough source evidence." />
+  }
+
+  return (
+    <div className="divide-y divide-[var(--color-border)]">
+      {repeat.slice(0, 4).map((item) => (
+        <Row key={`repeat-${item.item}`} title={`${item.item} repeat pattern`} body={`${item.repeat_order_count} repeat checks · ${formatPercent(item.confidence)} confidence`} />
+      ))}
+      {complaints.slice(0, 3).map((item) => (
+        <Row key={`complaint-${item.item}`} title={`${item.item} recovery watch`} body={`${item.complaint_count} recovery note${item.complaint_count === 1 ? "" : "s"} mention this repeated item.`} />
+      ))}
     </div>
   )
 }
