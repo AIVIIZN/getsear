@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildCrmAiReportDraft,
+  buildCrmAiReportDraftGatewayPayload,
+  buildCrmReportCanvasValues,
   buildCrmReportPreviewPayload,
   buildCrmReportWizardPayload,
   campaignRoiWizardDefaults,
@@ -68,6 +71,63 @@ describe('guided CRM report wizard', () => {
       },
       visualization: 'bar',
       sample_limit: 25,
+    })
+  })
+
+  it('builds a valid report definition from connected visual canvas blocks', () => {
+    const values = buildCrmReportCanvasValues(
+      campaignRoiWizardDefaults,
+      ['campaigns', 'orders', 'guests'],
+      [{ from: 'campaigns', to: 'orders' }],
+    )
+
+    expect(values.name).toBe('Campaign ROI canvas')
+    expect(values.dataArea).toBe('campaigns')
+    expect(values.metricKeys).toContain('campaign_attributed_revenue')
+    expect(values.metricKeys).toContain('repeat_visit')
+    expect(values.dimensionKeys).toEqual(['campaign', 'location'])
+    expect(values.actions).toContain('dashboard_widget')
+    expect(buildCrmReportWizardPayload(values).metadata).toMatchObject({
+      builder: 'guided_report_wizard',
+      owner_question: expect.stringContaining('campaigns to orders'),
+    })
+  })
+
+  it('keeps AI report drafts approval gated before they become wizard values', () => {
+    const draft = buildCrmAiReportDraft('Show loyalty reward redemptions by week', campaignRoiWizardDefaults)
+
+    expect(draft.approvalRequired).toBe(true)
+    expect(draft.values.dataArea).toBe('loyalty')
+    expect(draft.values.metricKeys).toEqual(['loyalty_attributed_revenue', 'redemption_rate'])
+    expect(draft.values.dimensionKeys).toEqual(['loyalty_program', 'date'])
+    expect(buildCrmReportPreviewPayload(draft.values)).toMatchObject({
+      metric_keys: ['loyalty_attributed_revenue', 'redemption_rate'],
+      dimension_keys: ['loyalty_program', 'date'],
+      visualization: 'stacked_bar',
+    })
+  })
+
+  it('routes Ask AI through the auditable CRM gateway with approval required', () => {
+    const payload = buildCrmAiReportDraftGatewayPayload(
+      'Build a campaign ROI report',
+      ['campaigns', 'orders'],
+      [{ from: 'campaigns', to: 'orders' }],
+    )
+
+    expect(payload).toMatchObject({
+      task_type: 'report_builder',
+      dry_run: true,
+      approval_required: true,
+      metadata: {
+        builder: 'visual_canvas_ask_ai',
+        approval_gate: 'operator_required_before_report_save',
+      },
+    })
+    expect(payload.sources[0]).toMatchObject({
+      source_id: 'visual-report-canvas',
+      data: {
+        selected_blocks: ['campaigns', 'orders'],
+      },
     })
   })
 })
