@@ -27,9 +27,9 @@ export function KdsStationStatus({ stationId, health, failoverActive }: KdsStati
       <span
         className={cn(
           'inline-block h-2.5 w-2.5 rounded-full',
-          health === 'online' && 'bg-[#34C759]',
-          health === 'degraded' && 'bg-[#FFCC00]',
-          health === 'offline' && 'bg-[#FF3B30]'
+          health === 'online' && 'bg-[var(--color-kds-aging-fresh)]',
+          health === 'degraded' && 'bg-[var(--color-kds-aging-aging)]',
+          health === 'offline' && 'bg-[var(--color-kds-priority-rush)]'
         )}
       />
       {/* Ping animation for degraded/offline */}
@@ -37,8 +37,8 @@ export function KdsStationStatus({ stationId, health, failoverActive }: KdsStati
         <span
           className={cn(
             'absolute inset-0 inline-flex h-2.5 w-2.5 animate-ping rounded-full opacity-50',
-            health === 'degraded' && 'bg-[#FFCC00]',
-            health === 'offline' && 'bg-[#FF3B30]'
+            health === 'degraded' && 'bg-[var(--color-kds-aging-aging)]',
+            health === 'offline' && 'bg-[var(--color-kds-priority-rush)]'
           )}
         />
       )}

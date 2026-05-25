@@ -147,19 +147,19 @@ export function KdsExpoTicket({ ticket, onExpoBump, onRefire, onFireCourse }: Kd
       ? 'fresh'
       : ticket.age_category
   const ticketAgeColor = isReadyToRun
-    ? 'var(--kds-aging-fresh)'
+    ? 'var(--color-kds-aging-fresh)'
     : getTicketAgingColor(ageCategory)
   const ticketBg = isReadyToRun
-    ? 'color-mix(in srgb, var(--kds-aging-fresh) 12%, var(--kds-bg))'
+    ? 'color-mix(in srgb, var(--color-kds-aging-fresh) 12%, var(--color-kds-bg))'
     : getAgingBackground(ageCategory)
   const flashClass =
     !isReadyToRun && ageCategory === 'critical' ? 'animate-kds-flash' : ''
   const refireRing =
     !isReadyToRun && ticket.priority === 'refire'
-      ? 'ring-2 ring-[#FF2D55] animate-pulse-attention'
+      ? 'ring-2 ring-[var(--color-kds-priority-refire)] animate-pulse-attention'
       : ''
   const readyToRunGlow = isReadyToRun
-    ? { boxShadow: '0 0 20px rgba(52, 199, 89, 0.30)' }
+    ? { boxShadow: '0 0 20px color-mix(in srgb, var(--color-kds-aging-fresh) 30%, transparent)' }
     : {}
 
   // Station completion summary
@@ -343,7 +343,7 @@ export function KdsExpoTicket({ ticket, onExpoBump, onRefire, onFireCourse }: Kd
             height: 64,
             minHeight: 64,
             backgroundColor: isReadyToRun ? 'var(--color-success-strong)' : 'var(--color-bg-muted)',
-            color: isReadyToRun ? '#FFFFFF' : 'var(--color-text-subtle)',
+            color: isReadyToRun ? 'var(--color-kds-text)' : 'var(--color-text-subtle)',
           }}
           title={
             !isReadyToRun
@@ -422,7 +422,7 @@ function ExpoItemRow({
             {item.name}
           </span>
           {isRefire && (
-            <Badge size="sm" className="font-[number:var(--weight-bold)] !text-white" style={{ backgroundColor: '#FF2D55' }}>
+            <Badge size="sm" className="font-[number:var(--weight-bold)] !text-white" style={{ backgroundColor: 'var(--color-kds-priority-refire)' }}>
               RE-FIRE
             </Badge>
           )}

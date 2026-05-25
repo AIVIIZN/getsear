@@ -112,21 +112,21 @@ export function KdsMessageBanner({ stationId, onDismiss }: KdsMessageBannerProps
         <div
           key={banner._bannerId}
           className={cn(
-            'flex items-center gap-3 rounded-xl bg-[#2a2a2a] px-4 py-3 shadow-lg',
-            'border border-[#444] animate-slide-in-top',
+            'flex items-center gap-3 rounded-xl bg-[var(--color-kds-surface-active)] px-4 py-3 shadow-lg',
+            'border border-[var(--color-kds-message-border)] animate-slide-in-top',
             'cursor-pointer transition-opacity hover:opacity-90'
           )}
           onClick={() => dismissBanner(banner._bannerId)}
           role="alert"
         >
-          <MessageSquare className="h-5 w-5 flex-shrink-0 text-[var(--primary)]" />
+          <MessageSquare className="h-5 w-5 flex-shrink-0 text-[var(--color-primary)]" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[var(--primary)]">
+              <span className="text-xs font-bold text-[var(--color-primary)]">
                 {banner.from_station_name}
               </span>
               {banner.to_station_id === null && (
-                <span className="rounded bg-[#444] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#888]">
+                <span className="rounded bg-[var(--color-kds-surface-pressed)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--color-kds-text-muted)]">
                   Broadcast
                 </span>
               )}
@@ -140,7 +140,7 @@ export function KdsMessageBanner({ stationId, onDismiss }: KdsMessageBannerProps
               e.stopPropagation()
               dismissBanner(banner._bannerId)
             }}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[#888] hover:bg-[#333] hover:text-white"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--color-kds-text-muted)] hover:bg-[var(--color-kds-surface-hover)] hover:text-white"
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Dismiss</span>

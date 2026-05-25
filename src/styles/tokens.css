@@ -191,10 +191,10 @@
   /* ─── KDS dark surface override (apply via .kds-dark wrapper) ─────────── */
   /*
    * KDS-only additions (V6 batch 6.2.2):
-   *   --kds-bg          : kitchen room background (deepest)
-   *   --kds-topbar      : top bar surface, slightly lifted from --kds-bg
-   *   --kds-ticket-bg-*: per-aging-bucket ticket background tint
-   *   --kds-aging-fresh / aging / late / critical : border accent tokens used
+   *   --color-kds-bg          : kitchen room background (deepest)
+   *   --color-kds-topbar      : top bar surface, slightly lifted from bg
+   *   --color-kds-ticket-bg-* : per-aging-bucket ticket background tint
+   *   --color-kds-aging-*     : border accent tokens used
    *      by the per-ticket --ticket-age-color custom property (set inline by
    *      KdsTicket from server-supplied created_at). Color-mix interpolates
    *      between adjacent buckets so the border eases through green→amber→red.
@@ -221,19 +221,54 @@
     --color-success-bg:   rgba(52, 199, 89, 0.20);
     --color-danger-bg:    rgba(255, 59, 48, 0.20);
 
-    /* KDS-only surfaces */
-    --kds-bg:           #0A0A0A;
-    --kds-topbar:       #1A1A1D;
-    --kds-ticket-bg:    #1A1A1D;
-    --kds-ticket-bg-aging:   #1F1A0A;
-    --kds-ticket-bg-late:    #1F140A;
-    --kds-ticket-bg-critical:#1F0A0A;
+    /* KDS semantic surfaces */
+    --color-kds-bg:             #0A0A0A;
+    --color-kds-topbar:         #1A1A1D;
+    --color-kds-surface:        #1A1A1D;
+    --color-kds-surface-hover:  #333333;
+    --color-kds-surface-active: #2A2A2A;
+    --color-kds-surface-raised: #222222;
+    --color-kds-surface-pressed:#444444;
+    --color-kds-border:         #2A2A2A;
+    --color-kds-border-strong:  #333333;
+    --color-kds-message-border: #444444;
 
-    /* KDS aging palette — used by --ticket-age-color via color-mix. */
-    --kds-aging-fresh:    var(--green-500);   /* < 5 min */
-    --kds-aging-aging:    #FFCC00;            /* 5-7.5 min (amber) */
-    --kds-aging-late:     var(--amber-500);   /* 7.5-10 min (orange) */
-    --kds-aging-critical: var(--red-500);     /* > 10 min */
+    --color-kds-text:           #FFFFFF;
+    --color-kds-text-muted:     #888888;
+    --color-kds-text-subtle:    #666666;
+    --color-kds-text-disabled:  #555555;
+    --color-kds-text-inverse:   #1A1A1A;
+
+    --color-kds-ticket-bg:          var(--color-kds-surface);
+    --color-kds-ticket-bg-aging:    #1F1A0A;
+    --color-kds-ticket-bg-late:     #1F140A;
+    --color-kds-ticket-bg-critical: #1F0A0A;
+
+    --color-kds-aging-fresh:    var(--green-500);
+    --color-kds-aging-aging:    #FFCC00;
+    --color-kds-aging-late:     var(--amber-500);
+    --color-kds-aging-critical: var(--red-500);
+
+    --color-kds-priority-refire:    #FF2D55;
+    --color-kds-priority-rush:      var(--red-500);
+    --color-kds-priority-vip:       #FFD700;
+    --color-kds-priority-vip-fg:    var(--color-kds-text-inverse);
+    --color-kds-priority-allergen:  #FF0000;
+
+    --color-kds-input-bg:       var(--color-kds-bg);
+    --color-kds-placeholder:    var(--color-kds-text-disabled);
+
+    /* Legacy aliases retained as compatibility shims for older KDS utilities. */
+    --kds-bg:                 var(--color-kds-bg);
+    --kds-topbar:             var(--color-kds-topbar);
+    --kds-ticket-bg:          var(--color-kds-ticket-bg);
+    --kds-ticket-bg-aging:    var(--color-kds-ticket-bg-aging);
+    --kds-ticket-bg-late:     var(--color-kds-ticket-bg-late);
+    --kds-ticket-bg-critical: var(--color-kds-ticket-bg-critical);
+    --kds-aging-fresh:        var(--color-kds-aging-fresh);
+    --kds-aging-aging:        var(--color-kds-aging-aging);
+    --kds-aging-late:         var(--color-kds-aging-late);
+    --kds-aging-critical:     var(--color-kds-aging-critical);
   }
 }
 
