@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MessageSquare, Mail, BookOpen, Webhook, ArrowRight } from 'lucide-react'
+import { MessageSquare, Mail, BookOpen, Webhook, ArrowRight, PlugZap } from 'lucide-react'
 import { Card } from '@/components/ui-v2/Card'
 
 const integrations = [
@@ -32,6 +32,13 @@ const integrations = [
     label: 'Webhooks',
     description:
       'Send real-time event notifications to third-party systems with HMAC-SHA256 signatures.',
+  },
+  {
+    href: '/settings/integrations/crm',
+    icon: PlugZap,
+    label: 'CRM Integrations',
+    description:
+      'Monitor guest, order, loyalty, campaign, report, data warehouse, and inbound webhook health.',
   },
 ]
 

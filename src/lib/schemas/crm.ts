@@ -179,6 +179,10 @@ export const crmDimensionKeySchema = z.enum(['date', 'location', 'campaign', 'lo
 export const crmReportStatusSchema = z.enum(['draft', 'active', 'scheduled', 'archived'])
 export const crmReportTypeSchema = z.enum(['custom', 'campaign_roi', 'retention', 'loyalty', 'recovery', 'guest_ltv', 'menu_affinity', 'location_comparison'])
 export const crmReportVisualizationSchema = z.enum(['table', 'line', 'bar', 'stacked_bar', 'area', 'pie', 'scorecard', 'heatmap'])
+export const crmIntegrationCategorySchema = z.enum(['email', 'sms', 'reservations', 'online_ordering', 'delivery', 'accounting', 'gift_cards', 'reviews', 'data_warehouse', 'webhooks', 'automation'])
+export const crmIntegrationStatusSchema = z.enum(['connected', 'disconnected', 'error', 'expired', 'pending'])
+export const crmIntegrationSyncStatusSchema = z.enum(['idle', 'syncing', 'succeeded', 'failed'])
+export const crmWebhookStatusSchema = z.enum(['active', 'disabled', 'failing', 'not_configured'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -751,6 +755,35 @@ export const createCrmImportJobSchema = z.object({
 export const listCrmImportJobsQuerySchema = z.object({
   status: crmImportJobStatusSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const createCrmIntegrationConnectionSchema = z.object({
+  location_id: optionalUuidSchema,
+  category: crmIntegrationCategorySchema,
+  provider: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/),
+  display_name: z.string().trim().min(1).max(180),
+  status: crmIntegrationStatusSchema.default('pending'),
+  sync_status: crmIntegrationSyncStatusSchema.default('idle'),
+  webhook_status: crmWebhookStatusSchema.optional(),
+  credential_ref: z.string().trim().min(1).max(120).regex(/^[A-Z0-9_]+$/).optional().nullable(),
+  credential_expires_at: z.string().datetime({ offset: true }).optional().nullable(),
+  config: metadataSchema,
+  health: metadataSchema,
+})
+
+export const listCrmIntegrationsQuerySchema = z.object({
+  category: crmIntegrationCategorySchema.optional(),
+  status: crmIntegrationStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const receiveCrmWebhookSchema = z.object({
+  connection_id: z.string().uuid(),
+  event_name: z.string().trim().min(1).max(160).regex(/^[a-z0-9_.:-]+$/i),
+  delivery_id: z.string().trim().min(1).max(240).optional().nullable(),
+  records_imported: z.number().int().min(0).max(100000).default(0),
+  records_failed: z.number().int().min(0).max(100000).default(0),
+  payload: metadataSchema,
 })
 
 export const createCrmLoyaltyRuleSchema = z.object({
