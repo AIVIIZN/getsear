@@ -90,6 +90,8 @@ export type AuditAction =
   | 'crm_guest_updated'
   | 'crm_guest_note_added'
   | 'crm_guest_tagged'
+  | 'crm_guest_attached_to_order'
+  | 'crm_guest_detached_from_order'
   // Tenant admin
   | 'audit_log_exported'
   | 'org_settings_changed'

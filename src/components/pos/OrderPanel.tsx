@@ -10,6 +10,7 @@ import { SeatSelector } from './SeatSelector'
 import { CourseSelector } from './CourseSelector'
 import { ForHereToGoToggle } from './ForHereToGoToggle'
 import { ItemEditPopover } from './ItemEditPopover'
+import { GuestAttachmentCard } from './GuestAttachmentCard'
 import { useOrderStore } from '@/stores/order-store'
 import { mutateOrder, StaleOrderError } from '@/lib/orders/api-client'
 import { getSeatColor } from '@/lib/constants'
@@ -290,6 +291,7 @@ export function OrderPanel({
     setForHere,
     setCourseState,
     setCurrentOrderVersion,
+    attachGuest,
   } = useOrderStore((s) => s.actions)
 
   // Popover state
@@ -406,6 +408,39 @@ export function OrderPanel({
 
   const reduced = useReducedMotion()
 
+  const handleAttachGuest = useCallback(
+    async (guest: NonNullable<typeof currentOrder>['guest']) => {
+      if (!currentOrder || !guest) return
+      if (currentOrder.order_number) {
+        const res = await fetch(`/api/orders/${currentOrder.id}/guest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guest_id: guest.id }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast.error(json.error ?? 'Failed to attach guest')
+          throw new Error(json.error ?? 'Failed to attach guest')
+        }
+      }
+      attachGuest(guest)
+    },
+    [attachGuest, currentOrder]
+  )
+
+  const handleDetachGuest = useCallback(async () => {
+    if (!currentOrder) return
+    if (currentOrder.order_number) {
+      const res = await fetch(`/api/orders/${currentOrder.id}/guest`, { method: 'DELETE' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to detach guest')
+        throw new Error(json.error ?? 'Failed to detach guest')
+      }
+    }
+    attachGuest(null)
+  }, [attachGuest, currentOrder])
+
   const hasUnsentItems = currentOrder?.items.some(
     (i) => !i.voided && i.status === 'pending'
   ) ?? false
@@ -508,6 +543,13 @@ export function OrderPanel({
             onSelect={setActiveSeat}
           />
         </div>
+
+        <GuestAttachmentCard
+          guest={currentOrder.guest}
+          orderTotalCents={currentOrder.total_cents}
+          onAttach={handleAttachGuest}
+          onDetach={handleDetachGuest}
+        />
       </div>
 
       {/* Item list -- scrollable middle, grouped by Seat then Course */}
