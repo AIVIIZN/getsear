@@ -414,7 +414,7 @@ function TabContent(props: { tab: TabId; guest: Guest; timeline: TimelineEvent[]
   if (tab === "visits") return <Timeline events={timeline.filter((event) => event.event_type.includes("visit") || event.event_type.includes("order"))} emptyTitle="No visit timeline yet" />
   if (tab === "notes") return <Notes guest={guest} noteDraft={props.noteDraft} setNoteDraft={props.setNoteDraft} savingNote={props.savingNote} addNote={props.addNote} />
   if (tab === "household") return <IdentityResolution candidates={props.identityCandidates} state={props.identityState} busyId={props.identityBusyId} error={props.identityError} resolveIdentity={props.resolveIdentity} />
-  if (tab === "consent") return <DataConsent guest={guest} isOwnerMode={isOwnerMode} />
+  if (tab === "consent") return <DataConsent guest={guest} canViewRevenue={canViewRevenue} />
   return <InlineState icon={NotebookTabs} title={`${tabs.find((item) => item.id === tab)?.label} has no records yet`} body="This tab will populate from linked restaurant activity as the guest profile accumulates data." />
 }
 
@@ -505,7 +505,7 @@ function proofSummary(proof: Record<string, unknown> | null | undefined) {
   return `${surface} - ${version}`
 }
 
-function DataConsent({ guest, isOwnerMode }: { guest: Guest; isOwnerMode: boolean }) {
+function DataConsent({ guest, canViewRevenue }: { guest: Guest; canViewRevenue: boolean }) {
   const primaryContact = guest.guest_contact_points?.find((contact) => contact.is_primary)
   const guestPrimaryContact = primaryContact?.value ?? guest.guest_contact_points?.[0]?.value ?? ""
   const [consents, setConsents] = React.useState<GuestConsent[]>(guest.guest_consents ?? [])
@@ -520,10 +520,10 @@ function DataConsent({ guest, isOwnerMode }: { guest: Guest; isOwnerMode: boolea
   const consentByKey = new Map(consents.map((consent) => [consentKey(consent.channel, consent.purpose), consent]))
 
   const refreshPrivacyRequests = React.useCallback(async () => {
-    if (!isOwnerMode) return
+    if (!canViewRevenue) return
     const refreshed = await fetchJson<{ data: PrivacyRequest[] }>(`/api/crm/guests/${guest.id}/privacy-requests`)
     setPrivacyRequests(refreshed.data)
-  }, [guest.id, isOwnerMode])
+  }, [guest.id, canViewRevenue])
 
   React.useEffect(() => {
     setConsents(guest.guest_consents ?? [])
@@ -649,7 +649,7 @@ function DataConsent({ guest, isOwnerMode }: { guest: Guest; isOwnerMode: boolea
           <Row key={suppression.id} title={`${suppression.channel} ${suppression.purpose} - ${suppression.reason.replaceAll("_", " ")}`} body={`${suppression.source} - ${formatDateTime(suppression.suppressed_at)} - ${proofSummary(suppression.proof)}`} />
         )) : <InlineState icon={ShieldCheck} title="No active suppression history" body="Revoked consent, unsubscribe, bounce, complaint, and privacy-request suppressions appear here." />}
       </Panel>
-      {isOwnerMode ? <Panel title="Privacy rights">
+      {canViewRevenue ? <Panel title="Privacy rights">
         <div className="grid gap-[var(--space-3)] lg:grid-cols-[1fr_1fr]">
           <Text label="Requester" value={requesterName} onChange={(event) => setRequesterName(event.target.value)} />
           <Text label="Contact" value={requesterContact} onChange={(event) => setRequesterContact(event.target.value)} />
