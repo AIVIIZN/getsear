@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useOfflineStore } from '@/stores/offline-store'
-import { getPendingCount, getPendingCounts, getFailedEntries, onQueueChange } from '@/lib/offline/sync-queue'
+import { getPendingCount, getPendingCounts, getPendingEntries, getFailedEntries, onQueueChange } from '@/lib/offline/sync-queue'
 import { getUnresolvedConflicts } from '@/lib/offline/conflict-resolver'
 import type { SyncQueueEntry, CachedConflict } from '@/lib/offline/db'
 
 interface SyncQueueState {
   pendingCount: number
   pendingByType: Record<string, number>
+  pendingEntries: SyncQueueEntry[]
   failedEntries: SyncQueueEntry[]
   conflicts: CachedConflict[]
   isSyncing: boolean
@@ -28,19 +29,22 @@ export function useSyncQueue(): SyncQueueState {
 
   const [pendingCount, setPendingCount] = useState(0)
   const [pendingByType, setPendingByType] = useState<Record<string, number>>({})
+  const [pendingEntries, setPendingEntries] = useState<SyncQueueEntry[]>([])
   const [failedEntries, setFailedEntries] = useState<SyncQueueEntry[]>([])
   const [conflicts, setConflicts] = useState<CachedConflict[]>(storeConflicts)
 
   const refresh = useCallback(async () => {
     try {
-      const [count, counts, failed, unresolvedConflicts] = await Promise.all([
+      const [count, counts, pending, failed, unresolvedConflicts] = await Promise.all([
         getPendingCount(),
         getPendingCounts(),
+        getPendingEntries(),
         getFailedEntries(),
         getUnresolvedConflicts(),
       ])
       setPendingCount(count)
       setPendingByType(counts)
+      setPendingEntries(pending)
       setFailedEntries(failed)
       setConflicts(unresolvedConflicts)
 
@@ -80,6 +84,7 @@ export function useSyncQueue(): SyncQueueState {
   return {
     pendingCount,
     pendingByType,
+    pendingEntries,
     failedEntries,
     conflicts,
     isSyncing,

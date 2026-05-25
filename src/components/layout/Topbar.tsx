@@ -35,6 +35,10 @@ const PendingMutationsBadge = dynamic(
   () => import("@/components/offline/PendingMutationsBadge").then((m) => ({ default: m.PendingMutationsBadge })),
   { ssr: false },
 );
+const OfflineConfidencePanel = dynamic(
+  () => import("@/components/offline/OfflineConfidencePanel").then((m) => ({ default: m.OfflineConfidencePanel })),
+  { ssr: false },
+);
 
 interface TopbarProps {
   showBreadcrumbs?: boolean;
@@ -78,6 +82,7 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
     <>
     <SyncProgressBar />
     <OfflineBanner />
+    <OfflineConfidencePanel />
     <header
       className="no-select flex shrink-0 items-center justify-between bg-white/80 px-4"
       style={{
