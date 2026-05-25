@@ -47,13 +47,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const supabase = createAdminClient()
   const now = new Date().toISOString()
-  const { modifiers: modifiersList, ...groupData } = parsed.data
+  const { modifiers: modifiersList, is_required: isRequired, ...groupData } = parsed.data
 
   // Update the group itself
-  if (Object.keys(groupData).length > 0) {
+  const groupUpdate = {
+    ...groupData,
+    ...(isRequired === undefined ? {} : { is_required_prompt: isRequired }),
+  }
+  if (Object.keys(groupUpdate).length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('modifier_groups') as any)
-      .update({ ...groupData, updated_at: now })
+      .update({ ...groupUpdate, updated_at: now })
       .eq('id', id)
       .eq('org_id', user.org_id)
 
@@ -88,7 +92,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         await (supabase.from('modifiers') as any)
           .update({
             name: mod.name,
-            price: mod.price,
+            price_adjustment: mod.price,
             is_active: mod.is_active,
             sort_order: i,
             updated_at: now,
@@ -104,7 +108,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             org_id: user.org_id,
             modifier_group_id: id,
             name: mod.name,
-            price: mod.price,
+            price_adjustment: mod.price,
             is_active: mod.is_active,
             sort_order: i,
           })

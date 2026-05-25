@@ -26,7 +26,8 @@ type DiningTable = {
 type Modifier = {
   id: string
   name: string
-  price: string | number
+  price?: string | number
+  price_adjustment?: string | number
   is_active?: boolean
 }
 
@@ -179,7 +180,7 @@ test.describe('Dinner-service table order proof', () => {
     const created = await expectOkJson<{ data: { id: string } }>(createRes, 'POST /api/orders')
     orderId = created.data.id
 
-    const modifierPrice = Number(modifier.price).toFixed(2)
+    const modifierPrice = Number(modifier.price_adjustment ?? modifier.price ?? 0).toFixed(2)
     const addEntreeRes = await request.post(`/api/orders/${orderId}/items`, {
       headers: { 'Idempotency-Key': idemKey('core-1-add-entree') },
       data: {
