@@ -174,6 +174,11 @@ export const crmAutomationStatusSchema = z.enum(['draft', 'active', 'paused', 'a
 export const crmAutomationTriggerTypeSchema = z.enum(['guest_created', 'first_visit', 'second_visit', 'birthday', 'lapsed', 'vip_visit', 'negative_feedback', 'reward_earned', 'reward_expiring', 'no_show', 'online_order', 'high_value_check', 'item_purchased', 'category_purchased', 'complaint_resolved'])
 export const crmAutomationActionTypeSchema = z.enum(['send_email', 'send_sms', 'create_task', 'notify_manager', 'add_tag', 'remove_tag', 'add_reward', 'adjust_points', 'create_recovery', 'add_note', 'draft_ai_message', 'schedule_report', 'reservation_prompt', 'webhook'])
 export const crmAutomationRunStatusSchema = z.enum(['queued', 'running', 'succeeded', 'failed', 'skipped', 'test'])
+export const crmMetricKeySchema = z.enum(['revenue', 'net_revenue', 'average_check', 'ltv', 'visit', 'repeat_visit', 'lapsed_guest', 'active_guest', 'campaign_attributed_revenue', 'loyalty_attributed_revenue', 'redemption_rate', 'churn_risk'])
+export const crmDimensionKeySchema = z.enum(['date', 'location', 'campaign', 'loyalty_program', 'guest_lifecycle_stage', 'recovery_topic', 'server'])
+export const crmReportStatusSchema = z.enum(['draft', 'active', 'scheduled', 'archived'])
+export const crmReportTypeSchema = z.enum(['custom', 'campaign_roi', 'retention', 'loyalty', 'recovery', 'guest_ltv', 'menu_affinity', 'location_comparison'])
+export const crmReportVisualizationSchema = z.enum(['table', 'line', 'bar', 'stacked_bar', 'area', 'pie', 'scorecard', 'heatmap'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -544,6 +549,47 @@ export const testCrmAutomationSchema = z.object({
 export const pauseCrmAutomationSchema = z.object({
   paused: z.boolean().default(true),
   reason: z.string().trim().min(1).max(500).optional().nullable(),
+})
+
+export const createCrmReportSchema = z.object({
+  location_id: optionalUuidSchema,
+  name: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).optional().nullable(),
+  report_type: crmReportTypeSchema.default('custom'),
+  status: crmReportStatusSchema.default('draft'),
+  metric_keys: z.array(crmMetricKeySchema).min(1).max(12),
+  dimension_keys: z.array(crmDimensionKeySchema).max(8).default([]),
+  filters: metadataSchema,
+  visualization: crmReportVisualizationSchema.default('table'),
+  schedule: metadataSchema,
+  metadata: metadataSchema,
+})
+
+export const listCrmReportsQuerySchema = z.object({
+  status: crmReportStatusSchema.optional(),
+  report_type: crmReportTypeSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const previewCrmReportSchema = createCrmReportSchema.pick({
+  metric_keys: true,
+  dimension_keys: true,
+  filters: true,
+  visualization: true,
+}).extend({
+  sample_limit: z.number().int().min(1).max(100).default(25),
+})
+
+export const runCrmReportSchema = z.object({
+  report_definition_id: optionalUuidSchema,
+  metric_keys: z.array(crmMetricKeySchema).min(1).max(12).optional(),
+  dimension_keys: z.array(crmDimensionKeySchema).max(8).default([]),
+  filters: metadataSchema,
+  preview: z.boolean().default(false),
+}).superRefine((value, ctx) => {
+  if (!value.report_definition_id && !value.metric_keys?.length) {
+    ctx.addIssue({ code: 'custom', path: ['metric_keys'], message: 'Report runs need report_definition_id or metric_keys.' })
+  }
 })
 
 export const updateGuestSchema = createGuestSchema.partial()
