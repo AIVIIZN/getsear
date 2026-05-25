@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { buildCrmAiAssistantGatewayPayload, buildCrmAiTaskPacket, crmAiAssistantIds } from '@/lib/crm/ai-assistants'
 import { canUseCrmAiTask, crmAiGatewayRoles } from '@/lib/crm/ai-gateway'
-import { crmAiGatewaySchema } from '@/lib/schemas/crm'
+import { crmAiGatewaySchema, crmAiTaskPacketSchema } from '@/lib/schemas/crm'
 
 const root = process.cwd()
 
@@ -114,5 +115,83 @@ describe('CRM-V11.2 GuestBrain outputs', () => {
     expect(gateway).toContain('No preference or allergy source records were provided.')
     expect(gateway).toContain('Next best action:')
     expect(service).toContain('Omit owner-only analytics')
+  })
+})
+
+describe('CRM-V11.3 CRM AI assistants', () => {
+  it('registers every assistant as an AiTaskPacket with bounded cost policy', () => {
+    expect(crmAiAssistantIds()).toEqual([
+      'segment_assistant',
+      'campaign_writer',
+      'report_assistant',
+      'insight_explainer',
+      'anomaly_detection',
+      'recovery_assistant',
+      'data_cleanup_assistant',
+      'manager_daily_brief',
+      'menu_preference_intelligence',
+    ])
+
+    for (const assistant_id of crmAiAssistantIds()) {
+      const packet = crmAiTaskPacketSchema.parse(buildCrmAiTaskPacket({
+        assistant_id,
+        prompt: 'Draft the safest next CRM operator recommendation from these source facts.',
+      }))
+
+      expect(packet.max_input_tokens).toBeGreaterThanOrEqual(2400)
+      expect(packet.max_output_tokens).toBeGreaterThanOrEqual(700)
+      expect(packet.estimated_cost_cents).toBeGreaterThan(0)
+      expect(packet.metadata.cost_policy).toMatchObject({
+        provider_order: ['gemini', 'openai', 'rules'],
+        estimated_cost_cents: packet.estimated_cost_cents,
+      })
+    }
+  })
+
+  it('routes assistant packets through the CRM gateway without bypassing approval gates', () => {
+    const gatedAssistants = [
+      'segment_assistant',
+      'campaign_writer',
+      'report_assistant',
+      'recovery_assistant',
+      'data_cleanup_assistant',
+      'menu_preference_intelligence',
+    ] as const
+
+    for (const assistant_id of gatedAssistants) {
+      const packet = buildCrmAiTaskPacket({
+        assistant_id,
+        prompt: 'Draft an operator-facing recommendation that may become a saved CRM action.',
+        dry_run: true,
+      })
+      const gatewayPayload = crmAiGatewaySchema.parse(buildCrmAiAssistantGatewayPayload(packet))
+
+      expect(gatewayPayload.approval_required).toBe(true)
+      expect(gatewayPayload.metadata.ai_task_packet).toMatchObject({
+        assistant_id,
+        approval_actions: expect.arrayContaining(packet.approval_actions),
+        estimated_cost_cents: packet.estimated_cost_cents,
+      })
+      expect(packet.approval_actions.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('keeps read-only assistants cost-routed and non-mutating', () => {
+    for (const assistant_id of ['insight_explainer', 'anomaly_detection', 'manager_daily_brief'] as const) {
+      const packet = buildCrmAiTaskPacket({
+        assistant_id,
+        prompt: 'Explain what changed today for the manager without applying any CRM data changes.',
+        sources: [{ source_id: 'manual', source_type: 'manual_context', title: 'Manual context', visibility: 'manager', data: { read_only: true } }],
+      })
+      const gatewayPayload = buildCrmAiAssistantGatewayPayload(packet)
+
+      expect(packet.approval_required).toBe(false)
+      expect(packet.approval_actions).toEqual([])
+      expect(gatewayPayload.metadata.ai_task_packet).toMatchObject({
+        assistant_id,
+        approval_actions: [],
+      })
+      expect(gatewayPayload.sources.map((source) => source.title)).toContain('Manual context')
+    }
   })
 })

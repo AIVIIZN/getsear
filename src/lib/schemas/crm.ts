@@ -811,6 +811,22 @@ export const crmAiGatewaySchema = z.object({
   metadata: metadataSchema,
 })
 
+export const crmAiTaskPacketSchema = z.object({
+  assistant_id: z.enum(['segment_assistant', 'campaign_writer', 'report_assistant', 'insight_explainer', 'anomaly_detection', 'recovery_assistant', 'data_cleanup_assistant', 'manager_daily_brief', 'menu_preference_intelligence']),
+  task_type: crmAiTaskTypeSchema,
+  prompt: z.string().trim().min(8).max(4000),
+  location_id: optionalUuidSchema,
+  guest_id: optionalUuidSchema,
+  dry_run: z.boolean().default(false),
+  approval_required: z.boolean().default(true),
+  max_input_tokens: z.number().int().min(256).max(16000),
+  max_output_tokens: z.number().int().min(128).max(4000),
+  estimated_cost_cents: z.number().int().min(0).max(500),
+  approval_actions: z.array(z.enum(['send_campaign', 'save_report', 'merge_guest', 'create_recovery_case', 'resolve_recovery_case', 'apply_tag', 'remove_tag', 'cleanup_data', 'save_segment'])).max(8).default([]),
+  sources: z.array(crmAiSourceSchema).max(24).default([]),
+  metadata: metadataSchema,
+})
+
 export const crmGuestBrainTaskSchema = z.enum(['guest_summary', 'server_brief', 'next_best_action'])
 
 export const crmGuestBrainSchema = z.object({
