@@ -85,3 +85,34 @@ describe('CRM-V11.1 AI gateway', () => {
     expect(gateway).toContain('prompt_redaction_summary')
   })
 })
+
+describe('CRM-V11.2 GuestBrain outputs', () => {
+  it('registers a guest AI brief endpoint with audited gateway execution', () => {
+    const route = read('src/app/api/crm/guests/[id]/ai-brief/route.ts')
+    const service = read('src/lib/crm/guest-brain.ts')
+    const schemas = read('src/lib/schemas/crm.ts')
+
+    expect(schemas).toContain("crmGuestBrainTaskSchema = z.enum(['guest_summary', 'server_brief', 'next_best_action'])")
+    expect(route).toContain('crmGuestBrainSchema.safeParse')
+    expect(route).toContain('canUseCrmAiTask')
+    expect(route).toContain('generateGuestBrain')
+    expect(service).toContain('executeCrmAiGateway')
+    expect(service).toContain("feature: 'guest_brain'")
+  })
+
+  it('keeps GuestBrain source-backed and prevents owner analytics in server briefs', () => {
+    const service = read('src/lib/crm/guest-brain.ts')
+    const gateway = read('src/lib/crm/ai-gateway.ts')
+
+    expect(service).toContain('Guest profile and visit totals')
+    expect(service).toContain('Guest service identity')
+    expect(service).toContain("visibility: 'owner'")
+    expect(service).toContain('function serviceOnlySources')
+    expect(service).toContain("if (task === 'server_brief') return serviceOnlySources(visible)")
+    expect(service).toContain('source_citations')
+    expect(gateway).toContain('deterministicGuestBrainOutput')
+    expect(gateway).toContain('No preference or allergy source records were provided.')
+    expect(gateway).toContain('Next best action:')
+    expect(service).toContain('Omit owner-only analytics')
+  })
+})

@@ -125,11 +125,120 @@ function sanitizeSources(input: CrmAiGatewayInput, user: Pick<AuthUser, 'role'>)
   return { sources, removed_fields: [...removedFields].sort(), hidden_sources: hiddenSources }
 }
 
+function arrayRecords(source: SanitizedSource | undefined): Array<Record<string, unknown>> {
+  const records = source?.data.records
+  return Array.isArray(records) ? records.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item)) : []
+}
+
+function formatMoney(value: unknown): string | null {
+  const amount = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+  if (!Number.isFinite(amount)) return null
+  return `$${Math.round(amount).toLocaleString()}`
+}
+
+function conciseDate(value: unknown): string | null {
+  if (typeof value !== 'string' || !value) return null
+  return value.slice(0, 10)
+}
+
+function citationsFor(sources: SanitizedSource[], titles: string[]): string[] {
+  const known = new Set(sources.map((source) => source.title))
+  const citations = titles.filter((title) => known.has(title))
+  return citations.length > 0 ? citations : sources.map((source) => source.title).slice(0, 4)
+}
+
+function deterministicGuestBrainOutput(taskType: CrmAiTaskType, sources: SanitizedSource[]): {
+  text: string
+  confidence: number
+  source_citations: string[]
+} | null {
+  if (!['guest_summary', 'server_brief', 'next_best_action'].includes(taskType)) return null
+
+  const guestSource = sources.find((source) => source.title === 'Guest profile and visit totals') ?? sources.find((source) => source.title === 'Guest service identity')
+  const guest = guestSource?.data ?? {}
+  const serviceContext = sources.find((source) => source.title === 'Current table service context')?.data ?? {}
+  const preferences = arrayRecords(sources.find((source) => source.title === 'Guest preferences'))
+  const allergies = arrayRecords(sources.find((source) => source.title === 'Active allergy records'))
+  const recoveryCases = arrayRecords(sources.find((source) => source.title === 'Service recovery cases'))
+  const loyaltyAccounts = arrayRecords(sources.find((source) => source.title === 'Loyalty accounts'))
+  const notes = sources.filter((source) => source.source_type === 'guest_note')
+  const name = typeof guest.display_name === 'string' ? guest.display_name : 'Guest'
+  const lifecycle = typeof guest.lifecycle_stage === 'string' ? guest.lifecycle_stage.replaceAll('_', ' ') : 'unknown lifecycle'
+  const spend = formatMoney(guest.total_spend)
+  const visits = typeof guest.total_visits === 'number' ? guest.total_visits : Number(guest.total_visits ?? 0)
+  const lastVisit = conciseDate(guest.last_visit_at)
+  const allergyText = allergies.map((item) => [item.allergen, item.severity].filter(Boolean).join(' - ')).filter(Boolean).slice(0, 3).join('; ')
+  const prefText = preferences.map((item) => [item.preference_category, item.preference_key].filter(Boolean).join(': ')).filter(Boolean).slice(0, 3).join('; ')
+  const hospitalityNotes = notes.map((source) => typeof source.data.body === 'string' ? source.data.body : '').filter(Boolean).slice(0, 2).join(' ')
+  const openRecovery = recoveryCases.find((item) => !['resolved', 'closed'].includes(String(item.status)))
+  const birthday = typeof guest.birthday === 'string' ? guest.birthday : null
+  const birthdayThisMonth = birthday ? birthday.slice(5, 7) === String(new Date().getUTCMonth() + 1).padStart(2, '0') : false
+  const hasLoyalty = loyaltyAccounts.some((item) => String(item.status ?? '').match(/active|enrolled/i))
+
+  if (taskType === 'guest_summary') {
+    const lines = [
+      `${name}: ${lifecycle}; ${visits} visits${spend ? `; ${spend} lifetime spend` : ''}${lastVisit ? `; last visit ${lastVisit}` : ''}.`,
+      prefText || allergyText ? `Known hospitality context: ${[prefText, allergyText].filter(Boolean).join('; ')}.` : 'No preference or allergy source records were provided.',
+      openRecovery ? `Open recovery item: ${String(openRecovery.issue_summary ?? 'review before next visit')}.` : 'No open service recovery source records were provided.',
+    ]
+    return {
+      text: lines.join('\n'),
+      confidence: sources.length >= 4 ? 0.82 : 0.58,
+      source_citations: citationsFor(sources, ['Guest profile and visit totals', 'Guest preferences', 'Active allergy records', 'Service recovery cases']),
+    }
+  }
+
+  if (taskType === 'server_brief') {
+    const tableName = typeof serviceContext.table_name === 'string' && serviceContext.table_name ? ` for ${serviceContext.table_name}` : ''
+    const lines = [
+      `Table brief${tableName}: greet ${name}${lastVisit ? ` as a returning guest last seen ${lastVisit}` : ' with no prior visit date in the supplied service sources'}.`,
+      allergyText ? `Confirm allergy context before ordering: ${allergyText}.` : 'No active allergy source records were provided.',
+      hospitalityNotes || prefText ? `Hospitality cue: ${hospitalityNotes || prefText}.` : 'No service-visible hospitality note or preference was provided.',
+    ]
+    return {
+      text: lines.join('\n'),
+      confidence: sources.length >= 3 ? 0.76 : 0.5,
+      source_citations: citationsFor(sources, ['Guest service identity', 'Current table service context', 'Guest preferences', 'Active allergy records']),
+    }
+  }
+
+  const action = openRecovery
+    ? 'recover'
+    : birthdayThisMonth
+      ? 'birthday reward'
+      : !hasLoyalty
+        ? 'loyalty enrollment'
+        : lifecycle.includes('vip') || visits >= 8
+          ? 'manager greet'
+          : lifecycle.includes('lapsed')
+            ? 'invite'
+            : 'do nothing'
+  const reason = openRecovery
+    ? `open recovery case: ${String(openRecovery.issue_summary ?? 'needs manager review')}`
+    : birthdayThisMonth
+      ? 'birthday falls this month in the supplied guest profile'
+      : !hasLoyalty
+        ? 'no active loyalty account appeared in the supplied sources'
+        : lifecycle.includes('vip') || visits >= 8
+          ? 'VIP or high-repeat visit evidence in guest profile'
+          : lifecycle.includes('lapsed')
+            ? 'lapsed lifecycle stage in guest profile'
+            : 'no stronger source-backed intervention was indicated'
+  return {
+    text: `Next best action: ${action}. Reason: ${reason}.`,
+    confidence: sources.length >= 4 ? 0.8 : 0.54,
+    source_citations: citationsFor(sources, ['Guest profile and visit totals', 'Service recovery cases', 'Loyalty accounts']),
+  }
+}
+
 function deterministicOutput(taskType: CrmAiTaskType, prompt: string, sources: SanitizedSource[]): {
   text: string
   confidence: number
   source_citations: string[]
 } {
+  const guestBrainOutput = deterministicGuestBrainOutput(taskType, sources)
+  if (guestBrainOutput) return guestBrainOutput
+
   const sourceTitles = sources.map((source) => source.title).slice(0, 6)
   const citations = sourceTitles.length > 0 ? sourceTitles : ['Operator prompt only; no guest facts were provided.']
   const actionText: Record<CrmAiTaskType, string> = {
