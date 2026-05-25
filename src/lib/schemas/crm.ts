@@ -186,6 +186,8 @@ export const crmWebhookStatusSchema = z.enum(['active', 'disabled', 'failing', '
 export const crmAiProviderSchema = z.enum(['gemini', 'openai', 'rules'])
 export const crmAiTaskTypeSchema = z.enum(['guest_summary', 'server_brief', 'next_best_action', 'segment_draft', 'campaign_draft', 'report_builder', 'recovery_message', 'data_cleanup'])
 export const crmAiGatewayStatusSchema = z.enum(['completed', 'refused', 'failed', 'cached', 'dry_run'])
+export const restaurantMemoryRuleCategorySchema = z.enum(['brand_voice', 'discount_policy', 'vip_hospitality', 'birthday', 'wine', 'recovery', 'campaign', 'next_best_action', 'other'])
+export const restaurantMemoryAppliesToSchema = z.enum(['campaign', 'next_best_action', 'guest_summary', 'server_brief', 'recovery_message', 'segment_draft', 'report_builder', 'data_cleanup'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -826,6 +828,22 @@ export const listCrmAiAuditQuerySchema = z.object({
   guest_id: z.string().uuid().optional(),
   status: crmAiGatewayStatusSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const restaurantMemoryRuleSchema = z.object({
+  id: z.string().uuid().optional(),
+  location_id: optionalUuidSchema,
+  rule_key: z.string().trim().min(2).max(120).regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/),
+  category: restaurantMemoryRuleCategorySchema,
+  title: z.string().trim().min(2).max(180),
+  rule_text: z.string().trim().min(8).max(1000),
+  applies_to: z.array(restaurantMemoryAppliesToSchema).min(1).max(8).default(['campaign', 'next_best_action']),
+  priority: z.number().int().min(0).max(1000).default(100),
+  active: z.boolean().default(true),
+})
+
+export const upsertRestaurantMemoryRulesSchema = z.object({
+  rules: z.array(restaurantMemoryRuleSchema).min(1).max(24),
 })
 
 export const createCrmLoyaltyRuleSchema = z.object({

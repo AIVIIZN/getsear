@@ -1,4 +1,5 @@
 import type { CrmReachabilityChannel, CrmReachabilitySummary } from '@/lib/crm/segments'
+import { applyRestaurantMemoryToText, type RestaurantMemoryRule } from '@/lib/crm/restaurant-memory'
 import type { z } from 'zod'
 import type { createCrmCampaignSchema, createCrmAttributionEventSchema, previewCrmCampaignSchema, scheduleCrmCampaignSchema, testSendCrmCampaignSchema } from '@/lib/schemas/crm'
 
@@ -268,15 +269,17 @@ export function assessCrmCampaignCompliance(input: {
 export function buildCrmCampaignPreview(
   input: CrmCampaignPreviewInput,
   reachability?: CrmReachabilitySummary | null,
+  restaurantMemoryRules: Array<Pick<RestaurantMemoryRule, 'rule_text' | 'category'>> = [],
 ): CrmCampaignPreview {
   const channels: CrmCampaignPreview['channels'] = {}
   for (const channel of selectedChannels(input)) {
     const readiness = reachability?.channels[channel]
+    const body = applyRestaurantMemoryToText(fallbackBody(input, channel), restaurantMemoryRules)
     channels[channel] = {
       label: channelLabels[channel],
       subject: channel === 'email' ? input.subject ?? `${input.goal}` : null,
       preheader: channel === 'email' ? input.preheader ?? input.offer ?? null : null,
-      body: fallbackBody(input, channel),
+      body,
       supported: true,
       estimated_reachable_count: readiness?.reachable_count ?? 0,
       estimated_cost_cents: readiness?.estimated_cost_cents ?? 0,

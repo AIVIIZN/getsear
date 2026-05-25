@@ -4,6 +4,7 @@ import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
 import { crmGuestComplianceRoles } from '@/lib/crm/api'
 import { buildCrmCampaignPreview } from '@/lib/crm/campaigns'
+import { fetchActiveRestaurantMemoryRules } from '@/lib/crm/restaurant-memory'
 import { previewCrmSegment } from '@/lib/crm/segments'
 import { previewCrmCampaignSchema } from '@/lib/schemas/crm'
 
@@ -44,7 +45,8 @@ export async function POST(request: NextRequest) {
     audienceCount = segmentPreview.total_count
   }
 
-  const preview = buildCrmCampaignPreview(parsed.data, reachability)
+  const memoryRules = await fetchActiveRestaurantMemoryRules({ user, db: supabase, appliesTo: 'campaign', locationId: null })
+  const preview = buildCrmCampaignPreview(parsed.data, reachability, memoryRules)
 
   await audit.record({
     actor: user,
