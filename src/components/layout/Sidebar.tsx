@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Gauge,
   DatabaseZap,
+  Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,19 +56,20 @@ interface NavSectionData {
 
 const sections: NavSectionData[] = [
   {
-    label: "POS",
+    label: "Service",
     items: [
+      { label: "Home", href: "/home", icon: Home },
       { label: "Orders", href: "/orders", icon: ShoppingCart },
       { label: "Tables", href: "/tables", icon: Grid3x3 },
       { label: "Checks", href: "/checks", icon: Receipt },
       { label: "Payments", href: "/payments", icon: CreditCard },
       { label: "KDS", href: "/kds", icon: MonitorPlay },
+      { label: "Friday Night", shortLabel: "Friday", href: "/friday-night", icon: Gauge },
     ],
   },
   {
     label: "Management",
     items: [
-      { label: "Friday Night", shortLabel: "Friday", href: "/friday-night", icon: Gauge },
       { label: "Menu", href: "/menu", icon: UtensilsCrossed },
       { label: "Staff", href: "/staff", icon: Users },
       { label: "Guests", href: "/guests", icon: Contact },
@@ -75,7 +77,7 @@ const sections: NavSectionData[] = [
     ],
   },
   {
-    label: "Modules",
+    label: "Growth",
     items: [
       { label: "Online Ordering", shortLabel: "Online", href: "/online-ordering", icon: Globe },
       { label: "Reservations", shortLabel: "Reserve", href: "/reservations", icon: CalendarDays },
@@ -264,7 +266,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
             section={section}
             collapsed={collapsed}
             pathname={pathname}
-            defaultOpen={true}
+            defaultOpen={section.label !== "Growth"}
           />
         ))}
       </nav>
