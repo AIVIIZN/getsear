@@ -27,6 +27,9 @@ export type CampaignRecipientStatus =
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.4"
+  }
   public: {
     Tables: {
       accounting_integrations: {
@@ -6996,7 +6999,9 @@ export type Database = {
         ]
       }
     }
-    Views: Record<string, never>
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       next_order_number: { Args: { p_location_id: string }; Returns: number }

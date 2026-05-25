@@ -37,13 +37,7 @@ export async function GET(
   const supabase = createAdminClient()
 
   // Verify campaign belongs to org.
-  // TODO(5.99.6): the `campaigns` table is missing from the generated
-  // Supabase Database type because the marketing tables predate the
-  // current type-gen run; once `npm run gen:types` is re-run after the
-  // marketing migration is in main, drop the `as any` and let inference
-  // narrow the row type.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: campaign } = await (supabase.from('campaigns') as any)
+  const { data: campaign } = await supabase.from('campaigns')
     .select('id')
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -57,11 +51,7 @@ export async function GET(
   // org-scoped above, also filter recipients by org_id so a misbehaving
   // RLS policy or a future code path using a non-admin client cannot
   // accidentally surface another org's rows.
-  // TODO(5.99.6): same as above — `campaign_recipients` is not in the
-  // generated Database type yet. Re-gen after the marketing migration
-  // lands in main and remove the `as any` cast.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('campaign_recipients') as any)
+  let query = supabase.from('campaign_recipients')
     .select('*', { count: 'exact' })
     .eq('campaign_id', id)
     .eq('org_id', user.org_id)
@@ -126,10 +116,7 @@ export async function POST(
   //  3. status='pending' was orphan; the rest of the system uses
   //     'queued' for newly-enqueued recipients. Match it for analytics
   //     consistency.
-  // TODO(5.99.6): drop `as any` once `campaigns` is in the generated
-  // Database type (post marketing-migration regen).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: campaign, error: campaignErr } = await (supabase.from('campaigns') as any)
+  const { data: campaign, error: campaignErr } = await supabase.from('campaigns')
     .select('id, campaign_type')
     .eq('id', id)
     .eq('org_id', user.org_id)
@@ -149,10 +136,7 @@ export async function POST(
     status: 'queued' as const,
   }))
 
-  // TODO(5.99.6): drop `as any` once `campaign_recipients` is in the
-  // generated Database type (post marketing-migration regen).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('campaign_recipients') as any)
+  const { data, error } = await supabase.from('campaign_recipients')
     .upsert(rows, {
       onConflict: 'campaign_id,customer_id',
       ignoreDuplicates: false,
