@@ -14,6 +14,7 @@ import {
   Sparkles,
   Lock,
   Printer,
+  ShieldCheck,
 } from 'lucide-react'
 import { Card } from '@/components/ui-v2/Card'
 
@@ -47,6 +48,12 @@ const settingsLinks = [
     icon: Printer,
     label: 'Printers',
     description: 'Configure receipt and kitchen printers',
+  },
+  {
+    href: '/settings/hardware-readiness',
+    icon: ShieldCheck,
+    label: 'Hardware Readiness',
+    description: 'Verify printers, cash drawer, and payment terminal checks',
   },
   {
     href: '/settings/kds',
