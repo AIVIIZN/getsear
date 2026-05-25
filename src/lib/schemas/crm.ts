@@ -81,6 +81,8 @@ export const guestConsentChannelSchema = z.enum(['email', 'sms', 'push', 'in_app
 export const guestConsentPurposeSchema = z.enum(['marketing', 'transactional', 'loyalty', 'reservation', 'feedback', 'personalization'])
 export const guestConsentStatusSchema = z.enum(['granted', 'revoked', 'unknown'])
 export const suppressionReasonSchema = z.enum(['revoked_consent', 'unsubscribe', 'bounce', 'complaint', 'privacy_request', 'manual', 'legal_hold'])
+export const privacyRequestTypeSchema = z.enum(['export', 'delete', 'correct', 'do_not_contact', 'opt_out_sale_sharing', 'limit_sensitive_use'])
+export const privacyRequestStatusSchema = z.enum(['submitted', 'needs_verification', 'approved', 'in_progress', 'completed', 'rejected', 'cancelled'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -240,6 +242,23 @@ export const upsertGuestConsentSchema = z.object({
   source: z.string().trim().min(1).max(120).default('manual'),
   proof: metadataSchema,
   policy_version_id: optionalUuidSchema,
+  metadata: metadataSchema,
+})
+
+export const createPrivacyRequestSchema = z.object({
+  request_type: privacyRequestTypeSchema,
+  requested_by_name: z.string().trim().min(1).max(240),
+  requested_by_contact: z.string().trim().min(1).max(320),
+  details: z.string().trim().max(2000).optional().nullable(),
+  priority: z.enum(['normal', 'urgent']).default('normal'),
+  due_at: z.string().datetime({ offset: true }).optional().nullable(),
+  metadata: metadataSchema,
+})
+
+export const updatePrivacyRequestSchema = z.object({
+  request_id: z.string().uuid(),
+  action: z.enum(['approve', 'start', 'complete_export', 'complete_delete', 'complete_suppression', 'reject', 'cancel']),
+  note: z.string().trim().max(1000).optional().nullable(),
   metadata: metadataSchema,
 })
 
