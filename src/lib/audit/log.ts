@@ -86,6 +86,10 @@ export type AuditAction =
   // Customers
   | 'customer_merged'
   | 'customer_data_exported'
+  | 'crm_guest_created'
+  | 'crm_guest_updated'
+  | 'crm_guest_note_added'
+  | 'crm_guest_tagged'
   // Tenant admin
   | 'audit_log_exported'
   | 'org_settings_changed'
@@ -102,6 +106,9 @@ export type EntityType =
   | 'cash_event'
   | 'user'
   | 'customer'
+  | 'guest'
+  | 'guest_note'
+  | 'guest_tag'
   | 'organization'
   | 'terminal'
   | 'audit_log'

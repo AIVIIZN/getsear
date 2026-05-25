@@ -195,8 +195,10 @@ export const createGuestTimelineEventSchema = z.object({
 
 export const listGuestsQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
+  preference: z.string().trim().max(120).optional(),
   tag_id: z.string().uuid().optional(),
   lifecycle_stage: guestLifecycleStageSchema.optional(),
+  birthday: dateOnlySchema.optional(),
   location_id: z.string().uuid().optional(),
   last_visit_before: z.string().datetime({ offset: true }).optional(),
   last_visit_after: z.string().datetime({ offset: true }).optional(),
