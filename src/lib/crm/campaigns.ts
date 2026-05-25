@@ -1,11 +1,27 @@
 import type { CrmReachabilityChannel, CrmReachabilitySummary } from '@/lib/crm/segments'
 import type { z } from 'zod'
-import type { createCrmCampaignSchema, previewCrmCampaignSchema, scheduleCrmCampaignSchema, testSendCrmCampaignSchema } from '@/lib/schemas/crm'
+import type { createCrmCampaignSchema, createCrmAttributionEventSchema, previewCrmCampaignSchema, scheduleCrmCampaignSchema, testSendCrmCampaignSchema } from '@/lib/schemas/crm'
 
 export type CrmCampaignInput = z.infer<typeof createCrmCampaignSchema>
 export type CrmCampaignPreviewInput = z.infer<typeof previewCrmCampaignSchema>
 export type ScheduleCrmCampaignInput = z.infer<typeof scheduleCrmCampaignSchema>
 export type TestSendCrmCampaignInput = z.infer<typeof testSendCrmCampaignSchema>
+export type CrmAttributionEventInput = z.infer<typeof createCrmAttributionEventSchema>
+
+export type CrmAttributionEventSummaryInput = {
+  event_type: CrmAttributionEventInput['event_type']
+  event_at?: string | null
+  sent_at?: string | null
+  attribution_window: CrmAttributionEventInput['attribution_window']
+  attribution_window_days?: number | null
+  baseline_segment: CrmAttributionEventInput['baseline_segment']
+  revenue_amount: number
+  profit_estimate_amount: number
+  cost_amount: number
+  excluded_from_roi?: boolean | null
+  exclusion_reason?: string | null
+  guest_id?: string | null
+}
 
 export type CrmCampaignPreview = {
   channels: Partial<Record<CrmReachabilityChannel, {
@@ -48,6 +64,17 @@ const channelMap = {
   qr: 'receipt',
 } as const
 
+const attributionWindowDays: Record<CrmAttributionEventInput['attribution_window'], number> = {
+  same_day: 0,
+  '7_day': 7,
+  '14_day': 14,
+  '30_day': 30,
+  '45_day': 45,
+  custom: 7,
+}
+
+const revenueEventTypes = new Set<CrmAttributionEventInput['event_type']>(['redeemed', 'reservation', 'order', 'revenue', 'profit_estimate'])
+
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
@@ -88,6 +115,90 @@ function scheduledHour(scheduledFor?: string | null): number | null {
   const date = new Date(scheduledFor)
   if (Number.isNaN(date.getTime())) return null
   return date.getHours()
+}
+
+export function resolveCrmAttributionWindowDays(
+  attributionWindow: CrmAttributionEventInput['attribution_window'],
+  customDays?: number | null,
+): number {
+  if (attributionWindow === 'custom') return Math.max(0, Math.min(365, customDays ?? attributionWindowDays.custom))
+  return attributionWindowDays[attributionWindow]
+}
+
+export function shouldCountCrmAttributionRevenue(event: CrmAttributionEventSummaryInput): { count: boolean; reason: string | null } {
+  if (event.excluded_from_roi) return { count: false, reason: event.exclusion_reason ?? 'manually_excluded' }
+  if (event.baseline_segment === 'would_have_visited') return { count: false, reason: 'baseline_would_have_visited' }
+  if (!revenueEventTypes.has(event.event_type)) return { count: false, reason: 'non_revenue_event' }
+  if (event.revenue_amount <= 0 && event.profit_estimate_amount <= 0) return { count: false, reason: 'no_revenue_or_profit' }
+
+  if (event.sent_at && event.event_at) {
+    const sentAt = new Date(event.sent_at)
+    const eventAt = new Date(event.event_at)
+    if (!Number.isNaN(sentAt.getTime()) && !Number.isNaN(eventAt.getTime())) {
+      const windowDays = resolveCrmAttributionWindowDays(event.attribution_window, event.attribution_window_days)
+      const windowEnd = new Date(sentAt)
+      if (windowDays === 0) {
+        windowEnd.setHours(23, 59, 59, 999)
+      } else {
+        windowEnd.setDate(windowEnd.getDate() + windowDays)
+      }
+      if (eventAt < sentAt) return { count: false, reason: 'before_send' }
+      if (eventAt > windowEnd) return { count: false, reason: 'outside_attribution_window' }
+    }
+  }
+
+  return { count: true, reason: null }
+}
+
+export function summarizeCrmCampaignAttribution(events: CrmAttributionEventSummaryInput[]) {
+  const summary = {
+    delivered_count: 0,
+    opened_count: 0,
+    clicked_count: 0,
+    redeemed_count: 0,
+    reservation_count: 0,
+    order_count: 0,
+    unsubscribe_count: 0,
+    complaint_count: 0,
+    attributed_revenue: 0,
+    attributed_profit_estimate: 0,
+    attributed_cost: 0,
+    excluded_guest_count: 0,
+    excluded_revenue: 0,
+    roi_ratio: null as number | null,
+    excluded_guest_ids: new Set<string>(),
+  }
+
+  for (const event of events) {
+    if (event.event_type === 'delivered') summary.delivered_count += 1
+    if (event.event_type === 'opened') summary.opened_count += 1
+    if (event.event_type === 'clicked') summary.clicked_count += 1
+    if (event.event_type === 'redeemed') summary.redeemed_count += 1
+    if (event.event_type === 'reservation') summary.reservation_count += 1
+    if (event.event_type === 'order') summary.order_count += 1
+    if (event.event_type === 'unsubscribed') summary.unsubscribe_count += 1
+    if (event.event_type === 'complained') summary.complaint_count += 1
+
+    const roiDecision = shouldCountCrmAttributionRevenue(event)
+    if (roiDecision.count) {
+      summary.attributed_revenue += event.revenue_amount
+      summary.attributed_profit_estimate += event.profit_estimate_amount
+      summary.attributed_cost += event.cost_amount
+    } else if (revenueEventTypes.has(event.event_type)) {
+      summary.excluded_revenue += event.revenue_amount
+      if (event.guest_id) summary.excluded_guest_ids.add(event.guest_id)
+    }
+  }
+
+  summary.excluded_guest_count = summary.excluded_guest_ids.size
+  summary.roi_ratio = summary.attributed_cost > 0
+    ? Number(((summary.attributed_profit_estimate - summary.attributed_cost) / summary.attributed_cost).toFixed(4))
+    : null
+
+  return {
+    ...summary,
+    excluded_guest_ids: Array.from(summary.excluded_guest_ids),
+  }
 }
 
 function campaignChannels(input: Pick<CrmCampaignPreviewInput, 'primary_channel' | 'secondary_channels'>): CrmReachabilityChannel[] {
