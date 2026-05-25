@@ -70,6 +70,14 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
 
   npm run build
 
+  # Next 16 standalone tracing can omit sibling files under next/dist/server
+  # and next/dist/build that next/dist/server/next.js requires at runtime.
+  # Keep the standalone copy aligned with installed node_modules before reload.
+  if [ -d node_modules/next/dist ] && [ -d .next/standalone/node_modules/next ]; then
+    rm -rf .next/standalone/node_modules/next/dist
+    cp -r node_modules/next/dist .next/standalone/node_modules/next/dist
+  fi
+
   # Copy standalone assets — use rm+cp pattern to avoid nested directories on
   # repeated runs (F-14 hygiene; prevents public/public/ accumulation).
   rm -rf .next/standalone/.next/static
@@ -125,6 +133,10 @@ case "$HTTP_CODE" in
         git checkout "$PREV_COMMIT"
         npm ci
         npm run build
+        if [ -d node_modules/next/dist ] && [ -d .next/standalone/node_modules/next ]; then
+          rm -rf .next/standalone/node_modules/next/dist
+          cp -r node_modules/next/dist .next/standalone/node_modules/next/dist
+        fi
         rm -rf .next/standalone/.next/static && cp -r .next/static .next/standalone/.next/static
         rm -rf .next/standalone/public && cp -r public .next/standalone/public
         set -a
