@@ -65,6 +65,7 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
   set -a
   source /opt/sear/app/.env.local
   export SENTRY_RELEASE=$(git rev-parse HEAD)
+  export SEAR_VERSION_SHA=$(git rev-parse HEAD)
   set +a
 
   npm run build
@@ -80,6 +81,7 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
   set -a
   source /opt/sear/app/.env.local
   export SENTRY_RELEASE=$(git rev-parse HEAD)
+  export SEAR_VERSION_SHA=$(git rev-parse HEAD)
   set +a
 
   # Reload with zero-downtime. If sear-pos process is missing (VM reboot or
