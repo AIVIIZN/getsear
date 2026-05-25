@@ -21,7 +21,7 @@
 import http from 'k6/http'
 import { check, group, sleep } from 'k6'
 import exec from 'k6/execution'
-import { Counter, Rate, Trend } from 'k6/metrics'
+import { Counter, Trend } from 'k6/metrics'
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
 import { uuidv4 } from 'k6/crypto'
 
@@ -149,9 +149,15 @@ export function setup() {
     try {
       const body = menuRes.json()
       menuItems = (body.data || []).filter((item) => item.is_active && !item.is_86d)
-    } catch (_) {
+    } catch {
       menuItems = []
     }
+  }
+  if (menuRes.status !== 200) {
+    throw new Error(`setup menu fetch failed (status ${menuRes.status}). Load numbers are invalid until the current /api/menu/items contract works.`)
+  }
+  if (menuItems.length === 0) {
+    throw new Error('setup: no active menu items returned. Refusing to run with synthetic items because that hides API/schema drift.')
   }
 
   // Discover KDS stations once globally (avoids ~360 station lookups/VU/run).
@@ -164,9 +170,15 @@ export function setup() {
   if (stationsRes.status === 200) {
     try {
       kdsStationIds = (stationsRes.json('data') || []).map((s) => s.id)
-    } catch (_) {
+    } catch {
       kdsStationIds = []
     }
+  }
+  if (stationsRes.status !== 200) {
+    throw new Error(`setup KDS station discovery failed (status ${stationsRes.status}). Load numbers are invalid until /api/kds/stations works.`)
+  }
+  if (kdsStationIds.length === 0) {
+    throw new Error('setup: no KDS stations returned. Refusing to idle KDS VUs because that would under-test the current /api/kds/tickets contract.')
   }
 
   return { menuItems, cookieHeader, kdsStationIds }
@@ -183,8 +195,7 @@ function authHeaders(cookieHeader, extra) {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: pick N random items from the menu pool, or use a hardcoded
-// fallback approach if pool is empty.
+// Helper: pick N random items from the menu pool.
 // ---------------------------------------------------------------------------
 function pickRandomItems(menuItems, count) {
   if (!menuItems || menuItems.length === 0) return []
@@ -205,11 +216,10 @@ function pickRandomItems(menuItems, count) {
 // the Idempotency-Key header against:
 //   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 // Only strict UUIDv4 strings pass; anything else returns 400. k6/crypto.uuidv4()
-// produces a conformant v4 UUID. The prefix param is kept for call-site clarity
-// but is NOT incorporated into the key (would break the regex).
+// produces a conformant v4 UUID. Call-site prefixes are intentionally ignored;
+// incorporating them into the key would break the regex.
 // ---------------------------------------------------------------------------
-// eslint-disable-next-line no-unused-vars
-function idempotencyKey(_prefix) {
+function idempotencyKey() {
   return uuidv4()
 }
 
@@ -260,7 +270,7 @@ export function terminalScenario(data) {
     })
 
     if (ok) {
-      try { orderId = res.json('data.id') } catch (_) { orderId = null }
+      try { orderId = res.json('data.id') } catch { orderId = null }
     } else {
       orderErrors.add(1)
     }
@@ -278,15 +288,11 @@ export function terminalScenario(data) {
   const itemCount = randomIntBetween(2, 4)
   const selectedItems = pickRandomItems(menuItems, itemCount)
 
-  // If menu pool is empty (setup couldn't fetch), we still exercise the
-  // endpoint with a synthetic item — this validates auth/routing while
-  // gracefully degrading (the call will 400 on validation for missing
-  // menu_item_id uuid but that's logged as a check failure, not a crash).
-  const itemsToAdd = selectedItems.length > 0
-    ? selectedItems
-    : [{ id: null, name: 'Burger', price: '12.99' }]
+  if (selectedItems.length === 0) {
+    throw new Error('terminalScenario: setup returned no menu items. Refusing to generate synthetic load.')
+  }
 
-  for (const item of itemsToAdd) {
+  for (const item of selectedItems) {
     group('add_item', () => {
       const unitPrice = item.price ? item.price : '10.00'
 
@@ -351,7 +357,7 @@ export function terminalScenario(data) {
         if (total > 0) {
           amountCents = Math.round(total * 100)
         }
-      } catch (_) {
+      } catch {
         // keep fallback
       }
     }

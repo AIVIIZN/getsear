@@ -48,6 +48,7 @@ import { check, sleep } from 'k6'
 import exec from 'k6/execution'
 import { Counter, Trend, Rate } from 'k6/metrics'
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
+import { uuidv4 } from 'k6/crypto'
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -241,9 +242,15 @@ export function setup() {
   if (stationsRes.status === 200) {
     try {
       kdsStationIds = (stationsRes.json('data') || []).map((s) => s.id)
-    } catch (_) {
+    } catch {
       kdsStationIds = []
     }
+  }
+  if (stationsRes.status !== 200) {
+    throw new Error(`setup KDS station discovery failed (status ${stationsRes.status}). Chaos numbers are invalid until /api/kds/stations works.`)
+  }
+  if (kdsStationIds.length === 0) {
+    throw new Error('setup: no KDS stations returned. Refusing to idle KDS VUs because that hides /api/kds/tickets drift.')
   }
 
   return { cookieHeader, kdsStationIds }
@@ -313,8 +320,6 @@ function runOrderFlow(menuItems, cookieHeader) {
   if (item1.id !== item0.id) selectedItems.push(item1)
   if (item2.id !== item0.id && item2.id !== item1.id) selectedItems.push(item2)
 
-  const headers = authHeaders(cookieHeader)
-
   // Step 1: Create order.
   const { wasFault: f1, response: r1 } = chaosRequest(
     'POST',
@@ -325,7 +330,7 @@ function runOrderFlow(menuItems, cookieHeader) {
       guest_count: 2,
       source: 'pos',
     },
-    { headers }
+    { headers: authHeaders(cookieHeader, { 'Idempotency-Key': uuidv4() }) }
   )
   if (f1) return { success: false, hadChaos: true }
   if (r1.status !== 201) return { success: false, hadChaos: false }
@@ -351,8 +356,9 @@ function runOrderFlow(menuItems, cookieHeader) {
         quantity: 1,
         course: 1,
         notes: '',
+        modifiers: [],
       },
-      { headers }
+      { headers: authHeaders(cookieHeader, { 'Idempotency-Key': uuidv4() }) }
     )
     if (fi) return { success: false, hadChaos: true }
     if (ri.status !== 201) return { success: false, hadChaos: false }
@@ -363,7 +369,7 @@ function runOrderFlow(menuItems, cookieHeader) {
     'POST',
     `${BASE_URL}/api/orders/${orderId}/send`,
     {},
-    { headers }
+    { headers: authHeaders(cookieHeader) }
   )
   if (f3) return { success: false, hadChaos: true }
   if (r3.status !== 200) return { success: false, hadChaos: false }
@@ -373,7 +379,7 @@ function runOrderFlow(menuItems, cookieHeader) {
     'GET',
     `${BASE_URL}/api/orders/${orderId}`,
     null,
-    { headers }
+    { headers: authHeaders(cookieHeader) }
   )
   if (f4) return { success: false, hadChaos: true }
   if (r4.status !== 200) return { success: false, hadChaos: false }
@@ -401,7 +407,7 @@ function runOrderFlow(menuItems, cookieHeader) {
       mode: 'sale',
       cash_tendered_cents: tendered,
     },
-    { headers }
+    { headers: authHeaders(cookieHeader, { 'Idempotency-Key': uuidv4() }) }
   )
   if (f5) return { success: false, hadChaos: true }
   // POST /api/payments/process returns 201 on success (verified in
@@ -489,7 +495,6 @@ export function kds_subscriber(data) {
 // but required by k6 when options.scenarios is set without an explicit exec.
 // ---------------------------------------------------------------------------
 
-export default function () {
-  // No-op: all logic is in named scenario functions above.
-  // k6 requires a default export; it is never called when scenarios use exec.
+export default function chaosDefaultGuard() {
+  throw new Error('chaos.js must run with its configured named scenarios. Do not cite load numbers from a no-op default invocation.')
 }
