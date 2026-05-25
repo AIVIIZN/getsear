@@ -213,7 +213,7 @@ function SidebarSection({
 
 /* ─── Main Sidebar ─── */
 export function Sidebar({ collapsed }: SidebarProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <aside

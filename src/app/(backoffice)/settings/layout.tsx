@@ -38,7 +38,7 @@ export default function SettingsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <div className="flex flex-col gap-[var(--space-6)]">

@@ -66,13 +66,13 @@ function PaymentsPage() {
   const { clearCurrentOrder } = useOrderStore((s) => s.actions)
   const activeLocationId = useAuthStore((s) => s.activeLocationId)
 
-  const paramTotal = searchParams.get('total_cents')
+  const paramTotal = searchParams?.get('total_cents')
   const orderTotalCents = paramTotal
     ? parseInt(paramTotal, 10)
     : currentOrder?.total_cents ?? 0
 
-  const orderId = searchParams.get('order_id') ?? currentOrder?.id ?? ''
-  const locationId = searchParams.get('location_id') ?? activeLocationId ?? ''
+  const orderId = searchParams?.get('order_id') ?? currentOrder?.id ?? ''
+  const locationId = searchParams?.get('location_id') ?? activeLocationId ?? ''
 
   const [flowState, setFlowState] = useState<FlowState>('method_select')
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodChoice | null>(null)

@@ -15,7 +15,7 @@ export default function PosLayout({
 }) {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.actions.toggleSidebar);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const reduced = useReducedMotion();
 
   return (
