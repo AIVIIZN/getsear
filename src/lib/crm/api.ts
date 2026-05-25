@@ -18,6 +18,8 @@ export type CrmGuestPermissions = {
   can_view_revenue_attribution: boolean
   can_view_do_not_contact_reason: boolean
   can_view_internal_manager_notes: boolean
+  can_manage_consent: boolean
+  can_manage_privacy_requests: boolean
   can_export_guest_data: boolean
 }
 
@@ -66,6 +68,8 @@ export function getCrmGuestPermissions(user: Pick<AuthUser, 'role'>): CrmGuestPe
   const isRevenueRole = crmGuestRevenueRoles.includes(role)
   const isComplianceRole = crmGuestComplianceRoles.includes(role)
   const isExportRole = crmGuestExportRoles.includes(role)
+  const canManageConsent = crmConsentWriteRoles.includes(role)
+  const canManagePrivacyRequests = crmPrivacyWriteRoles.includes(role)
 
   return {
     can_view_hospitality_notes: crmGuestReadRoles.includes(role),
@@ -73,6 +77,8 @@ export function getCrmGuestPermissions(user: Pick<AuthUser, 'role'>): CrmGuestPe
     can_view_revenue_attribution: isRevenueRole,
     can_view_do_not_contact_reason: isComplianceRole,
     can_view_internal_manager_notes: isManager,
+    can_manage_consent: canManageConsent,
+    can_manage_privacy_requests: canManagePrivacyRequests,
     can_export_guest_data: isExportRole,
   }
 }
