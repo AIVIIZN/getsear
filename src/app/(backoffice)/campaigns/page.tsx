@@ -28,6 +28,13 @@ type Campaign = {
   audience_count: number
   updated_at: string
   crm_segments?: { name?: string | null } | null
+  latest_revenue_attribution?: {
+    attributed_revenue: number
+    attributed_profit_estimate: number
+    roi_ratio: number | null
+    excluded_revenue: number
+    excluded_guest_count: number
+  } | null
 }
 
 type CampaignType = "email" | "sms" | "push" | "guest_portal" | "receipt" | "qr" | "reservation_follow_up" | "review_request" | "win_back" | "birthday" | "anniversary" | "event_invite" | "menu_announcement" | "vip_invite" | "recovery"
@@ -93,6 +100,10 @@ function formatDate(value: string) {
 
 function formatCost(cents: number | undefined) {
   return `$${((cents ?? 0) / 100).toFixed(2)}`
+}
+
+function formatMoney(value: number | undefined | null) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value ?? 0)
 }
 
 export default function CampaignsPage() {
@@ -313,6 +324,16 @@ export default function CampaignsPage() {
                     <Badge>{campaign.status}</Badge>
                   </div>
                   <div className="mt-[var(--space-2)] text-[var(--type-footnote-size)] text-[var(--color-text-secondary)]">{campaign.audience_count ?? 0} guests · {campaign.primary_channel}</div>
+                  <div className="mt-[var(--space-2)] grid grid-cols-2 gap-[var(--space-2)] text-[var(--type-footnote-size)]">
+                    <div className="rounded-[var(--radius-sm)] bg-[var(--color-bg-subtle)] p-[var(--space-2)]">
+                      <div className="text-[var(--color-text-muted)]">7-day revenue</div>
+                      <div className="font-[var(--weight-semibold)] text-[var(--color-text)]">{formatMoney(campaign.latest_revenue_attribution?.attributed_revenue)}</div>
+                    </div>
+                    <div className="rounded-[var(--radius-sm)] bg-[var(--color-bg-subtle)] p-[var(--space-2)]">
+                      <div className="text-[var(--color-text-muted)]">Excluded</div>
+                      <div className="font-[var(--weight-semibold)] text-[var(--color-text)]">{formatMoney(campaign.latest_revenue_attribution?.excluded_revenue)}</div>
+                    </div>
+                  </div>
                 </div>
               )) : (
                 <EmptyState

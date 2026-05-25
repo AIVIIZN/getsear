@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { assessCrmCampaignCompliance, buildCrmCampaignPreview, buildCrmCampaignSendRows } from '@/lib/crm/campaigns'
-import { createCrmCampaignSchema, previewCrmCampaignSchema, scheduleCrmCampaignSchema, testSendCrmCampaignSchema } from '@/lib/schemas/crm'
+import { assessCrmCampaignCompliance, buildCrmCampaignPreview, buildCrmCampaignSendRows, shouldCountCrmAttributionRevenue, summarizeCrmCampaignAttribution } from '@/lib/crm/campaigns'
+import { createCrmAttributionEventSchema, createCrmCampaignSchema, crmCampaignResultsQuerySchema, previewCrmCampaignSchema, scheduleCrmCampaignSchema, testSendCrmCampaignSchema } from '@/lib/schemas/crm'
 
 const root = process.cwd()
 
@@ -191,5 +191,136 @@ describe('CRM-V7.2 campaign compliance and send pipeline', () => {
     expect(testRoute).toContain('crm_message_events')
     expect(auditLog).toContain("'crm_campaign_scheduled'")
     expect(auditLog).toContain("'crm_campaign_test_sent'")
+  })
+})
+
+describe('CRM-V7.3 campaign revenue attribution basics', () => {
+  it('counts attributed revenue but excludes would-have-visited and out-of-window guests from ROI', () => {
+    const sentAt = '2026-05-25T10:00:00.000Z'
+    const includedGuestId = crypto.randomUUID()
+    const baselineGuestId = crypto.randomUUID()
+    const lateGuestId = crypto.randomUUID()
+
+    const summary = summarizeCrmCampaignAttribution([
+      {
+        event_type: 'delivered',
+        event_at: '2026-05-25T10:05:00.000Z',
+        sent_at: sentAt,
+        attribution_window: '7_day',
+        attribution_window_days: 7,
+        baseline_segment: 'lapsed',
+        revenue_amount: 0,
+        profit_estimate_amount: 0,
+        cost_amount: 0,
+      },
+      {
+        event_type: 'clicked',
+        event_at: '2026-05-25T11:00:00.000Z',
+        sent_at: sentAt,
+        attribution_window: '7_day',
+        attribution_window_days: 7,
+        baseline_segment: 'lapsed',
+        revenue_amount: 0,
+        profit_estimate_amount: 0,
+        cost_amount: 0,
+      },
+      {
+        event_type: 'order',
+        event_at: '2026-05-27T18:00:00.000Z',
+        sent_at: sentAt,
+        attribution_window: '7_day',
+        attribution_window_days: 7,
+        baseline_segment: 'lapsed',
+        revenue_amount: 120,
+        profit_estimate_amount: 42,
+        cost_amount: 8,
+        guest_id: includedGuestId,
+      },
+      {
+        event_type: 'order',
+        event_at: '2026-05-27T18:00:00.000Z',
+        sent_at: sentAt,
+        attribution_window: '7_day',
+        attribution_window_days: 7,
+        baseline_segment: 'would_have_visited',
+        revenue_amount: 80,
+        profit_estimate_amount: 28,
+        cost_amount: 8,
+        guest_id: baselineGuestId,
+      },
+      {
+        event_type: 'revenue',
+        event_at: '2026-06-10T18:00:00.000Z',
+        sent_at: sentAt,
+        attribution_window: '7_day',
+        attribution_window_days: 7,
+        baseline_segment: 'offer_sensitive',
+        revenue_amount: 60,
+        profit_estimate_amount: 20,
+        cost_amount: 8,
+        guest_id: lateGuestId,
+      },
+    ])
+
+    expect(summary.delivered_count).toBe(1)
+    expect(summary.clicked_count).toBe(1)
+    expect(summary.order_count).toBe(2)
+    expect(summary.attributed_revenue).toBe(120)
+    expect(summary.attributed_profit_estimate).toBe(42)
+    expect(summary.attributed_cost).toBe(8)
+    expect(summary.excluded_revenue).toBe(140)
+    expect(summary.excluded_guest_ids).toEqual([baselineGuestId, lateGuestId])
+    expect(summary.roi_ratio).toBe(4.25)
+  })
+
+  it('validates attribution payloads and exposes revenue results APIs', () => {
+    const migration = read('supabase/migrations/20260525192827_add_crm_campaign_attribution.sql')
+    const rollback = read('supabase/_rollbacks/20260525192827_add_crm_campaign_attribution.rollback.sql')
+    const resultsRoute = read('src/app/api/crm/campaigns/[id]/results/route.ts')
+    const eventsRoute = read('src/app/api/crm/campaigns/[id]/attribution-events/route.ts')
+    const auditLog = read('src/lib/audit/log.ts')
+
+    for (const table of ['crm_attribution_events', 'crm_campaign_revenue_attribution']) {
+      expect(migration).toContain(`CREATE TABLE IF NOT EXISTS public.${table}`)
+      expect(migration).toContain(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`)
+      expect(rollback).toContain(`DROP TABLE IF EXISTS public.${table}`)
+    }
+    expect(migration).toContain("event_type IN ('delivered', 'opened', 'clicked', 'redeemed', 'reservation', 'order', 'revenue', 'profit_estimate', 'unsubscribed', 'complained')")
+    expect(migration).toContain("baseline_segment IN ('would_have_visited', 'lapsed', 'first_time', 'high_risk', 'offer_sensitive', 'unknown')")
+    expect(createCrmAttributionEventSchema.parse({
+      event_type: 'order',
+      attribution_window: '30_day',
+      baseline_segment: 'offer_sensitive',
+      revenue_amount: 75,
+      profit_estimate_amount: 25,
+    }).revenue_amount).toBe(75)
+    expect(crmCampaignResultsQuerySchema.parse({ attribution_window: 'custom', attribution_window_days: '45' }).attribution_window_days).toBe(45)
+    expect(shouldCountCrmAttributionRevenue({
+      event_type: 'order',
+      event_at: '2026-05-31T10:00:00.000Z',
+      sent_at: '2026-05-25T10:00:00.000Z',
+      attribution_window: '7_day',
+      attribution_window_days: 7,
+      baseline_segment: 'lapsed',
+      revenue_amount: 50,
+      profit_estimate_amount: 20,
+      cost_amount: 5,
+    }).count).toBe(true)
+    expect(shouldCountCrmAttributionRevenue({
+      event_type: 'order',
+      event_at: '2026-06-08T10:00:00.000Z',
+      sent_at: '2026-05-25T10:00:00.000Z',
+      attribution_window: '7_day',
+      attribution_window_days: 7,
+      baseline_segment: 'lapsed',
+      revenue_amount: 50,
+      profit_estimate_amount: 20,
+      cost_amount: 5,
+    })).toEqual({ count: false, reason: 'outside_attribution_window' })
+    expect(resultsRoute).toContain('summarizeCrmCampaignAttribution')
+    expect(resultsRoute).toContain('attributed_revenue')
+    expect(resultsRoute).toContain('excluded_guest_count')
+    expect(eventsRoute).toContain('Holdout sends must be excluded from ROI attribution.')
+    expect(auditLog).toContain("'crm_campaign_attribution_recorded'")
   })
 })

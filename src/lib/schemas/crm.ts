@@ -167,6 +167,9 @@ export const crmCampaignStatusSchema = z.enum(['draft', 'ready', 'scheduled', 's
 export const crmCampaignChannelSchema = z.enum(['email', 'sms', 'push', 'guest_portal', 'receipt', 'qr'])
 export const crmMessageSendChannelSchema = z.enum(['email', 'sms', 'push', 'receipt'])
 export const crmCampaignToneSchema = z.enum(['warm', 'polished', 'playful', 'urgent', 'grateful', 'concise'])
+export const crmAttributionEventTypeSchema = z.enum(['delivered', 'opened', 'clicked', 'redeemed', 'reservation', 'order', 'revenue', 'profit_estimate', 'unsubscribed', 'complained'])
+export const crmAttributionWindowSchema = z.enum(['same_day', '7_day', '14_day', '30_day', '45_day', 'custom'])
+export const crmAttributionBaselineSchema = z.enum(['would_have_visited', 'lapsed', 'first_time', 'high_risk', 'offer_sensitive', 'unknown'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -400,6 +403,36 @@ export const testSendCrmCampaignSchema = z.object({
   }
   if (value.channel === 'sms' && !value.recipient_phone && !value.guest_id) {
     ctx.addIssue({ code: 'custom', path: ['recipient_phone'], message: 'SMS test sends need recipient_phone or guest_id.' })
+  }
+})
+
+export const crmCampaignResultsQuerySchema = z.object({
+  attribution_window: crmAttributionWindowSchema.default('7_day'),
+  attribution_window_days: z.coerce.number().int().min(0).max(365).optional(),
+  baseline_segment: crmAttributionBaselineSchema.optional(),
+})
+
+export const createCrmAttributionEventSchema = z.object({
+  location_id: optionalUuidSchema,
+  send_job_id: optionalUuidSchema,
+  send_id: optionalUuidSchema,
+  guest_id: optionalUuidSchema,
+  order_id: optionalUuidSchema,
+  event_type: crmAttributionEventTypeSchema,
+  event_at: z.string().datetime({ offset: true }).optional(),
+  attribution_window: crmAttributionWindowSchema.default('7_day'),
+  attribution_window_days: z.number().int().min(0).max(365).optional(),
+  baseline_segment: crmAttributionBaselineSchema.default('lapsed'),
+  revenue_amount: z.number().min(0).default(0),
+  profit_estimate_amount: z.number().min(0).default(0),
+  cost_amount: z.number().min(0).default(0),
+  excluded_from_roi: z.boolean().default(false),
+  exclusion_reason: z.string().trim().min(1).max(500).optional().nullable(),
+  attribution_rule_snapshot: metadataSchema,
+  metadata: metadataSchema,
+}).superRefine((value, ctx) => {
+  if (value.excluded_from_roi && !value.exclusion_reason) {
+    ctx.addIssue({ code: 'custom', path: ['exclusion_reason'], message: 'Excluded attribution events need an exclusion reason.' })
   }
 })
 
