@@ -5,6 +5,7 @@ import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { valorClient } from '@/lib/payments/valor-client'
 import { getReqLoggerFromRequest } from '@/lib/observability/req-context'
+import { recalculateGuestIntelligenceForOrder } from '@/lib/crm/intelligence'
 import crypto from 'crypto'
 
 const processPaymentSchema = z.object({
@@ -352,11 +353,21 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
     // Close order if fully paid
     if (newBalance === 0) {
       orderUpdate.status = 'closed'
+      orderUpdate.closed_at = new Date().toISOString()
     }
 
     await (supabase.from('orders') as ReturnType<typeof supabase.from>)
       .update(orderUpdate)
       .eq('id', order_id)
+
+    if (newBalance === 0) {
+      await recalculateGuestIntelligenceForOrder({
+        db: supabase,
+        user,
+        orderId: order_id,
+        request,
+      })
+    }
   }
 
   rlog.info('payments.process.ok', {

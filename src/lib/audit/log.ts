@@ -97,6 +97,7 @@ export type AuditAction =
   | 'crm_guest_kept_separate'
   | 'crm_guest_household_marked'
   | 'crm_guest_consent_updated'
+  | 'crm_guest_intelligence_recalculated'
   | 'crm_privacy_request_created'
   | 'crm_privacy_request_updated'
   | 'crm_privacy_data_exported'
