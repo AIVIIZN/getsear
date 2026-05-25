@@ -6,6 +6,7 @@ import { Menu, Settings } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
+import { CommandPaletteButton } from "@/components/layout/CommandPalette";
 
 const StaffClockButton = dynamic(
   () => import("@/components/pos/StaffClockButton").then((m) => ({ default: m.StaffClockButton })),
@@ -128,7 +129,8 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-4">
+        <CommandPaletteButton />
         <StaffClockButton />
         <LiveClock />
         <SyncStatusIndicator />
