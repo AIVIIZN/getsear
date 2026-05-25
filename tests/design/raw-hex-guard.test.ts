@@ -1,10 +1,11 @@
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
   filterNewViolations,
+  findRawHexOccurrences,
   loadBaseline,
   scanRepository,
 } from '../../scripts/raw-hex-guard.mjs'
@@ -88,5 +89,17 @@ describe('raw hex guard', () => {
     expect(filterNewViolations(result.occurrences, baseline)).toEqual(result.violations)
     expect(result.violations).toHaveLength(1)
     expect(result.violations[0].hex).toBe('#222222')
+  })
+
+  it('keeps the component spec examples scanner-safe', async () => {
+    const source = await readFile(
+      path.join(process.cwd(), 'docs/design/UI_V2_COMPONENT_SPEC.md'),
+      'utf8',
+    )
+
+    const result = findRawHexOccurrences(source, 'docs/design/UI_V2_COMPONENT_SPEC.md')
+
+    expect(source).toContain('Scanner-Safe Example Pattern')
+    expect(result).toEqual([])
   })
 })
