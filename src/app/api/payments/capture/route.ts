@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { valorClient } from '@/lib/payments/valor-client'
+import { recalculateGuestIntelligenceForOrder } from '@/lib/crm/intelligence'
 
 const captureSchema = z.object({
   payment_id: z.string().uuid(),
@@ -145,11 +146,21 @@ export async function POST(request: NextRequest) {
     // Close order if fully paid
     if (newBalance === 0) {
       orderUpdate.status = 'closed'
+      orderUpdate.closed_at = new Date().toISOString()
     }
 
     await (supabase.from('orders') as ReturnType<typeof supabase.from>)
       .update(orderUpdate)
       .eq('id', orderId)
+
+    if (newBalance === 0) {
+      await recalculateGuestIntelligenceForOrder({
+        db: supabase,
+        user,
+        orderId,
+        request,
+      })
+    }
   }
 
   return NextResponse.json({ data: updated })

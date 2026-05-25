@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { getValorClient } from '@/lib/payments/valor-client-loader'
+import { recalculateGuestIntelligenceForOrder } from '@/lib/crm/intelligence'
 
 const captureSchema = z.object({
   final_amount_cents: z.number().int().min(1),
@@ -119,14 +120,28 @@ export async function POST(
     const existingBalance = Math.round(parseFloat(String(orderData.balance_due ?? orderData.total ?? '0')) * 100)
     const newBalance = Math.max(0, existingBalance - totalCapture)
 
+    const orderUpdate: Record<string, unknown> = {
+      amount_paid: (newPaid / 100).toFixed(2),
+      balance_due: (newBalance / 100).toFixed(2),
+      status: newBalance <= 0 ? 'closed' : 'open',
+    }
+    if (newBalance <= 0) {
+      orderUpdate.closed_at = new Date().toISOString()
+    }
+
     await (supabase.from('orders') as ReturnType<typeof supabase.from>)
-      .update({
-        amount_paid: (newPaid / 100).toFixed(2),
-        balance_due: (newBalance / 100).toFixed(2),
-        status: newBalance <= 0 ? 'closed' : 'open',
-      })
+      .update(orderUpdate)
       .eq('id', orderId)
       .eq('org_id', user.org_id)
+
+    if (newBalance <= 0) {
+      await recalculateGuestIntelligenceForOrder({
+        db: supabase,
+        user,
+        orderId,
+        request,
+      })
+    }
   }
 
   return NextResponse.json({
