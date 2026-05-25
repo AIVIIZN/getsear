@@ -94,7 +94,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Get current drawer state
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: drawer } = await (supabase.from('cash_drawers') as any)
-    .select('id, status, expected_cash')
+    .select('id, is_open, expected_cash')
     .eq('id', id)
     .eq('org_id', user.org_id)
     .single()
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Cash drawer not found' }, { status: 404 })
   }
 
-  if (drawer.status !== 'open') {
+  if (!drawer.is_open) {
     return NextResponse.json({ error: 'Drawer must be open to record events' }, { status: 409 })
   }
 

@@ -3,6 +3,14 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 
+function serializeDrawer<T extends { is_open?: boolean; opened_by?: string | null }>(drawer: T) {
+  return {
+    ...drawer,
+    status: drawer.is_open ? 'open' : 'closed',
+    assigned_to: drawer.opened_by ?? null,
+  }
+}
+
 /**
  * GET /api/staff/cash-drawers — list drawers for org
  */
@@ -34,7 +42,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch cash drawers' }, { status: 500 })
   }
 
-  return NextResponse.json({ data: drawers ?? [] })
+  return NextResponse.json({ data: (drawers ?? []).map(serializeDrawer) })
 }
 
 const createDrawerSchema = z.object({
@@ -75,7 +83,7 @@ export async function POST(request: NextRequest) {
     .insert({
       org_id: user.org_id,
       ...parsed.data,
-      status: 'closed',
+      is_open: false,
       expected_cash: '0.00',
       actual_cash: '0.00',
       over_short: '0.00',
@@ -87,5 +95,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create cash drawer' }, { status: 500 })
   }
 
-  return NextResponse.json({ data }, { status: 201 })
+  return NextResponse.json({ data: serializeDrawer(data) }, { status: 201 })
 }

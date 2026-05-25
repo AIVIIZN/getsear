@@ -211,6 +211,81 @@ function toNumber(val: any): number {
   return Number(val) || 0
 }
 
+type RevenueCostBreakdown = {
+  foodRevenue: number
+  beverageRevenue: number
+  cogs: number
+}
+
+function isBeverageSale(categoryName: string, itemName: string): boolean {
+  const text = `${categoryName} ${itemName}`.toLowerCase()
+  return /\b(bar|beer|wine|cocktail|beverage|drink|coffee|tea|soda|juice)\b/.test(text)
+}
+
+async function getRevenueCostBreakdown(
+  orgId: string,
+  dateFrom: string,
+  dateTo: string,
+  locationId?: string
+): Promise<RevenueCostBreakdown> {
+  const supabase = getSupabase()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (supabase.from('order_items') as any)
+    .select('menu_item_id, name, quantity, line_total, is_voided, is_comped, comp_amount, order:orders!inner(created_at, status, location_id)')
+    .eq('org_id', orgId)
+    .eq('is_voided', false)
+
+  if (locationId) query = query.eq('order.location_id', locationId)
+
+  const { data } = await query
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const soldItems = ((data ?? []) as any[]).filter((item) => {
+    const createdAt = item.order?.created_at
+    if (!createdAt || item.order?.status === 'voided') return false
+    const day = createdAt.split('T')[0]
+    return day >= dateFrom && day <= dateTo
+  })
+
+  const menuItemIds = [...new Set(soldItems.map((item) => item.menu_item_id).filter(Boolean))]
+  const menuMap = new Map<string, { cost: number; category: string }>()
+
+  if (menuItemIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: menuItems } = await (supabase.from('menu_items') as any)
+      .select('id, cost, category:menu_categories(name)')
+      .in('id', menuItemIds)
+
+    for (const item of (menuItems ?? [])) {
+      menuMap.set(item.id, {
+        cost: toNumber(item.cost),
+        category: item.category?.name ?? 'Uncategorized',
+      })
+    }
+  }
+
+  let foodRevenue = 0
+  let beverageRevenue = 0
+  let cogs = 0
+
+  for (const item of soldItems) {
+    const compAmount = item.is_comped ? toNumber(item.comp_amount) || toNumber(item.line_total) : 0
+    const revenue = Math.max(0, toNumber(item.line_total) - compAmount)
+    const menuInfo = menuMap.get(item.menu_item_id)
+    const category = menuInfo?.category ?? 'Uncategorized'
+    if (isBeverageSale(category, item.name ?? '')) beverageRevenue += revenue
+    else foodRevenue += revenue
+    cogs += (menuInfo?.cost ?? 0) * toNumber(item.quantity)
+  }
+
+  return {
+    foodRevenue,
+    beverageRevenue,
+    cogs,
+  }
+}
+
 // ── Query Functions ─────────────────────────────────────────────────────
 
 export async function getDailySales(
@@ -325,6 +400,8 @@ export async function getDailySales(
     }))
     .sort((a, b) => b.amount - a.amount)
 
+  const revenueCost = await getRevenueCostBreakdown(orgId, date, date, locationId)
+
   // Previous period (same day last week)
   const prevDate = new Date(date)
   prevDate.setDate(prevDate.getDate() - 7)
@@ -375,8 +452,8 @@ export async function getDailySales(
       discount_total: Math.round(discountTotal * 100) / 100,
       tax_total: Math.round(taxTotal * 100) / 100,
       tip_total: Math.round(tipTotal * 100) / 100,
-      food_revenue: 0, // Would require category join — use daily_metrics if available
-      beverage_revenue: 0,
+      food_revenue: Math.round(revenueCost.foodRevenue * 100) / 100,
+      beverage_revenue: Math.round(revenueCost.beverageRevenue * 100) / 100,
       by_order_type: Array.from(byType.entries()).map(([type, v]) => ({
         type: type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
         revenue: Math.round(v.revenue * 100) / 100,
@@ -537,7 +614,7 @@ export async function getProductMix(
   // Query order_items joined with orders for date range
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('order_items') as any)
-    .select('menu_item_id, name, quantity, unit_price, line_total, is_voided, order:orders!inner(created_at, status, org_id)')
+    .select('menu_item_id, name, quantity, unit_price, line_total, is_voided, is_comped, comp_amount, order:orders!inner(created_at, status, org_id)')
     .eq('org_id', orgId)
     .eq('is_voided', false)
 
@@ -568,8 +645,9 @@ export async function getProductMix(
   for (const item of filtered as any[]) {
     const id = item.menu_item_id ?? item.name
     const existing = itemMap.get(id) ?? { name: item.name, quantity: 0, revenue: 0 }
+    const compAmount = item.is_comped ? toNumber(item.comp_amount) || toNumber(item.line_total) : 0
     existing.quantity += toNumber(item.quantity)
-    existing.revenue += toNumber(item.line_total)
+    existing.revenue += Math.max(0, toNumber(item.line_total) - compAmount)
     itemMap.set(id, existing)
   }
 
@@ -1084,7 +1162,7 @@ export async function getFoodCost(
   // Get items sold with cost
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('order_items') as any)
-    .select('menu_item_id, name, quantity, line_total, is_voided, order:orders!inner(created_at, status)')
+    .select('menu_item_id, name, quantity, line_total, is_voided, is_comped, comp_amount, order:orders!inner(created_at, status)')
     .eq('org_id', orgId)
     .eq('is_voided', false)
 
@@ -1113,8 +1191,9 @@ export async function getFoodCost(
   for (const item of filtered as any[]) {
     const id = item.menu_item_id ?? item.name
     const existing = itemMap.get(id) ?? { name: item.name, qty: 0, revenue: 0 }
+    const compAmount = item.is_comped ? toNumber(item.comp_amount) || toNumber(item.line_total) : 0
     existing.qty += toNumber(item.quantity)
-    existing.revenue += toNumber(item.line_total)
+    existing.revenue += Math.max(0, toNumber(item.line_total) - compAmount)
     itemMap.set(id, existing)
   }
 
@@ -1141,8 +1220,7 @@ export async function getFoodCost(
     const menuInfo = costMap.get(id)
     const unitCost = menuInfo?.cost ?? 0
     const theoreticalCost = unitCost * vals.qty
-    // Actual cost = theoretical for now (actual requires inventory tracking)
-    const actualCost = theoreticalCost * (1 + (Math.random() * 0.15 - 0.05)) // Simulated variance
+    const actualCost = theoreticalCost
     const variance = actualCost - theoreticalCost
     const variancePct = theoreticalCost > 0 ? (variance / theoreticalCost) * 100 : 0
 
@@ -1376,15 +1454,23 @@ export async function getPnLData(
     }
 
     let totalRevenue = 0
-    let foodRevenue = 0
-    let bevRevenue = 0
+    let refundTotal = 0
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const o of orders as any[]) {
       totalRevenue += toNumber(o.total)
-      // Approximate food/bev split (70/30)
-      foodRevenue += toNumber(o.total) * 0.7
-      bevRevenue += toNumber(o.total) * 0.3
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let paymentsQuery = (supabase.from('payments') as any)
+      .select('refund_amount')
+      .eq('org_id', orgId)
+      .gte('created_at', `${dateFrom}T04:00:00Z`)
+      .lt('created_at', `${dateTo}T04:00:00Z`)
+      .in('status', ['captured', 'settled', 'refunded'])
+
+    if (locationId) paymentsQuery = paymentsQuery.eq('location_id', locationId)
+    const { data: payments } = await paymentsQuery
+    refundTotal = (payments ?? []).reduce((s: number, p: { refund_amount: number | null }) => s + toNumber(p.refund_amount), 0)
 
     // Get labor cost
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1398,25 +1484,26 @@ export async function getPnLData(
     const { data: laborData } = await laborQuery
     const laborCost = (laborData ?? []).reduce((s: number, l: { total_pay: number }) => s + toNumber(l.total_pay), 0)
 
-    // Estimate COGS (30% of food revenue)
-    const cogs = foodRevenue * 0.3
+    const revenueCost = await getRevenueCostBreakdown(orgId, dateFrom, dateTo, locationId)
+    const netRevenue = totalRevenue - refundTotal
+    const cogs = revenueCost.cogs
 
     return {
       is_mock: false,
       data: {
         month,
-        food_revenue: Math.round(foodRevenue * 100) / 100,
-        beverage_revenue: Math.round(bevRevenue * 100) / 100,
+        food_revenue: Math.round(revenueCost.foodRevenue * 100) / 100,
+        beverage_revenue: Math.round(revenueCost.beverageRevenue * 100) / 100,
         other_revenue: 0,
         total_revenue: Math.round(totalRevenue * 100) / 100,
-        refund_total: 0,
-        net_revenue: Math.round(totalRevenue * 100) / 100,
+        refund_total: Math.round(refundTotal * 100) / 100,
+        net_revenue: Math.round(netRevenue * 100) / 100,
         cogs: Math.round(cogs * 100) / 100,
-        cogs_pct: totalRevenue > 0 ? Math.round((cogs / totalRevenue) * 1000) / 10 : 0,
+        cogs_pct: netRevenue > 0 ? Math.round((cogs / netRevenue) * 1000) / 10 : 0,
         labor_cost: Math.round(laborCost * 100) / 100,
-        labor_pct: totalRevenue > 0 ? Math.round((laborCost / totalRevenue) * 1000) / 10 : 0,
-        gross_profit: Math.round((totalRevenue - cogs - laborCost) * 100) / 100,
-        gross_margin_pct: totalRevenue > 0 ? Math.round(((totalRevenue - cogs - laborCost) / totalRevenue) * 1000) / 10 : 0,
+        labor_pct: netRevenue > 0 ? Math.round((laborCost / netRevenue) * 1000) / 10 : 0,
+        gross_profit: Math.round((netRevenue - cogs - laborCost) * 100) / 100,
+        gross_margin_pct: netRevenue > 0 ? Math.round(((netRevenue - cogs - laborCost) / netRevenue) * 1000) / 10 : 0,
         prev_month: null,
       },
     }
@@ -1436,6 +1523,7 @@ export async function getPnLData(
     refundTotal += toNumber(row.refund_total)
   }
 
+  const revenueCost = await getRevenueCostBreakdown(orgId, dateFrom, dateTo, locationId)
   const netRevenue = totalRevenue - refundTotal
   const grossProfit = netRevenue - foodCost - laborCost
 
@@ -1473,8 +1561,8 @@ export async function getPnLData(
     is_mock: false,
     data: {
       month,
-      food_revenue: Math.round(totalRevenue * 0.7 * 100) / 100,
-      beverage_revenue: Math.round(totalRevenue * 0.3 * 100) / 100,
+      food_revenue: Math.round(revenueCost.foodRevenue * 100) / 100,
+      beverage_revenue: Math.round(revenueCost.beverageRevenue * 100) / 100,
       other_revenue: 0,
       total_revenue: Math.round(totalRevenue * 100) / 100,
       refund_total: Math.round(refundTotal * 100) / 100,
@@ -1551,7 +1639,7 @@ export async function getTrendData(
 
   const weeks: TrendWeek[] = Array.from(weekMap.entries())
     .sort(([a], [b]) => a - b)
-    .map(([weekNum, v], idx) => ({
+    .map(([, v], idx) => ({
       week_start: v.dates[0],
       week_end: v.dates[v.dates.length - 1],
       week_number: idx + 1,
