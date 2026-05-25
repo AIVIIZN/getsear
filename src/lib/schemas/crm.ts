@@ -183,6 +183,9 @@ export const crmIntegrationCategorySchema = z.enum(['email', 'sms', 'reservation
 export const crmIntegrationStatusSchema = z.enum(['connected', 'disconnected', 'error', 'expired', 'pending'])
 export const crmIntegrationSyncStatusSchema = z.enum(['idle', 'syncing', 'succeeded', 'failed'])
 export const crmWebhookStatusSchema = z.enum(['active', 'disabled', 'failing', 'not_configured'])
+export const crmAiProviderSchema = z.enum(['gemini', 'openai', 'rules'])
+export const crmAiTaskTypeSchema = z.enum(['guest_summary', 'server_brief', 'next_best_action', 'segment_draft', 'campaign_draft', 'report_builder', 'recovery_message', 'data_cleanup'])
+export const crmAiGatewayStatusSchema = z.enum(['completed', 'refused', 'failed', 'cached', 'dry_run'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -784,6 +787,33 @@ export const receiveCrmWebhookSchema = z.object({
   records_imported: z.number().int().min(0).max(100000).default(0),
   records_failed: z.number().int().min(0).max(100000).default(0),
   payload: metadataSchema,
+})
+
+export const crmAiSourceSchema = z.object({
+  source_id: z.string().trim().min(1).max(160),
+  source_type: z.enum(['guest', 'guest_note', 'guest_preference', 'guest_allergy', 'guest_order', 'guest_consent', 'crm_segment', 'crm_campaign', 'crm_report', 'crm_recovery_case', 'restaurant_memory', 'manual_context']),
+  title: z.string().trim().min(1).max(240),
+  visibility: guestVisibilitySchema.default('service'),
+  data: metadataSchema,
+})
+
+export const crmAiGatewaySchema = z.object({
+  task_type: crmAiTaskTypeSchema,
+  prompt: z.string().trim().min(8).max(4000),
+  location_id: optionalUuidSchema,
+  guest_id: optionalUuidSchema,
+  prompt_template_id: optionalUuidSchema,
+  dry_run: z.boolean().default(false),
+  approval_required: z.boolean().default(true),
+  sources: z.array(crmAiSourceSchema).max(24).default([]),
+  metadata: metadataSchema,
+})
+
+export const listCrmAiAuditQuerySchema = z.object({
+  task_type: crmAiTaskTypeSchema.optional(),
+  guest_id: z.string().uuid().optional(),
+  status: crmAiGatewayStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
 })
 
 export const createCrmLoyaltyRuleSchema = z.object({
