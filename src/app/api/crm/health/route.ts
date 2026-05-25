@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
 import { collectCrmHealthCandidates, crmHealthReadRoles, crmHealthReviewRoles } from '@/lib/crm/health'
+import { buildCrmLaunchReadiness } from '@/lib/crm/launch-readiness'
 import { listCrmHealthQuerySchema, reviewCrmHealthIssueSchema } from '@/lib/schemas/crm'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -87,7 +88,13 @@ export async function GET(request: NextRequest) {
   const { data, error } = await builder
   if (error) return NextResponse.json({ error: 'Failed to fetch CRM health issues' }, { status: 500 })
 
-  return NextResponse.json({ data: data ?? [], latest_run: latestRun })
+  const issues = data ?? []
+  const launchReadiness = buildCrmLaunchReadiness({
+    issues,
+    lastScanAt: latestRun?.completed_at ?? issues[0]?.updated_at ?? null,
+  })
+
+  return NextResponse.json({ data: issues, latest_run: latestRun, launch_readiness: launchReadiness })
 }
 
 export async function POST(request: NextRequest) {

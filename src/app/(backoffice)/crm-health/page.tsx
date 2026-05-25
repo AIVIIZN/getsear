@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardCheck, DatabaseZap, RefreshCw, SearchX, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ClipboardCheck, DatabaseZap, RefreshCw, Rocket, SearchX, ShieldCheck, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui-v2/Button'
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from '@/components/ui-v2/Card'
 import { Badge } from '@/components/ui-v2/data/Badge'
@@ -32,6 +32,16 @@ type HealthRun = {
   completed_at?: string | null
   issue_counts?: Record<string, number>
   impact_score?: number
+}
+
+type LaunchReadiness = {
+  status: 'pass' | 'watch' | 'block'
+  score: number
+  blockers: string[]
+  performance_budgets: Array<{ surface: string; budget_ms: number; measurement: string }>
+  load_gates: Array<{ name: string; status: 'pass' | 'watch' | 'block'; budget: string }>
+  scenario_gates: Array<{ name: string; status: 'pass' | 'watch' | 'block' }>
+  security_privacy_gates: Array<{ name: string; status: 'pass' | 'watch' | 'block' }>
 }
 
 const issueTypes = [
@@ -77,6 +87,7 @@ function statusVariant(status: HealthIssue['status']) {
 export default function CrmHealthPage() {
   const [issues, setIssues] = React.useState<HealthIssue[]>([])
   const [latestRun, setLatestRun] = React.useState<HealthRun | null>(null)
+  const [launchReadiness, setLaunchReadiness] = React.useState<LaunchReadiness | null>(null)
   const [state, setState] = React.useState<'loading' | 'ready' | 'error' | 'permission'>('loading')
   const [actionState, setActionState] = React.useState<string | null>(null)
   const [statusFilter, setStatusFilter] = React.useState('review_required')
@@ -90,9 +101,10 @@ export default function CrmHealthPage() {
     if (typeFilter) params.set('type', typeFilter)
 
     try {
-      const json = await fetchJson<{ data: HealthIssue[]; latest_run: HealthRun | null }>(`/api/crm/health?${params.toString()}`)
+      const json = await fetchJson<{ data: HealthIssue[]; latest_run: HealthRun | null; launch_readiness: LaunchReadiness }>(`/api/crm/health?${params.toString()}`)
       setIssues(json.data)
       setLatestRun(json.latest_run)
+      setLaunchReadiness(json.launch_readiness)
       setState('ready')
     } catch (error) {
       setState(error instanceof Error && /Forbidden|Unauthorized/i.test(error.message) ? 'permission' : 'error')
@@ -163,6 +175,72 @@ export default function CrmHealthPage() {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader className="flex-col gap-[var(--space-3)] lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="mb-[var(--space-2)] flex items-center gap-[var(--space-2)] text-[length:var(--type-caption-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-text-muted)]">
+              <Rocket className="h-4 w-4" />
+              Launch readiness
+            </div>
+            <CardTitle>Performance, security, and scenario gates</CardTitle>
+            <CardDescription>
+              Search, profile, segment preview, campaign queue, reports, privacy, and visual QA gates must stay green before CRM launch traffic increases.
+            </CardDescription>
+          </div>
+          <div className="flex min-w-[128px] flex-col items-start gap-[var(--space-2)] lg:items-end">
+            <Badge variant={launchReadiness?.status === 'pass' ? 'success' : launchReadiness?.status === 'block' ? 'danger' : 'warning'} shape="pill">
+              {launchReadiness ? titleCase(launchReadiness.status) : 'Checking'}
+            </Badge>
+            <span className="text-[length:var(--type-title-2-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+              {launchReadiness?.score ?? 0}%
+            </span>
+          </div>
+        </CardHeader>
+        <CardBody>
+          {state === 'loading' ? (
+            <Skeleton variant="card" />
+          ) : (
+            <div className="grid grid-cols-1 gap-[var(--space-4)] xl:grid-cols-[1.2fr_0.8fr]">
+              <div className="grid grid-cols-1 gap-[var(--space-3)] md:grid-cols-2">
+                {(launchReadiness?.performance_budgets ?? []).map((budget) => (
+                  <div key={budget.surface} className="rounded-[var(--radius-sm)] border border-[color:var(--color-border)] p-[var(--space-3)]">
+                    <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">{titleCase(budget.surface)}</p>
+                    <p className="mt-[var(--space-1)] text-[length:var(--type-title-3-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">{budget.budget_ms}ms</p>
+                    <p className="mt-[var(--space-1)] text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">{budget.measurement}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-[var(--space-3)]">
+                {[
+                  ['Load tests', launchReadiness?.load_gates ?? []],
+                  ['Scenarios', launchReadiness?.scenario_gates ?? []],
+                  ['Security and privacy', launchReadiness?.security_privacy_gates ?? []],
+                ].map(([label, gates]) => (
+                  <div key={label as string} className="rounded-[var(--radius-sm)] bg-[color:var(--color-bg-muted)] p-[var(--space-3)]">
+                    <p className="mb-[var(--space-2)] text-[length:var(--type-caption-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">{label as string}</p>
+                    <div className="flex flex-wrap gap-[var(--space-2)]">
+                      {(gates as Array<{ name: string; status: 'pass' | 'watch' | 'block' }>).map((gate) => (
+                        <Badge key={gate.name} variant={gate.status === 'pass' ? 'success' : gate.status === 'block' ? 'danger' : 'warning'} shape="pill">
+                          {titleCase(gate.name)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {launchReadiness && launchReadiness.blockers.length > 0 ? (
+                  <div className="rounded-[var(--radius-sm)] border border-[color:var(--color-danger)] p-[var(--space-3)]">
+                    <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-semibold)] text-[color:var(--color-danger)]">Blocking launch items</p>
+                    <ul className="mt-[var(--space-2)] list-disc pl-[var(--space-4)] text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                      {launchReadiness.blockers.slice(0, 4).map((blocker) => <li key={blocker}>{blocker}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader className="flex-col gap-[var(--space-3)] lg:flex-row lg:items-end lg:justify-between">
