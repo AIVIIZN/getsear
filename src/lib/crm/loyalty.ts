@@ -35,6 +35,9 @@ type LoyaltyReward = {
   program_id: string
   points_cost: number
   value_cents: number
+  reward_type: string
+  percent_off: number | string | null
+  requires_manager_override: boolean
   status: string
 }
 
@@ -221,6 +224,7 @@ export async function redeemReward(input: {
   account: LoyaltyAccount
   rewardId: string
   orderId?: string | null
+  discountCents?: number
   status: 'reserved' | 'applied' | 'voided' | 'expired'
   explanation: string
   metadata: Record<string, unknown>
@@ -229,7 +233,7 @@ export async function redeemReward(input: {
   const { db, user, account } = input
   const { data: reward, error: rewardError } = await db
     .from('crm_rewards')
-    .select('id, org_id, program_id, points_cost, value_cents, status')
+    .select('id, org_id, program_id, points_cost, value_cents, reward_type, percent_off, requires_manager_override, status')
     .eq('id', input.rewardId)
     .eq('org_id', user.org_id)
     .eq('program_id', account.program_id)
@@ -271,7 +275,7 @@ export async function redeemReward(input: {
       order_id: input.orderId ?? null,
       status: input.status,
       points_spent: typedReward.points_cost,
-      discount_cents: typedReward.value_cents,
+      discount_cents: input.discountCents ?? typedReward.value_cents,
       applied_at: input.status === 'applied' ? new Date().toISOString() : null,
       created_by: user.id,
       metadata: input.metadata,

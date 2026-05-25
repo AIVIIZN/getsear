@@ -191,6 +191,11 @@ export function renderReceiptEmail(data: ReceiptData): { subject: string; html: 
           ${data.loyaltyQrUrl ? `<img src="${data.loyaltyQrUrl}" alt="Loyalty signup QR code" width="96" height="96" style="display:block;margin:0 auto 10px;border:0;">` : ''}
           <a href="${data.loyaltySignupUrl}" style="color:${BRAND_COLOR};font-size:14px;font-weight:600;text-decoration:none;">Sign up for rewards</a>
         </div>
+      ` : data.rewardProgressLabel ? `
+        <div style="margin-top:20px;padding:16px;background:#F5F3F0;border-radius:10px;text-align:center;">
+          <p style="margin:0 0 8px;color:${TEXT_COLOR};font-size:15px;font-weight:600;">Rewards progress</p>
+          <p style="margin:0;color:${MUTED_COLOR};font-size:13px;">${data.rewardProgressLabel}</p>
+        </div>
       ` : ''}
     `)}
     <div style="border-radius:0 0 12px 12px;overflow:hidden;">

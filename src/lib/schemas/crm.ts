@@ -422,9 +422,31 @@ export const redeemCrmRewardSchema = z.object({
   reward_id: z.string().uuid(),
   order_id: z.string().uuid().optional().nullable(),
   status: crmRewardRedemptionStatusSchema.default('reserved'),
+  manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only').optional(),
   explanation: z.string().trim().min(1).max(500).default('Reward redeemed at checkout'),
   metadata: metadataSchema,
 })
+
+export const crmCheckoutLoyaltyQuerySchema = z.object({
+  guest_id: z.string().uuid().optional(),
+  order_id: z.string().uuid().optional(),
+})
+
+export const crmCheckoutLoyaltyActionSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('enroll'),
+    guest_id: z.string().uuid(),
+    order_id: z.string().uuid().optional().nullable(),
+    program_id: z.string().uuid().optional().nullable(),
+  }),
+  z.object({
+    action: z.literal('redeem'),
+    account_id: z.string().uuid(),
+    reward_id: z.string().uuid(),
+    order_id: z.string().uuid(),
+    manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only').optional(),
+  }),
+])
 
 export const listCrmLedgerQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
