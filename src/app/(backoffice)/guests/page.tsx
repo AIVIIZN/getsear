@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CalendarDays,
   Clock3,
+  GitMerge,
   Mail,
   NotebookTabs,
   Phone,
@@ -15,6 +16,7 @@ import {
   Sparkles,
   Star,
   UserRound,
+  UsersRound,
 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -53,6 +55,18 @@ type Note = { id: string; note_category: string; body: string; visibility: strin
 type TimelineEvent = { id: string; event_at: string; event_type: string; title: string; body?: string | null; visibility: string }
 type OrderRecord = { id: string; order_number: string; status: string; order_type: string; total: string; item_count: number; created_at: string; closed_at: string | null }
 type UserProfile = { role: string }
+type IdentityCandidate = {
+  id: string
+  primary_guest_id: string
+  candidate_guest_id: string
+  confidence: number
+  confidence_level: string
+  signals: string[]
+  evidence?: { items?: Array<{ signal: string; label: string; detail: string; weight: number }> }
+  primary_guest?: CandidateGuest | null
+  candidate_guest?: CandidateGuest | null
+}
+type CandidateGuest = { id: string; display_name: string; lifecycle_stage: string; total_visits?: number | null; total_spend?: string | number | null }
 
 const createGuestSchema = z.object({
   display_name: z.string().trim().min(1, "Name is required").max(240),
@@ -108,9 +122,13 @@ export default function GuestsPage() {
   const [selectedGuest, setSelectedGuest] = React.useState<Guest | null>(null)
   const [timeline, setTimeline] = React.useState<TimelineEvent[]>([])
   const [orders, setOrders] = React.useState<OrderRecord[]>([])
+  const [identityCandidates, setIdentityCandidates] = React.useState<IdentityCandidate[]>([])
   const [activeTab, setActiveTab] = React.useState<TabId>("overview")
   const [listState, setListState] = React.useState<"loading" | "ready" | "error">("loading")
   const [detailState, setDetailState] = React.useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [identityState, setIdentityState] = React.useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [identityBusyId, setIdentityBusyId] = React.useState<string | null>(null)
+  const [identityError, setIdentityError] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<UserProfile | null>(null)
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
@@ -143,20 +161,57 @@ export default function GuestsPage() {
       setSelectedGuest(null)
       setTimeline([])
       setOrders([])
+      setIdentityCandidates([])
       return
     }
     setDetailState("loading")
+    setIdentityState("loading")
     Promise.all([
       fetchJson<{ data: Guest }>(`/api/crm/guests/${selectedId}`),
       fetchJson<{ data: TimelineEvent[] }>(`/api/crm/guests/${selectedId}/timeline?limit=25`),
       fetchJson<{ data: OrderRecord[] }>(`/api/crm/guests/${selectedId}/orders?limit=10`),
-    ]).then(([guestJson, timelineJson, ordersJson]) => {
+      fetchJson<{ data: IdentityCandidate[] }>(`/api/crm/identity/candidates?guest_id=${selectedId}&limit=8`),
+    ]).then(([guestJson, timelineJson, ordersJson, identityJson]) => {
       setSelectedGuest(guestJson.data)
       setTimeline(timelineJson.data)
       setOrders(ordersJson.data)
+      setIdentityCandidates(identityJson.data)
       setDetailState("ready")
-    }).catch(() => setDetailState("error"))
+      setIdentityState("ready")
+    }).catch(() => {
+      setDetailState("error")
+      setIdentityState("error")
+    })
   }, [selectedId])
+
+  async function resolveIdentity(candidate: IdentityCandidate, action: "merge" | "dismiss" | "keep_separate" | "mark_household") {
+    if (!selectedGuest) return
+    setIdentityBusyId(candidate.id)
+    setIdentityError(null)
+    const primaryId = candidate.primary_guest_id === selectedGuest.id ? candidate.primary_guest_id : selectedGuest.id
+    const secondaryId = candidate.primary_guest_id === selectedGuest.id ? candidate.candidate_guest_id : candidate.primary_guest_id
+    const url = action === "merge"
+      ? "/api/crm/identity/merge"
+      : action === "mark_household"
+        ? "/api/crm/identity/household"
+        : "/api/crm/identity/dismiss"
+    const body = action === "merge"
+      ? { candidate_id: candidate.id, primary_guest_id: primaryId, secondary_guest_id: secondaryId, reason: "Reviewed in Guest 360 identity resolution" }
+      : action === "mark_household"
+        ? { candidate_id: candidate.id, primary_guest_id: primaryId, secondary_guest_id: secondaryId, reason: "Reviewed in Guest 360 identity resolution" }
+        : { candidate_id: candidate.id, decision_type: action, reason: "Reviewed in Guest 360 identity resolution" }
+    try {
+      await fetchJson(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      const json = await fetchJson<{ data: IdentityCandidate[] }>(`/api/crm/identity/candidates?guest_id=${selectedGuest.id}&generate=false&limit=8`)
+      setIdentityCandidates(json.data)
+      const guestJson = await fetchJson<{ data: Guest }>(`/api/crm/guests/${selectedGuest.id}`)
+      setSelectedGuest(guestJson.data)
+    } catch (error) {
+      setIdentityError(error instanceof Error ? error.message : "Identity decision failed")
+    } finally {
+      setIdentityBusyId(null)
+    }
+  }
 
   async function createGuest(input: CreateGuestInput) {
     setCreateError(null)
@@ -242,7 +297,7 @@ export default function GuestsPage() {
                 ))}
               </nav>
               <section className="min-h-0 flex-1 overflow-y-auto p-[var(--space-4)]">
-                <TabContent tab={activeTab} guest={selectedGuest} timeline={timeline} orders={orders} isOwnerMode={isOwnerMode} noteDraft={noteDraft} setNoteDraft={setNoteDraft} savingNote={savingNote} addNote={addNote} />
+                <TabContent tab={activeTab} guest={selectedGuest} timeline={timeline} orders={orders} isOwnerMode={isOwnerMode} noteDraft={noteDraft} setNoteDraft={setNoteDraft} savingNote={savingNote} addNote={addNote} identityCandidates={identityCandidates} identityState={identityState} identityBusyId={identityBusyId} identityError={identityError} resolveIdentity={resolveIdentity} />
               </section>
             </div>
           ) : null}
@@ -302,14 +357,54 @@ function ProfileHeader({ guest, isOwnerMode }: { guest: Guest; isOwnerMode: bool
   )
 }
 
-function TabContent(props: { tab: TabId; guest: Guest; timeline: TimelineEvent[]; orders: OrderRecord[]; isOwnerMode: boolean; noteDraft: string; setNoteDraft: (value: string) => void; savingNote: boolean; addNote: () => void }) {
+function TabContent(props: { tab: TabId; guest: Guest; timeline: TimelineEvent[]; orders: OrderRecord[]; isOwnerMode: boolean; noteDraft: string; setNoteDraft: (value: string) => void; savingNote: boolean; addNote: () => void; identityCandidates: IdentityCandidate[]; identityState: "idle" | "loading" | "ready" | "error"; identityBusyId: string | null; identityError: string | null; resolveIdentity: (candidate: IdentityCandidate, action: "merge" | "dismiss" | "keep_separate" | "mark_household") => Promise<void> }) {
   const { tab, guest, timeline, orders, isOwnerMode } = props
   if (tab === "overview") return <Overview guest={guest} timeline={timeline} isOwnerMode={isOwnerMode} />
   if (tab === "orders") return <Orders orders={orders} />
   if (tab === "visits") return <Timeline events={timeline.filter((event) => event.event_type.includes("visit") || event.event_type.includes("order"))} emptyTitle="No visit timeline yet" />
   if (tab === "notes") return <Notes guest={guest} noteDraft={props.noteDraft} setNoteDraft={props.setNoteDraft} savingNote={props.savingNote} addNote={props.addNote} />
+  if (tab === "household") return <IdentityResolution candidates={props.identityCandidates} state={props.identityState} busyId={props.identityBusyId} error={props.identityError} resolveIdentity={props.resolveIdentity} />
   if (tab === "consent") return <DataConsent guest={guest} />
   return <InlineState icon={NotebookTabs} title={`${tabs.find((item) => item.id === tab)?.label} has no records yet`} body="This tab will populate from linked restaurant activity as the guest profile accumulates data." />
+}
+
+function IdentityResolution({ candidates, state, busyId, error, resolveIdentity }: { candidates: IdentityCandidate[]; state: "idle" | "loading" | "ready" | "error"; busyId: string | null; error: string | null; resolveIdentity: (candidate: IdentityCandidate, action: "merge" | "dismiss" | "keep_separate" | "mark_household") => Promise<void> }) {
+  if (state === "loading") return <div className="space-y-[var(--space-3)]"><Skeleton variant="card" className="h-[148px]" /><Skeleton variant="card" className="h-[148px]" /></div>
+  if (state === "error") return <InlineState icon={AlertTriangle} title="Identity review unavailable" body="Duplicate evidence could not be loaded for this guest." />
+  if (!candidates.length) return <InlineState icon={UsersRound} title="No duplicate candidates" body="Verified contact, loyalty, account, payment, reservation, and name-plus-contact signals are clean for this profile." />
+
+  return (
+    <div className="space-y-[var(--space-3)]">
+      {error ? <p className="rounded-[var(--radius-sm)] bg-[var(--color-danger-bg)] p-[var(--space-3)] text-[length:var(--type-footnote-size)] text-[var(--color-danger)]">{error}</p> : null}
+      {candidates.map((candidate) => {
+        const otherGuest = candidate.candidate_guest ?? candidate.primary_guest
+        const weak = candidate.confidence < 75
+        return (
+          <section key={candidate.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-[var(--space-4)]">
+            <div className="flex flex-wrap items-start justify-between gap-[var(--space-3)]">
+              <div>
+                <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+                  <GitMerge className="h-4 w-4 text-[var(--color-text-muted)]" />
+                  <h3 className="text-[length:var(--type-callout-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">{otherGuest?.display_name ?? "Guest candidate"}</h3>
+                  <Badge variant={weak ? "warning" : "info"}>{candidate.confidence}% match</Badge>
+                </div>
+                <p className="mt-[var(--space-1)] text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">{weak ? "Suggestion only - weak matches never auto-merge." : "Review evidence before changing either profile."}</p>
+              </div>
+              <div className="flex flex-wrap gap-[var(--space-2)]">
+                <Button size="sm" disabled={weak || busyId === candidate.id} loading={busyId === candidate.id} onClick={() => resolveIdentity(candidate, "merge")}>Merge</Button>
+                <Button size="sm" variant="secondary" disabled={busyId === candidate.id} onClick={() => resolveIdentity(candidate, "mark_household")}>Household</Button>
+                <Button size="sm" variant="secondary" disabled={busyId === candidate.id} onClick={() => resolveIdentity(candidate, "keep_separate")}>Separate</Button>
+                <Button size="sm" variant="ghost" disabled={busyId === candidate.id} onClick={() => resolveIdentity(candidate, "dismiss")}>Dismiss</Button>
+              </div>
+            </div>
+            <div className="mt-[var(--space-3)] divide-y divide-[var(--color-border)]">
+              {(candidate.evidence?.items ?? []).map((item) => <Row key={`${candidate.id}-${item.signal}-${item.detail}`} title={item.label} body={`${item.detail} Weight ${item.weight}`} />)}
+            </div>
+          </section>
+        )
+      })}
+    </div>
+  )
 }
 
 function Overview({ guest, timeline, isOwnerMode }: { guest: Guest; timeline: TimelineEvent[]; isOwnerMode: boolean }) {

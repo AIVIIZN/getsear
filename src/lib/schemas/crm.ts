@@ -81,6 +81,40 @@ const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
+export const guestMergeConfidenceLevelSchema = z.enum(['100', '90', '75', '50', 'below_50'])
+export const guestMergeCandidateStatusSchema = z.enum(['pending', 'merged', 'dismissed', 'kept_separate', 'household'])
+export const guestMergeDecisionTypeSchema = z.enum(['merge', 'dismiss', 'keep_separate', 'mark_household'])
+export const guestRelationshipTypeSchema = z.enum(['household', 'spouse', 'partner', 'parent', 'child', 'sibling', 'caregiver', 'friend', 'other'])
+
+export const listGuestMergeCandidatesQuerySchema = z.object({
+  guest_id: z.string().uuid().optional(),
+  status: guestMergeCandidateStatusSchema.default('pending'),
+  generate: z.coerce.boolean().default(true),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+})
+
+export const mergeGuestCandidateSchema = z.object({
+  candidate_id: z.string().uuid().optional(),
+  primary_guest_id: z.string().uuid(),
+  secondary_guest_id: z.string().uuid(),
+  reason: z.string().trim().max(500).optional().nullable(),
+})
+
+export const resolveGuestCandidateSchema = z.object({
+  candidate_id: z.string().uuid(),
+  decision_type: z.enum(['dismiss', 'keep_separate']),
+  reason: z.string().trim().max(500).optional().nullable(),
+})
+
+export const markGuestHouseholdSchema = z.object({
+  candidate_id: z.string().uuid().optional(),
+  primary_guest_id: z.string().uuid(),
+  secondary_guest_id: z.string().uuid(),
+  household_name: z.string().trim().min(1).max(160).optional(),
+  relationship_type: guestRelationshipTypeSchema.default('household'),
+  reason: z.string().trim().max(500).optional().nullable(),
+})
+
 export const createGuestSchema = z.object({
   location_id: optionalUuidSchema,
   legacy_customer_id: optionalUuidSchema,
