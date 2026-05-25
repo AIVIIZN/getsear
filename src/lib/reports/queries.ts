@@ -1454,6 +1454,34 @@ export async function getPnLData(
   nextMonth.setMonth(nextMonth.getMonth() + 1)
   const dateTo = nextMonth.toISOString().split('T')[0]
 
+  const getActualLaborCost = async (): Promise<number> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let laborQuery = (supabase.from('time_entries') as any)
+      .select('clock_in, clock_out, hourly_rate, total_pay')
+      .eq('org_id', orgId)
+      .gte('clock_in', `${dateFrom}T00:00:00Z`)
+      .lt('clock_in', `${dateTo}T00:00:00Z`)
+
+    if (locationId) laborQuery = laborQuery.eq('location_id', locationId)
+    const { data: laborData } = await laborQuery
+
+    return (laborData ?? []).reduce((sum: number, entry: {
+      clock_in: string
+      clock_out: string | null
+      hourly_rate: number | string | null
+      total_pay: number | string | null
+    }) => {
+      const storedPay = toNumber(entry.total_pay)
+      if (storedPay > 0) return sum + storedPay
+      if (!entry.clock_out) return sum
+
+      const clockIn = new Date(entry.clock_in)
+      const clockOut = new Date(entry.clock_out)
+      const hoursWorked = Math.max(0, (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60))
+      return sum + (hoursWorked * toNumber(entry.hourly_rate))
+    }, 0)
+  }
+
   // Get daily_metrics for the month
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('daily_metrics') as any)
@@ -1501,17 +1529,7 @@ export async function getPnLData(
     const { data: payments } = await paymentsQuery
     refundTotal = (payments ?? []).reduce((s: number, p: { refund_amount: number | null }) => s + toNumber(p.refund_amount), 0)
 
-    // Get labor cost
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let laborQuery = (supabase.from('time_entries') as any)
-      .select('total_pay')
-      .eq('org_id', orgId)
-      .gte('clock_in', `${dateFrom}T00:00:00Z`)
-      .lt('clock_in', `${dateTo}T00:00:00Z`)
-
-    if (locationId) laborQuery = laborQuery.eq('location_id', locationId)
-    const { data: laborData } = await laborQuery
-    const laborCost = (laborData ?? []).reduce((s: number, l: { total_pay: number }) => s + toNumber(l.total_pay), 0)
+    const laborCost = await getActualLaborCost()
 
     const revenueCost = await getRevenueCostBreakdown(orgId, dateFrom, dateTo, locationId)
     const netRevenue = totalRevenue - refundTotal
@@ -1550,6 +1568,10 @@ export async function getPnLData(
     foodCost += toNumber(row.food_cost)
     laborCost += toNumber(row.labor_cost)
     refundTotal += toNumber(row.refund_total)
+  }
+  const actualLaborCost = await getActualLaborCost()
+  if (actualLaborCost > 0) {
+    laborCost = actualLaborCost
   }
 
   const revenueCost = await getRevenueCostBreakdown(orgId, dateFrom, dateTo, locationId)
