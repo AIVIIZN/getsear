@@ -38,6 +38,7 @@ type PlaywrightFixture = {
 export const DEMO_EMAIL = 'demo@getsear.com'
 export const DEMO_PASSWORD = 'demo1234'
 export const PROD_BASE_URL = 'https://getsear.com'
+export const E2E_BASE_URL = process.env.E2E_BASE_URL ?? PROD_BASE_URL
 
 /**
  * Verified against prod 2026-05-03 via /api/auth/verify-manager-pin:
@@ -69,7 +70,7 @@ export async function newAuthedRequest(
   playwright: PlaywrightFixture
 ): Promise<AuthedContext> {
   const request = await playwright.request.newContext({
-    baseURL: PROD_BASE_URL,
+    baseURL: E2E_BASE_URL,
     ignoreHTTPSErrors: true,
   })
   const loginRes = await request.post('/api/auth/login', {

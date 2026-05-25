@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
     card_last_four: authResult.card_last_four,
     card_brand: authResult.card_brand,
     auth_code: authResult.auth_code,
-    reference_number: authResult.auth_code,
     processor_transaction_id: authResult.transaction_id,
     processor_response: {
       type: 'preauth',

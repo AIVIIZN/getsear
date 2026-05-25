@@ -107,16 +107,17 @@ export async function POST(
   // Update order balance
   const orderId = paymentData.order_id as string
   const { data: order } = await (supabase.from('orders') as ReturnType<typeof supabase.from>)
-    .select('amount_paid, balance_due, total_cents')
+    .select('amount_paid, balance_due, total')
     .eq('id', orderId)
+    .eq('org_id', user.org_id)
     .single()
 
   if (order) {
     const orderData = order as Record<string, unknown>
     const currentPaid = Math.round(parseFloat((orderData.amount_paid as string) ?? '0') * 100)
     const newPaid = currentPaid + totalCapture
-    const totalCents = (orderData.total_cents as number) ?? 0
-    const newBalance = Math.max(0, totalCents - newPaid)
+    const existingBalance = Math.round(parseFloat(String(orderData.balance_due ?? orderData.total ?? '0')) * 100)
+    const newBalance = Math.max(0, existingBalance - totalCapture)
 
     await (supabase.from('orders') as ReturnType<typeof supabase.from>)
       .update({
@@ -125,6 +126,7 @@ export async function POST(
         status: newBalance <= 0 ? 'closed' : 'open',
       })
       .eq('id', orderId)
+      .eq('org_id', user.org_id)
   }
 
   return NextResponse.json({
