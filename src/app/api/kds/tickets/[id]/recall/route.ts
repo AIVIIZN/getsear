@@ -79,7 +79,7 @@ export async function POST(
     order_id: orderId,
     order_item_id: itemId,
     event_type: 'recalled',
-    data: { performed_by: user.id },
+    performed_by: user.id,
     created_at: now,
   }))
 
@@ -97,12 +97,14 @@ export async function POST(
     await (supabase.from('order_items') as any)
       .update({ is_ready: false, ready_at: null })
       .in('id', itemIds)
+      .eq('org_id', user.org_id)
 
     // Reset order status from 'ready' back to 'in_progress'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('orders') as any)
       .update({ status: 'in_progress' })
       .eq('id', orderId)
+      .eq('org_id', user.org_id)
       .eq('status', 'ready')
   }
 
