@@ -122,6 +122,7 @@ export type AuditAction =
   | 'crm_campaign_test_sent'
   | 'crm_campaign_attribution_recorded'
   | 'crm_automation_created'
+  | 'crm_automation_paused'
   | 'crm_automation_run_started'
   | 'crm_survey_created'
   | 'crm_feedback_created'
