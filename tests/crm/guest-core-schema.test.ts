@@ -3,24 +3,33 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import {
+  createCrmLoyaltyAccountSchema,
+  createCrmLoyaltyProgramSchema,
+  createCrmRewardSchema,
   createCrmTagSchema,
   createGuestContactPointSchema,
   createGuestNoteSchema,
   createGuestSchema,
+  earnCrmLoyaltyPointsSchema,
   guestLifecycleStageSchema,
   guestNoteCategorySchema,
+  redeemCrmRewardSchema,
 } from '@/lib/schemas/crm'
 
 const root = process.cwd()
 const migrationPath = path.join(root, 'supabase', 'migrations', '20260525113405_add_crm_guest_core_schema.sql')
 const visibilityMigrationPath = path.join(root, 'supabase', 'migrations', '20260525114831_tighten_crm_guest_note_visibility.sql')
+const loyaltyMigrationPath = path.join(root, 'supabase', 'migrations', '20260525151827_add_crm_loyalty_engine.sql')
 const rollbackPath = path.join(root, 'supabase', '_rollbacks', '20260525113405_add_crm_guest_core_schema.rollback.sql')
 const visibilityRollbackPath = path.join(root, 'supabase', '_rollbacks', '20260525114831_tighten_crm_guest_note_visibility.rollback.sql')
+const loyaltyRollbackPath = path.join(root, 'supabase', '_rollbacks', '20260525151827_add_crm_loyalty_engine.rollback.sql')
 
 const migrationSql = readFileSync(migrationPath, 'utf8')
 const visibilityMigrationSql = readFileSync(visibilityMigrationPath, 'utf8')
+const loyaltyMigrationSql = readFileSync(loyaltyMigrationPath, 'utf8')
 const rollbackSql = readFileSync(rollbackPath, 'utf8')
 const visibilityRollbackSql = readFileSync(visibilityRollbackPath, 'utf8')
+const loyaltyRollbackSql = readFileSync(loyaltyRollbackPath, 'utf8')
 
 const crmGuestTables = [
   'guests',
@@ -32,6 +41,17 @@ const crmGuestTables = [
   'crm_tags',
   'guest_tags',
   'guest_timeline_events',
+]
+
+const crmLoyaltyTables = [
+  'crm_loyalty_programs',
+  'crm_loyalty_rules',
+  'crm_loyalty_accounts',
+  'crm_points_ledger',
+  'crm_rewards',
+  'crm_reward_redemptions',
+  'crm_loyalty_tiers',
+  'crm_tier_benefits',
 ]
 
 describe('CRM-V1.1 guest core schema', () => {
@@ -118,5 +138,48 @@ describe('CRM-V1.1 guest core schema', () => {
       slug: 'vip',
       tag_category: 'lifecycle',
     }).tag_category).toBe('lifecycle')
+  })
+
+  it('creates every CRM loyalty table with tenant scope, immutable ledger, and rollback coverage', () => {
+    for (const table of crmLoyaltyTables) {
+      expect(loyaltyMigrationSql).toContain(`CREATE TABLE IF NOT EXISTS public.${table}`)
+      expect(loyaltyMigrationSql).toMatch(new RegExp(`CREATE TABLE IF NOT EXISTS public\\.${table}[\\s\\S]*?org_id uuid NOT NULL REFERENCES public\\.organizations\\(id\\) ON DELETE CASCADE`))
+      expect(loyaltyMigrationSql).toContain(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`)
+      expect(loyaltyMigrationSql).toContain(`CREATE POLICY "tenant_select" ON public.${table}`)
+      expect(loyaltyRollbackSql).toContain(`DROP TABLE IF EXISTS public.${table}`)
+    }
+
+    expect(loyaltyMigrationSql).toContain('CREATE TRIGGER prevent_crm_points_ledger_update')
+    expect(loyaltyMigrationSql).toContain('CREATE TRIGGER prevent_crm_points_ledger_delete')
+    expect(loyaltyMigrationSql).toContain("RAISE EXCEPTION 'crm_points_ledger is immutable'")
+    expect(loyaltyMigrationSql).not.toMatch(/WITH CHECK \(true\)/i)
+    expect(loyaltyMigrationSql).not.toMatch(/USING \(true\)/i)
+  })
+
+  it('exports Zod schemas for CRM loyalty programs, rewards, earn, and redemption boundaries', () => {
+    const program = createCrmLoyaltyProgramSchema.parse({
+      name: 'GuestBrain Rewards',
+      program_type: 'tiered',
+      points_per_dollar: 2,
+      points_per_visit: 5,
+      rules: [{ rule_type: 'birthday', name: 'Birthday bonus', points: 100 }],
+      tiers: [{ name: 'VIP', rank: 2, threshold_points: 1000, benefits: [{ benefit_type: 'vip_service', name: 'Priority seating' }] }],
+    })
+
+    expect(program.status).toBe('active')
+    expect(program.rules[0].rule_type).toBe('birthday')
+    expect(program.tiers[0].benefits[0].benefit_type).toBe('vip_service')
+    expect(createCrmLoyaltyAccountSchema.parse({
+      program_id: '11111111-1111-4111-8111-111111111111',
+      guest_id: '22222222-2222-4222-8222-222222222222',
+    }).metadata).toEqual({})
+    expect(createCrmRewardSchema.parse({
+      program_id: '11111111-1111-4111-8111-111111111111',
+      name: '$5 off',
+      points_cost: 100,
+      value_cents: 500,
+    }).reward_type).toBe('discount_amount')
+    expect(earnCrmLoyaltyPointsSchema.parse({ order_id: '33333333-3333-4333-8333-333333333333', amount_cents: 2500 }).event_type).toBe('earn')
+    expect(redeemCrmRewardSchema.parse({ reward_id: '44444444-4444-4444-8444-444444444444' }).status).toBe('reserved')
   })
 })
