@@ -118,8 +118,8 @@ function AccountingPage() {
   const [mappings, setMappings] = useState<AccountMappings>({});
 
   useEffect(() => {
-    const success = searchParams.get("success");
-    const error = searchParams.get("error");
+    const success = searchParams?.get("success");
+    const error = searchParams?.get("error");
     if (success) {
       toast.success(success);
       window.history.replaceState({}, "", "/settings/accounting");

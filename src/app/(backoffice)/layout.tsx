@@ -16,7 +16,7 @@ export default function BackofficeLayout({
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.actions.setSidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.actions.toggleSidebar);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const reduced = useReducedMotion();
 
   // Backoffice defaults to expanded sidebar
