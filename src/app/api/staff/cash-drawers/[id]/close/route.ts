@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Get drawer
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: drawer } = await (supabase.from('cash_drawers') as any)
-    .select('id, status, expected_cash')
+    .select('id, is_open, expected_cash')
     .eq('id', id)
     .eq('org_id', user.org_id)
     .single()
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Cash drawer not found' }, { status: 404 })
   }
 
-  if (drawer.status !== 'open') {
+  if (!drawer.is_open) {
     return NextResponse.json({ error: 'Drawer is not open' }, { status: 409 })
   }
 
@@ -69,10 +69,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error } = await (supabase.from('cash_drawers') as any)
     .update({
-      status: 'closed',
+      is_open: false,
       actual_cash: parsed.data.actual_cash,
       over_short: overShortDecimal,
       closed_at: now,
+      closed_by: user.id,
       updated_at: now,
     })
     .eq('id', id)

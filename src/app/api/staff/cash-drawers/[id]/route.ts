@@ -5,6 +5,14 @@ import { getAuthUser, requireRole } from '@/lib/api/auth'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
+function serializeDrawer<T extends { is_open?: boolean; opened_by?: string | null }>(drawer: T) {
+  return {
+    ...drawer,
+    status: drawer.is_open ? 'open' : 'closed',
+    assigned_to: drawer.opened_by ?? null,
+  }
+}
+
 /**
  * GET /api/staff/cash-drawers/[id] — get drawer detail
  */
@@ -29,7 +37,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Cash drawer not found' }, { status: 404 })
   }
 
-  return NextResponse.json({ data: drawer })
+  return NextResponse.json({ data: serializeDrawer(drawer) })
 }
 
 const updateSchema = z.object({
@@ -78,5 +86,5 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to update cash drawer' }, { status: 500 })
   }
 
-  return NextResponse.json({ data })
+  return NextResponse.json({ data: serializeDrawer(data) })
 }

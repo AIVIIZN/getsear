@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
       tax_total: d.tax_total,
       tips: d.tip_total,
       tip_total: d.tip_total,
+      food_revenue: d.food_revenue,
+      beverage_revenue: d.beverage_revenue,
       labor_pct: 0,
       labor_percentage: 0,
       by_order_type: d.by_order_type,
