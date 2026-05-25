@@ -33,10 +33,12 @@ export async function GET(request: NextRequest) {
   const { date_from, date_to, group_by } = parsed.data
   const supabase = createAdminClient()
 
-  // Query table_history for turn time data
+  // Query table_history for turn time data. Fetch related names separately:
+  // production PostgREST relationship aliases have drifted before, and turn
+  // coaching should not 500 because an embed cannot be resolved.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('table_history') as any)
-    .select('id, table_id, server_id, seated_at, cleared_at, guest_count, tables(name), users(first_name, last_name)')
+    .select('id, table_id, server_id, seated_at, cleared_at, guest_count')
     .eq('org_id', user.org_id)
     .gte('seated_at', `${date_from}T00:00:00Z`)
     .lte('seated_at', `${date_to}T23:59:59Z`)
@@ -63,10 +65,49 @@ export async function GET(request: NextRequest) {
     })
   }
 
+  const rows = records as Array<{
+    id: string
+    table_id: string | null
+    server_id: string | null
+    seated_at: string
+    cleared_at: string
+    guest_count: number | null
+  }>
+
+  const tableIds = [...new Set(rows.map((record) => record.table_id).filter(Boolean))] as string[]
+  const serverIds = [...new Set(rows.map((record) => record.server_id).filter(Boolean))] as string[]
+
+  const tableMap = new Map<string, string>()
+  if (tableIds.length > 0) {
+    const { data: tables } = await supabase.from('tables')
+      .select('id, name')
+      .eq('org_id', user.org_id)
+      .in('id', tableIds)
+
+    for (const table of tables ?? []) {
+      tableMap.set(table.id, table.name)
+    }
+  }
+
+  const serverMap = new Map<string, string>()
+  if (serverIds.length > 0) {
+    const { data: users } = await supabase.from('users')
+      .select('id, first_name, last_name, display_name')
+      .eq('org_id', user.org_id)
+      .in('id', serverIds)
+
+    for (const server of users ?? []) {
+      serverMap.set(
+        server.id,
+        server.display_name || `${server.first_name ?? ''} ${server.last_name ?? ''}`.trim() || 'Unknown',
+      )
+    }
+  }
+
   // Calculate turn times
-  const turnTimes = records.map((r: Record<string, unknown>) => {
-    const seatedAt = new Date(r.seated_at as string)
-    const clearedAt = new Date(r.cleared_at as string)
+  const turnTimes = rows.map((r) => {
+    const seatedAt = new Date(r.seated_at)
+    const clearedAt = new Date(r.cleared_at)
     const turnMinutes = Math.round((clearedAt.getTime() - seatedAt.getTime()) / 60000)
     const hour = seatedAt.getHours()
     let daypart = 'dinner'
@@ -76,18 +117,18 @@ export async function GET(request: NextRequest) {
     else if (hour >= 21) daypart = 'late_night'
 
     const dayOfWeek = seatedAt.toLocaleDateString('en-US', { weekday: 'long' })
-    const table = r.tables as Record<string, unknown> | null
-    const server = r.users as Record<string, unknown> | null
+    const tableName = r.table_id ? (tableMap.get(r.table_id) ?? 'Unknown') : 'Unknown'
+    const serverName = r.server_id ? (serverMap.get(r.server_id) ?? 'Unknown') : 'Unknown'
 
     return {
       turn_minutes: turnMinutes,
       daypart,
       day_of_week: dayOfWeek,
-      table_name: table?.name ?? 'Unknown',
-      table_id: r.table_id as string,
-      server_id: r.server_id as string,
-      server_name: server ? `${server.first_name ?? ''} ${server.last_name ?? ''}`.trim() : 'Unknown',
-      guest_count: r.guest_count as number,
+      table_name: tableName,
+      table_id: r.table_id,
+      server_id: r.server_id,
+      server_name: serverName,
+      guest_count: r.guest_count ?? 0,
     }
   })
 
