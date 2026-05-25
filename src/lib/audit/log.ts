@@ -123,6 +123,9 @@ export type AuditAction =
   | 'crm_negative_feedback_routed'
   | 'crm_review_imported'
   | 'crm_negative_review_routed'
+  | 'crm_recovery_case_created'
+  | 'crm_recovery_action_logged'
+  | 'crm_recovery_case_resolved'
   // Tenant admin
   | 'audit_log_exported'
   | 'org_settings_changed'
@@ -158,6 +161,7 @@ export type EntityType =
   | 'crm_survey_response'
   | 'crm_review'
   | 'crm_complaint'
+  | 'crm_recovery_case'
   | 'organization'
   | 'terminal'
   | 'audit_log'

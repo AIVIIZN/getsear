@@ -146,6 +146,13 @@ export const crmFeedbackTopicSchema = z.enum([
   'delivery',
   'staff_compliment',
 ])
+export const crmRecoverySourceTypeSchema = z.enum(['low_score', 'bad_review', 'refund', 'comp', 'void', 'long_wait', 'manager_note', 'complaint_tag', 'churn_after_issue', 'manual'])
+export const crmRecoverySeveritySchema = z.enum(['low', 'medium', 'high', 'critical'])
+export const crmRecoveryStatusSchema = z.enum(['new', 'assigned', 'in_progress', 'waiting_for_guest', 'resolved', 'closed', 'escalated'])
+export const crmRecoveryActionTypeSchema = z.enum(['assign', 'status_change', 'manager_note', 'guest_message', 'refund', 'comp', 'void', 'coupon', 'call', 'email', 'sms', 'resolve', 'close', 'escalate'])
+export const crmRecoveryFollowupChannelSchema = z.enum(['manager_task', 'phone', 'email', 'sms', 'in_person'])
+export const crmRecoveryFollowupStatusSchema = z.enum(['scheduled', 'completed', 'missed', 'cancelled'])
+export const crmRecoveryFollowupOutcomeSchema = z.enum(['guest_contacted', 'guest_returned', 'no_response', 'needs_escalation', 'resolved_without_contact'])
 export const crmSurveyStatusSchema = z.enum(['draft', 'active', 'paused', 'archived'])
 export const crmSurveyTriggerEventSchema = z.enum([
   'post_visit',
@@ -227,6 +234,50 @@ export const listCrmReviewsQuerySchema = z.object({
   sentiment: crmFeedbackSentimentSchema.optional(),
   guest_id: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const createCrmRecoveryCaseSchema = z.object({
+  location_id: optionalUuidSchema,
+  guest_id: optionalUuidSchema,
+  order_id: optionalUuidSchema,
+  staff_user_id: optionalUuidSchema,
+  complaint_id: optionalUuidSchema,
+  source_type: crmRecoverySourceTypeSchema.default('manual'),
+  severity: crmRecoverySeveritySchema.default('medium'),
+  issue_summary: z.string().trim().min(1).max(500),
+  issue_detail: z.string().trim().max(4000).optional().nullable(),
+  topics: z.array(crmFeedbackTopicSchema).max(8).default([]),
+  assigned_manager_user_id: optionalUuidSchema,
+  deadline_at: z.string().datetime().optional().nullable(),
+  ai_summary: z.string().trim().max(2000).optional().nullable(),
+  recommended_action: z.string().trim().max(2000).optional().nullable(),
+  followup_due_at: z.string().datetime().optional().nullable(),
+  metadata: metadataSchema,
+})
+
+export const listCrmRecoveryQuerySchema = z.object({
+  status: crmRecoveryStatusSchema.optional(),
+  severity: crmRecoverySeveritySchema.optional(),
+  guest_id: z.string().uuid().optional(),
+  assigned_manager_user_id: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const createCrmRecoveryActionSchema = z.object({
+  action_type: crmRecoveryActionTypeSchema,
+  status_after: crmRecoveryStatusSchema.optional(),
+  assigned_manager_user_id: optionalUuidSchema,
+  note: z.string().trim().max(4000).optional().nullable(),
+  value_cents: z.number().int().min(0).default(0),
+  followup_due_at: z.string().datetime().optional().nullable(),
+  metadata: metadataSchema,
+})
+
+export const resolveCrmRecoveryCaseSchema = z.object({
+  resolution_summary: z.string().trim().min(1).max(4000),
+  followup_due_at: z.string().datetime().optional().nullable(),
+  recovered_order_id: optionalUuidSchema,
+  metadata: metadataSchema,
 })
 
 export const crmSegmentRuleSchema = z.object({
