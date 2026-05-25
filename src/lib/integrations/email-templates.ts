@@ -40,6 +40,10 @@ export interface ReceiptData {
   customerName?: string
   serverName?: string
   feedbackUrl?: string
+  loyaltySignupUrl?: string
+  loyaltyQrUrl?: string
+  rewardProgressLabel?: string
+  personalizedThankYou?: string
 }
 
 export interface DailyReportData {
@@ -154,6 +158,7 @@ export function renderReceiptEmail(data: ReceiptData): { subject: string; html: 
     ${header()}
     ${card(`
       <h2 style="margin:0 0 4px;color:${TEXT_COLOR};font-size:18px;font-weight:600;">Order #${data.orderNumber}</h2>
+      ${data.personalizedThankYou ? `<p style="color:${TEXT_COLOR};font-size:15px;margin:0 0 12px;">${data.personalizedThankYou}</p>` : ''}
       <p style="color:${MUTED_COLOR};font-size:13px;margin:0 0 20px;">${data.orderDate}${data.serverName ? ` &middot; Server: ${data.serverName}` : ''}</p>
 
       <table style="width:100%;border-collapse:collapse;">
@@ -176,6 +181,15 @@ export function renderReceiptEmail(data: ReceiptData): { subject: string; html: 
       ${data.feedbackUrl ? `
         <div style="text-align:center;margin-top:24px;">
           <a href="${data.feedbackUrl}" style="display:inline-block;padding:12px 32px;background:${BRAND_COLOR};color:white;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">How was your experience?</a>
+        </div>
+      ` : ''}
+
+      ${data.loyaltySignupUrl ? `
+        <div style="margin-top:20px;padding:16px;background:#F5F3F0;border-radius:10px;text-align:center;">
+          <p style="margin:0 0 8px;color:${TEXT_COLOR};font-size:15px;font-weight:600;">Join rewards</p>
+          ${data.rewardProgressLabel ? `<p style="margin:0 0 10px;color:${MUTED_COLOR};font-size:13px;">${data.rewardProgressLabel}</p>` : ''}
+          ${data.loyaltyQrUrl ? `<img src="${data.loyaltyQrUrl}" alt="Loyalty signup QR code" width="96" height="96" style="display:block;margin:0 auto 10px;border:0;">` : ''}
+          <a href="${data.loyaltySignupUrl}" style="color:${BRAND_COLOR};font-size:14px;font-weight:600;text-decoration:none;">Sign up for rewards</a>
         </div>
       ` : ''}
     `)}

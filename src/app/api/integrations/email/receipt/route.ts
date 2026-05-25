@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   const { data: order, error: orderError } = await supabase.from('orders')
     .select(`
       id, order_number, order_type, subtotal, tax_total, tip_total, total,
-      status, created_at, server_id, customer_id,
+      status, created_at, server_id, customer_id, metadata,
       location:locations(name, address_line1, city, state, zip)
     `)
     .eq('id', parsed.data.order_id)
@@ -126,6 +126,16 @@ export async function POST(request: NextRequest) {
     customerName,
     serverName,
     feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/feedback/${order.id}`,
+    loyaltySignupUrl: ((order.metadata as Record<string, unknown> | null)?.crm_checkout_capture as { consent?: { loyalty_signup?: boolean } } | undefined)?.consent?.loyalty_signup
+      ? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/loyalty/signup?order_id=${order.id}`
+      : undefined,
+    loyaltyQrUrl: ((order.metadata as Record<string, unknown> | null)?.crm_checkout_capture as { consent?: { loyalty_signup?: boolean } } | undefined)?.consent?.loyalty_signup
+      ? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/api/loyalty/qr?order_id=${order.id}`
+      : undefined,
+    rewardProgressLabel: ((order.metadata as Record<string, unknown> | null)?.crm_guest_id as string | undefined)
+      ? 'Your purchase can count toward your next reward.'
+      : 'Start earning rewards with this visit.',
+    personalizedThankYou: customerName ? `Thanks for visiting, ${customerName}.` : undefined,
   }
 
   const { subject, html } = renderReceiptEmail(receiptData)
