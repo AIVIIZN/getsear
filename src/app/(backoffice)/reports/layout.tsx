@@ -27,7 +27,7 @@ const REPORT_TABS = [
 ]
 
 export default function ReportsLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
 
   return (
     <div className="flex flex-col h-full">
