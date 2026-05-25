@@ -155,6 +155,10 @@ export const crmSurveyTriggerEventSchema = z.enum([
   'manager_manual',
   'review_import',
 ])
+export const crmCampaignTypeSchema = z.enum(['email', 'sms', 'push', 'guest_portal', 'receipt', 'qr', 'reservation_follow_up', 'review_request', 'win_back', 'birthday', 'anniversary', 'event_invite', 'menu_announcement', 'vip_invite', 'recovery'])
+export const crmCampaignStatusSchema = z.enum(['draft', 'ready', 'scheduled', 'sending', 'sent', 'paused', 'archived'])
+export const crmCampaignChannelSchema = z.enum(['email', 'sms', 'push', 'guest_portal', 'receipt', 'qr'])
+export const crmCampaignToneSchema = z.enum(['warm', 'polished', 'playful', 'urgent', 'grateful', 'concise'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -275,6 +279,52 @@ export const buildCrmSegmentDraftSchema = z.object({
 export const listCrmSegmentsQuerySchema = z.object({
   status: crmSegmentStatusSchema.optional(),
   search: z.string().trim().max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const createCrmCampaignSchema = z.object({
+  location_id: optionalUuidSchema,
+  segment_id: z.string().uuid(),
+  name: z.string().trim().min(1).max(180),
+  campaign_type: crmCampaignTypeSchema,
+  status: crmCampaignStatusSchema.default('draft'),
+  goal: z.string().trim().min(1).max(500),
+  offer: z.string().trim().max(500).optional().nullable(),
+  tone: crmCampaignToneSchema.default('warm'),
+  brand_voice: z.string().trim().min(1).max(120).default('hospitality'),
+  primary_channel: crmCampaignChannelSchema,
+  secondary_channels: z.array(crmCampaignChannelSchema).max(5).default([]),
+  subject: z.string().trim().max(180).optional().nullable(),
+  preheader: z.string().trim().max(220).optional().nullable(),
+  message_body: z.string().trim().min(1).max(5000),
+  sms_body: z.string().trim().max(320).optional().nullable(),
+  mobile_body: z.string().trim().max(500).optional().nullable(),
+  receipt_body: z.string().trim().max(700).optional().nullable(),
+  scheduled_for: z.string().datetime({ offset: true }).optional().nullable(),
+  metadata: metadataSchema,
+})
+
+export const previewCrmCampaignSchema = createCrmCampaignSchema.pick({
+  campaign_type: true,
+  goal: true,
+  offer: true,
+  tone: true,
+  brand_voice: true,
+  primary_channel: true,
+  secondary_channels: true,
+  subject: true,
+  preheader: true,
+  message_body: true,
+  sms_body: true,
+  mobile_body: true,
+  receipt_body: true,
+}).extend({
+  segment_id: z.string().uuid().optional(),
+})
+
+export const listCrmCampaignsQuerySchema = z.object({
+  status: crmCampaignStatusSchema.optional(),
+  segment_id: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 })
 
