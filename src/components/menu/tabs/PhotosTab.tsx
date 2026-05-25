@@ -86,7 +86,7 @@ function SortablePhoto({
 
       {/* Primary badge */}
       {photo.is_primary && (
-        <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5 rounded-full bg-[#007AFF] px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5 rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
           <Star className="size-2.5" />
           Primary
         </div>

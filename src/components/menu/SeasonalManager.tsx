@@ -302,7 +302,7 @@ export function SeasonalManager({ locationId, orgId, onClose }: SeasonalManagerP
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <Calendar className="size-5 text-[#007AFF]" />
+          <Calendar className="size-5 text-[var(--color-primary)]" />
           <h2 className="text-lg font-semibold">Seasonal Menu Manager</h2>
         </div>
         {onClose && (
@@ -325,7 +325,7 @@ export function SeasonalManager({ locationId, orgId, onClose }: SeasonalManagerP
         <div className="flex items-center gap-2">
           <Button
             onClick={openForm}
-            className="bg-[#007AFF] hover:bg-[#E05A0D] text-white gap-1.5"
+            className="bg-[var(--color-primary)] hover:bg-[var(--color-marketing-accent-hover)] text-white gap-1.5"
           >
             <Plus className="size-4" />
             Add Seasonal Item
@@ -362,7 +362,7 @@ export function SeasonalManager({ locationId, orgId, onClose }: SeasonalManagerP
 
         {/* Create Form */}
         {isFormOpen && (
-          <div className="rounded-lg border-2 border-[#007AFF]/30 bg-[#007AFF]/5 p-4 space-y-4">
+          <div className="rounded-lg border-2 border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">New Seasonal Item</h3>
               <Button
@@ -468,7 +468,7 @@ export function SeasonalManager({ locationId, orgId, onClose }: SeasonalManagerP
                 !form.end_date ||
                 form.end_date <= form.start_date
               }
-              className="w-full h-10 bg-[#007AFF] hover:bg-[#E05A0D] text-white"
+              className="w-full h-10 bg-[var(--color-primary)] hover:bg-[var(--color-marketing-accent-hover)] text-white"
             >
               {isSaving ? (
                 <>
@@ -549,7 +549,7 @@ export function SeasonalManager({ locationId, orgId, onClose }: SeasonalManagerP
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-[#007AFF] transition-all"
+                        className="h-full rounded-full bg-[var(--color-primary)] transition-all"
                         style={{ width: `${progress}%` }}
                       />
                     </div>

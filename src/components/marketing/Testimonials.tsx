@@ -34,13 +34,13 @@ export function Testimonials() {
   const { ref, isVisible } = useScrollFadeIn();
 
   return (
-    <section className="bg-[#FDFBF7] py-20 md:py-28" ref={ref}>
+    <section className="bg-[var(--color-marketing-bg)] py-20 md:py-28" ref={ref}>
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-[32px] font-bold tracking-tight text-[#1C1C1E] md:text-[40px]">
+          <h2 className="text-[32px] font-bold tracking-tight text-[var(--color-text)] md:text-[40px]">
             Restaurants are switching to Sear
           </h2>
-          <p className="mt-4 text-[18px] leading-relaxed text-[#78756D]">
+          <p className="mt-4 text-[18px] leading-relaxed text-[var(--color-marketing-text-muted)]">
             Hear from owners who made the move.
           </p>
         </div>
@@ -64,25 +64,25 @@ export function Testimonials() {
                   <Star
                     key={s}
                     size={16}
-                    className="fill-[#FF9500] text-[#FF9500]"
+                    className="fill-[var(--color-warning-strong)] text-[var(--color-warning-strong)]"
                   />
                 ))}
               </div>
 
-              <blockquote className="text-[15px] leading-relaxed text-[#3D3D37]">
+              <blockquote className="text-[15px] leading-relaxed text-[var(--color-marketing-text)]">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
 
               <div className="mt-6 flex items-center justify-between border-t border-[rgba(60,60,67,0.08)] pt-5">
                 <div>
-                  <p className="text-[15px] font-semibold text-[#1C1C1E]">
+                  <p className="text-[15px] font-semibold text-[var(--color-text)]">
                     {t.name}
                   </p>
-                  <p className="text-[13px] text-[#78756D]">
+                  <p className="text-[13px] text-[var(--color-marketing-text-muted)]">
                     {t.role} &middot; {t.location}
                   </p>
                 </div>
-                <span className="inline-flex rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-semibold text-[#34C759]">
+                <span className="inline-flex rounded-full bg-[var(--color-success-strong)]/10 px-3 py-1 text-[12px] font-semibold text-[var(--color-success-strong)]">
                   {t.savings}
                 </span>
               </div>
@@ -90,7 +90,7 @@ export function Testimonials() {
           ))}
         </div>
 
-        <p className="mt-8 text-center text-[13px] text-[#78756D]">
+        <p className="mt-8 text-center text-[13px] text-[var(--color-marketing-text-muted)]">
           Testimonials represent expected results based on Sear&apos;s pricing
           model. Individual savings vary by card volume and current provider
           rates.

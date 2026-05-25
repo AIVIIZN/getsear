@@ -55,7 +55,7 @@ export function PricingHardware() {
   const { ref, isVisible } = useScrollFadeIn();
 
   return (
-    <section id="hardware" className="bg-[#FDFBF7] py-20 md:py-28" ref={ref}>
+    <section id="hardware" className="bg-[var(--color-marketing-bg)] py-20 md:py-28" ref={ref}>
       <div
         className="mx-auto max-w-7xl px-6"
         style={{
@@ -65,16 +65,16 @@ export function PricingHardware() {
         }}
       >
         <div className="mx-auto max-w-2xl text-center">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#FFF4EC] px-4 py-1.5">
-            <Tablet size={16} className="text-[#007AFF]" />
-            <span className="text-[13px] font-semibold text-[#9A4A12]">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[var(--color-marketing-bg-warm)] px-4 py-1.5">
+            <Tablet size={16} className="text-[var(--color-primary)]" />
+            <span className="text-[13px] font-semibold text-[var(--color-marketing-accent-dark)]">
               No Proprietary Hardware
             </span>
           </div>
-          <h2 className="text-[32px] font-bold tracking-tight text-[#1C1C1E] md:text-[40px]">
+          <h2 className="text-[32px] font-bold tracking-tight text-[var(--color-text)] md:text-[40px]">
             Your iPad. Your hardware. Your choice.
           </h2>
-          <p className="mt-4 text-[18px] leading-relaxed text-[#78756D]">
+          <p className="mt-4 text-[18px] leading-relaxed text-[var(--color-marketing-text-muted)]">
             Why pay $999 for a terminal that becomes a paperweight? Sear runs
             on the iPad you already own, or buy one for $329.
           </p>
@@ -84,16 +84,16 @@ export function PricingHardware() {
           <table className="w-full min-w-[600px] text-left">
             <thead>
               <tr className="border-b border-[rgba(60,60,67,0.12)]">
-                <th className="px-6 py-4 text-[13px] font-semibold uppercase tracking-wider text-[#78756D]">
+                <th className="px-6 py-4 text-[13px] font-semibold uppercase tracking-wider text-[var(--color-marketing-text-muted)]">
                   Provider
                 </th>
-                <th className="px-6 py-4 text-[13px] font-semibold uppercase tracking-wider text-[#78756D]">
+                <th className="px-6 py-4 text-[13px] font-semibold uppercase tracking-wider text-[var(--color-marketing-text-muted)]">
                   Device
                 </th>
-                <th className="px-6 py-4 text-[13px] font-semibold uppercase tracking-wider text-[#78756D]">
+                <th className="px-6 py-4 text-[13px] font-semibold uppercase tracking-wider text-[var(--color-marketing-text-muted)]">
                   Cost
                 </th>
-                <th className="px-6 py-4 text-center text-[13px] font-semibold uppercase tracking-wider text-[#78756D]">
+                <th className="px-6 py-4 text-center text-[13px] font-semibold uppercase tracking-wider text-[var(--color-marketing-text-muted)]">
                   Works if you switch
                 </th>
               </tr>
@@ -104,33 +104,33 @@ export function PricingHardware() {
                   key={hw.provider}
                   className={`border-b border-[rgba(60,60,67,0.06)] ${
                     hw.highlight
-                      ? 'bg-[#FFF4EC]/50'
+                      ? 'bg-[var(--color-marketing-bg-warm)]/50'
                       : i % 2 === 0
                         ? 'bg-white'
-                        : 'bg-[#FDFBF7]'
+                        : 'bg-[var(--color-marketing-bg)]'
                   }`}
                 >
                   <td className="px-6 py-4">
                     <span
                       className={`text-[15px] font-semibold ${
-                        hw.highlight ? 'text-[#007AFF]' : 'text-[#1C1C1E]'
+                        hw.highlight ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)]'
                       }`}
                     >
                       {hw.provider}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-[14px] text-[#3D3D37]">
+                  <td className="px-6 py-4 text-[14px] text-[var(--color-marketing-text)]">
                     {hw.device}
                   </td>
                   <td className="px-6 py-4">
                     <span
                       className={`text-[15px] font-semibold ${
-                        hw.highlight ? 'text-[#34C759]' : 'text-[#1C1C1E]'
+                        hw.highlight ? 'text-[var(--color-success-strong)]' : 'text-[var(--color-text)]'
                       }`}
                     >
                       {hw.cost}
                     </span>
-                    <span className="block text-[12px] text-[#78756D]">
+                    <span className="block text-[12px] text-[var(--color-marketing-text-muted)]">
                       {hw.costNote}
                     </span>
                   </td>
@@ -138,12 +138,12 @@ export function PricingHardware() {
                     {hw.portable ? (
                       <Check
                         size={20}
-                        className="mx-auto text-[#34C759]"
+                        className="mx-auto text-[var(--color-success-strong)]"
                       />
                     ) : (
                       <X
                         size={20}
-                        className="mx-auto text-[#FF3B30]"
+                        className="mx-auto text-[var(--color-danger-strong)]"
                       />
                     )}
                   </td>
@@ -154,10 +154,10 @@ export function PricingHardware() {
         </div>
 
         <div className="mt-10 rounded-2xl border border-[rgba(60,60,67,0.08)] bg-white p-8 md:p-10">
-          <h3 className="text-[20px] font-semibold text-[#1C1C1E]">
+          <h3 className="text-[20px] font-semibold text-[var(--color-text)]">
             Compatible hardware
           </h3>
-          <p className="mt-2 text-[15px] text-[#78756D]">
+          <p className="mt-2 text-[15px] text-[var(--color-marketing-text-muted)]">
             Sear works with standard, off-the-shelf hardware. No proprietary lock-in.
           </p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -180,10 +180,10 @@ export function PricingHardware() {
               },
             ].map((cat) => (
               <div key={cat.label}>
-                <p className="text-[14px] font-semibold text-[#1C1C1E]">
+                <p className="text-[14px] font-semibold text-[var(--color-text)]">
                   {cat.label}
                 </p>
-                <p className="mt-1 text-[13px] text-[#78756D]">
+                <p className="mt-1 text-[13px] text-[var(--color-marketing-text-muted)]">
                   {cat.items}
                 </p>
               </div>

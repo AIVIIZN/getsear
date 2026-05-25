@@ -137,7 +137,7 @@ export function NavTreeNode({
         className={cn(
           'group relative flex items-center rounded-lg transition-all',
           isDragging && 'opacity-40 z-50',
-          isDropTarget && 'ring-2 ring-[#007AFF] bg-[#007AFF]/5',
+          isDropTarget && 'ring-2 ring-[var(--color-primary)] bg-[var(--color-primary)]/5',
           isSelected && !isDropTarget && 'bg-accent text-accent-foreground',
           !isSelected && !isDropTarget && 'hover:bg-muted',
         )}
@@ -187,7 +187,7 @@ export function NavTreeNode({
           >
             <div
               className="size-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: category.color || '#007AFF' }}
+              style={{ backgroundColor: category.color || 'var(--color-primary)' }}
             />
             <span className="truncate">{category.name}</span>
             <div className="flex items-center gap-1 ml-auto flex-shrink-0">

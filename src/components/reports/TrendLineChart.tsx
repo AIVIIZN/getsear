@@ -93,7 +93,7 @@ export function TrendLineChart({ data, metricLabel, average, formatValue }: Tren
                     />
                   )
                 }}
-                activeDot={{ r: 7, stroke: '#007AFF', strokeWidth: 2 }}
+                activeDot={{ r: 7, stroke: 'var(--color-primary)', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>

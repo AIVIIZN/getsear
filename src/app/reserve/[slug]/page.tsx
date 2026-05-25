@@ -133,7 +133,7 @@ export default function ReserveWidget() {
       <div className="mb-6 text-center">
         <div
           className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: '#007AFF' }}
+          style={{ backgroundColor: 'var(--color-primary)' }}
         >
           <span className="text-xl text-white font-bold">S</span>
         </div>
@@ -158,7 +158,7 @@ export default function ReserveWidget() {
               min={minDate}
               max={maxDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20"
+              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
             <p className="mt-1 text-xs text-gray-400">{displayDate}</p>
           </div>
@@ -218,8 +218,8 @@ export default function ReserveWidget() {
                       onClick={() => setSelectedTime(slot.time)}
                       className={`flex flex-col items-center rounded-full px-3 py-2.5 text-sm font-medium transition-all ${
                         isSelected
-                          ? 'bg-[#007AFF] text-white shadow-md'
-                          : 'border border-gray-200 bg-white text-gray-900 hover:border-[#007AFF]/50 hover:bg-[#007AFF]/5'
+                          ? 'bg-[var(--color-primary)] text-white shadow-md'
+                          : 'border border-gray-200 bg-white text-gray-900 hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/5'
                       }`}
                       style={{ minHeight: 44, minWidth: 60 }}
                     >
@@ -245,7 +245,7 @@ export default function ReserveWidget() {
             disabled={!selectedTime}
             onClick={() => setStep('info')}
             className="flex h-14 w-full items-center justify-center rounded-2xl text-base font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#007AFF' }}
+            style={{ backgroundColor: 'var(--color-primary)' }}
           >
             Continue
           </button>
@@ -286,7 +286,7 @@ export default function ReserveWidget() {
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
               placeholder="Full name"
-              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20"
+              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
           </div>
 
@@ -300,7 +300,7 @@ export default function ReserveWidget() {
               value={guestPhone}
               onChange={(e) => setGuestPhone(e.target.value)}
               placeholder="(555) 123-4567"
-              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20"
+              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
           </div>
 
@@ -313,7 +313,7 @@ export default function ReserveWidget() {
               value={guestEmail}
               onChange={(e) => setGuestEmail(e.target.value)}
               placeholder="guest@example.com"
-              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20"
+              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
           </div>
 
@@ -326,7 +326,7 @@ export default function ReserveWidget() {
               onChange={(e) => setSpecialRequests(e.target.value)}
               placeholder="Allergies, celebrations, accessibility needs..."
               rows={2}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
           </div>
 
@@ -340,7 +340,7 @@ export default function ReserveWidget() {
             type="submit"
             disabled={submitting || !guestName || !guestPhone}
             className="flex h-14 w-full items-center justify-center rounded-2xl text-base font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#007AFF' }}
+            style={{ backgroundColor: 'var(--color-primary)' }}
           >
             {submitting ? (
               <Loader2 className="h-5 w-5 animate-spin" />

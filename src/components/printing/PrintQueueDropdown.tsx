@@ -30,7 +30,7 @@ export function PrintQueueBadge() {
       onClick={toggleDropdown}
       className={cn(
         'relative flex items-center justify-center rounded-[8px]',
-        'text-[#8E8E93] hover:bg-black/[0.04] active:bg-black/[0.06]',
+        'text-[var(--color-text-muted)] hover:bg-black/[0.04] active:bg-black/[0.06]',
         'transition-colors duration-100'
       )}
       style={{ width: 36, height: 36 }}
@@ -43,7 +43,7 @@ export function PrintQueueBadge() {
         <span
           className={cn(
             'absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-semibold text-white',
-            hasFailures ? 'bg-[#FF3B30]' : 'bg-[#007AFF]'
+            hasFailures ? 'bg-[var(--color-danger-strong)]' : 'bg-[var(--color-primary)]'
           )}
         >
           {totalCount > 99 ? '99+' : totalCount}
@@ -125,13 +125,13 @@ export function PrintQueueDropdown() {
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-3">
-        <h3 className="text-[15px] font-semibold text-[#1C1C1E]">Print Queue</h3>
+        <h3 className="text-[15px] font-semibold text-[var(--color-text)]">Print Queue</h3>
         {recentCompletedJobs.length > 0 && (
           <Button
             variant="ghost"
             size="xs"
             onClick={() => clearCompleted()}
-            className="h-6 gap-1 px-2 text-[#8E8E93]"
+            className="h-6 gap-1 px-2 text-[var(--color-text-muted)]"
           >
             <Trash2 className="h-3 w-3" />
             Clear
@@ -143,9 +143,9 @@ export function PrintQueueDropdown() {
       <div className="max-h-[420px] overflow-y-auto">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-10">
-            <Printer className="mb-3 h-10 w-10 text-[#C7C7CC]" strokeWidth={1.2} />
-            <p className="text-sm font-medium text-[#8E8E93]">No print jobs</p>
-            <p className="mt-0.5 text-xs text-[#C7C7CC]">
+            <Printer className="mb-3 h-10 w-10 text-[var(--gray-400)]" strokeWidth={1.2} />
+            <p className="text-sm font-medium text-[var(--color-text-muted)]">No print jobs</p>
+            <p className="mt-0.5 text-xs text-[var(--gray-400)]">
               Jobs will appear here when you print
             </p>
           </div>
@@ -154,7 +154,7 @@ export function PrintQueueDropdown() {
             {/* Failed jobs first */}
             {failedJobs.length > 0 && (
               <div className="px-2 py-2">
-                <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[#FF3B30]">
+                <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-danger-strong)]">
                   Failed ({failedJobs.length})
                 </p>
                 {failedJobs.map((job) => (
@@ -171,7 +171,7 @@ export function PrintQueueDropdown() {
             {/* Pending jobs */}
             {pendingJobs.length > 0 && (
               <div className="px-2 py-2">
-                <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[#007AFF]">
+                <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-primary)]">
                   Pending ({pendingJobs.length})
                 </p>
                 {pendingJobs.map((job) => (
@@ -188,7 +188,7 @@ export function PrintQueueDropdown() {
             {/* Recent completed */}
             {recentCompletedJobs.length > 0 && (
               <div className="px-2 py-2">
-                <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[#8E8E93]">
+                <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                   Recent
                 </p>
                 {recentCompletedJobs.slice(0, 5).map((job) => (

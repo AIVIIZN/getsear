@@ -42,13 +42,13 @@ interface VoidCompData {
 }
 
 // Pie-slice palette. Most slots map to semantic tokens; the violet slot
-// (#7C3AED) has no equivalent token and is the conventional 4th-series
+// (var(--color-purple-deep)) has no equivalent token and is the conventional 4th-series
 // accent across the rest of the app.
 const REASON_COLORS = [
   'var(--color-danger)',
   'var(--color-warning)',
   'var(--color-primary-active)',
-  '#7C3AED',
+  'var(--color-purple-deep)',
   'var(--color-success)',
   'var(--color-primary)',
   'var(--color-text-muted)',

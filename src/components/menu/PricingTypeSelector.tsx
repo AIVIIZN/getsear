@@ -54,7 +54,7 @@ export function PricingTypeSelector({ pricing, onChange }: PricingTypeSelectorPr
             className={cn(
               'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
               pricing.type === pt.value
-                ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
+                ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
                 : 'border-border text-muted-foreground hover:border-border'
             )}
             title={pt.description}

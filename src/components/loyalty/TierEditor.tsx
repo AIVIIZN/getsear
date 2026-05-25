@@ -18,10 +18,10 @@ interface Tier {
 }
 
 const DEFAULT_TIERS: Tier[] = [
-  { name: 'Bronze', min_points: 0, earn_multiplier: 1.0, benefits: ['Earn 1 point per dollar'], color: '#CD7F32' },
-  { name: 'Silver', min_points: 500, earn_multiplier: 1.5, benefits: ['Earn 1.5x points', 'Birthday reward'], color: '#C0C0C0' },
-  { name: 'Gold', min_points: 1500, earn_multiplier: 2.0, benefits: ['Earn 2x points', 'Birthday reward', 'Early access'], color: '#FFD700' },
-  { name: 'Platinum', min_points: 5000, earn_multiplier: 3.0, benefits: ['Earn 3x points', 'Birthday reward', 'Early access', 'VIP events'], color: '#E5E4E2' },
+  { name: 'Bronze', min_points: 0, earn_multiplier: 1.0, benefits: ['Earn 1 point per dollar'], color: 'var(--color-medal-bronze)' },
+  { name: 'Silver', min_points: 500, earn_multiplier: 1.5, benefits: ['Earn 1.5x points', 'Birthday reward'], color: 'var(--color-medal-silver)' },
+  { name: 'Gold', min_points: 1500, earn_multiplier: 2.0, benefits: ['Earn 2x points', 'Birthday reward', 'Early access'], color: 'var(--color-section-gold-strong)' },
+  { name: 'Platinum', min_points: 5000, earn_multiplier: 3.0, benefits: ['Earn 3x points', 'Birthday reward', 'Early access', 'VIP events'], color: 'var(--color-neutral-175)' },
 ]
 
 export function TierEditor() {
@@ -68,7 +68,7 @@ export function TierEditor() {
         min_points: maxPoints + 1000,
         earn_multiplier: tiers.length + 1,
         benefits: [],
-        color: '#888888',
+        color: 'var(--color-neutral-650)',
       },
     ])
   }

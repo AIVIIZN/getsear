@@ -103,17 +103,17 @@ export function CashDrawerConfig({
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-lg',
               config.enabled
-                ? 'bg-[#007AFF]/10 text-[#007AFF]'
-                : 'bg-black/[0.04] text-[#8E8E93]'
+                ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                : 'bg-black/[0.04] text-[var(--color-text-muted)]'
             )}
           >
             <DollarSign className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </div>
           <div>
-            <Label className="text-[15px] font-medium text-[#1C1C1E]">
+            <Label className="text-[15px] font-medium text-[var(--color-text)]">
               Cash Drawer
             </Label>
-            <p className="text-xs text-[#8E8E93]">
+            <p className="text-xs text-[var(--color-text-muted)]">
               Opens on cash payments automatically
             </p>
           </div>
@@ -130,9 +130,9 @@ export function CashDrawerConfig({
 
       {/* Warning: no printer assigned */}
       {!hasReceiptPrinter && (
-        <div className="flex items-start gap-2.5 rounded-lg bg-[#F5A60B]/[0.08] px-3.5 py-3">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A60B]" strokeWidth={2} />
-          <p className="text-sm text-[#8E6A00]">
+        <div className="flex items-start gap-2.5 rounded-lg bg-[var(--color-marketing-accent-strong)]/[0.08] px-3.5 py-3">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-marketing-accent-strong)]" strokeWidth={2} />
+          <p className="text-sm text-[var(--color-marketing-accent-deep)]">
             Cash drawer requires a receipt printer with RJ-12 connection.
             Assign a receipt printer first.
           </p>
@@ -144,7 +144,7 @@ export function CashDrawerConfig({
         <div className="space-y-5 pl-12">
           {/* Pin selection */}
           <div>
-            <Label className="mb-2 block text-sm font-medium text-[#3C3C43]">
+            <Label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">
               Trigger Pin
             </Label>
             <div className="flex gap-2">
@@ -155,8 +155,8 @@ export function CashDrawerConfig({
                   className={cn(
                     'flex h-12 flex-1 items-center justify-center rounded-lg border text-sm font-medium transition-all',
                     config.pin === pin
-                      ? 'border-[#007AFF] bg-[#007AFF]/[0.06] text-[#007AFF]'
-                      : 'border-black/[0.08] bg-white text-[#3C3C43] hover:border-black/[0.15] hover:bg-black/[0.02]'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/[0.06] text-[var(--color-primary)]'
+                      : 'border-black/[0.08] bg-white text-[var(--color-text-secondary)] hover:border-black/[0.15] hover:bg-black/[0.02]'
                   )}
                   style={{ minHeight: 48 }}
                 >
@@ -164,14 +164,14 @@ export function CashDrawerConfig({
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 text-xs text-[#C7C7CC]">
+            <p className="mt-1.5 text-xs text-[var(--gray-400)]">
               Most cash drawers use Pin 2. Check your drawer manual if unsure.
             </p>
           </div>
 
           {/* Pulse duration */}
           <div>
-            <Label className="mb-2 block text-sm font-medium text-[#3C3C43]">
+            <Label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">
               Pulse Duration
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -182,8 +182,8 @@ export function CashDrawerConfig({
                   className={cn(
                     'flex h-12 flex-col items-center justify-center rounded-lg border px-4 transition-all',
                     config.pulse_duration === preset.value
-                      ? 'border-[#007AFF] bg-[#007AFF]/[0.06] text-[#007AFF]'
-                      : 'border-black/[0.08] bg-white text-[#3C3C43] hover:border-black/[0.15] hover:bg-black/[0.02]'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/[0.06] text-[var(--color-primary)]'
+                      : 'border-black/[0.08] bg-white text-[var(--color-text-secondary)] hover:border-black/[0.15] hover:bg-black/[0.02]'
                   )}
                   style={{ minHeight: 48 }}
                 >
@@ -197,7 +197,7 @@ export function CashDrawerConfig({
           {/* Custom slider for fine-tuning */}
           <div>
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium text-[#3C3C43]">
+              <Label className="text-sm font-medium text-[var(--color-text-secondary)]">
                 Fine-tune: {config.pulse_duration}ms
               </Label>
             </div>
@@ -210,10 +210,10 @@ export function CashDrawerConfig({
               onChange={(e) =>
                 updateConfig({ pulse_duration: parseInt(e.target.value, 10) })
               }
-              className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-black/[0.08] accent-[#007AFF]"
+              className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-black/[0.08] accent-[var(--color-primary)]"
               style={{ minHeight: 44 }}
             />
-            <div className="mt-1 flex justify-between text-[10px] text-[#C7C7CC]">
+            <div className="mt-1 flex justify-between text-[10px] text-[var(--gray-400)]">
               <span>100ms</span>
               <span>800ms</span>
             </div>
@@ -226,8 +226,8 @@ export function CashDrawerConfig({
               disabled={testStatus === 'testing' || !printerId}
               className={cn(
                 'h-12 gap-2 px-6',
-                testStatus === 'success' && 'bg-[#34C759] hover:bg-[#34C759]/90',
-                testStatus === 'error' && 'bg-[#FF3B30] hover:bg-[#FF3B30]/90'
+                testStatus === 'success' && 'bg-[var(--color-success-strong)] hover:bg-[var(--color-success-strong)]/90',
+                testStatus === 'error' && 'bg-[var(--color-danger-strong)] hover:bg-[var(--color-danger-strong)]/90'
               )}
               style={{ minHeight: 48 }}
             >
@@ -241,9 +241,9 @@ export function CashDrawerConfig({
 
           {/* Validation errors */}
           {errors.length > 0 && (
-            <div className="rounded-lg bg-[#FF3B30]/[0.06] px-3 py-2">
+            <div className="rounded-lg bg-[var(--color-danger-strong)]/[0.06] px-3 py-2">
               {errors.map((err, i) => (
-                <p key={i} className="text-xs text-[#FF3B30]">
+                <p key={i} className="text-xs text-[var(--color-danger-strong)]">
                   {err}
                 </p>
               ))}

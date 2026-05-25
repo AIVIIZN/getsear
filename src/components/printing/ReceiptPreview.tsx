@@ -31,7 +31,7 @@ export function ReceiptPreview({
   return (
     <div className={cn('flex flex-col items-center', className)}>
       <div
-        className="relative w-[320px] bg-[#FFFEF9] px-5 pt-6 pb-8 font-mono text-[11px] leading-[1.5] text-[#1a1a1a] tracking-tight"
+        className="relative w-[320px] bg-[var(--color-marketing-bg-subtle)] px-5 pt-6 pb-8 font-mono text-[11px] leading-[1.5] text-[var(--color-neutral-900-lower)] tracking-tight"
         style={{
           boxShadow:
             '0 2px 8px hsla(24, 20%, 20%, 0.08), 0 4px 16px hsla(24, 20%, 20%, 0.06)',
@@ -46,7 +46,7 @@ export function ReceiptPreview({
         <div
           className="absolute bottom-0 left-0 right-0 h-4 -mb-4"
           style={{
-            background: '#FFFEF9',
+            background: 'var(--color-marketing-bg-subtle)',
             maskImage:
               'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'16\' viewBox=\'0 0 20 16\'%3E%3Cpath d=\'M0,0 L5,16 L10,0 L15,16 L20,0 L20,16 L0,16 Z\' fill=\'black\'/%3E%3C/svg%3E")',
             WebkitMaskImage:

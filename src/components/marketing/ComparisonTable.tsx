@@ -146,15 +146,15 @@ const providers = [
 function CellContent({ value }: { value: CellValue }) {
   if (typeof value === 'boolean') {
     return value ? (
-      <Check size={18} className="mx-auto text-[#34C759]" />
+      <Check size={18} className="mx-auto text-[var(--color-success-strong)]" />
     ) : (
-      <X size={18} className="mx-auto text-[#FF3B30]" />
+      <X size={18} className="mx-auto text-[var(--color-danger-strong)]" />
     );
   }
 
   if (value === 'Limited') {
     return (
-      <span className="inline-flex items-center gap-1 text-[13px] text-[#FF9500]">
+      <span className="inline-flex items-center gap-1 text-[13px] text-[var(--color-warning-strong)]">
         <Minus size={14} />
         Limited
       </span>
@@ -162,7 +162,7 @@ function CellContent({ value }: { value: CellValue }) {
   }
 
   return (
-    <span className="text-[13px] leading-snug text-[#3D3D37]">{value}</span>
+    <span className="text-[13px] leading-snug text-[var(--color-marketing-text)]">{value}</span>
   );
 }
 
@@ -182,7 +182,7 @@ export function ComparisonTable() {
         <table className="w-full min-w-[800px] text-left">
           <thead>
             <tr className="border-b border-[rgba(60,60,67,0.12)]">
-              <th className="sticky left-0 z-10 bg-white px-6 py-5 text-[14px] font-semibold text-[#78756D]">
+              <th className="sticky left-0 z-10 bg-white px-6 py-5 text-[14px] font-semibold text-[var(--color-marketing-text-muted)]">
                 Feature
               </th>
               {providers.map((p) => (
@@ -190,13 +190,13 @@ export function ComparisonTable() {
                   key={p.key}
                   className={`px-5 py-5 text-center text-[15px] font-semibold ${
                     p.highlight
-                      ? 'bg-[#FFF4EC] text-[#007AFF]'
-                      : 'text-[#1C1C1E]'
+                      ? 'bg-[var(--color-marketing-bg-warm)] text-[var(--color-primary)]'
+                      : 'text-[var(--color-text)]'
                   }`}
                 >
                   {p.label}
                   {p.highlight && (
-                    <span className="mt-1 block text-[11px] font-normal text-[#9A4A12]">
+                    <span className="mt-1 block text-[11px] font-normal text-[var(--color-marketing-accent-dark)]">
                       Recommended
                     </span>
                   )}
@@ -209,17 +209,17 @@ export function ComparisonTable() {
               <tr
                 key={row.dimension}
                 className={`border-b border-[rgba(60,60,67,0.06)] ${
-                  i % 2 === 0 ? 'bg-white' : 'bg-[#FDFBF7]'
+                  i % 2 === 0 ? 'bg-white' : 'bg-[var(--color-marketing-bg)]'
                 }`}
               >
-                <td className="sticky left-0 z-10 bg-inherit px-6 py-4 text-[14px] font-medium text-[#1C1C1E]">
+                <td className="sticky left-0 z-10 bg-inherit px-6 py-4 text-[14px] font-medium text-[var(--color-text)]">
                   {row.dimension}
                   {row.source && (
                     <a
                       href={row.source}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-1 text-[11px] text-[#007AFF] hover:underline"
+                      className="ml-1 text-[11px] text-[var(--color-primary)] hover:underline"
                       title="Source"
                     >
                       [src]
@@ -230,7 +230,7 @@ export function ComparisonTable() {
                   <td
                     key={p.key}
                     className={`px-5 py-4 text-center ${
-                      p.highlight ? 'bg-[#FFF4EC]/50' : ''
+                      p.highlight ? 'bg-[var(--color-marketing-bg-warm)]/50' : ''
                     }`}
                   >
                     <CellContent value={row[p.key]} />
@@ -242,7 +242,7 @@ export function ComparisonTable() {
         </table>
       </div>
 
-      <p className="mt-4 text-[12px] text-[#78756D]">
+      <p className="mt-4 text-[12px] text-[var(--color-marketing-text-muted)]">
         Pricing and feature data sourced from publicly available information on
         each provider&apos;s website as of March 2026. Actual rates and features
         may vary. Processing rates shown are standard published rates; custom

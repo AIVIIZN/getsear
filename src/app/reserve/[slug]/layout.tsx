@@ -15,7 +15,7 @@ export default function ReserveLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
+    <div className="min-h-screen bg-[var(--color-marketing-bg-muted)]">
       {children}
     </div>
   )

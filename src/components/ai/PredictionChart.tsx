@@ -58,19 +58,19 @@ export function PredictionChart({ predictions, height = 280 }: PredictionChartPr
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(60,60,67,0.08)" />
             <XAxis
               dataKey="day"
-              tick={{ fontSize: 12, fill: '#8E8E93' }}
+              tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }}
               axisLine={{ stroke: 'rgba(60,60,67,0.12)' }}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: '#8E8E93' }}
+              tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
             />
             <Tooltip
               contentStyle={{
-                background: '#fff',
+                background: 'var(--color-neutral-0)',
                 border: '0.5px solid rgba(60,60,67,0.12)',
                 borderRadius: '10px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -93,7 +93,7 @@ export function PredictionChart({ predictions, height = 280 }: PredictionChartPr
               type="monotone"
               dataKey="upper"
               stroke="none"
-              fill="#007AFF"
+              fill="var(--color-primary)"
               fillOpacity={0.08}
               name="upper"
               legendType="none"
@@ -102,7 +102,7 @@ export function PredictionChart({ predictions, height = 280 }: PredictionChartPr
               type="monotone"
               dataKey="lower"
               stroke="none"
-              fill="#FFFFFF"
+              fill="var(--color-white)"
               fillOpacity={1}
               name="lower"
               legendType="none"
@@ -112,10 +112,10 @@ export function PredictionChart({ predictions, height = 280 }: PredictionChartPr
             <Line
               type="monotone"
               dataKey="predicted"
-              stroke="#007AFF"
+              stroke="var(--color-primary)"
               strokeWidth={2}
               strokeDasharray="6 3"
-              dot={{ fill: '#007AFF', r: 3 }}
+              dot={{ fill: 'var(--color-primary)', r: 3 }}
               name="predicted"
             />
 
@@ -123,9 +123,9 @@ export function PredictionChart({ predictions, height = 280 }: PredictionChartPr
             <Line
               type="monotone"
               dataKey="actual"
-              stroke="#007AFF"
+              stroke="var(--color-primary)"
               strokeWidth={2.5}
-              dot={{ fill: '#007AFF', r: 4 }}
+              dot={{ fill: 'var(--color-primary)', r: 4 }}
               name="actual"
               connectNulls={false}
             />

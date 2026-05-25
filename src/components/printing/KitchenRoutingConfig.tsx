@@ -161,7 +161,7 @@ export function KitchenRoutingConfig({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-[#8E8E93]" />
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--color-text-muted)]" />
       </div>
     )
   }
@@ -171,8 +171,8 @@ export function KitchenRoutingConfig({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-[17px] font-semibold text-[#1C1C1E]">Kitchen Routing</h3>
-          <p className="mt-0.5 text-sm text-[#8E8E93]">
+          <h3 className="text-[17px] font-semibold text-[var(--color-text)]">Kitchen Routing</h3>
+          <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
             Route kitchen tickets to the correct printer by station
           </p>
         </div>
@@ -181,8 +181,8 @@ export function KitchenRoutingConfig({
           disabled={saving || rules.length === 0}
           className={cn(
             'h-10 gap-2 px-4',
-            saveStatus === 'saved' && 'bg-[#34C759] hover:bg-[#34C759]/90',
-            saveStatus === 'error' && 'bg-[#FF3B30] hover:bg-[#FF3B30]/90'
+            saveStatus === 'saved' && 'bg-[var(--color-success-strong)] hover:bg-[var(--color-success-strong)]/90',
+            saveStatus === 'error' && 'bg-[var(--color-danger-strong)] hover:bg-[var(--color-danger-strong)]/90'
           )}
           style={{ minHeight: 44 }}
         >
@@ -196,11 +196,11 @@ export function KitchenRoutingConfig({
       {/* Empty state */}
       {rules.length === 0 && kitchenPrinters.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-black/[0.12] bg-black/[0.01] py-12">
-          <ChefHat className="mb-3 h-12 w-12 text-[#C7C7CC]" strokeWidth={1.2} />
-          <p className="text-sm font-medium text-[#8E8E93]">
+          <ChefHat className="mb-3 h-12 w-12 text-[var(--gray-400)]" strokeWidth={1.2} />
+          <p className="text-sm font-medium text-[var(--color-text-muted)]">
             No kitchen printers configured
           </p>
-          <p className="mt-1 text-xs text-[#C7C7CC]">
+          <p className="mt-1 text-xs text-[var(--gray-400)]">
             Add kitchen printers first, then configure routing
           </p>
         </div>
@@ -208,11 +208,11 @@ export function KitchenRoutingConfig({
 
       {rules.length === 0 && kitchenPrinters.length > 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-black/[0.12] bg-black/[0.01] py-12">
-          <ChefHat className="mb-3 h-12 w-12 text-[#C7C7CC]" strokeWidth={1.2} />
-          <p className="text-sm font-medium text-[#8E8E93]">
+          <ChefHat className="mb-3 h-12 w-12 text-[var(--gray-400)]" strokeWidth={1.2} />
+          <p className="text-sm font-medium text-[var(--color-text-muted)]">
             Configure kitchen routing to direct tickets to the correct printer
           </p>
-          <p className="mt-1 text-xs text-[#C7C7CC]">
+          <p className="mt-1 text-xs text-[var(--gray-400)]">
             Add a station below to get started
           </p>
         </div>
@@ -224,13 +224,13 @@ export function KitchenRoutingConfig({
           <table className="w-full">
             <thead>
               <tr className="border-b border-black/[0.06] bg-black/[0.02]">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#8E8E93]">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                   Station
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#8E8E93]">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                   Primary Printer
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#8E8E93]">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                   Fallback Printer
                 </th>
                 <th className="w-12 px-4 py-3" />
@@ -240,7 +240,7 @@ export function KitchenRoutingConfig({
               {rules.map((rule) => (
                 <tr key={rule.station_name} className="hover:bg-black/[0.01]">
                   <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-[#1C1C1E]">
+                    <span className="text-sm font-medium text-[var(--color-text)]">
                       {rule.station_name}
                     </span>
                   </td>
@@ -251,8 +251,8 @@ export function KitchenRoutingConfig({
                         updateRule(rule.station_name, 'primary_printer_id', e.target.value)
                       }
                       className={cn(
-                        'h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-sm text-[#1C1C1E] outline-none',
-                        'focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20',
+                        'h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-sm text-[var(--color-text)] outline-none',
+                        'focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20',
                         'transition-colors'
                       )}
                       style={{ minHeight: 44 }}
@@ -272,8 +272,8 @@ export function KitchenRoutingConfig({
                         updateRule(rule.station_name, 'fallback_printer_id', e.target.value)
                       }
                       className={cn(
-                        'h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-sm text-[#1C1C1E] outline-none',
-                        'focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20',
+                        'h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-sm text-[var(--color-text)] outline-none',
+                        'focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20',
                         'transition-colors'
                       )}
                       style={{ minHeight: 44 }}
@@ -293,7 +293,7 @@ export function KitchenRoutingConfig({
                       onClick={() => removeStation(rule.station_name)}
                       className={cn(
                         'flex h-8 w-8 items-center justify-center rounded-lg',
-                        'text-[#FF3B30]/60 hover:bg-[#FF3B30]/[0.06] hover:text-[#FF3B30]',
+                        'text-[var(--color-danger-strong)]/60 hover:bg-[var(--color-danger-strong)]/[0.06] hover:text-[var(--color-danger-strong)]',
                         'transition-colors'
                       )}
                       aria-label={`Remove ${rule.station_name}`}
@@ -310,7 +310,7 @@ export function KitchenRoutingConfig({
 
       {/* Add station buttons */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-[#3C3C43]">Add Station</Label>
+        <Label className="text-sm font-medium text-[var(--color-text-secondary)]">Add Station</Label>
 
         <div className="flex flex-wrap gap-2">
           {availableStations.map((station) => (

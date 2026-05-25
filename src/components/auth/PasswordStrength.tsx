@@ -24,7 +24,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
   const strength = metCount === 0 ? 0 : metCount <= 2 ? 1 : metCount <= 3 ? 2 : 3
 
   const strengthLabels = ['', 'Weak', 'Fair', 'Strong']
-  const strengthColors = ['', 'var(--error)', 'var(--warning, #EAB308)', 'var(--success, #22C55E)']
+  const strengthColors = ['', 'var(--error)', 'var(--warning, var(--color-warning-strong-alt))', 'var(--success, var(--color-success-vivid))']
 
   if (!password) return null
 
@@ -60,7 +60,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
         {requirements.map((req) => (
           <li key={req.label} className="flex items-center gap-2 text-xs">
             {req.met ? (
-              <Check className="size-3.5 shrink-0" style={{ color: 'var(--success, #22C55E)' }} />
+              <Check className="size-3.5 shrink-0" style={{ color: 'var(--success, var(--color-success-vivid))' }} />
             ) : (
               <X className="size-3.5 shrink-0" style={{ color: 'var(--muted-foreground)' }} />
             )}

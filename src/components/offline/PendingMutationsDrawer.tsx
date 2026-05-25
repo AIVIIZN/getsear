@@ -53,9 +53,9 @@ function statusOf(entry: SyncQueueEntry): RowStatus {
 
 function StatusPill({ status }: { status: RowStatus }) {
   const styles: Record<RowStatus, string> = {
-    queued: 'bg-[#F59E0B]/10 text-[#92400E] border-[#F59E0B]/20',
-    syncing: 'bg-[#3B82F6]/10 text-[#1E40AF] border-[#3B82F6]/20',
-    failed: 'bg-[#EF4444]/10 text-[#991B1B] border-[#EF4444]/20',
+    queued: 'bg-[var(--color-marketing-accent)]/10 text-[var(--color-marketing-accent-deep)] border-[var(--color-marketing-accent)]/20',
+    syncing: 'bg-[var(--color-blue-legacy)]/10 text-[var(--color-blue-deep)] border-[var(--color-blue-legacy)]/20',
+    failed: 'bg-[var(--color-danger-strong)]/10 text-[var(--color-danger-800)] border-[var(--color-danger-strong)]/20',
   }
   const Icon = status === 'syncing' ? Loader2 : status === 'failed' ? AlertCircle : Clock
   return (
@@ -187,7 +187,7 @@ export function PendingMutationsDrawer({ open, onOpenChange }: PendingMutationsD
             {error && (
               <div
                 role="alert"
-                className="mb-4 rounded-lg border border-[#EF4444]/20 bg-[#EF4444]/5 px-3 py-2 text-[13px] text-[#991B1B]"
+                className="mb-4 rounded-lg border border-[var(--color-danger-strong)]/20 bg-[var(--color-danger-strong)]/5 px-3 py-2 text-[13px] text-[var(--color-danger-800)]"
               >
                 {error}
               </div>
@@ -214,12 +214,12 @@ export function PendingMutationsDrawer({ open, onOpenChange }: PendingMutationsD
 
             {!isInitialLoad && allEntries.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#34C759]/10">
-                  <Inbox className="h-5 w-5 text-[#34C759]" strokeWidth={2} />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-success-strong)]/10">
+                  <Inbox className="h-5 w-5 text-[var(--color-success-strong)]" strokeWidth={2} />
                 </div>
                 <div>
-                  <p className="text-[15px] font-medium text-[#1C1C1E]">All caught up</p>
-                  <p className="mt-1 text-[13px] text-[#8E8E93]">
+                  <p className="text-[15px] font-medium text-[var(--color-text)]">All caught up</p>
+                  <p className="mt-1 text-[13px] text-[var(--color-text-muted)]">
                     No pending offline operations.
                   </p>
                 </div>
@@ -242,15 +242,15 @@ export function PendingMutationsDrawer({ open, onOpenChange }: PendingMutationsD
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-semibold text-[#1C1C1E]">
+                          <p className="text-[14px] font-semibold text-[var(--color-text)]">
                             {operationLabel(entry.operation)}
                           </p>
-                          <p className="mt-0.5 text-[12px] text-[#8E8E93] tabular-nums">
+                          <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)] tabular-nums">
                             {ageLabel}
                             {entry.attempts > 0 && ` · attempt ${entry.attempts} of ${entry.max_attempts}`}
                           </p>
                           {entry.error && status === 'failed' && (
-                            <p className="mt-1.5 text-[12px] text-[#991B1B] break-words">
+                            <p className="mt-1.5 text-[12px] text-[var(--color-danger-800)] break-words">
                               {entry.error}
                             </p>
                           )}
@@ -269,9 +269,9 @@ export function PendingMutationsDrawer({ open, onOpenChange }: PendingMutationsD
                               'min-h-[44px] px-3 py-2',
                               'sm:min-h-[36px] sm:px-2.5 sm:py-1.5',
                               'text-[13px] font-medium',
-                              'border border-[#007AFF]/20 bg-[#007AFF]/10 text-[#0051D5]',
-                              'hover:bg-[#007AFF]/15 active:bg-[#007AFF]/20',
-                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]/50',
+                              'border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/10 text-[var(--color-primary-deep)]',
+                              'hover:bg-[var(--color-primary)]/15 active:bg-[var(--color-primary)]/20',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/50',
                               'disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
                             )}
                           >
@@ -292,9 +292,9 @@ export function PendingMutationsDrawer({ open, onOpenChange }: PendingMutationsD
                             'min-h-[44px] px-3 py-2',
                             'sm:min-h-[36px] sm:px-2.5 sm:py-1.5',
                             'text-[13px] font-medium',
-                            'border border-[#EF4444]/20 bg-transparent text-[#991B1B]',
-                            'hover:bg-[#EF4444]/10 active:bg-[#EF4444]/15',
-                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EF4444]/50',
+                            'border border-[var(--color-danger-strong)]/20 bg-transparent text-[var(--color-danger-800)]',
+                            'hover:bg-[var(--color-danger-strong)]/10 active:bg-[var(--color-danger-strong)]/15',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-danger-strong)]/50',
                             'disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
                           )}
                         >
@@ -320,9 +320,9 @@ export function PendingMutationsDrawer({ open, onOpenChange }: PendingMutationsD
               className={cn(
                 'inline-flex w-full items-center justify-center gap-1.5 rounded-lg',
                 'min-h-[44px] px-4 py-2 text-[14px] font-medium',
-                'border border-[var(--border)] bg-white text-[#1C1C1E]',
+                'border border-[var(--border)] bg-white text-[var(--color-text)]',
                 'hover:bg-[var(--muted)] active:bg-[var(--accent)]',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]/50',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/50',
                 'transition-colors'
               )}
             >

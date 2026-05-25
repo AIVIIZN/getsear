@@ -24,9 +24,9 @@ export function EmailTemplatePreview({
       <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] overflow-hidden">
         <div className="flex items-center gap-2 border-b border-[var(--border)] bg-[var(--muted)] px-4 py-2">
           <div className="flex gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full bg-[#FF605C]" />
-            <div className="h-2.5 w-2.5 rounded-full bg-[#FFBD44]" />
-            <div className="h-2.5 w-2.5 rounded-full bg-[#00CA4E]" />
+            <div className="h-2.5 w-2.5 rounded-full bg-[var(--color-danger-window)]" />
+            <div className="h-2.5 w-2.5 rounded-full bg-[var(--color-warning-window)]" />
+            <div className="h-2.5 w-2.5 rounded-full bg-[var(--color-success-signal)]" />
           </div>
           <span className="text-xs text-muted-foreground">Email Preview</span>
         </div>

@@ -31,10 +31,10 @@ export function SyncStatusIndicator() {
   const isOnline = connectionState === 'online'
 
   const dotColor = isOffline
-    ? 'bg-[#F59E0B]'
+    ? 'bg-[var(--color-marketing-accent)]'
     : isSyncing
-      ? 'bg-[#3B82F6]'
-      : 'bg-[#34C759]'
+      ? 'bg-[var(--color-blue-legacy)]'
+      : 'bg-[var(--color-success-strong)]'
 
   const glowColor = isOffline
     ? 'rgba(245, 158, 11, 0.3)'
@@ -66,7 +66,7 @@ export function SyncStatusIndicator() {
         {/* Pulse ring for offline state */}
         {isOffline && (
           <div
-            className="absolute inset-0 rounded-full animate-ping bg-[#F59E0B]/40"
+            className="absolute inset-0 rounded-full animate-ping bg-[var(--color-marketing-accent)]/40"
             style={{ animationDuration: '2s' }}
           />
         )}
@@ -76,7 +76,7 @@ export function SyncStatusIndicator() {
           <div
             className={cn(
               'absolute -top-2 -right-2.5 flex items-center justify-center',
-              'rounded-full bg-[#F59E0B] text-white',
+              'rounded-full bg-[var(--color-marketing-accent)] text-white',
               'text-[9px] font-bold leading-none',
               'min-w-[14px] h-[14px] px-[3px]',
               'shadow-sm'
@@ -90,7 +90,7 @@ export function SyncStatusIndicator() {
       {/* Label */}
       <span className={cn(
         'text-[13px] transition-colors duration-300',
-        isOffline ? 'text-[#F59E0B] font-medium' : 'text-[#8E8E93]'
+        isOffline ? 'text-[var(--color-marketing-accent)] font-medium' : 'text-[var(--color-text-muted)]'
       )}>
         {isOnline && !isSyncing ? 'Online' : isOffline ? 'Offline' : 'Syncing'}
       </span>

@@ -6,11 +6,11 @@
 /* ============================================================
    SEAR POS DESIGN SYSTEM
    Enterprise restaurant POS — Apple iPadOS native feel
-   Primary: iOS System Blue (#007AFF)
+   Primary: iOS System Blue (var(--color-primary))
    Typography: SF Pro (system font stack)
    Grid: 8pt spacing
    Touch: 44px minimum, 48px preferred
-   Competitors: Toast (#127EEF blue), Square (#006AFF blue)
+   Competitors: Toast (var(--color-blue-toast) blue), Square (var(--color-blue-square) blue)
    ============================================================ */
 
 @custom-variant dark (&:is(.dark *));
@@ -81,44 +81,44 @@
 
 /* ============================================================
    LIGHT MODE — Apple iPadOS native feel
-   Primary: iOS System Blue (#007AFF)
-   Backgrounds: Apple system grouped (#F2F2F7)
+   Primary: iOS System Blue (var(--color-primary))
+   Backgrounds: Apple system grouped (var(--color-bg-muted))
    ============================================================ */
 :root {
   /* Backgrounds — Apple system background */
-  --background: #F2F2F7;
-  --foreground: #1C1C1E;
-  --card: #FFFFFF;
-  --card-foreground: #1C1C1E;
-  --popover: #FFFFFF;
-  --popover-foreground: #1C1C1E;
+  --background: var(--color-bg-muted);
+  --foreground: var(--color-text);
+  --card: var(--color-white);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-text);
 
   /* Brand — iOS System Blue */
-  --primary: #007AFF;
-  --primary-foreground: #FFFFFF;
-  --primary-hover: #0066D6;
-  --primary-active: #0055B3;
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-white);
+  --primary-hover: var(--color-primary-alt);
+  --primary-active: var(--color-primary-active-alt);
 
   /* Secondary — Apple neutral */
-  --secondary: #F2F2F7;
-  --secondary-foreground: #3C3C43;
+  --secondary: var(--color-bg-muted);
+  --secondary-foreground: var(--color-text-secondary);
 
   /* Muted — for labels, captions, disabled */
-  --muted: #E5E5EA;
-  --muted-foreground: #8E8E93;
+  --muted: var(--gray-200);
+  --muted-foreground: var(--color-text-muted);
 
   /* Accent — subtle blue highlight (tinted button style) */
   --accent: rgba(0, 122, 255, 0.08);
-  --accent-foreground: #007AFF;
+  --accent-foreground: var(--color-primary);
 
   /* Destructive — void, delete, critical */
-  --destructive: #FF3B30;
+  --destructive: var(--color-danger-strong);
 
   /* Borders — iOS-style hairlines */
   --border: rgba(60, 60, 67, 0.12);
   --border-hover: rgba(60, 60, 67, 0.20);
   --input: rgba(60, 60, 67, 0.12);
-  --ring: #007AFF;
+  --ring: var(--color-primary);
 
   /* iOS hairline separator */
   --separator: rgba(60, 60, 67, 0.29);
@@ -127,39 +127,39 @@
   --radius: 0.625rem;
 
   /* Semantic status colors — iOS system colors */
-  --success: #34C759;
-  --success-bg: #F0FDF4;
-  --warning: #FF9500;
-  --warning-bg: #FFFBEB;
-  --error: #FF3B30;
-  --error-bg: #FEF2F2;
-  --info: #007AFF;
-  --info-bg: #EFF6FF;
+  --success: var(--color-success-strong);
+  --success-bg: var(--color-success-soft-alt);
+  --warning: var(--color-warning-strong);
+  --warning-bg: var(--color-warning-soft-alt);
+  --error: var(--color-danger-strong);
+  --error-bg: var(--color-danger-soft-alt);
+  --info: var(--color-primary);
+  --info-bg: var(--blue-50);
 
   /* Table status colors */
-  --table-available: #34C759;
-  --table-seated: #007AFF;
-  --table-ordered: #AF52DE;
-  --table-served: #5AC8FA;
-  --table-check-presented: #FF9500;
-  --table-dirty: #8E8E93;
-  --table-reserved: #5856D6;
-  --table-needs-attention: #FF3B30;
+  --table-available: var(--color-success-strong);
+  --table-seated: var(--color-primary);
+  --table-ordered: var(--color-purple);
+  --table-served: var(--color-cyan);
+  --table-check-presented: var(--color-warning-strong);
+  --table-dirty: var(--color-text-muted);
+  --table-reserved: var(--color-indigo);
+  --table-needs-attention: var(--color-danger-strong);
 
   /* KDS aging colors */
-  --kds-fresh: #FFFFFF;
-  --kds-aging: #FEF3C7;
-  --kds-late: #FED7AA;
-  --kds-critical: #FECACA;
+  --kds-fresh: var(--color-white);
+  --kds-aging: var(--color-warning-soft);
+  --kds-late: var(--color-warning-bg);
+  --kds-critical: var(--color-danger-bg);
 
   /* Order type colors */
-  --order-dinein: #007AFF;
-  --order-takeout: #34C759;
-  --order-delivery: #AF52DE;
-  --order-bar: #FF9500;
-  --order-catering: #5AC8FA;
-  --order-online: #5856D6;
-  --order-drivethru: #FF2D55;
+  --order-dinein: var(--color-primary);
+  --order-takeout: var(--color-success-strong);
+  --order-delivery: var(--color-purple);
+  --order-bar: var(--color-warning-strong);
+  --order-catering: var(--color-cyan);
+  --order-online: var(--color-indigo);
+  --order-drivethru: var(--color-danger-pink);
 
   /* Shadows — two-layer Apple-style for premium depth */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -168,22 +168,22 @@
   --shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.16);
 
   /* Chart palette — iOS system colors */
-  --chart-1: #007AFF;
-  --chart-2: #34C759;
-  --chart-3: #AF52DE;
-  --chart-4: #FF9500;
-  --chart-5: #5AC8FA;
+  --chart-1: var(--color-primary);
+  --chart-2: var(--color-success-strong);
+  --chart-3: var(--color-purple);
+  --chart-4: var(--color-warning-strong);
+  --chart-5: var(--color-cyan);
 
   /* Sidebar — Apple iPadOS light style */
-  --sidebar: #F2F2F7;
-  --sidebar-foreground: #3C3C43;
-  --sidebar-primary: #007AFF;
-  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar: var(--color-bg-muted);
+  --sidebar-foreground: var(--color-text-secondary);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: var(--color-white);
   --sidebar-accent: rgba(0, 122, 255, 0.12);
-  --sidebar-accent-foreground: #007AFF;
+  --sidebar-accent-foreground: var(--color-primary);
   --sidebar-border: rgba(60, 60, 67, 0.12);
-  --sidebar-ring: #007AFF;
-  --sidebar-muted: #8E8E93;
+  --sidebar-ring: var(--color-primary);
+  --sidebar-muted: var(--color-text-muted);
 
   /* Animation timing — iOS spring physics */
   --duration-fast: 100ms;
@@ -209,46 +209,46 @@
    KDS Dark Theme (ONLY for kitchen display)
    ============================================================ */
 .dark {
-  --background: #000000;
-  --foreground: #F5F3F0;
-  --card: #1C1C1E;
-  --card-foreground: #F5F3F0;
-  --popover: #1C1C1E;
-  --popover-foreground: #F5F3F0;
-  --primary: #FF9F0A;
-  --primary-foreground: #000000;
-  --secondary: #2C2C2E;
-  --secondary-foreground: #F5F3F0;
-  --muted: #2C2C2E;
+  --background: var(--color-black);
+  --foreground: var(--color-neutral-150);
+  --card: var(--color-text);
+  --card-foreground: var(--color-neutral-150);
+  --popover: var(--color-text);
+  --popover-foreground: var(--color-neutral-150);
+  --primary: var(--color-warning-strong);
+  --primary-foreground: var(--color-black);
+  --secondary: var(--color-bg-muted);
+  --secondary-foreground: var(--color-neutral-150);
+  --muted: var(--color-bg-muted);
   --muted-foreground: rgba(235, 235, 245, 0.60);
-  --accent: #2C2C2E;
-  --accent-foreground: #F5F3F0;
-  --destructive: #FF453A;
+  --accent: var(--color-bg-muted);
+  --accent-foreground: var(--color-neutral-150);
+  --destructive: var(--color-danger-dark);
   --border: rgba(84, 84, 88, 0.65);
   --input: rgba(255, 255, 255, 0.12);
-  --ring: #FF9F0A;
+  --ring: var(--color-warning-strong);
   --separator: rgba(84, 84, 88, 0.65);
 
   /* KDS aging — vivid on dark */
-  --kds-fresh: #34C759;
-  --kds-aging: #FFCC00;
-  --kds-late: #FF9500;
-  --kds-critical: #FF3B30;
+  --kds-fresh: var(--color-success-strong);
+  --kds-aging: var(--color-warning-vivid);
+  --kds-late: var(--color-warning-strong);
+  --kds-critical: var(--color-danger-strong);
 
-  --chart-1: #FF9F0A;
-  --chart-2: #0A84FF;
-  --chart-3: #30D158;
-  --chart-4: #BF5AF2;
-  --chart-5: #FF9F0A;
+  --chart-1: var(--color-warning-strong);
+  --chart-2: var(--color-primary);
+  --chart-3: var(--color-success-bright);
+  --chart-4: var(--color-purple-dark);
+  --chart-5: var(--color-warning-strong);
 
-  --sidebar: #000000;
-  --sidebar-foreground: #F5F3F0;
-  --sidebar-primary: #FF9F0A;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #2C2C2E;
-  --sidebar-accent-foreground: #F5F3F0;
+  --sidebar: var(--color-black);
+  --sidebar-foreground: var(--color-neutral-150);
+  --sidebar-primary: var(--color-warning-strong);
+  --sidebar-primary-foreground: var(--color-black);
+  --sidebar-accent: var(--color-bg-muted);
+  --sidebar-accent-foreground: var(--color-neutral-150);
   --sidebar-border: rgba(84, 84, 88, 0.65);
-  --sidebar-ring: #FF9F0A;
+  --sidebar-ring: var(--color-warning-strong);
 }
 
 /* ============================================================

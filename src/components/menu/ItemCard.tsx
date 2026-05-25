@@ -89,8 +89,8 @@ export function ItemCard({
       onClick={handleClick}
       className={cn(
         'group relative flex cursor-pointer flex-col rounded-xl bg-card p-3 shadow-warm-sm ring-1 ring-foreground/5 transition-all hover:shadow-warm-md hover:ring-foreground/10',
-        isSelected && 'ring-2 ring-[#007AFF] shadow-warm-md',
-        isMultiSelected && 'ring-2 ring-[#007AFF]',
+        isSelected && 'ring-2 ring-[var(--color-primary)] shadow-warm-md',
+        isMultiSelected && 'ring-2 ring-[var(--color-primary)]',
         item.is_86d && 'opacity-60',
         isDragging && 'opacity-50 z-50 shadow-lg scale-[1.02]',
       )}
@@ -111,7 +111,7 @@ export function ItemCard({
             className={cn(
               'size-5 rounded-md border-2 flex items-center justify-center transition-colors',
               isMultiSelected
-                ? 'border-[#007AFF] bg-[#007AFF] text-white'
+                ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
                 : 'border-border bg-background'
             )}
           >

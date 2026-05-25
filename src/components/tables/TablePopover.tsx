@@ -158,7 +158,7 @@ export function TablePopover({
           <>
             <Button
               size="sm"
-              className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
+              className="h-9 w-full text-xs bg-gradient-to-b from-[var(--color-primary-bright)] to-[var(--color-primary-gradient-end)] hover:from-[var(--color-primary-bright-hover)] hover:to-[var(--color-primary-gradient-end-hover)] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
               onClick={() => onSeat(tableId)}
             >
               Seat Guests
@@ -177,7 +177,7 @@ export function TablePopover({
         {isOccupied && currentOrderId && (
           <Button
             size="sm"
-            className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
+            className="h-9 w-full text-xs bg-gradient-to-b from-[var(--color-primary-bright)] to-[var(--color-primary-gradient-end)] hover:from-[var(--color-primary-bright-hover)] hover:to-[var(--color-primary-gradient-end-hover)] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
             onClick={() => onViewOrder(tableId, currentOrderId)}
           >
             View Order
@@ -187,7 +187,7 @@ export function TablePopover({
         {isOccupied && !currentOrderId && (
           <Button
             size="sm"
-            className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
+            className="h-9 w-full text-xs bg-gradient-to-b from-[var(--color-primary-bright)] to-[var(--color-primary-gradient-end)] hover:from-[var(--color-primary-bright-hover)] hover:to-[var(--color-primary-gradient-end-hover)] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
             onClick={() => onNewOrder(tableId)}
           >
             New Order
@@ -208,7 +208,7 @@ export function TablePopover({
         {status === 'reserved' && (
           <Button
             size="sm"
-            className="h-9 w-full text-xs bg-gradient-to-b from-[#1a8aff] to-[#0066e6] hover:from-[#1580f0] hover:to-[#005dd4] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
+            className="h-9 w-full text-xs bg-gradient-to-b from-[var(--color-primary-bright)] to-[var(--color-primary-gradient-end)] hover:from-[var(--color-primary-bright-hover)] hover:to-[var(--color-primary-gradient-end-hover)] shadow-[0_2px_8px_rgba(0,122,255,0.25)]"
             onClick={() => onSeat(tableId)}
           >
             Seat Guests

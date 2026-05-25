@@ -38,7 +38,7 @@ function LiveClock() {
   if (!time) return null;
 
   return (
-    <span className="tabular-nums text-[15px] font-medium text-[#3C3C43]">
+    <span className="tabular-nums text-[15px] font-medium text-[var(--color-text-secondary)]">
       {time}
     </span>
   );
@@ -70,7 +70,7 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
             onClick={onToggleSidebar}
             className={cn(
               "flex items-center justify-center rounded-[8px]",
-              "text-[#007AFF] hover:bg-black/[0.04] active:bg-black/[0.06]",
+              "text-[var(--color-primary)] hover:bg-black/[0.04] active:bg-black/[0.06]",
               "transition-colors duration-100"
             )}
             style={{ width: 36, height: 36 }}
@@ -84,15 +84,15 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
           <nav className="flex items-center gap-1.5 text-[15px]">
             <Link
               href="/"
-              className="text-[#007AFF] hover:text-[#0051D5]"
+              className="text-[var(--color-primary)] hover:text-[var(--color-primary-deep)]"
             >
               Home
             </Link>
-            <span className="text-[#C7C7CC]">/</span>
-            <span className="font-medium text-[#1C1C1E]">Dashboard</span>
+            <span className="text-[var(--gray-400)]">/</span>
+            <span className="font-medium text-[var(--color-text)]">Dashboard</span>
           </nav>
         ) : (
-          <h1 className="text-[17px] font-semibold text-[#1C1C1E]">
+          <h1 className="text-[17px] font-semibold text-[var(--color-text)]">
             Sear POS
           </h1>
         )}
@@ -108,14 +108,14 @@ export function Topbar({ showBreadcrumbs = false, onToggleSidebar }: TopbarProps
           <PrintQueueBadge />
           <PrintQueueDropdown />
         </div>
-        <span className="text-[15px] font-medium text-[#3C3C43]">
+        <span className="text-[15px] font-medium text-[var(--color-text-secondary)]">
           {displayName}
         </span>
         <Link
           href="/settings"
           className={cn(
             "flex items-center justify-center rounded-[8px]",
-            "text-[#8E8E93] hover:bg-black/[0.04] active:bg-black/[0.06]",
+            "text-[var(--color-text-muted)] hover:bg-black/[0.04] active:bg-black/[0.06]",
             "transition-colors duration-100"
           )}
           style={{ width: 36, height: 36 }}

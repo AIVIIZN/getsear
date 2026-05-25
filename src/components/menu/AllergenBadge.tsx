@@ -38,7 +38,7 @@ export function AllergenBadge({ allergenId, mode = 'CONTAINS', size = 'sm' }: Al
           )}
           style={{
             backgroundColor: isMayContain ? 'transparent' : allergen.color,
-            color: isMayContain ? allergen.color : '#ffffff',
+            color: isMayContain ? allergen.color : 'var(--color-white)',
             borderColor: isMayContain ? allergen.color : undefined,
           }}
         >

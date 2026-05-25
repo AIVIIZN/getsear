@@ -46,8 +46,8 @@ function StatusIndicator({ status }: { status: PrintJobStatus }) {
     case 'queued':
       return (
         <div className="flex items-center gap-1.5">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-[#007AFF]" />
-          <span className="text-xs font-medium text-[#007AFF]">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-primary)]" />
+          <span className="text-xs font-medium text-[var(--color-primary)]">
             {status === 'printing' ? 'Printing' : 'Queued'}
           </span>
         </div>
@@ -55,22 +55,22 @@ function StatusIndicator({ status }: { status: PrintJobStatus }) {
     case 'printed':
       return (
         <div className="flex items-center gap-1.5">
-          <Check className="h-3.5 w-3.5 text-[#34C759]" />
-          <span className="text-xs font-medium text-[#34C759]">Printed</span>
+          <Check className="h-3.5 w-3.5 text-[var(--color-success-strong)]" />
+          <span className="text-xs font-medium text-[var(--color-success-strong)]">Printed</span>
         </div>
       )
     case 'failed':
       return (
         <div className="flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5 text-[#FF3B30]" />
-          <span className="text-xs font-medium text-[#FF3B30]">Failed</span>
+          <AlertCircle className="h-3.5 w-3.5 text-[var(--color-danger-strong)]" />
+          <span className="text-xs font-medium text-[var(--color-danger-strong)]">Failed</span>
         </div>
       )
     case 'cancelled':
       return (
         <div className="flex items-center gap-1.5">
-          <X className="h-3.5 w-3.5 text-[#8E8E93]" />
-          <span className="text-xs font-medium text-[#8E8E93]">Cancelled</span>
+          <X className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
+          <span className="text-xs font-medium text-[var(--color-text-muted)]">Cancelled</span>
         </div>
       )
   }
@@ -112,7 +112,7 @@ export function PrintQueueItem({ job, onRetry, onCancel }: PrintQueueItemProps) 
     <div
       className={cn(
         'flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors',
-        isFailed && 'border-l-[3px] border-l-[#FF3B30] bg-[#FF3B30]/[0.04]',
+        isFailed && 'border-l-[3px] border-l-[var(--color-danger-strong)] bg-[var(--color-danger-strong)]/[0.04]',
         !isFailed && 'hover:bg-black/[0.02]'
       )}
     >
@@ -120,7 +120,7 @@ export function PrintQueueItem({ job, onRetry, onCancel }: PrintQueueItemProps) 
       <div
         className={cn(
           'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-          isFailed ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-black/[0.04] text-[#3C3C43]'
+          isFailed ? 'bg-[var(--color-danger-strong)]/10 text-[var(--color-danger-strong)]' : 'bg-black/[0.04] text-[var(--color-text-secondary)]'
         )}
       >
         <Icon className="h-4 w-4" strokeWidth={1.8} />
@@ -129,26 +129,26 @@ export function PrintQueueItem({ job, onRetry, onCancel }: PrintQueueItemProps) 
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-[#1C1C1E]">
+          <span className="truncate text-sm font-medium text-[var(--color-text)]">
             {typeLabel}
           </span>
           <StatusIndicator status={job.status} />
         </div>
 
-        <p className="mt-0.5 truncate text-xs text-[#8E8E93]">
+        <p className="mt-0.5 truncate text-xs text-[var(--color-text-muted)]">
           {job.printer_name}
         </p>
 
         {/* Error message for failed jobs */}
         {isFailed && job.error_message && (
-          <p className="mt-1 text-xs text-[#FF3B30]">
+          <p className="mt-1 text-xs text-[var(--color-danger-strong)]">
             {job.error_message}
           </p>
         )}
 
         {/* Timestamp + actions row */}
         <div className="mt-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-[#C7C7CC]">
+          <span className="text-[11px] text-[var(--gray-400)]">
             {formatRelativeTime(job.created_at)}
           </span>
 
@@ -159,7 +159,7 @@ export function PrintQueueItem({ job, onRetry, onCancel }: PrintQueueItemProps) 
                   variant="ghost"
                   size="xs"
                   onClick={() => onRetry(job.id)}
-                  className="h-6 gap-1 px-2 text-[#007AFF]"
+                  className="h-6 gap-1 px-2 text-[var(--color-primary)]"
                 >
                   <RotateCcw className="h-3 w-3" />
                   Retry
@@ -170,7 +170,7 @@ export function PrintQueueItem({ job, onRetry, onCancel }: PrintQueueItemProps) 
                   variant="ghost"
                   size="xs"
                   onClick={() => onCancel(job.id)}
-                  className="h-6 gap-1 px-2 text-[#FF3B30]"
+                  className="h-6 gap-1 px-2 text-[var(--color-danger-strong)]"
                 >
                   <X className="h-3 w-3" />
                   Cancel

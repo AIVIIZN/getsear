@@ -30,11 +30,11 @@ const CHART_COLORS = [
 ]
 
 // Recharts needs raw color values, not CSS variables
-const CHART_HEX_COLORS = ['#007AFF', '#007AFF', '#34C759', '#AF52DE', '#FF9500']
+const CHART_HEX_COLORS = ['var(--color-primary)', 'var(--color-primary)', 'var(--color-success-strong)', 'var(--color-purple)', 'var(--color-warning-strong)']
 
 export function InlineChart({ data }: InlineChartProps) {
   const { type, title, data: chartData, xKey, yKey, color } = data
-  const primaryColor = color ?? '#007AFF'
+  const primaryColor = color ?? 'var(--color-primary)'
 
   if (!chartData || chartData.length === 0) return null
 
@@ -57,18 +57,18 @@ export function InlineChart({ data }: InlineChartProps) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(60,60,67,0.08)" />
               <XAxis
                 dataKey={xKey}
-                tick={{ fontSize: 11, fill: '#8E8E93' }}
+                tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
                 axisLine={{ stroke: 'rgba(60,60,67,0.12)' }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#8E8E93' }}
+                tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
                 axisLine={false}
                 tickLine={false}
               />
               <Tooltip
                 contentStyle={{
-                  background: '#fff',
+                  background: 'var(--color-neutral-0)',
                   border: '0.5px solid rgba(60,60,67,0.12)',
                   borderRadius: '8px',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -82,18 +82,18 @@ export function InlineChart({ data }: InlineChartProps) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(60,60,67,0.08)" />
               <XAxis
                 dataKey={xKey}
-                tick={{ fontSize: 11, fill: '#8E8E93' }}
+                tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
                 axisLine={{ stroke: 'rgba(60,60,67,0.12)' }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#8E8E93' }}
+                tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
                 axisLine={false}
                 tickLine={false}
               />
               <Tooltip
                 contentStyle={{
-                  background: '#fff',
+                  background: 'var(--color-neutral-0)',
                   border: '0.5px solid rgba(60,60,67,0.12)',
                   borderRadius: '8px',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -130,7 +130,7 @@ export function InlineChart({ data }: InlineChartProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  background: '#fff',
+                  background: 'var(--color-neutral-0)',
                   border: '0.5px solid rgba(60,60,67,0.12)',
                   borderRadius: '8px',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.08)',

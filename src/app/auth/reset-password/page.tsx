@@ -68,7 +68,7 @@ export default function ResetPasswordPage() {
   return (
     <div
       className="flex min-h-screen items-center justify-center px-4"
-      style={{ backgroundColor: '#F2F2F7' }}
+      style={{ backgroundColor: 'var(--color-bg-muted)' }}
     >
       <div
         className="w-full max-w-md rounded-2xl border p-8 shadow-lg"
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
             <div className="space-y-4 text-center">
               <div
                 className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'var(--success, #22C55E)', color: 'white' }}
+                style={{ backgroundColor: 'var(--success, var(--color-success-vivid))', color: 'white' }}
               >
                 <CheckCircle2 className="size-8" />
               </div>

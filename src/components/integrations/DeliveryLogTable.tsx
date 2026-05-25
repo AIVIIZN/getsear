@@ -38,14 +38,14 @@ interface DeliveryLogTableProps {
 }
 
 const STATUS_STYLES: Record<DeliveryStatus, { bg: string; text: string; label: string }> = {
-  delivered: { bg: 'bg-[var(--success-bg)]', text: 'text-[#16a34a]', label: 'Delivered' },
+  delivered: { bg: 'bg-[var(--success-bg)]', text: 'text-[var(--color-success-600)]', label: 'Delivered' },
   sent: { bg: 'bg-[var(--info-bg)]', text: 'text-[var(--info)]', label: 'Sent' },
-  pending: { bg: 'bg-[var(--warning-bg)]', text: 'text-[#b45309]', label: 'Pending' },
+  pending: { bg: 'bg-[var(--warning-bg)]', text: 'text-[var(--color-marketing-warning-dark)]', label: 'Pending' },
   failed: { bg: 'bg-[var(--error-bg)]', text: 'text-[var(--error)]', label: 'Failed' },
   opted_out: { bg: 'bg-[var(--muted)]', text: 'text-[var(--muted-foreground)]', label: 'Opted Out' },
-  opened: { bg: 'bg-[var(--success-bg)]', text: 'text-[#16a34a]', label: 'Opened' },
+  opened: { bg: 'bg-[var(--success-bg)]', text: 'text-[var(--color-success-600)]', label: 'Opened' },
   bounced: { bg: 'bg-[var(--error-bg)]', text: 'text-[var(--error)]', label: 'Bounced' },
-  retrying: { bg: 'bg-[var(--warning-bg)]', text: 'text-[#b45309]', label: 'Retrying' },
+  retrying: { bg: 'bg-[var(--warning-bg)]', text: 'text-[var(--color-marketing-warning-dark)]', label: 'Retrying' },
 }
 
 function StatusPill({ status }: { status: DeliveryStatus }) {
@@ -303,7 +303,7 @@ export function DeliveryLogTable({
                         {entry.requestPayload && (
                           <div className="mb-3">
                             <p className="text-xs font-medium text-muted-foreground mb-1">Request Payload</p>
-                            <pre className="rounded-lg bg-[#1C1C1E] p-3 text-xs text-green-400 font-mono overflow-x-auto max-h-48">
+                            <pre className="rounded-lg bg-[var(--color-text)] p-3 text-xs text-green-400 font-mono overflow-x-auto max-h-48">
                               {formatJson(entry.requestPayload)}
                             </pre>
                           </div>
@@ -311,7 +311,7 @@ export function DeliveryLogTable({
                         {entry.responseBody && (
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-1">Response</p>
-                            <pre className="rounded-lg bg-[#1C1C1E] p-3 text-xs text-green-400 font-mono overflow-x-auto max-h-48">
+                            <pre className="rounded-lg bg-[var(--color-text)] p-3 text-xs text-green-400 font-mono overflow-x-auto max-h-48">
                               {formatJson(entry.responseBody)}
                             </pre>
                           </div>

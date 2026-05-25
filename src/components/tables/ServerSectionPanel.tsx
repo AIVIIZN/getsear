@@ -358,10 +358,12 @@ export function ServerSectionPanel({
                 const isAssignedToSelected =
                   assignment?.serverId === selectedServerId
                 const color = assignment?.color
+                const sectionColor =
+                  color ? SECTION_COLOR_MAP[color as SectionColor]?.cssVar : null
                 const bgStyle = color
                   ? {
-                      backgroundColor: `${SECTION_COLOR_MAP[color as SectionColor]?.hex ?? '#ccc'}20`,
-                      borderColor: SECTION_COLOR_MAP[color as SectionColor]?.hex ?? '#ccc',
+                      backgroundColor: `color-mix(in srgb, ${sectionColor ?? 'var(--color-border-fallback)'} 12%, transparent)`,
+                      borderColor: sectionColor ?? 'var(--color-border-fallback)',
                     }
                   : {}
 
