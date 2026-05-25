@@ -86,6 +86,12 @@ export const privacyRequestStatusSchema = z.enum(['submitted', 'needs_verificati
 export const crmImportSourceTypeSchema = z.enum(['csv', 'pos_customers', 'mailchimp', 'constant_contact', 'toast', 'square', 'opentable', 'reservation_system', 'loyalty', 'gift_cards', 'spreadsheet'])
 export const crmImportJobStatusSchema = z.enum(['draft', 'validated', 'importing', 'completed', 'completed_with_errors', 'failed', 'rolled_back'])
 export const crmImportRowStatusSchema = z.enum(['valid', 'invalid', 'duplicate', 'imported', 'skipped', 'rolled_back'])
+export const crmLoyaltyProgramTypeSchema = z.enum(['points', 'visits', 'item_category', 'tiered', 'vip_club', 'paid_membership', 'birthday_anniversary', 'surprise_delight', 'punch_card', 'referral'])
+export const crmLoyaltyProgramStatusSchema = z.enum(['draft', 'active', 'paused', 'archived'])
+export const crmLoyaltyRuleTypeSchema = z.enum(['points_per_dollar', 'points_per_visit', 'item_reward', 'category_reward', 'tier_multiplier', 'vip_club', 'paid_membership', 'birthday', 'anniversary', 'surprise_delight', 'punch_card', 'referral'])
+export const crmRewardTypeSchema = z.enum(['discount_amount', 'discount_percent', 'free_item', 'free_category_item', 'experience', 'surprise_delight'])
+export const crmRewardStatusSchema = z.enum(['draft', 'active', 'paused', 'archived'])
+export const crmRewardRedemptionStatusSchema = z.enum(['reserved', 'applied', 'voided', 'expired'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -298,6 +304,130 @@ export const createCrmImportJobSchema = z.object({
 
 export const listCrmImportJobsQuerySchema = z.object({
   status: crmImportJobStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const createCrmLoyaltyRuleSchema = z.object({
+  location_id: optionalUuidSchema,
+  rule_type: crmLoyaltyRuleTypeSchema,
+  name: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).optional().nullable(),
+  points: z.number().int().min(0).default(0),
+  multiplier: z.number().min(0).default(1),
+  minimum_spend_cents: z.number().int().min(0).default(0),
+  menu_item_id: optionalUuidSchema,
+  menu_category_id: optionalUuidSchema,
+  starts_at: z.string().datetime({ offset: true }).optional().nullable(),
+  ends_at: z.string().datetime({ offset: true }).optional().nullable(),
+  is_active: z.boolean().default(true),
+  metadata: metadataSchema,
+})
+
+export const createCrmLoyaltyTierSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  rank: z.number().int().min(0).default(0),
+  threshold_points: z.number().int().min(0).default(0),
+  threshold_spend_cents: z.number().int().min(0).default(0),
+  points_multiplier: z.number().min(0).default(1),
+  benefits: z.array(z.object({
+    benefit_type: z.enum(['points_multiplier', 'exclusive_reward', 'vip_service', 'paid_membership', 'birthday', 'anniversary', 'surprise_delight']),
+    name: z.string().trim().min(1).max(160),
+    description: z.string().trim().max(1000).optional().nullable(),
+    metadata: metadataSchema,
+  })).default([]),
+  metadata: metadataSchema,
+})
+
+export const createCrmLoyaltyProgramSchema = z.object({
+  location_id: optionalUuidSchema,
+  name: z.string().trim().min(1).max(200),
+  program_type: crmLoyaltyProgramTypeSchema.default('points'),
+  status: crmLoyaltyProgramStatusSchema.default('active'),
+  points_per_dollar: z.number().min(0).default(1),
+  points_per_visit: z.number().int().min(0).default(0),
+  membership_fee_cents: z.number().int().min(0).default(0),
+  birthday_points: z.number().int().min(0).default(0),
+  anniversary_points: z.number().int().min(0).default(0),
+  referral_points: z.number().int().min(0).default(0),
+  surprise_enabled: z.boolean().default(false),
+  starts_at: z.string().datetime({ offset: true }).optional().nullable(),
+  ends_at: z.string().datetime({ offset: true }).optional().nullable(),
+  rules: z.array(createCrmLoyaltyRuleSchema).default([]),
+  tiers: z.array(createCrmLoyaltyTierSchema).default([]),
+  settings: metadataSchema,
+  metadata: metadataSchema,
+})
+
+export const listCrmLoyaltyProgramsQuerySchema = z.object({
+  status: crmLoyaltyProgramStatusSchema.optional(),
+  location_id: z.string().uuid().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const createCrmLoyaltyAccountSchema = z.object({
+  program_id: z.string().uuid(),
+  guest_id: z.string().uuid(),
+  location_id: optionalUuidSchema,
+  legacy_customer_id: optionalUuidSchema,
+  metadata: metadataSchema,
+})
+
+export const listCrmLoyaltyAccountsQuerySchema = z.object({
+  program_id: z.string().uuid().optional(),
+  guest_id: z.string().uuid().optional(),
+  search: z.string().trim().max(200).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const createCrmRewardSchema = z.object({
+  program_id: z.string().uuid(),
+  tier_id: optionalUuidSchema,
+  location_id: optionalUuidSchema,
+  name: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).optional().nullable(),
+  reward_type: crmRewardTypeSchema.default('discount_amount'),
+  points_cost: z.number().int().min(0).default(0),
+  value_cents: z.number().int().min(0).default(0),
+  percent_off: z.number().min(0.01).max(100).optional().nullable(),
+  menu_item_id: optionalUuidSchema,
+  menu_category_id: optionalUuidSchema,
+  status: crmRewardStatusSchema.default('active'),
+  starts_at: z.string().datetime({ offset: true }).optional().nullable(),
+  ends_at: z.string().datetime({ offset: true }).optional().nullable(),
+  per_guest_limit: z.number().int().min(1).optional().nullable(),
+  requires_manager_override: z.boolean().default(false),
+  metadata: metadataSchema,
+})
+
+export const listCrmRewardsQuerySchema = z.object({
+  program_id: z.string().uuid().optional(),
+  status: crmRewardStatusSchema.optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const earnCrmLoyaltyPointsSchema = z.object({
+  order_id: z.string().uuid().optional().nullable(),
+  points: z.number().int().min(1).optional(),
+  amount_cents: z.number().int().min(0).optional(),
+  visits: z.number().int().min(0).default(0),
+  event_type: z.enum(['earn', 'surprise_delight', 'referral', 'punch']).default('earn'),
+  explanation: z.string().trim().min(1).max(500).default('POS loyalty earn'),
+  metadata: metadataSchema,
+})
+
+export const redeemCrmRewardSchema = z.object({
+  reward_id: z.string().uuid(),
+  order_id: z.string().uuid().optional().nullable(),
+  status: crmRewardRedemptionStatusSchema.default('reserved'),
+  explanation: z.string().trim().min(1).max(500).default('Reward redeemed at checkout'),
+  metadata: metadataSchema,
+})
+
+export const listCrmLedgerQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 })
 
