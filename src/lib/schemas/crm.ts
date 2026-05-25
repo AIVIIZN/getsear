@@ -170,6 +170,10 @@ export const crmCampaignToneSchema = z.enum(['warm', 'polished', 'playful', 'urg
 export const crmAttributionEventTypeSchema = z.enum(['delivered', 'opened', 'clicked', 'redeemed', 'reservation', 'order', 'revenue', 'profit_estimate', 'unsubscribed', 'complained'])
 export const crmAttributionWindowSchema = z.enum(['same_day', '7_day', '14_day', '30_day', '45_day', 'custom'])
 export const crmAttributionBaselineSchema = z.enum(['would_have_visited', 'lapsed', 'first_time', 'high_risk', 'offer_sensitive', 'unknown'])
+export const crmAutomationStatusSchema = z.enum(['draft', 'active', 'paused', 'archived'])
+export const crmAutomationTriggerTypeSchema = z.enum(['guest_created', 'first_visit', 'second_visit', 'birthday', 'lapsed', 'vip_visit', 'negative_feedback', 'reward_earned', 'reward_expiring', 'no_show', 'online_order', 'high_value_check', 'item_purchased', 'category_purchased', 'complaint_resolved'])
+export const crmAutomationActionTypeSchema = z.enum(['send_email', 'send_sms', 'create_task', 'notify_manager', 'add_tag', 'remove_tag', 'add_reward', 'adjust_points', 'create_recovery', 'add_note', 'draft_ai_message', 'schedule_report', 'reservation_prompt', 'webhook'])
+export const crmAutomationRunStatusSchema = z.enum(['queued', 'running', 'succeeded', 'failed', 'skipped', 'test'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -483,6 +487,41 @@ export const createGuestSchema = z.object({
   profile_status: guestProfileStatusSchema.default('active'),
   is_vip: z.boolean().default(false),
   metadata: metadataSchema,
+})
+
+export const createCrmAutomationSchema = z.object({
+  location_id: optionalUuidSchema,
+  segment_id: optionalUuidSchema,
+  name: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).optional().nullable(),
+  status: crmAutomationStatusSchema.default('draft'),
+  trigger_type: crmAutomationTriggerTypeSchema,
+  condition_tree: metadataSchema,
+  wait_steps: z.array(z.record(z.string(), z.unknown())).max(24).default([]),
+  branch_rules: z.array(z.record(z.string(), z.unknown())).max(24).default([]),
+  actions: z.array(z.object({
+    action_type: crmAutomationActionTypeSchema,
+    config: metadataSchema,
+  })).min(1).max(24),
+  measurement: metadataSchema,
+  metadata: metadataSchema,
+})
+
+export const listCrmAutomationsQuerySchema = z.object({
+  status: crmAutomationStatusSchema.optional(),
+  trigger_type: crmAutomationTriggerTypeSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const testCrmAutomationSchema = z.object({
+  guest_id: optionalUuidSchema,
+  complaint_id: optionalUuidSchema,
+  dry_run: z.boolean().default(true),
+  metadata: metadataSchema,
+}).superRefine((value, ctx) => {
+  if (!value.guest_id && !value.complaint_id) {
+    ctx.addIssue({ code: 'custom', path: ['guest_id'], message: 'Automation tests need guest_id or complaint_id.' })
+  }
 })
 
 export const updateGuestSchema = createGuestSchema.partial()
