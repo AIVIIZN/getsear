@@ -101,12 +101,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('cash_drawer_events') as any)
       .insert({
-        org_id: user.org_id,
         cash_drawer_id: id,
-        event_type: 'open',
-        amount: parsed.data.starting_cash,
+        event_type: 'open_shift',
+        amount: parseFloat(parsed.data.starting_cash),
+        running_total: parseFloat(parsed.data.starting_cash),
         performed_by: user.id,
-        notes: `Opening count: $${parsed.data.starting_cash}`,
+        description: `Opening count: $${parsed.data.starting_cash}`,
         created_at: now,
       })
   } catch {

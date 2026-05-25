@@ -4,6 +4,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 
 type RouteParams = { params: Promise<{ id: string }> }
+type UiCashDrawerEventType = 'pay_in' | 'pay_out' | 'safe_drop'
+
+const eventTypeMap: Record<UiCashDrawerEventType, 'paid_in' | 'paid_out'> = {
+  pay_in: 'paid_in',
+  pay_out: 'paid_out',
+  safe_drop: 'paid_out',
+}
 
 /**
  * GET /api/staff/cash-drawers/[id]/events — get event log for drawer
@@ -22,7 +29,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { data: events, error } = await (supabase.from('cash_drawer_events') as any)
     .select('*')
     .eq('cash_drawer_id', id)
-    .eq('org_id', user.org_id)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -132,12 +138,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: event, error } = await (supabase.from('cash_drawer_events') as any)
     .insert({
-      org_id: user.org_id,
       cash_drawer_id: id,
-      event_type: parsed.data.event_type,
-      amount: parsed.data.amount,
+      event_type: eventTypeMap[parsed.data.event_type],
+      amount,
+      running_total: newExpected,
       performed_by: user.id,
-      notes: parsed.data.notes ?? null,
+      description: parsed.data.notes ?? null,
       created_at: now,
     })
     .select()
