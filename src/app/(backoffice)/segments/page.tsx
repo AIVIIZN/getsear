@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { BadgeCheck, DatabaseZap, Filter, Play, Plus, Save, ShieldAlert, Sparkles, UsersRound } from "lucide-react"
+import { BadgeCheck, DatabaseZap, Filter, Mail, MessageSquare, Play, Plus, ReceiptText, Save, ShieldAlert, Smartphone, Sparkles, UsersRound } from "lucide-react"
 import { Badge } from "@/components/ui-v2/data/Badge"
 import { Skeleton } from "@/components/ui-v2/data/Skeleton"
 import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
@@ -37,8 +37,24 @@ type PreviewGuest = {
   total_spend: number
   total_visits: number
   matched_rules: string[]
+  reachable_channels: ReachabilityChannel[]
 }
-type Preview = { total_count: number; sample_guests: PreviewGuest[]; runtime_ms: number }
+type ReachabilityChannel = "email" | "sms" | "push" | "receipt"
+type Reachability = {
+  total_count: number
+  estimated_audience_cost_cents: number
+  channels: Record<ReachabilityChannel, {
+    reachable_count: number
+    excluded_count: number
+    estimated_cost_cents: number
+    exclusions: {
+      missing_consent: number
+      suppressed: number
+      missing_contact: number
+    }
+  }>
+}
+type Preview = { total_count: number; sample_guests: PreviewGuest[]; runtime_ms: number; reachability?: Reachability }
 type SegmentDraft = {
   name: string
   description: string
@@ -101,6 +117,17 @@ function formatDate(value: string | null | undefined) {
   if (!value) return "Not materialized"
   return new Date(value).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 }
+
+function formatCost(cents: number | undefined) {
+  return `$${((cents ?? 0) / 100).toFixed(2)}`
+}
+
+const reachabilityChannels: Array<{ key: ReachabilityChannel; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { key: "email", label: "Email", icon: Mail },
+  { key: "sms", label: "SMS", icon: MessageSquare },
+  { key: "push", label: "Push", icon: Smartphone },
+  { key: "receipt", label: "Receipt", icon: ReceiptText },
+]
 
 export default function SegmentsPage() {
   const [segments, setSegments] = React.useState<Segment[]>([])
@@ -174,14 +201,14 @@ export default function SegmentsPage() {
         match_mode: match,
         rule_tree: { match, rules },
       }
-      const json = await fetchJson<{ data: Segment & { sample_guests: PreviewGuest[] } }>("/api/crm/segments", {
+      const json = await fetchJson<{ data: Segment & { sample_guests: PreviewGuest[]; reachability?: Reachability } }>("/api/crm/segments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
       setSegments((current) => [json.data, ...current])
       setSelectedId(json.data.id)
-      setPreview({ total_count: json.data.preview_count, sample_guests: json.data.sample_guests ?? [], runtime_ms: 0 })
+      setPreview({ total_count: json.data.preview_count, sample_guests: json.data.sample_guests ?? [], runtime_ms: 0, reachability: json.data.reachability })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save segment")
     } finally {
@@ -242,8 +269,8 @@ export default function SegmentsPage() {
     setMaterializing(true)
     setError(null)
     try {
-      const json = await fetchJson<{ data: { membership_count: number; sample_guests: PreviewGuest[] } }>(`/api/crm/segments/${selectedId}/materialize`, { method: "POST" })
-      setPreview({ total_count: json.data.membership_count, sample_guests: json.data.sample_guests, runtime_ms: 0 })
+      const json = await fetchJson<{ data: { membership_count: number; sample_guests: PreviewGuest[]; reachability?: Reachability } }>(`/api/crm/segments/${selectedId}/materialize`, { method: "POST" })
+      setPreview({ total_count: json.data.membership_count, sample_guests: json.data.sample_guests, runtime_ms: 0, reachability: json.data.reachability })
       await loadSegments()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Materialize failed")
@@ -394,6 +421,37 @@ export default function SegmentsPage() {
                 </div>
                 <div className="mt-[var(--space-2)] text-[var(--type-title-1-size)] font-[var(--weight-bold)]">{preview?.total_count ?? selectedSegment?.preview_count ?? 0}</div>
               </div>
+              {preview?.reachability ? (
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-[var(--space-3)]">
+                  <div className="flex items-center justify-between gap-[var(--space-3)]">
+                    <div>
+                      <div className="font-[var(--weight-semibold)]">Campaign readiness</div>
+                      <div className="text-[var(--type-caption-size)] text-[var(--color-text-muted)]">Estimated all-channel audience cost</div>
+                    </div>
+                    <div className="text-right text-[var(--type-title-3-size)] font-[var(--weight-bold)]">{formatCost(preview.reachability.estimated_audience_cost_cents)}</div>
+                  </div>
+                  <div className="mt-[var(--space-3)] grid gap-[var(--space-2)]">
+                    {reachabilityChannels.map((channel) => {
+                      const item = preview.reachability!.channels[channel.key]
+                      const Icon = channel.icon
+                      return (
+                        <div key={channel.key} className="rounded-[var(--radius-sm)] bg-[var(--color-surface)] p-[var(--space-3)]">
+                          <div className="flex items-center justify-between gap-[var(--space-2)]">
+                            <div className="flex items-center gap-[var(--space-2)]">
+                              <Icon className="h-4 w-4 text-[var(--color-primary)]" />
+                              <span className="font-[var(--weight-semibold)]">{channel.label}</span>
+                            </div>
+                            <span className="font-[var(--weight-bold)]">{item.reachable_count}</span>
+                          </div>
+                          <div className="mt-[var(--space-2)] text-[var(--type-caption-size)] text-[var(--color-text-muted)]">
+                            {item.excluded_count} excluded · {item.exclusions.missing_consent} no consent · {item.exclusions.suppressed} suppressed · {item.exclusions.missing_contact} no contact
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
               {(preview?.sample_guests ?? []).length === 0 ? (
                 <EmptyState illustration="no-customers" title="No sample guests" description="Run a preview to see matching guests and rule evidence." />
               ) : (
@@ -408,6 +466,7 @@ export default function SegmentsPage() {
                     </div>
                     <div className="mt-[var(--space-2)] flex flex-wrap gap-[var(--space-1)]">
                       {guest.matched_rules.slice(0, 3).map((rule) => <Badge key={rule} variant="primary">{rule}</Badge>)}
+                      {(guest.reachable_channels ?? []).map((channel) => <Badge key={channel} variant="success">{channel}</Badge>)}
                     </div>
                   </div>
                 ))

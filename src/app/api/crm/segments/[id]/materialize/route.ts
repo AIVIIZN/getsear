@@ -65,11 +65,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     entity_type: 'crm_segment',
     entity_id: segment.id,
     before_state: segment as Record<string, unknown>,
-    after_state: { membership_count: rows.length },
+    after_state: { membership_count: rows.length, reachability: preview.reachability },
     description: `Materialized CRM segment ${segment.name}`,
     request,
     location_id: segment.location_id ?? null,
   })
 
-  return NextResponse.json({ data: { membership_count: rows.length, sample_guests: preview.sample_guests } })
+  return NextResponse.json({ data: { membership_count: rows.length, sample_guests: preview.sample_guests, reachability: preview.reachability } })
 }
