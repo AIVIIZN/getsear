@@ -38,6 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       sample_guest_ids: preview.sample_guests.map((guest) => guest.id),
       sample_guests: preview.sample_guests,
       runtime_ms: preview.runtime_ms,
+      metadata: { reachability: preview.reachability },
     })
     .select()
     .single()
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     action: 'crm_segment_previewed',
     entity_type: 'crm_segment',
     entity_id: segment.id,
-    after_state: { preview_count: preview.total_count, sample_guest_ids: preview.sample_guests.map((guest) => guest.id) },
+    after_state: { preview_count: preview.total_count, sample_guest_ids: preview.sample_guests.map((guest) => guest.id), reachability: preview.reachability },
     description: `Previewed CRM segment ${segment.name}`,
     request,
     location_id: segment.location_id ?? null,

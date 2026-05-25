@@ -6,7 +6,7 @@ type DbClient = ReturnType<typeof createAdminClient>
 export type CrmSegmentRule = CrmSegmentRuleInput
 export type CrmSegmentRuleGroup = CrmSegmentRuleGroupInput
 
-type GuestSegmentFacts = {
+export type GuestSegmentFacts = {
   id: string
   display_name: string
   lifecycle_stage: string
@@ -21,14 +21,18 @@ type GuestSegmentFacts = {
   tag_categories: string[]
   email_marketing_consent: boolean
   sms_marketing_consent: boolean
+  push_marketing_consent: boolean
   loyalty_points_balance: number
   loyalty_tier: string | null
   favorite_items: string[]
   order_channels: string[]
+  contact_channels: string[]
+  suppressed_channels: string[]
 }
 
 export type CrmSegmentPreview = {
   total_count: number
+  reachability: CrmReachabilitySummary
   sample_guests: Array<{
     id: string
     display_name: string
@@ -36,9 +40,27 @@ export type CrmSegmentPreview = {
     total_spend: number
     total_visits: number
     matched_rules: string[]
+    reachable_channels: CrmReachabilityChannel[]
   }>
   matched_guest_ids: string[]
   runtime_ms: number
+}
+
+export type CrmReachabilityChannel = 'email' | 'sms' | 'push' | 'receipt'
+
+export type CrmReachabilitySummary = {
+  total_count: number
+  estimated_audience_cost_cents: number
+  channels: Record<CrmReachabilityChannel, {
+    reachable_count: number
+    excluded_count: number
+    estimated_cost_cents: number
+    exclusions: {
+      missing_consent: number
+      suppressed: number
+      missing_contact: number
+    }
+  }>
 }
 
 function numberValue(value: unknown): number | null {
@@ -146,6 +168,97 @@ function evaluateGroup(guest: GuestSegmentFacts, group: CrmSegmentRuleGroup): { 
   return { matched, labels: matched ? results.flatMap((result) => result.labels) : [] }
 }
 
+function hasSuppression(guest: GuestSegmentFacts, channel: string) {
+  return guest.suppressed_channels.includes(channel) || guest.suppressed_channels.includes('all')
+}
+
+function channelReadiness(guest: GuestSegmentFacts, channel: CrmReachabilityChannel) {
+  if (channel === 'email') {
+    const hasContact = guest.contact_channels.includes('email')
+    return {
+      reachable: hasContact && guest.email_marketing_consent && !hasSuppression(guest, 'email'),
+      missing_consent: hasContact && !guest.email_marketing_consent,
+      suppressed: hasSuppression(guest, 'email'),
+      missing_contact: !hasContact,
+    }
+  }
+  if (channel === 'sms') {
+    const hasContact = guest.contact_channels.includes('phone')
+    return {
+      reachable: hasContact && guest.sms_marketing_consent && !hasSuppression(guest, 'sms'),
+      missing_consent: hasContact && !guest.sms_marketing_consent,
+      suppressed: hasSuppression(guest, 'sms'),
+      missing_contact: !hasContact,
+    }
+  }
+  if (channel === 'push') {
+    return {
+      reachable: guest.push_marketing_consent && !hasSuppression(guest, 'push'),
+      missing_consent: !guest.push_marketing_consent,
+      suppressed: hasSuppression(guest, 'push'),
+      missing_contact: false,
+    }
+  }
+
+  const hasReceiptContact = guest.contact_channels.includes('email') || guest.contact_channels.includes('phone')
+  return {
+    reachable: hasReceiptContact && !hasSuppression(guest, 'all'),
+    missing_consent: false,
+    suppressed: hasSuppression(guest, 'all'),
+    missing_contact: !hasReceiptContact,
+  }
+}
+
+const CHANNEL_COST_CENTS: Record<CrmReachabilityChannel, number> = {
+  email: 0.2,
+  sms: 1.5,
+  push: 0,
+  receipt: 0,
+}
+
+export function calculateCrmReachabilitySummary(matches: GuestSegmentFacts[]): CrmReachabilitySummary {
+  const channels = {
+    email: emptyReachabilityChannel(),
+    sms: emptyReachabilityChannel(),
+    push: emptyReachabilityChannel(),
+    receipt: emptyReachabilityChannel(),
+  }
+
+  for (const guest of matches) {
+    for (const channel of Object.keys(channels) as CrmReachabilityChannel[]) {
+      const readiness = channelReadiness(guest, channel)
+      if (readiness.reachable) {
+        channels[channel].reachable_count += 1
+        channels[channel].estimated_cost_cents += CHANNEL_COST_CENTS[channel]
+      } else {
+        channels[channel].excluded_count += 1
+        if (readiness.suppressed) channels[channel].exclusions.suppressed += 1
+        else if (readiness.missing_contact) channels[channel].exclusions.missing_contact += 1
+        else if (readiness.missing_consent) channels[channel].exclusions.missing_consent += 1
+      }
+    }
+  }
+
+  return {
+    total_count: matches.length,
+    estimated_audience_cost_cents: Object.values(channels).reduce((sum, channel) => sum + channel.estimated_cost_cents, 0),
+    channels,
+  }
+}
+
+function emptyReachabilityChannel() {
+  return {
+    reachable_count: 0,
+    excluded_count: 0,
+    estimated_cost_cents: 0,
+    exclusions: {
+      missing_consent: 0,
+      suppressed: 0,
+      missing_contact: 0,
+    },
+  }
+}
+
 async function loadSegmentFacts(supabase: DbClient, user: Pick<AuthUser, 'org_id'>): Promise<GuestSegmentFacts[]> {
   const { data: guests, error } = await supabase
     .from('guests')
@@ -160,6 +273,8 @@ async function loadSegmentFacts(supabase: DbClient, user: Pick<AuthUser, 'org_id
   const [
     { data: tags },
     { data: consents },
+    { data: contactPoints },
+    { data: suppressions },
     { data: loyalty },
     { data: orders },
     { data: orderItems },
@@ -176,6 +291,18 @@ async function loadSegmentFacts(supabase: DbClient, user: Pick<AuthUser, 'org_id
       .eq('org_id', user.org_id)
       .eq('purpose', 'marketing')
       .in('guest_id', guestIds),
+    supabase
+      .from('guest_contact_points')
+      .select('guest_id, contact_type')
+      .eq('org_id', user.org_id)
+      .is('deleted_at', null)
+      .in('guest_id', guestIds),
+    supabase
+      .from('suppression_entries')
+      .select('guest_id, channel, purpose, expires_at')
+      .eq('org_id', user.org_id)
+      .in('guest_id', guestIds)
+      .in('purpose', ['marketing', 'all']),
     supabase
       .from('crm_loyalty_accounts')
       .select('guest_id, points_balance, crm_loyalty_tiers(name)')
@@ -204,12 +331,25 @@ async function loadSegmentFacts(supabase: DbClient, user: Pick<AuthUser, 'org_id
     tagFacts.set(row.guest_id, current)
   }
 
-  const consentFacts = new Map<string, { email: boolean; sms: boolean }>()
+  const consentFacts = new Map<string, { email: boolean; sms: boolean; push: boolean }>()
   for (const row of consents ?? []) {
-    const current = consentFacts.get(row.guest_id) ?? { email: false, sms: false }
+    const current = consentFacts.get(row.guest_id) ?? { email: false, sms: false, push: false }
     if (row.status === 'granted' && row.channel === 'email') current.email = true
     if (row.status === 'granted' && row.channel === 'sms') current.sms = true
+    if (row.status === 'granted' && row.channel === 'push') current.push = true
     consentFacts.set(row.guest_id, current)
+  }
+
+  const contactFacts = new Map<string, string[]>()
+  for (const row of contactPoints ?? []) {
+    contactFacts.set(row.guest_id, [...(contactFacts.get(row.guest_id) ?? []), row.contact_type])
+  }
+
+  const now = Date.now()
+  const suppressionFacts = new Map<string, string[]>()
+  for (const row of suppressions ?? []) {
+    if (row.expires_at && new Date(row.expires_at).getTime() <= now) continue
+    suppressionFacts.set(row.guest_id, [...(suppressionFacts.get(row.guest_id) ?? []), row.channel])
   }
 
   const loyaltyFacts = new Map<string, { points: number; tier: string | null }>()
@@ -261,10 +401,13 @@ async function loadSegmentFacts(supabase: DbClient, user: Pick<AuthUser, 'org_id
       tag_categories: tag?.categories ?? [],
       email_marketing_consent: consent?.email ?? false,
       sms_marketing_consent: consent?.sms ?? false,
+      push_marketing_consent: consent?.push ?? false,
       loyalty_points_balance: loyaltyFact?.points ?? 0,
       loyalty_tier: loyaltyFact?.tier ?? null,
       favorite_items: itemFacts.get(guest.id) ?? [],
       order_channels: orderFact?.channels ?? [],
+      contact_channels: contactFacts.get(guest.id) ?? [],
+      suppressed_channels: suppressionFacts.get(guest.id) ?? [],
     }
   })
 }
@@ -282,9 +425,12 @@ export async function previewCrmSegment(input: {
     const result = evaluateGroup(guest, input.ruleTree)
     return result.matched ? [{ guest, matched_rules: result.labels }] : []
   })
+  const matchedGuests = matches.map((match) => match.guest)
+  const reachability = calculateCrmReachabilitySummary(matchedGuests)
 
   return {
     total_count: matches.length,
+    reachability,
     matched_guest_ids: matches.map((match) => match.guest.id),
     runtime_ms: Date.now() - started,
     sample_guests: matches.slice(0, input.sampleLimit ?? 8).map((match) => ({
@@ -294,6 +440,8 @@ export async function previewCrmSegment(input: {
       total_spend: match.guest.total_spend,
       total_visits: match.guest.total_visits,
       matched_rules: match.matched_rules,
+      reachable_channels: (['email', 'sms', 'push', 'receipt'] as CrmReachabilityChannel[])
+        .filter((channel) => channelReadiness(match.guest, channel).reachable),
     })),
   }
 }

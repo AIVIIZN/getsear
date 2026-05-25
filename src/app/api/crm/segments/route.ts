@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       sample_guest_ids: preview.sample_guests.map((guest) => guest.id),
       sample_guests: preview.sample_guests,
       runtime_ms: preview.runtime_ms,
-      metadata: { source: 'create_segment' },
+      metadata: { source: 'create_segment', reachability: preview.reachability },
     })
     .select()
     .single()
@@ -126,5 +126,5 @@ export async function POST(request: NextRequest) {
     location_id: segment.location_id ?? null,
   })
 
-  return NextResponse.json({ data: { ...segment, preview_run: previewRun, sample_guests: preview.sample_guests } }, { status: 201 })
+  return NextResponse.json({ data: { ...segment, preview_run: previewRun, sample_guests: preview.sample_guests, reachability: preview.reachability } }, { status: 201 })
 }

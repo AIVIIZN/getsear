@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildCrmSegmentDraft } from '@/lib/crm/segment-ai-draft'
+import { calculateCrmReachabilitySummary, type GuestSegmentFacts } from '@/lib/crm/segments'
 import { buildCrmSegmentDraftSchema, createCrmSegmentSchema, previewCrmSegmentSchema } from '@/lib/schemas/crm'
 
 const root = process.cwd()
@@ -130,5 +131,65 @@ describe('CRM-V6.2 AI segment draft', () => {
     expect(page).toContain('Approve draft')
     expect(page).toContain('disabled={!name.trim() || Boolean(aiDraft)}')
     expect(page).toContain('disabled={!selectedId || Boolean(aiDraft)}')
+  })
+})
+
+describe('CRM-V6.3 reachability and campaign readiness', () => {
+  function guest(overrides: Partial<GuestSegmentFacts>): GuestSegmentFacts {
+    return {
+      id: overrides.id ?? crypto.randomUUID(),
+      display_name: overrides.display_name ?? 'Guest',
+      lifecycle_stage: overrides.lifecycle_stage ?? 'regular',
+      total_spend: overrides.total_spend ?? 0,
+      total_visits: overrides.total_visits ?? 0,
+      average_check: overrides.average_check ?? 0,
+      last_visit_at: overrides.last_visit_at ?? null,
+      birthday: overrides.birthday ?? null,
+      location_id: overrides.location_id ?? null,
+      is_vip: overrides.is_vip ?? false,
+      tag_slugs: overrides.tag_slugs ?? [],
+      tag_categories: overrides.tag_categories ?? [],
+      email_marketing_consent: overrides.email_marketing_consent ?? false,
+      sms_marketing_consent: overrides.sms_marketing_consent ?? false,
+      push_marketing_consent: overrides.push_marketing_consent ?? false,
+      loyalty_points_balance: overrides.loyalty_points_balance ?? 0,
+      loyalty_tier: overrides.loyalty_tier ?? null,
+      favorite_items: overrides.favorite_items ?? [],
+      order_channels: overrides.order_channels ?? [],
+      contact_channels: overrides.contact_channels ?? [],
+      suppressed_channels: overrides.suppressed_channels ?? [],
+    }
+  }
+
+  it('excludes suppressed and unconsented guests from sendable channel counts', () => {
+    const summary = calculateCrmReachabilitySummary([
+      guest({ contact_channels: ['email', 'phone'], email_marketing_consent: true, sms_marketing_consent: true }),
+      guest({ contact_channels: ['email'], email_marketing_consent: true, suppressed_channels: ['email'] }),
+      guest({ contact_channels: ['phone'], sms_marketing_consent: false }),
+    ])
+
+    expect(summary.total_count).toBe(3)
+    expect(summary.channels.email.reachable_count).toBe(1)
+    expect(summary.channels.email.exclusions.suppressed).toBe(1)
+    expect(summary.channels.sms.reachable_count).toBe(1)
+    expect(summary.channels.sms.exclusions.missing_consent).toBe(1)
+    expect(summary.channels.push.reachable_count).toBe(0)
+    expect(summary.channels.receipt.reachable_count).toBe(3)
+    expect(summary.estimated_audience_cost_cents).toBeGreaterThan(0)
+  })
+
+  it('surfaces reachability in the segment API and UI preview contract', () => {
+    const engine = read('src/lib/crm/segments.ts')
+    const route = read('src/app/api/crm/segments/[id]/preview/route.ts')
+    const materializeRoute = read('src/app/api/crm/segments/[id]/materialize/route.ts')
+    const page = read('src/app/(backoffice)/segments/page.tsx')
+
+    expect(engine).toContain("from('suppression_entries')")
+    expect(engine).toContain("from('guest_contact_points')")
+    expect(engine).toContain('calculateCrmReachabilitySummary')
+    expect(route).toContain('reachability: preview.reachability')
+    expect(materializeRoute).toContain('reachability: preview.reachability')
+    expect(page).toContain('Campaign readiness')
+    expect(page).toContain('estimated_audience_cost_cents')
   })
 })
