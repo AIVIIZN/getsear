@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import type { AuthUser } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
+import { calculateGuestMenuPreferenceGraph, type GuestMenuPreferenceGraph, type MenuPreferenceOrderItem } from '@/lib/crm/menu-preferences'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type DbClient = ReturnType<typeof createAdminClient>
@@ -463,7 +464,7 @@ export async function recalculateGuestIntelligence(input: {
   const { data: items, error: itemsError } = orderIds.length
     ? await db
       .from('order_items')
-      .select('order_id, menu_item_id, name, quantity, line_total')
+      .select('id, order_id, menu_item_id, name, quantity, line_total, order_item_modifiers(name, quantity)')
       .eq('org_id', input.user.org_id)
       .in('order_id', orderIds)
       .eq('is_voided', false)
@@ -478,7 +479,7 @@ export async function recalculateGuestIntelligence(input: {
   const categoryByMenuItemId = await loadCategoryMap(db, input.user.org_id, menuItemIds)
   const { data: complaintNotes } = await db
     .from('guest_notes')
-    .select('id')
+    .select('id, body')
     .eq('org_id', input.user.org_id)
     .eq('guest_id', input.guestId)
     .eq('note_category', 'service_recovery')
@@ -489,6 +490,12 @@ export async function recalculateGuestIntelligence(input: {
     orders: closedOrders,
     items: (items ?? []) as OrderItem[],
     categoryByMenuItemId,
+  })
+  const menuPreferences = calculateGuestMenuPreferenceGraph({
+    orders: closedOrders,
+    items: (items ?? []) as MenuPreferenceOrderItem[],
+    categoryByMenuItemId,
+    complaintTexts: ((complaintNotes ?? []) as Array<{ body?: string | null }>).flatMap((note) => note.body ? [note.body] : []),
   })
   const previousStage = (guest as { lifecycle_stage: GuestLifecycleStage }).lifecycle_stage
   const now = new Date().toISOString()
@@ -512,6 +519,10 @@ export async function recalculateGuestIntelligence(input: {
       lifecycle_explanation: summary.lifecycle_explanation,
       source: 'closed_checks',
       deterministic: true,
+    },
+    crm_menu_preferences: {
+      calculated_at: now,
+      ...menuPreferences,
     },
     crm_auto_tags: {
       ...(((guest as { metadata?: { crm_auto_tags?: Record<string, unknown> } | null }).metadata)?.crm_auto_tags ?? {}),
@@ -576,19 +587,156 @@ export async function recalculateGuestIntelligence(input: {
     now,
   })
 
+  await upsertGuestMenuPreferences({
+    db,
+    user: input.user,
+    guestId: input.guestId,
+    locationId: (guest as { location_id: string | null }).location_id,
+    graph: menuPreferences,
+    now,
+  })
+
   await audit.record({
     actor: input.user,
     action: 'crm_guest_intelligence_recalculated',
     entity_type: 'guest',
     entity_id: input.guestId,
     before_state: { lifecycle_stage: previousStage },
-    after_state: { ...summary, auto_tags: activeSmartTags } as unknown as Record<string, unknown>,
+    after_state: { ...summary, auto_tags: activeSmartTags, menu_preferences: menuPreferences } as unknown as Record<string, unknown>,
     description: 'Recalculated CRM guest intelligence from closed checks',
     request: input.request,
     location_id: (guest as { location_id: string | null }).location_id,
   })
 
-  return { data: { guest: updated, intelligence: summary, auto_tags: activeSmartTags, lifecycle_changed: previousStage !== summary.lifecycle_stage } }
+  return { data: { guest: updated, intelligence: summary, auto_tags: activeSmartTags, menu_preferences: menuPreferences, lifecycle_changed: previousStage !== summary.lifecycle_stage } }
+}
+
+async function upsertGuestMenuPreferences(input: {
+  db: DbClient
+  user: Pick<AuthUser, 'id' | 'email' | 'org_id' | 'role'>
+  guestId: string
+  locationId: string | null
+  graph: GuestMenuPreferenceGraph
+  now: string
+}) {
+  const rows = [
+    ...input.graph.item_preferences.slice(0, 5).map((signal) => ({
+      preference_key: `item:${signal.label}`,
+      confidence: signal.confidence,
+      last_observed_at: signal.last_observed_at,
+      preference_value: {
+        type: 'item',
+        label: signal.label,
+        menu_item_id: signal.menu_item_id,
+        source_count: signal.source_count,
+        quantity: signal.quantity,
+        repeat_rate: signal.repeat_rate,
+        reason: signal.reason,
+        source_order_ids: signal.source_order_ids,
+        model_inference: false,
+      },
+    })),
+    ...input.graph.category_preferences.slice(0, 3).map((signal) => ({
+      preference_key: `category:${signal.label}`,
+      confidence: signal.confidence,
+      last_observed_at: signal.last_observed_at,
+      preference_value: {
+        type: 'category',
+        label: signal.label,
+        source_count: signal.source_count,
+        quantity: signal.quantity,
+        repeat_rate: signal.repeat_rate,
+        reason: signal.reason,
+        source_order_ids: signal.source_order_ids,
+        model_inference: false,
+      },
+    })),
+    ...input.graph.modifier_preferences.slice(0, 3).map((signal) => ({
+      preference_key: `modifier:${signal.label}`,
+      confidence: signal.confidence,
+      last_observed_at: signal.last_observed_at,
+      preference_value: {
+        type: 'modifier',
+        label: signal.label,
+        source_count: signal.source_count,
+        quantity: signal.quantity,
+        reason: signal.reason,
+        source_order_ids: signal.source_order_ids,
+        model_inference: false,
+      },
+    })),
+    ...input.graph.daypart_preferences.slice(0, 2).map((signal) => ({
+      preference_key: `daypart:${signal.label}`,
+      confidence: signal.confidence,
+      last_observed_at: signal.last_observed_at,
+      preference_value: {
+        type: 'daypart',
+        label: signal.label,
+        source_count: signal.source_count,
+        visit_share: signal.visit_share,
+        reason: signal.reason,
+        source_order_ids: signal.source_order_ids,
+        model_inference: false,
+      },
+    })),
+  ]
+
+  if (rows.length === 0) return
+
+  const keys = rows.map((row) => row.preference_key)
+  const { data: existingRows } = await input.db
+    .from('guest_preferences')
+    .select('id, preference_key')
+    .eq('org_id', input.user.org_id)
+    .eq('guest_id', input.guestId)
+    .eq('preference_category', 'menu')
+    .in('preference_key', keys)
+    .is('deleted_at', null)
+
+  const existingIdByKey = new Map(((existingRows ?? []) as Array<{ id: string; preference_key: string }>).map((row) => [row.preference_key, row.id]))
+  const inserts = rows.flatMap((row) => existingIdByKey.has(row.preference_key) ? [] : [{
+    org_id: input.user.org_id,
+    location_id: input.locationId,
+    guest_id: input.guestId,
+    preference_category: 'menu',
+    preference_key: row.preference_key,
+    preference_value: row.preference_value,
+    confidence: row.confidence,
+    source: 'closed_checks',
+    last_observed_at: row.last_observed_at,
+    metadata: {
+      source: 'crm_menu_preference_graph',
+      calculated_at: input.now,
+      source_backed: true,
+      model_inference: false,
+    },
+  }])
+
+  for (const row of rows) {
+    const existingId = existingIdByKey.get(row.preference_key)
+    if (!existingId) continue
+    await input.db
+      .from('guest_preferences')
+      .update({
+        preference_value: row.preference_value,
+        confidence: row.confidence,
+        source: 'closed_checks',
+        last_observed_at: row.last_observed_at,
+        updated_at: input.now,
+        metadata: {
+          source: 'crm_menu_preference_graph',
+          calculated_at: input.now,
+          source_backed: true,
+          model_inference: false,
+        },
+      })
+      .eq('org_id', input.user.org_id)
+      .eq('id', existingId)
+  }
+
+  if (inserts.length > 0) {
+    await input.db.from('guest_preferences').insert(inserts)
+  }
 }
 
 async function applyGuestSmartTags(input: {
