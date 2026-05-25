@@ -82,6 +82,25 @@ type AiGatewayResponse = {
   }
 }
 
+type DashboardTemplate = {
+  template_key: string
+  name: string
+  audience: "owner" | "manager" | "marketing" | "loyalty" | "data_quality"
+  description: string
+  widgets: Array<{
+    widget_key: string
+    title: string
+    widget_type: "metric_card" | "trend" | "breakdown" | "table" | "alert_queue"
+    metric_keys: CrmReportWizardMetric[]
+    dimension_keys: CrmReportWizardDimension[]
+    visualization: CrmReportWizardVisualization
+    position: { x: number; y: number; w: number; h: number }
+    demo_value: string
+    insight: string
+    filters?: Record<string, unknown>
+  }>
+}
+
 type LoadState = "loading" | "ready" | "error"
 
 const dataAreaOptions: Array<{ value: CrmReportWizardValues["dataArea"]; label: string }> = [
@@ -140,8 +159,11 @@ export function CrmReportWizard() {
   const [state, setState] = React.useState<LoadState>("loading")
   const [preview, setPreview] = React.useState<PreviewResponse["data"] | null>(null)
   const [savedReportId, setSavedReportId] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState<"preview" | "save" | "ai" | null>(null)
+  const [savedDashboardId, setSavedDashboardId] = React.useState<string | null>(null)
+  const [busy, setBusy] = React.useState<"preview" | "save" | "ai" | "dashboard" | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [dashboardTemplates, setDashboardTemplates] = React.useState<DashboardTemplate[]>([])
+  const [selectedTemplateKey, setSelectedTemplateKey] = React.useState<string>("campaign_roi")
   const [canvasBlocks, setCanvasBlocks] = React.useState<CrmReportCanvasBlockId[]>(["campaigns", "orders"])
   const [canvasConnections, setCanvasConnections] = React.useState<CrmReportCanvasConnection[]>([
     { from: "campaigns", to: "orders" },
@@ -161,6 +183,9 @@ export function CrmReportWizard() {
         ])
         setMetrics(metricJson.data)
         setDimensions(dimensionJson.data)
+        fetchJson<{ templates: DashboardTemplate[] }>("/api/crm/reports/dashboards?include_templates=true")
+          .then((json) => setDashboardTemplates(json.templates))
+          .catch(() => setDashboardTemplates([]))
         setState("ready")
       } catch {
         setState("error")
@@ -179,13 +204,32 @@ export function CrmReportWizard() {
   function patch(next: Partial<CrmReportWizardValues>) {
     setValues((current) => ({ ...current, ...next }))
     setSavedReportId(null)
+    setSavedDashboardId(null)
     setAiDraft(null)
   }
 
   function setValuesFromBuilder(next: CrmReportWizardValues) {
     setValues(next)
     setSavedReportId(null)
+    setSavedDashboardId(null)
     setPreview(null)
+  }
+
+  function applyDashboardTemplate(template: DashboardTemplate) {
+    const firstWidget = template.widgets[0]
+    if (!firstWidget) return
+    setSelectedTemplateKey(template.template_key)
+    setValuesFromBuilder({
+      ...values,
+      question: `Build the ${template.name.toLowerCase()} dashboard for ${template.audience.replace("_", " ")} review.`,
+      dataArea: template.audience === "loyalty" ? "loyalty" : template.audience === "marketing" ? "campaigns" : template.audience === "manager" ? "recovery" : "operations",
+      name: template.name,
+      description: template.description,
+      metricKeys: firstWidget.metric_keys,
+      dimensionKeys: firstWidget.dimension_keys,
+      visualization: firstWidget.visualization,
+      actions: Array.from(new Set([...values.actions, "dashboard_widget"])),
+    })
   }
 
   function addCanvasBlock(blockId: CrmReportCanvasBlockId) {
@@ -307,6 +351,45 @@ export function CrmReportWizard() {
     }
   }
 
+  async function saveDashboardFromTemplate(template: DashboardTemplate) {
+    setBusy("dashboard")
+    setError(null)
+    try {
+      const json = await fetchJson<{ data: { id: string } }>("/api/crm/reports/dashboards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: template.name,
+          description: template.description,
+          audience: template.audience,
+          template_key: template.template_key,
+          layout: { source: "crm_dashboard_template", columns: 12 },
+          widgets: template.widgets.map((widget) => ({
+            widget_key: widget.widget_key,
+            title: widget.title,
+            widget_type: widget.widget_type,
+            metric_keys: widget.metric_keys,
+            dimension_keys: widget.dimension_keys,
+            filters: widget.filters ?? {},
+            visualization: widget.visualization,
+            position: widget.position,
+            settings: {
+              demo_value: widget.demo_value,
+              insight: widget.insight,
+              template_key: template.template_key,
+            },
+          })),
+          metadata: { seed_demo_data: true },
+        }),
+      })
+      setSavedDashboardId(json.data.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Dashboard save failed")
+    } finally {
+      setBusy(null)
+    }
+  }
+
   function exportCsv() {
     const payload = buildCrmReportWizardPayload(values)
     downloadCsv("crm-report-wizard.csv", [
@@ -374,6 +457,62 @@ export function CrmReportWizard() {
             {error}
           </div>
         ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-[var(--space-2)]"><LayoutDashboard className="size-[18px]" /> Dashboard templates</CardTitle>
+            <CardDescription>Load a role-specific CRM dashboard with semantic metric widgets and demo values.</CardDescription>
+          </CardHeader>
+          <CardBody className="gap-[var(--space-4)]">
+            {dashboardTemplates.length ? (
+              <div className="grid gap-[var(--space-3)] lg:grid-cols-4">
+                {dashboardTemplates.slice(0, 8).map((template) => {
+                  const selected = selectedTemplateKey === template.template_key
+                  return (
+                    <section
+                      key={template.template_key}
+                      className={cn(
+                        "flex min-h-[210px] flex-col justify-between rounded-[var(--radius-md)] border p-[var(--space-4)]",
+                        selected ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)]",
+                      )}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-[var(--space-2)]">
+                          <h2 className="text-[var(--type-headline-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">{template.name}</h2>
+                          <Badge>{fieldLabel(template.audience)}</Badge>
+                        </div>
+                        <p className="mt-[var(--space-2)] text-[var(--type-footnote-size)] text-[var(--color-text-muted)]">{template.description}</p>
+                        <div className="mt-[var(--space-3)] grid gap-[var(--space-2)]">
+                          {template.widgets.slice(0, 2).map((widget) => (
+                            <div key={widget.widget_key} className="rounded-[var(--radius-sm)] bg-[var(--color-bg-muted)] p-[var(--space-2)]">
+                              <div className="text-[var(--type-footnote-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">{widget.title}: {widget.demo_value}</div>
+                              <div className="text-[var(--type-caption-1-size)] text-[var(--color-text-muted)]">{widget.insight}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-[var(--space-4)] flex flex-wrap gap-[var(--space-2)]">
+                        <Button variant="secondary" onClick={() => applyDashboardTemplate(template)}>Use template</Button>
+                        <Button loading={busy === "dashboard" && selected} onClick={() => saveDashboardFromTemplate(template)} leadingIcon={<Save />}>Save dashboard</Button>
+                      </div>
+                    </section>
+                  )
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                icon={LayoutDashboard}
+                title="Dashboard templates could not load"
+                description="The report builder still works, but dashboard seed templates are unavailable."
+              />
+            )}
+            {savedDashboardId ? (
+              <div className="rounded-[var(--radius-md)] border border-[var(--color-success)] bg-[var(--color-success-soft)] p-[var(--space-3)] text-[var(--color-success)]">
+                Dashboard saved with template widgets. ID {savedDashboardId}
+              </div>
+            ) : null}
+          </CardBody>
+        </Card>
 
         <Card>
           <CardHeader>

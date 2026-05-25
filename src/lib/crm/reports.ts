@@ -32,6 +32,189 @@ export type CrmDimensionDefinition = {
   validation_status: 'validated'
 }
 
+export type CrmDashboardAudience = 'owner' | 'manager' | 'marketing' | 'loyalty' | 'data_quality'
+export type CrmDashboardWidgetType = 'metric_card' | 'trend' | 'breakdown' | 'table' | 'alert_queue'
+
+export type CrmDashboardTemplateWidget = {
+  widget_key: string
+  title: string
+  widget_type: CrmDashboardWidgetType
+  metric_keys: CrmMetricDefinition['metric_key'][]
+  dimension_keys: CrmDimensionDefinition['dimension_key'][]
+  visualization: 'table' | 'line' | 'bar' | 'stacked_bar' | 'area' | 'pie' | 'scorecard' | 'heatmap'
+  position: { x: number; y: number; w: number; h: number }
+  demo_value: string
+  insight: string
+  filters?: Record<string, unknown>
+}
+
+export type CrmDashboardTemplate = {
+  template_key: string
+  name: string
+  audience: CrmDashboardAudience
+  description: string
+  widgets: CrmDashboardTemplateWidget[]
+}
+
+export const crmDashboardTemplates: CrmDashboardTemplate[] = [
+  {
+    template_key: 'weekly_snapshot',
+    name: 'Weekly snapshot',
+    audience: 'owner',
+    description: 'Owner weekly readout for revenue, visits, and repeat behavior.',
+    widgets: [
+      { widget_key: 'weekly_revenue', title: 'Revenue', widget_type: 'metric_card', metric_keys: ['revenue'], dimension_keys: ['date'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '$42.8K', insight: 'Revenue is pacing ahead of the prior weekly snapshot.' },
+      { widget_key: 'repeat_visits', title: 'Repeat visits', widget_type: 'trend', metric_keys: ['repeat_visit'], dimension_keys: ['date'], visualization: 'line', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '+18%', insight: 'Repeat guests are lifting midweek service.' },
+    ],
+  },
+  {
+    template_key: 'retention',
+    name: 'Retention',
+    audience: 'marketing',
+    description: 'Track active, lapsed, and repeat guest movement.',
+    widgets: [
+      { widget_key: 'active_guests', title: 'Active guests', widget_type: 'metric_card', metric_keys: ['active_guest'], dimension_keys: ['guest_lifecycle_stage'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '1,284', insight: 'Active known guests are healthy for the last 45 days.' },
+      { widget_key: 'lapsed_by_stage', title: 'Lapsed by stage', widget_type: 'breakdown', metric_keys: ['lapsed_guest'], dimension_keys: ['guest_lifecycle_stage'], visualization: 'bar', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '214', insight: 'Regulars make up the largest recovery audience.' },
+    ],
+  },
+  {
+    template_key: 'vip',
+    name: 'VIP',
+    audience: 'manager',
+    description: 'Keep VIP value, visits, and service opportunities in one place.',
+    widgets: [
+      { widget_key: 'vip_ltv', title: 'VIP LTV', widget_type: 'metric_card', metric_keys: ['ltv'], dimension_keys: ['guest_lifecycle_stage'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '$186K', insight: 'VIPs account for a concentrated share of known-guest value.', filters: { lifecycle_stage: 'vip' } },
+      { widget_key: 'vip_visits', title: 'VIP visits', widget_type: 'trend', metric_keys: ['visit'], dimension_keys: ['date'], visualization: 'line', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '96', insight: 'VIP visits are steady enough for manager-greet planning.', filters: { lifecycle_stage: 'vip' } },
+    ],
+  },
+  {
+    template_key: 'lapsed_recovery',
+    name: 'Lapsed recovery',
+    audience: 'marketing',
+    description: 'Find lapsed guests and connect recovery campaign impact.',
+    widgets: [
+      { widget_key: 'lapsed_guests', title: 'Lapsed guests', widget_type: 'metric_card', metric_keys: ['lapsed_guest'], dimension_keys: ['campaign'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '214', insight: 'The lapsed audience is large enough for a win-back campaign.' },
+      { widget_key: 'recovery_revenue', title: 'Recovery revenue', widget_type: 'trend', metric_keys: ['campaign_attributed_revenue'], dimension_keys: ['campaign'], visualization: 'bar', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '$7.2K', insight: 'Recent win-back campaigns are producing measurable revenue.' },
+    ],
+  },
+  {
+    template_key: 'campaign_roi',
+    name: 'Campaign ROI',
+    audience: 'owner',
+    description: 'Attribute campaign revenue while excluding baseline guests.',
+    widgets: [
+      { widget_key: 'campaign_revenue', title: 'Attributed revenue', widget_type: 'metric_card', metric_keys: ['campaign_attributed_revenue'], dimension_keys: ['campaign'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '$12.4K', insight: 'Campaigns are creating revenue beyond baseline guests.', filters: { include_baseline_guests: false } },
+      { widget_key: 'campaign_repeat_visits', title: 'Repeat visits by campaign', widget_type: 'breakdown', metric_keys: ['repeat_visit'], dimension_keys: ['campaign'], visualization: 'bar', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '148', insight: 'Repeat visits concentrate in two high-performing campaigns.' },
+    ],
+  },
+  {
+    template_key: 'loyalty_performance',
+    name: 'Loyalty performance',
+    audience: 'loyalty',
+    description: 'Track loyalty revenue, redemption rate, and active members.',
+    widgets: [
+      { widget_key: 'loyalty_revenue', title: 'Loyalty revenue', widget_type: 'metric_card', metric_keys: ['loyalty_attributed_revenue'], dimension_keys: ['loyalty_program'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '$19.1K', insight: 'Loyalty-linked checks continue to outperform unknown guests.' },
+      { widget_key: 'redemption_rate', title: 'Redemption rate', widget_type: 'trend', metric_keys: ['redemption_rate'], dimension_keys: ['date'], visualization: 'line', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '22%', insight: 'Reward usage is healthy without obvious abuse.' },
+    ],
+  },
+  {
+    template_key: 'menu_affinity',
+    name: 'Menu affinity',
+    audience: 'marketing',
+    description: 'Use menu behavior as reporting context for guest campaigns.',
+    widgets: [
+      { widget_key: 'menu_revenue', title: 'Menu-influenced revenue', widget_type: 'trend', metric_keys: ['revenue'], dimension_keys: ['date'], visualization: 'line', position: { x: 0, y: 0, w: 4, h: 2 }, demo_value: '$31.6K', insight: 'Menu affinity is strongest on weekend dinner.' },
+      { widget_key: 'menu_average_check', title: 'Average check', widget_type: 'metric_card', metric_keys: ['average_check'], dimension_keys: ['location'], visualization: 'scorecard', position: { x: 4, y: 0, w: 3, h: 2 }, demo_value: '$54.20', insight: 'Affinity-driven checks are above the restaurant average.' },
+    ],
+  },
+  {
+    template_key: 'new_guest_funnel',
+    name: 'New guest funnel',
+    audience: 'marketing',
+    description: 'Watch first-time guests become second-time and regular guests.',
+    widgets: [
+      { widget_key: 'new_guest_visits', title: 'New guest visits', widget_type: 'metric_card', metric_keys: ['visit'], dimension_keys: ['guest_lifecycle_stage'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '342', insight: 'New guest volume is strong enough to measure conversion.' },
+      { widget_key: 'second_visit', title: 'Second visits', widget_type: 'breakdown', metric_keys: ['visit'], dimension_keys: ['guest_lifecycle_stage'], visualization: 'bar', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '81', insight: 'Second-time conversion is the main funnel opportunity.' },
+    ],
+  },
+  {
+    template_key: 'service_recovery',
+    name: 'Service recovery',
+    audience: 'manager',
+    description: 'Connect churn risk, recovery topics, and revenue impact.',
+    widgets: [
+      { widget_key: 'churn_risk', title: 'Churn risk', widget_type: 'alert_queue', metric_keys: ['churn_risk'], dimension_keys: ['recovery_topic'], visualization: 'heatmap', position: { x: 0, y: 0, w: 4, h: 2 }, demo_value: '64', insight: 'Food and speed issues are the highest-risk recovery topics.' },
+      { widget_key: 'recovery_revenue', title: 'Recovered revenue', widget_type: 'metric_card', metric_keys: ['revenue'], dimension_keys: ['recovery_topic'], visualization: 'scorecard', position: { x: 4, y: 0, w: 3, h: 2 }, demo_value: '$3.8K', insight: 'Resolved cases are translating into return visits.' },
+    ],
+  },
+  {
+    template_key: 'server_hospitality_impact',
+    name: 'Server hospitality impact',
+    audience: 'manager',
+    description: 'Show how server service correlates with check performance.',
+    widgets: [
+      { widget_key: 'server_average_check', title: 'Average check by server', widget_type: 'breakdown', metric_keys: ['average_check'], dimension_keys: ['server'], visualization: 'bar', position: { x: 0, y: 0, w: 5, h: 2 }, demo_value: '$58.10', insight: 'Top hospitality servers are driving stronger checks.' },
+    ],
+  },
+  {
+    template_key: 'location_comparison',
+    name: 'Location comparison',
+    audience: 'owner',
+    description: 'Compare revenue, visits, and active guests across locations.',
+    widgets: [
+      { widget_key: 'location_revenue', title: 'Revenue by location', widget_type: 'breakdown', metric_keys: ['revenue'], dimension_keys: ['location'], visualization: 'bar', position: { x: 0, y: 0, w: 4, h: 2 }, demo_value: '$84.3K', insight: 'Downtown is outpacing other locations this period.' },
+      { widget_key: 'location_active_guests', title: 'Active guests', widget_type: 'breakdown', metric_keys: ['active_guest'], dimension_keys: ['location'], visualization: 'bar', position: { x: 4, y: 0, w: 4, h: 2 }, demo_value: '2,110', insight: 'Active guest distribution follows revenue mix.' },
+    ],
+  },
+  {
+    template_key: 'birthday_performance',
+    name: 'Birthday performance',
+    audience: 'marketing',
+    description: 'Measure birthday program revenue and repeat behavior.',
+    widgets: [
+      { widget_key: 'birthday_revenue', title: 'Birthday revenue', widget_type: 'metric_card', metric_keys: ['campaign_attributed_revenue'], dimension_keys: ['campaign'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '$4.9K', insight: 'Birthday campaigns are converting high-intent guests.', filters: { campaign_type: 'birthday' } },
+    ],
+  },
+  {
+    template_key: 'discount_abuse',
+    name: 'Discount abuse',
+    audience: 'owner',
+    description: 'Watch revenue, redemption, and possible offer sensitivity.',
+    widgets: [
+      { widget_key: 'discount_revenue', title: 'Offer revenue', widget_type: 'trend', metric_keys: ['campaign_attributed_revenue'], dimension_keys: ['campaign'], visualization: 'bar', position: { x: 0, y: 0, w: 4, h: 2 }, demo_value: '$6.1K', insight: 'One offer is revenue-positive but may be training discounts.' },
+      { widget_key: 'discount_repeat', title: 'Repeat after offer', widget_type: 'metric_card', metric_keys: ['repeat_visit'], dimension_keys: ['campaign'], visualization: 'scorecard', position: { x: 4, y: 0, w: 3, h: 2 }, demo_value: '37', insight: 'Repeat behavior is the guardrail for discount quality.' },
+    ],
+  },
+  {
+    template_key: 'reward_liability',
+    name: 'Reward liability',
+    audience: 'loyalty',
+    description: 'Track redemptions and loyalty revenue for liability review.',
+    widgets: [
+      { widget_key: 'reward_redemption_rate', title: 'Redemption rate', widget_type: 'metric_card', metric_keys: ['redemption_rate'], dimension_keys: ['loyalty_program'], visualization: 'scorecard', position: { x: 0, y: 0, w: 3, h: 2 }, demo_value: '22%', insight: 'Redemptions are below the liability alert threshold.' },
+      { widget_key: 'reward_revenue', title: 'Loyalty revenue', widget_type: 'trend', metric_keys: ['loyalty_attributed_revenue'], dimension_keys: ['date'], visualization: 'line', position: { x: 3, y: 0, w: 5, h: 2 }, demo_value: '$19.1K', insight: 'Revenue offsets current redemption liability.' },
+    ],
+  },
+  {
+    template_key: 'no_show_risk',
+    name: 'No-show risk',
+    audience: 'manager',
+    description: 'Use lifecycle and churn signals to prioritize reservation follow-up.',
+    widgets: [
+      { widget_key: 'no_show_churn_risk', title: 'No-show churn risk', widget_type: 'alert_queue', metric_keys: ['churn_risk'], dimension_keys: ['guest_lifecycle_stage'], visualization: 'heatmap', position: { x: 0, y: 0, w: 4, h: 2 }, demo_value: '58', insight: 'At-risk guests need confirmation and manager follow-up.' },
+    ],
+  },
+  {
+    template_key: 'ltv_leaderboard',
+    name: 'LTV leaderboard',
+    audience: 'owner',
+    description: 'Rank guest value by lifecycle and location.',
+    widgets: [
+      { widget_key: 'ltv_by_stage', title: 'LTV by stage', widget_type: 'table', metric_keys: ['ltv'], dimension_keys: ['guest_lifecycle_stage', 'location'], visualization: 'table', position: { x: 0, y: 0, w: 6, h: 3 }, demo_value: '$312K', insight: 'Regulars and VIPs lead lifetime value concentration.' },
+    ],
+  },
+]
+
 export const crmSemanticMetricDefinitions: CrmMetricDefinition[] = [
   {
     metric_key: 'revenue',
@@ -245,6 +428,26 @@ export function explainReportDefinition(input: { metric_keys: string[]; dimensio
   const metricNames = input.metric_keys.map((key) => metrics.get(key)?.display_name ?? key).join(', ')
   const dimensionText = input.dimension_keys?.length ? ` broken down by ${input.dimension_keys.join(', ')}` : ''
   return `This report uses the semantic metric layer for ${metricNames}${dimensionText}. Each metric is versioned and validated before reports can run.`
+}
+
+export function validateDashboardWidgets(widgets: Pick<CrmDashboardTemplateWidget, 'metric_keys' | 'dimension_keys'>[]) {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  widgets.forEach((widget, index) => {
+    const result = validateReportMetricSelection({
+      metric_keys: widget.metric_keys,
+      dimension_keys: widget.dimension_keys,
+    })
+    if (!result.ok) errors.push(...result.errors.map((error) => `Widget ${index + 1}: ${error}`))
+    warnings.push(...result.warnings.map((warning) => `Widget ${index + 1}: ${warning}`))
+  })
+
+  return errors.length ? { ok: false as const, errors, warnings } : { ok: true as const, warnings }
+}
+
+export function getCrmDashboardTemplate(templateKey: string) {
+  return crmDashboardTemplates.find((template) => template.template_key === templateKey) ?? null
 }
 
 export async function listOrgMetricDefinitions(input: { db: Db; user: Pick<AuthUser, 'org_id'> }) {
