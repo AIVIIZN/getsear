@@ -19,7 +19,7 @@ interface ConfirmationData {
 
 export default function ReservationConfirmation() {
   const params = useParams()
-  const slug = params.slug as string
+  const slug = String(params?.slug ?? '')
   const [data, setData] = useState<ConfirmationData | null>(null)
 
   useEffect(() => {

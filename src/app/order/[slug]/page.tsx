@@ -50,7 +50,7 @@ interface CartItem {
 export default function PublicOrderPage() {
   const params = useParams()
   const router = useRouter()
-  const slug = params.slug as string
+  const slug = String(params?.slug ?? '')
 
   const [location, setLocation] = useState<LocationData | null>(null)
   const [items, setItems] = useState<MenuItem[]>([])

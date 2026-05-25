@@ -33,7 +33,7 @@ interface LocationData {
 export default function CartPage() {
   const params = useParams()
   const router = useRouter()
-  const slug = params.slug as string
+  const slug = String(params?.slug ?? '')
 
   const [cart, setCart] = useState<CartItem[]>([])
   const [location, setLocation] = useState<LocationData | null>(null)

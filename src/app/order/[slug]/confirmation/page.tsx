@@ -13,6 +13,7 @@ interface OrderConfirmation {
 
 export default function ConfirmationPage() {
   const params = useParams()
+  const slug = String(params?.slug ?? '')
   const [order, setOrder] = useState<OrderConfirmation | null>(null)
   const [location, setLocation] = useState<{ name: string; address: string; phone: string } | null>(null)
 
@@ -28,7 +29,7 @@ export default function ConfirmationPage() {
       <div className="flex items-center justify-center min-h-screen p-6 text-center">
         <div>
           <p className="text-gray-500">No order found</p>
-          <a href={`/order/${params.slug}`} className="text-blue-500 mt-2 inline-block font-medium">
+          <a href={`/order/${slug}`} className="text-blue-500 mt-2 inline-block font-medium">
             Back to menu
           </a>
         </div>
