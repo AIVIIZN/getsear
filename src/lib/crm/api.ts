@@ -4,6 +4,7 @@ import type { AuthUser } from '@/lib/api/auth'
 export const crmGuestReadRoles = ['platform_admin', 'owner', 'admin', 'manager', 'server', 'bartender', 'cashier', 'host', 'marketing', 'analyst'] as const
 export const crmGuestWriteRoles = ['platform_admin', 'owner', 'admin', 'manager', 'server', 'bartender', 'cashier', 'host'] as const
 export const crmConsentWriteRoles = ['platform_admin', 'owner', 'admin', 'manager', 'marketing'] as const
+export const crmPrivacyWriteRoles = ['platform_admin', 'owner', 'admin', 'manager'] as const
 export const crmGuestManagerRoles = ['platform_admin', 'owner', 'admin', 'manager'] as const
 export const crmGuestOwnerRoles = ['platform_admin', 'owner', 'admin'] as const
 export const crmGuestStaffRoles = ['server', 'bartender', 'cashier', 'host'] as const

@@ -45,6 +45,7 @@ type Guest = {
   guest_allergies?: Allergy[]
   guest_consents?: GuestConsent[]
   suppression_entries?: SuppressionEntry[]
+  privacy_requests?: PrivacyRequest[]
   guest_tags?: GuestTag[]
   notes?: Note[]
   crm_permissions?: CrmGuestPermissions
@@ -68,6 +69,24 @@ type GuestConsent = {
   consent_policy_versions?: { version_label: string; language: string; effective_at: string } | null
 }
 type SuppressionEntry = { id: string; channel: ConsentChannel; purpose: ConsentPurpose | "all"; reason: string; source: string; suppressed_at: string; proof?: Record<string, unknown> | null }
+type PrivacyRequestType = "export" | "delete" | "correct" | "do_not_contact" | "opt_out_sale_sharing" | "limit_sensitive_use"
+type PrivacyRequestStatus = "submitted" | "needs_verification" | "approved" | "in_progress" | "completed" | "rejected" | "cancelled"
+type PrivacyRequest = {
+  id: string
+  request_type: PrivacyRequestType
+  status: PrivacyRequestStatus
+  priority: "normal" | "urgent"
+  requested_by_name: string
+  requested_by_contact: string
+  details?: string | null
+  due_at?: string | null
+  approved_at?: string | null
+  completed_at?: string | null
+  decision_note?: string | null
+  data_export_jobs?: Array<{ id: string; status: string; generated_at?: string | null; export_payload?: Record<string, unknown> }>
+  data_deletion_jobs?: Array<{ id: string; status: string; completed_at?: string | null; anonymization_report?: Record<string, unknown> }>
+  data_access_logs?: Array<{ id: string; access_type: string; created_at: string; reason?: string | null }>
+}
 type GuestTag = { id: string; crm_tags?: { name: string; slug: string; tag_category: string; is_sensitive?: boolean } | null }
 type Note = { id: string; note_category: string; body: string; visibility: string }
 type TimelineEvent = { id: string; event_at: string; event_type: string; title: string; body?: string | null; visibility: string }
@@ -395,7 +414,7 @@ function TabContent(props: { tab: TabId; guest: Guest; timeline: TimelineEvent[]
   if (tab === "visits") return <Timeline events={timeline.filter((event) => event.event_type.includes("visit") || event.event_type.includes("order"))} emptyTitle="No visit timeline yet" />
   if (tab === "notes") return <Notes guest={guest} noteDraft={props.noteDraft} setNoteDraft={props.setNoteDraft} savingNote={props.savingNote} addNote={props.addNote} />
   if (tab === "household") return <IdentityResolution candidates={props.identityCandidates} state={props.identityState} busyId={props.identityBusyId} error={props.identityError} resolveIdentity={props.resolveIdentity} />
-  if (tab === "consent") return <DataConsent guest={guest} />
+  if (tab === "consent") return <DataConsent guest={guest} isOwnerMode={isOwnerMode} />
   return <InlineState icon={NotebookTabs} title={`${tabs.find((item) => item.id === tab)?.label} has no records yet`} body="This tab will populate from linked restaurant activity as the guest profile accumulates data." />
 }
 
@@ -486,18 +505,37 @@ function proofSummary(proof: Record<string, unknown> | null | undefined) {
   return `${surface} - ${version}`
 }
 
-function DataConsent({ guest }: { guest: Guest }) {
+function DataConsent({ guest, isOwnerMode }: { guest: Guest; isOwnerMode: boolean }) {
+  const primaryContact = guest.guest_contact_points?.find((contact) => contact.is_primary)
+  const guestPrimaryContact = primaryContact?.value ?? guest.guest_contact_points?.[0]?.value ?? ""
   const [consents, setConsents] = React.useState<GuestConsent[]>(guest.guest_consents ?? [])
   const [suppressions, setSuppressions] = React.useState<SuppressionEntry[]>(guest.suppression_entries ?? [])
+  const [privacyRequests, setPrivacyRequests] = React.useState<PrivacyRequest[]>(guest.privacy_requests ?? [])
   const [busyKey, setBusyKey] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [requestType, setRequestType] = React.useState<PrivacyRequestType>("export")
+  const [requesterName, setRequesterName] = React.useState(guest.display_name)
+  const [requesterContact, setRequesterContact] = React.useState(guestPrimaryContact)
+  const [requestDetails, setRequestDetails] = React.useState("")
   const consentByKey = new Map(consents.map((consent) => [consentKey(consent.channel, consent.purpose), consent]))
+
+  const refreshPrivacyRequests = React.useCallback(async () => {
+    if (!isOwnerMode) return
+    const refreshed = await fetchJson<{ data: PrivacyRequest[] }>(`/api/crm/guests/${guest.id}/privacy-requests`)
+    setPrivacyRequests(refreshed.data)
+  }, [guest.id, isOwnerMode])
 
   React.useEffect(() => {
     setConsents(guest.guest_consents ?? [])
     setSuppressions(guest.suppression_entries ?? [])
+    setPrivacyRequests(guest.privacy_requests ?? [])
+    setRequestType("export")
+    setRequesterName(guest.display_name)
+    setRequesterContact(guestPrimaryContact)
+    setRequestDetails("")
     setError(null)
-  }, [guest.id, guest.guest_consents, guest.suppression_entries])
+    void refreshPrivacyRequests()
+  }, [guest.id, guest.display_name, guest.guest_consents, guest.suppression_entries, guest.privacy_requests, guestPrimaryContact, refreshPrivacyRequests])
 
   async function updateConsent(item: { channel: ConsentChannel; purpose: ConsentPurpose }, status: ConsentStatus) {
     const key = consentKey(item.channel, item.purpose)
@@ -522,6 +560,52 @@ function DataConsent({ guest }: { guest: Guest }) {
       setSuppressions(refreshed.suppressions)
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Consent update failed")
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
+  async function createPrivacyRequest() {
+    setBusyKey("privacy:create")
+    setError(null)
+    try {
+      await fetchJson<{ data: PrivacyRequest }>(`/api/crm/guests/${guest.id}/privacy-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          request_type: requestType,
+          requested_by_name: requesterName,
+          requested_by_contact: requesterContact,
+          details: requestDetails,
+          metadata: { source: "guest_360_privacy_rights" },
+        }),
+      })
+      setRequestDetails("")
+      await refreshPrivacyRequests()
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Privacy request failed")
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
+  async function updatePrivacyRequest(request: PrivacyRequest, action: "approve" | "complete_export" | "complete_delete" | "complete_suppression" | "reject" | "cancel") {
+    setBusyKey(`${request.id}:${action}`)
+    setError(null)
+    try {
+      await fetchJson<{ data: PrivacyRequest }>(`/api/crm/guests/${guest.id}/privacy-requests`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          request_id: request.id,
+          action,
+          note: `${action.replaceAll("_", " ")} from Guest 360 privacy panel`,
+          metadata: { source: "guest_360_privacy_rights" },
+        }),
+      })
+      await refreshPrivacyRequests()
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Privacy request update failed")
     } finally {
       setBusyKey(null)
     }
@@ -565,8 +649,75 @@ function DataConsent({ guest }: { guest: Guest }) {
           <Row key={suppression.id} title={`${suppression.channel} ${suppression.purpose} - ${suppression.reason.replaceAll("_", " ")}`} body={`${suppression.source} - ${formatDateTime(suppression.suppressed_at)} - ${proofSummary(suppression.proof)}`} />
         )) : <InlineState icon={ShieldCheck} title="No active suppression history" body="Revoked consent, unsubscribe, bounce, complaint, and privacy-request suppressions appear here." />}
       </Panel>
+      {isOwnerMode ? <Panel title="Privacy rights">
+        <div className="grid gap-[var(--space-3)] lg:grid-cols-[1fr_1fr]">
+          <Text label="Requester" value={requesterName} onChange={(event) => setRequesterName(event.target.value)} />
+          <Text label="Contact" value={requesterContact} onChange={(event) => setRequesterContact(event.target.value)} />
+        </div>
+        <div className="mt-[var(--space-3)] flex flex-wrap gap-[var(--space-2)]">
+          {privacyRequestOptions.map((option) => (
+            <Button key={option.type} size="sm" variant={requestType === option.type ? "primary" : "secondary"} onClick={() => setRequestType(option.type)}>
+              {option.label}
+            </Button>
+          ))}
+        </div>
+        <Textarea className="mt-[var(--space-3)]" label="Request details" value={requestDetails} onChange={(event) => setRequestDetails(event.target.value)} placeholder="Record verification context, requested correction, or deletion scope" />
+        <Button className="mt-[var(--space-3)]" size="md" leadingIcon={<Plus />} loading={busyKey === "privacy:create"} disabled={!requesterName.trim() || !requesterContact.trim() || busyKey === "privacy:create"} onClick={createPrivacyRequest}>Open request</Button>
+        <div className="mt-[var(--space-4)] divide-y divide-[var(--color-border)]">
+          {privacyRequests.length ? privacyRequests.map((request) => (
+            <div key={request.id} className="py-[var(--space-3)]">
+              <div className="flex flex-wrap items-start justify-between gap-[var(--space-3)]">
+                <div className="min-w-[220px] flex-1">
+                  <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+                    <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-medium)] text-[var(--color-text)]">{privacyRequestLabel(request.request_type)}</p>
+                    <Badge variant={privacyStatusTone(request.status)}>{request.status.replaceAll("_", " ")}</Badge>
+                  </div>
+                  <p className="mt-[var(--space-1)] text-[length:var(--type-footnote-size)] text-[var(--color-text-muted)]">{request.requested_by_name} - due {formatDate(request.due_at)} - {request.details || "No details recorded"}</p>
+                  <p className="mt-[var(--space-1)] text-[length:var(--type-caption-1-size)] text-[var(--color-text-muted)]">{privacyRequestEvidence(request)}</p>
+                </div>
+                <div className="flex flex-wrap gap-[var(--space-2)]">
+                  {request.status === "submitted" ? <Button size="sm" variant="secondary" loading={busyKey === `${request.id}:approve`} onClick={() => updatePrivacyRequest(request, "approve")}>Approve</Button> : null}
+                  {request.status === "approved" && request.request_type === "export" ? <Button size="sm" loading={busyKey === `${request.id}:complete_export`} onClick={() => updatePrivacyRequest(request, "complete_export")}>Generate export</Button> : null}
+                  {request.status === "approved" && request.request_type === "delete" ? <Button size="sm" variant="destructive" loading={busyKey === `${request.id}:complete_delete`} onClick={() => updatePrivacyRequest(request, "complete_delete")}>Anonymize</Button> : null}
+                  {request.status === "approved" && !["export", "delete"].includes(request.request_type) ? <Button size="sm" loading={busyKey === `${request.id}:complete_suppression`} onClick={() => updatePrivacyRequest(request, "complete_suppression")}>Complete</Button> : null}
+                  {!["completed", "rejected", "cancelled"].includes(request.status) ? <Button size="sm" variant="ghost" loading={busyKey === `${request.id}:reject`} onClick={() => updatePrivacyRequest(request, "reject")}>Reject</Button> : null}
+                </div>
+              </div>
+            </div>
+          )) : <InlineState icon={ShieldCheck} title="No privacy requests" body="Exports, deletion, correction, do-not-contact, sale-sharing opt-out, and sensitive-use limits are tracked here." />}
+        </div>
+      </Panel> : null}
     </div>
   )
+}
+
+const privacyRequestOptions: Array<{ type: PrivacyRequestType; label: string }> = [
+  { type: "export", label: "Export" },
+  { type: "delete", label: "Delete" },
+  { type: "correct", label: "Correct" },
+  { type: "do_not_contact", label: "Do not contact" },
+  { type: "opt_out_sale_sharing", label: "Opt out sale/sharing" },
+  { type: "limit_sensitive_use", label: "Limit sensitive use" },
+]
+
+function privacyRequestLabel(type: PrivacyRequestType) {
+  return privacyRequestOptions.find((option) => option.type === type)?.label ?? type.replaceAll("_", " ")
+}
+
+function privacyStatusTone(status: PrivacyRequestStatus): "success" | "warning" | "default" {
+  if (status === "completed") return "success"
+  if (status === "rejected" || status === "cancelled") return "warning"
+  return "default"
+}
+
+function privacyRequestEvidence(request: PrivacyRequest) {
+  const exportJob = request.data_export_jobs?.[0]
+  if (exportJob) return `Export ${exportJob.status} - generated ${formatDateTime(exportJob.generated_at)}`
+  const deletionJob = request.data_deletion_jobs?.[0]
+  if (deletionJob) return `Deletion ${deletionJob.status} - completed ${formatDateTime(deletionJob.completed_at)}`
+  const accessLog = request.data_access_logs?.[0]
+  if (accessLog) return `${accessLog.access_type.replaceAll("_", " ")} - ${formatDateTime(accessLog.created_at)}`
+  return "Awaiting manager action"
 }
 
 function Warnings({ guest }: { guest: Guest }) {

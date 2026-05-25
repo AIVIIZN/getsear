@@ -97,6 +97,10 @@ export type AuditAction =
   | 'crm_guest_kept_separate'
   | 'crm_guest_household_marked'
   | 'crm_guest_consent_updated'
+  | 'crm_privacy_request_created'
+  | 'crm_privacy_request_updated'
+  | 'crm_privacy_data_exported'
+  | 'crm_privacy_guest_anonymized'
   // Tenant admin
   | 'audit_log_exported'
   | 'org_settings_changed'
@@ -118,6 +122,7 @@ export type EntityType =
   | 'guest_tag'
   | 'guest_merge_candidate'
   | 'guest_household'
+  | 'privacy_request'
   | 'organization'
   | 'terminal'
   | 'audit_log'
