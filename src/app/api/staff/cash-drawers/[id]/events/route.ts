@@ -149,17 +149,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Record denomination count for safe drops
   if (parsed.data.event_type === 'safe_drop' && parsed.data.denominations) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('cash_drawer_counts') as any)
-      .insert({
-        cash_drawer_id: id,
-        count_type: 'safe_drop',
-        denominations: parsed.data.denominations,
-        total: parsed.data.amount,
-        counted_by: user.id,
-        created_at: now,
-      })
-      .catch(() => { /* table may not exist */ })
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('cash_drawer_counts') as any)
+        .insert({
+          cash_drawer_id: id,
+          count_type: 'safe_drop',
+          denominations: parsed.data.denominations,
+          total: parsed.data.amount,
+          counted_by: user.id,
+          created_at: now,
+        })
+    } catch {
+      // table may not exist
+    }
   }
 
   return NextResponse.json({ data: event }, { status: 201 })
