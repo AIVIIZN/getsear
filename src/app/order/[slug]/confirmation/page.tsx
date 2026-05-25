@@ -94,7 +94,7 @@ export default function ConfirmationPage() {
 
       <div className="text-center mt-8">
         <a
-          href={`/order/${params.slug}`}
+          href={`/order/${slug}`}
           className="text-blue-500 font-medium text-sm hover:underline"
         >
           Order more
