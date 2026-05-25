@@ -3,17 +3,27 @@
 import { useEffect, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { OrderPanel } from '@/components/pos/OrderPanel'
-import { MenuGrid } from '@/components/pos/MenuGrid'
-import { ModifierSheet } from '@/components/pos/ModifierSheet'
 import { useOrderStore } from '@/stores/order-store'
 import { useMenuStore } from '@/stores/menu-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { useRealtime86 } from '@/hooks/use-realtime'
 import { toast } from 'sonner'
 
+const OrderPanel = dynamic(
+  () => import('@/components/pos/OrderPanel').then(m => ({ default: m.OrderPanel })),
+  { ssr: false },
+)
+const MenuGrid = dynamic(
+  () => import('@/components/pos/MenuGrid').then(m => ({ default: m.MenuGrid })),
+  { ssr: false },
+)
+
 const ComboBuilder = dynamic(
   () => import('@/components/pos/ComboBuilder').then(m => ({ default: m.ComboBuilder })),
+  { ssr: false },
+)
+const ModifierSheet = dynamic(
+  () => import('@/components/pos/ModifierSheet').then(m => ({ default: m.ModifierSheet })),
   { ssr: false },
 )
 const OpenPriceDialog = dynamic(

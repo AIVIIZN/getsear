@@ -1,16 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Menu, Settings } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { StaffClockButton } from "@/components/pos/StaffClockButton";
 import { useAuthStore } from "@/stores/auth-store";
-import { PrintQueueBadge, PrintQueueDropdown } from "@/components/printing/PrintQueueDropdown";
-import { SyncStatusIndicator } from "@/components/offline/SyncStatusIndicator";
-import { OfflineBanner } from "@/components/offline/OfflineBanner";
-import { SyncProgressBar } from "@/components/offline/SyncProgressBar";
-import { PendingMutationsBadge } from "@/components/offline/PendingMutationsBadge";
+
+const StaffClockButton = dynamic(
+  () => import("@/components/pos/StaffClockButton").then((m) => ({ default: m.StaffClockButton })),
+  { ssr: false },
+);
+const PrintQueueBadge = dynamic(
+  () => import("@/components/printing/PrintQueueDropdown").then((m) => ({ default: m.PrintQueueBadge })),
+  { ssr: false },
+);
+const PrintQueueDropdown = dynamic(
+  () => import("@/components/printing/PrintQueueDropdown").then((m) => ({ default: m.PrintQueueDropdown })),
+  { ssr: false },
+);
+const SyncStatusIndicator = dynamic(
+  () => import("@/components/offline/SyncStatusIndicator").then((m) => ({ default: m.SyncStatusIndicator })),
+  { ssr: false },
+);
+const OfflineBanner = dynamic(
+  () => import("@/components/offline/OfflineBanner").then((m) => ({ default: m.OfflineBanner })),
+  { ssr: false },
+);
+const SyncProgressBar = dynamic(
+  () => import("@/components/offline/SyncProgressBar").then((m) => ({ default: m.SyncProgressBar })),
+  { ssr: false },
+);
+const PendingMutationsBadge = dynamic(
+  () => import("@/components/offline/PendingMutationsBadge").then((m) => ({ default: m.PendingMutationsBadge })),
+  { ssr: false },
+);
 
 interface TopbarProps {
   showBreadcrumbs?: boolean;

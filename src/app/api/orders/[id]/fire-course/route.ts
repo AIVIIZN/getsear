@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { assertVersion } from '@/lib/orders/concurrency'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 const fireCourseSchema = z.object({
   course: z.number().int().min(1).max(20),
@@ -86,6 +88,10 @@ export async function POST(
     .maybeSingle()
 
   const newVersion = (refreshed?.version as number | undefined) ?? check.currentVersion
+
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
 
   return NextResponse.json(
     {

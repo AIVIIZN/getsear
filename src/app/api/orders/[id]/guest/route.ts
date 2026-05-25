@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
 import { crmGuestWriteRoles } from '@/lib/crm/api'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 const attachGuestSchema = z.object({
   guest_id: z.string().uuid(),
@@ -133,6 +135,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     request,
     location_id: order.location_id ?? null,
   })
+
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
 
   return NextResponse.json({ data: updatedOrder })
 }

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
+import { CACHE_REVALIDATE_PROFILE, cacheTags, orderCacheTags } from '@/lib/cache/keys'
 import {
   assertVersion,
   checkUpdateAffectedRow,
@@ -25,6 +27,26 @@ const updateOrderSchema = z.object({
 /**
  * GET /api/orders/[id] -- get single order with items and modifiers
  */
+function fetchOrderDetail(orgId: string, id: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createAdminClient()
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from('orders') as any)
+        .select('*, order_items(*, order_item_modifiers(*)), order_discounts(*)')
+        .eq('id', id)
+        .eq('org_id', orgId)
+        .single()
+
+      if (error || !data) return { error: 'Order not found' as const, data: null }
+      return { error: null, data }
+    },
+    ['order-detail', orgId, id],
+    { tags: [cacheTags.orders(orgId), cacheTags.activeOrders(orgId), cacheTags.order(orgId, id)], revalidate: 10 }
+  )()
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -33,26 +55,19 @@ export async function GET(
   if (user instanceof NextResponse) return user
 
   const { id } = await params
-  const supabase = createAdminClient()
+  const result = await fetchOrderDetail(user.org_id, id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('orders') as any)
-    .select('*, order_items(*, order_item_modifiers(*)), order_discounts(*)')
-    .eq('id', id)
-    .eq('org_id', user.org_id)
-    .single()
-
-  if (error || !data) {
+  if (result.error || !result.data) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
   // Surface the optimistic-lock version as ETag so clients can pass it back
   // via If-Match on the next mutating request (V5.4.1).
-  const version = (data as Record<string, unknown>).version
+  const version = (result.data as Record<string, unknown>).version
   const headers: Record<string, string> = {}
   if (typeof version === 'number') headers.ETag = `"${version}"`
 
-  return NextResponse.json({ data }, { headers })
+  return NextResponse.json({ data: result.data }, { headers })
 }
 
 /**
@@ -165,6 +180,10 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
       .eq('id', id)
       .single()
 
+    for (const tag of orderCacheTags(user.org_id, id)) {
+      revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+    }
+
     const newVersion = updatedOrder?.version ?? check.currentVersion + 1
     return NextResponse.json({ data: updatedOrder }, {
       headers: { ETag: `"${newVersion}"` },
@@ -223,10 +242,18 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
       .eq('id', id)
       .single()
 
+    for (const tag of orderCacheTags(user.org_id, id)) {
+      revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+    }
+
     const newVersion = updatedOrder?.version ?? check.currentVersion + 1
     return NextResponse.json({ data: updatedOrder }, {
       headers: { ETag: `"${newVersion}"` },
     })
+  }
+
+  for (const tag of orderCacheTags(user.org_id, id)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
   }
 
   const newVersion = (data as Record<string, unknown>)?.version as number | undefined
