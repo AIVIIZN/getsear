@@ -113,6 +113,7 @@ export type AuditAction =
   | 'crm_loyalty_review_item_updated'
   | 'crm_segment_created'
   | 'crm_segment_updated'
+  | 'crm_segment_ai_drafted'
   | 'crm_segment_previewed'
   | 'crm_segment_materialized'
   // Tenant admin

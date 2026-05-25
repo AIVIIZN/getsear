@@ -173,6 +173,11 @@ export const previewCrmSegmentSchema = z.object({
   sample_limit: z.number().int().min(1).max(25).default(8),
 })
 
+export const buildCrmSegmentDraftSchema = z.object({
+  prompt: z.string().trim().min(8).max(1000),
+  sample_limit: z.number().int().min(1).max(12).default(5),
+})
+
 export const listCrmSegmentsQuerySchema = z.object({
   status: crmSegmentStatusSchema.optional(),
   search: z.string().trim().max(120).optional(),

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { createCrmSegmentSchema, previewCrmSegmentSchema } from '@/lib/schemas/crm'
+import { buildCrmSegmentDraft } from '@/lib/crm/segment-ai-draft'
+import { buildCrmSegmentDraftSchema, createCrmSegmentSchema, previewCrmSegmentSchema } from '@/lib/schemas/crm'
 
 const root = process.cwd()
 
@@ -89,5 +90,45 @@ describe('CRM-V6.1 visual segment builder', () => {
     expect(page).toContain('EmptyState')
     expect(page).toContain('Skeleton')
     expect(sidebar).toContain('href: "/segments"')
+  })
+})
+
+describe('CRM-V6.2 AI segment draft', () => {
+  it('turns natural language into a validated segment draft without saving it', async () => {
+    const result = await buildCrmSegmentDraft('VIP regulars who have not visited in 60 days and can receive email')
+
+    expect(result.status).toBe('draft')
+    if (result.status !== 'draft') throw new Error('Expected draft')
+    expect(result.draft.rule_tree.rules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: 'is_vip', operator: 'equals', value: true }),
+      expect.objectContaining({ field: 'days_since_last_visit', operator: 'days_since', value: 60 }),
+      expect.objectContaining({ field: 'email_marketing_consent', operator: 'equals', value: true }),
+    ]))
+    expect(createCrmSegmentSchema.parse({
+      name: result.draft.name,
+      description: result.draft.description,
+      match_mode: result.draft.match_mode,
+      rule_tree: result.draft.rule_tree,
+    }).rule_tree.rules.length).toBeGreaterThan(0)
+  })
+
+  it('refuses unsafe targeting and registers the draft-only API/UI review flow', async () => {
+    const result = await buildCrmSegmentDraft('Target guests by religion and political party')
+    const route = read('src/app/api/ai/build-segment/route.ts')
+    const page = read('src/app/(backoffice)/segments/page.tsx')
+    const auditLog = read('src/lib/audit/log.ts')
+
+    expect(result.status).toBe('refused')
+    if (result.status !== 'refused') throw new Error('Expected refusal')
+    expect(result.safety_flags).toContain('protected_class_targeting')
+    expect(buildCrmSegmentDraftSchema.parse({ prompt: 'lapsed guests who can receive sms' }).sample_limit).toBe(5)
+    expect(route).toContain('buildCrmSegmentDraft')
+    expect(route).toContain("status === 'refused'")
+    expect(route).toContain("action: 'crm_segment_ai_drafted'")
+    expect(auditLog).toContain("'crm_segment_ai_drafted'")
+    expect(page).toContain('/api/ai/build-segment')
+    expect(page).toContain('Approve draft')
+    expect(page).toContain('disabled={!name.trim() || Boolean(aiDraft)}')
+    expect(page).toContain('disabled={!selectedId || Boolean(aiDraft)}')
   })
 })

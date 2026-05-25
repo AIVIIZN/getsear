@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { BadgeCheck, DatabaseZap, Filter, Play, Plus, Save, UsersRound } from "lucide-react"
+import { BadgeCheck, DatabaseZap, Filter, Play, Plus, Save, ShieldAlert, Sparkles, UsersRound } from "lucide-react"
 import { Badge } from "@/components/ui-v2/data/Badge"
 import { Skeleton } from "@/components/ui-v2/data/Skeleton"
 import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
@@ -39,6 +39,17 @@ type PreviewGuest = {
   matched_rules: string[]
 }
 type Preview = { total_count: number; sample_guests: PreviewGuest[]; runtime_ms: number }
+type SegmentDraft = {
+  name: string
+  description: string
+  match_mode: "all" | "any"
+  rule_tree: SegmentRuleGroup
+  translation: string[]
+  confidence: number
+  provider: string
+  source_citations: string[]
+  warnings: string[]
+}
 
 const fields = [
   { value: "lifecycle_stage", label: "Lifecycle stage", kind: "text" },
@@ -100,6 +111,9 @@ export default function SegmentsPage() {
   const [materializing, setMaterializing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [preview, setPreview] = React.useState<Preview | null>(null)
+  const [aiPrompt, setAiPrompt] = React.useState("VIP guests who have not visited in 60 days and can receive email")
+  const [aiDraft, setAiDraft] = React.useState<SegmentDraft | null>(null)
+  const [drafting, setDrafting] = React.useState(false)
   const [name, setName] = React.useState("Weekend regulars")
   const [description, setDescription] = React.useState("Guests with repeat behavior who are reachable for targeted hospitality.")
   const [segmentType, setSegmentType] = React.useState<"dynamic" | "static">("dynamic")
@@ -134,6 +148,7 @@ export default function SegmentsPage() {
     setSegmentType(selectedSegment.segment_type)
     setMatch(selectedSegment.rule_tree.match)
     setRules(selectedSegment.rule_tree.rules.length ? selectedSegment.rule_tree.rules : [defaultRule()])
+    setAiDraft(null)
     setPreview(null)
   }, [selectedSegment])
 
@@ -172,6 +187,36 @@ export default function SegmentsPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function draftSegment() {
+    setDrafting(true)
+    setError(null)
+    setAiDraft(null)
+    try {
+      const json = await fetchJson<{ data: SegmentDraft }>("/api/ai/build-segment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      })
+      setAiDraft(json.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI segment draft failed")
+    } finally {
+      setDrafting(false)
+    }
+  }
+
+  function approveDraft() {
+    if (!aiDraft) return
+    setSelectedId(null)
+    setName(aiDraft.name)
+    setDescription(aiDraft.description)
+    setSegmentType("dynamic")
+    setMatch(aiDraft.match_mode)
+    setRules(aiDraft.rule_tree.rules.filter((rule): rule is SegmentRule => "field" in rule))
+    setPreview(null)
+    setAiDraft(null)
   }
 
   async function runPreview() {
@@ -222,6 +267,7 @@ export default function SegmentsPage() {
             setSegmentType("dynamic")
             setMatch("all")
             setRules([defaultRule()])
+            setAiDraft(null)
             setPreview(null)
           }}>New segment</Button>
         </header>
@@ -267,6 +313,43 @@ export default function SegmentsPage() {
               <CardDescription>Combine hospitality signals without writing SQL.</CardDescription>
             </CardHeader>
             <CardBody>
+              <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-[var(--space-4)]">
+                <div className="flex items-start gap-[var(--space-3)]">
+                  <div className="rounded-[var(--radius-md)] bg-[var(--color-primary)]/10 p-[var(--space-2)] text-[var(--color-primary)]">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-[var(--weight-semibold)]">AI segment draft</div>
+                    <p className="text-[var(--type-footnote-size)] text-[var(--color-text-muted)]">Describe the audience, review the translation, then approve it before saving.</p>
+                  </div>
+                </div>
+                <div className="mt-[var(--space-3)] grid gap-[var(--space-3)] md:grid-cols-[minmax(0,1fr)_150px]">
+                  <Textarea label="Natural language request" value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} rows={3} />
+                  <Button type="button" size="md" leadingIcon={<Sparkles />} loading={drafting} onClick={draftSegment} disabled={aiPrompt.trim().length < 8}>Draft</Button>
+                </div>
+                {aiDraft ? (
+                  <div className="mt-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--color-primary)] bg-[var(--color-primary)]/10 p-[var(--space-3)]">
+                    <div className="flex flex-wrap items-center justify-between gap-[var(--space-2)]">
+                      <div>
+                        <div className="font-[var(--weight-semibold)]">{aiDraft.name}</div>
+                        <div className="text-[var(--type-footnote-size)] text-[var(--color-text-muted)]">{aiDraft.provider} · {Math.round(aiDraft.confidence * 100)}% confidence</div>
+                      </div>
+                      <Button type="button" size="sm" leadingIcon={<BadgeCheck />} onClick={approveDraft}>Approve draft</Button>
+                    </div>
+                    <div className="mt-[var(--space-3)] grid gap-[var(--space-2)]">
+                      {aiDraft.translation.map((line) => (
+                        <div key={line} className="rounded-[var(--radius-sm)] bg-[var(--color-surface)] px-[var(--space-3)] py-[var(--space-2)] text-[var(--type-footnote-size)]">{line}</div>
+                      ))}
+                    </div>
+                    {aiDraft.warnings.length > 0 ? (
+                      <div className="mt-[var(--space-3)] flex gap-[var(--space-2)] text-[var(--type-footnote-size)] text-[var(--color-warning)]">
+                        <ShieldAlert className="h-4 w-4 shrink-0" />
+                        <span>{aiDraft.warnings.join(" ")}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
               <div className="grid gap-[var(--space-3)] md:grid-cols-[1fr_180px_160px]">
                 <Text label="Segment name" value={name} onChange={(event) => setName(event.target.value)} placeholder="VIP brunch regulars" />
                 <Select label="Type" value={segmentType} onChange={(value) => setSegmentType(value as "dynamic" | "static")} options={[{ value: "dynamic", label: "Dynamic" }, { value: "static", label: "Static" }]} />
@@ -291,9 +374,9 @@ export default function SegmentsPage() {
               </div>
               <div className="flex flex-wrap gap-[var(--space-2)]">
                 <Button type="button" variant="secondary" size="md" leadingIcon={<Filter />} onClick={() => setRules((current) => [...current, defaultRule()])}>Add rule</Button>
-                <Button type="button" size="md" leadingIcon={<Save />} loading={saving} onClick={saveSegment} disabled={!name.trim()}>Save</Button>
-                <Button type="button" variant="secondary" size="md" leadingIcon={<Play />} loading={previewing} onClick={runPreview} disabled={saving}>Preview</Button>
-                <Button type="button" variant="secondary" size="md" leadingIcon={<DatabaseZap />} loading={materializing} onClick={materialize} disabled={!selectedId}>Materialize</Button>
+                <Button type="button" size="md" leadingIcon={<Save />} loading={saving} onClick={saveSegment} disabled={!name.trim() || Boolean(aiDraft)}>Save</Button>
+                <Button type="button" variant="secondary" size="md" leadingIcon={<Play />} loading={previewing} onClick={runPreview} disabled={saving || Boolean(aiDraft)}>Preview</Button>
+                <Button type="button" variant="secondary" size="md" leadingIcon={<DatabaseZap />} loading={materializing} onClick={materialize} disabled={!selectedId || Boolean(aiDraft)}>Materialize</Button>
               </div>
             </CardBody>
           </Card>
