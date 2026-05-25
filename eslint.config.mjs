@@ -1,6 +1,56 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import {
+  DEFAULT_CODE_EXTENSIONS,
+  findRawHexOccurrences,
+  filterNewViolations,
+  loadBaseline,
+  toRepoPath,
+} from "./scripts/raw-hex-guard.mjs";
+
+const rawHexBaseline = loadBaseline(new URL("./scripts/raw-hex-baseline.json", import.meta.url).pathname);
+
+const rawHexPlugin = {
+  rules: {
+    "no-raw-hex": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Disallow raw hex colors outside the design token source.",
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          Program(node) {
+            const filename = context.filename;
+            if (!DEFAULT_CODE_EXTENSIONS.has(filename.slice(filename.lastIndexOf(".")))) {
+              return;
+            }
+
+            const sourceCode = context.sourceCode;
+            const file = toRepoPath(filename, process.cwd());
+            const occurrences = findRawHexOccurrences(sourceCode.getText(), file);
+            const violations = filterNewViolations(occurrences, rawHexBaseline);
+
+            for (const violation of violations) {
+              context.report({
+                node,
+                loc: {
+                  line: violation.line,
+                  column: Math.max(violation.column - 1, 0),
+                },
+                message:
+                  "Raw hex colors are not allowed here. Use a semantic token from src/styles/tokens.css or add one there before using this color.",
+              });
+            }
+          },
+        };
+      },
+    },
+  },
+};
 
 // React-19 compiler-driven react-hooks rules flag latent bugs (refs accessed
 // during render, setState-in-effect cascades, components defined during render,
@@ -63,6 +113,15 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
   ]),
+  {
+    files: ["src/components/**/*.{ts,tsx,js,jsx}", "src/app/**/*.{ts,tsx,js,jsx}"],
+    plugins: {
+      "sear-design-tokens": rawHexPlugin,
+    },
+    rules: {
+      "sear-design-tokens/no-raw-hex": "error",
+    },
+  },
   {
     files: bucketBLintDebt,
     rules: {
