@@ -93,10 +93,91 @@ export const crmRewardTypeSchema = z.enum(['discount_amount', 'discount_percent'
 export const crmRewardStatusSchema = z.enum(['draft', 'active', 'paused', 'archived'])
 export const crmRewardRedemptionStatusSchema = z.enum(['reserved', 'applied', 'voided', 'expired'])
 export const crmLoyaltyReviewStatusSchema = z.enum(['open', 'in_review', 'resolved', 'dismissed'])
+export const crmSegmentTypeSchema = z.enum(['dynamic', 'static'])
+export const crmSegmentStatusSchema = z.enum(['draft', 'active', 'archived'])
+export const crmSegmentMatchModeSchema = z.enum(['all', 'any'])
+export const crmSegmentFieldSchema = z.enum([
+  'lifecycle_stage',
+  'total_spend',
+  'total_visits',
+  'average_check',
+  'days_since_last_visit',
+  'birthday_month',
+  'location_id',
+  'is_vip',
+  'tag_slug',
+  'tag_category',
+  'email_marketing_consent',
+  'sms_marketing_consent',
+  'loyalty_points_balance',
+  'loyalty_tier',
+  'favorite_item_contains',
+  'order_channel',
+])
+export const crmSegmentOperatorSchema = z.enum([
+  'equals',
+  'not_equals',
+  'contains',
+  'greater_than',
+  'less_than',
+  'between',
+  'exists',
+  'not_exists',
+  'days_since',
+  'count_at_least',
+])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+export const crmSegmentRuleSchema = z.object({
+  field: crmSegmentFieldSchema,
+  operator: crmSegmentOperatorSchema,
+  value: z.union([
+    z.string().trim().max(240),
+    z.number(),
+    z.boolean(),
+    z.array(z.union([z.string().trim().max(240), z.number()])).max(2),
+  ]).optional(),
+})
+
+export type CrmSegmentRuleInput = z.infer<typeof crmSegmentRuleSchema>
+export type CrmSegmentRuleGroupInput = {
+  match: 'all' | 'any'
+  rules: Array<CrmSegmentRuleInput | CrmSegmentRuleGroupInput>
+}
+
+export const crmSegmentRuleGroupSchema: z.ZodType<CrmSegmentRuleGroupInput> = z.lazy(() => z.object({
+  match: crmSegmentMatchModeSchema.default('all'),
+  rules: z.array(z.union([crmSegmentRuleSchema, crmSegmentRuleGroupSchema])).min(1).max(24),
+}))
+
+export const createCrmSegmentSchema = z.object({
+  location_id: optionalUuidSchema,
+  name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(1000).optional().nullable(),
+  segment_type: crmSegmentTypeSchema.default('dynamic'),
+  status: crmSegmentStatusSchema.default('draft'),
+  match_mode: crmSegmentMatchModeSchema.default('all'),
+  rule_tree: crmSegmentRuleGroupSchema,
+  metadata: metadataSchema,
+})
+
+export const updateCrmSegmentSchema = createCrmSegmentSchema.partial().extend({
+  rule_tree: crmSegmentRuleGroupSchema.optional(),
+})
+
+export const previewCrmSegmentSchema = z.object({
+  rule_tree: crmSegmentRuleGroupSchema,
+  sample_limit: z.number().int().min(1).max(25).default(8),
+})
+
+export const listCrmSegmentsQuerySchema = z.object({
+  status: crmSegmentStatusSchema.optional(),
+  search: z.string().trim().max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
 
 export const guestMergeConfidenceLevelSchema = z.enum(['100', '90', '75', '50', 'below_50'])
 export const guestMergeCandidateStatusSchema = z.enum(['pending', 'merged', 'dismissed', 'kept_separate', 'household'])
