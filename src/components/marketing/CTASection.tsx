@@ -17,7 +17,7 @@ export function CTASection() {
           transition: 'opacity 0.6s ease, transform 0.6s ease',
         }}
       >
-        <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#007AFF] to-[#0066D6] p-10 text-center md:p-16">
+        <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-alt)] p-10 text-center md:p-16">
           <h2 className="text-[28px] font-bold text-white md:text-[40px]">
             Ready to switch?
           </h2>
@@ -29,7 +29,7 @@ export function CTASection() {
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/demo"
-              className="btn-press inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-[17px] font-semibold text-[#007AFF] shadow-lg transition-all hover:shadow-xl"
+              className="btn-press inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-[17px] font-semibold text-[var(--color-primary)] shadow-lg transition-all hover:shadow-xl"
             >
               Book a Demo
               <ArrowRight size={18} />

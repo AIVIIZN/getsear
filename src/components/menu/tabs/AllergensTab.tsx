@@ -363,7 +363,7 @@ function AllergenToggleRow({
           style={{
             backgroundColor: isEnabled && mode === 'CONTAINS' ? allergen.color : undefined,
             borderColor: isEnabled && mode === 'MAY_CONTAIN' ? allergen.color : undefined,
-            color: isEnabled && mode === 'MAY_CONTAIN' ? allergen.color : isEnabled ? '#ffffff' : undefined,
+            color: isEnabled && mode === 'MAY_CONTAIN' ? allergen.color : isEnabled ? 'var(--color-white)' : undefined,
           }}
         >
           {allergen.abbreviation}

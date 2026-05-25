@@ -389,7 +389,7 @@ export function ModifiersTab({
                   key={group.id}
                   type="button"
                   onClick={() => handleLink(group.id)}
-                  className="flex w-full items-center justify-between rounded-md border border-border bg-card p-2 text-left transition-colors hover:border-[#007AFF] hover:bg-[#007AFF]/5"
+                  className="flex w-full items-center justify-between rounded-md border border-border bg-card p-2 text-left transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5"
                 >
                   <div>
                     <span className="text-sm font-medium text-foreground">{group.name}</span>

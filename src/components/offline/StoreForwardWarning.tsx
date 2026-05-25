@@ -22,36 +22,36 @@ export function StoreForwardWarning() {
       className={cn(
         'flex items-start gap-3 rounded-xl p-3.5',
         isOnline
-          ? 'bg-[#3B82F6]/8 border border-[#3B82F6]/15'
-          : 'bg-[#F59E0B]/8 border border-[#F59E0B]/15'
+          ? 'bg-[var(--color-blue-legacy)]/8 border border-[var(--color-blue-legacy)]/15'
+          : 'bg-[var(--color-marketing-accent)]/8 border border-[var(--color-marketing-accent)]/15'
       )}
     >
       <div className={cn(
         'flex items-center justify-center w-8 h-8 rounded-lg shrink-0',
-        isOnline ? 'bg-[#3B82F6]/10' : 'bg-[#F59E0B]/10'
+        isOnline ? 'bg-[var(--color-blue-legacy)]/10' : 'bg-[var(--color-marketing-accent)]/10'
       )}>
         <CreditCard
-          className={cn('h-4 w-4', isOnline ? 'text-[#3B82F6]' : 'text-[#F59E0B]')}
+          className={cn('h-4 w-4', isOnline ? 'text-[var(--color-blue-legacy)]' : 'text-[var(--color-marketing-accent)]')}
           strokeWidth={2}
         />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="text-[14px] font-semibold text-[#1C1C1E]">
+          <span className="text-[14px] font-semibold text-[var(--color-text)]">
             Store-and-Forward Payments
           </span>
           {!isOnline && (
-            <AlertTriangle className="h-3.5 w-3.5 text-[#F59E0B]" strokeWidth={2} />
+            <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-marketing-accent)]" strokeWidth={2} />
           )}
         </div>
-        <p className="text-[13px] text-[#3C3C43] leading-snug">
+        <p className="text-[13px] text-[var(--color-text-secondary)] leading-snug">
           {storeForwardCount} card payment{storeForwardCount !== 1 ? 's' : ''} totaling{' '}
           <span className="font-semibold">{formattedTotal}</span>{' '}
           {isOnline ? 'settling now...' : 'pending settlement when online.'}
         </p>
         <div className="flex items-center gap-1 mt-1.5">
-          <Clock className="h-3 w-3 text-[#8E8E93]" strokeWidth={2} />
-          <span className="text-[11px] text-[#8E8E93]">
+          <Clock className="h-3 w-3 text-[var(--color-text-muted)]" strokeWidth={2} />
+          <span className="text-[11px] text-[var(--color-text-muted)]">
             Must settle within 24 hours of authorization
           </span>
         </div>

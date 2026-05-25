@@ -15,38 +15,38 @@ const BANNER_CONFIG: Record<BannerState, {
 } | null> = {
   hidden: null,
   offline: {
-    bg: 'bg-[#F59E0B]/10 border-b border-[#F59E0B]/20',
-    text: 'text-[#92400E]',
+    bg: 'bg-[var(--color-marketing-accent)]/10 border-b border-[var(--color-marketing-accent)]/20',
+    text: 'text-[var(--color-marketing-accent-deep)]',
     icon: WifiOff,
-    iconColor: 'text-[#F59E0B]',
+    iconColor: 'text-[var(--color-marketing-accent)]',
     dismissible: true,
   },
   syncing: {
-    bg: 'bg-[#3B82F6]/10 border-b border-[#3B82F6]/20',
-    text: 'text-[#1E40AF]',
+    bg: 'bg-[var(--color-blue-legacy)]/10 border-b border-[var(--color-blue-legacy)]/20',
+    text: 'text-[var(--color-blue-deep)]',
     icon: RefreshCw,
-    iconColor: 'text-[#3B82F6]',
+    iconColor: 'text-[var(--color-blue-legacy)]',
     dismissible: false,
   },
   synced: {
-    bg: 'bg-[#22C55E]/10 border-b border-[#22C55E]/20',
-    text: 'text-[#166534]',
+    bg: 'bg-[var(--color-success-vivid)]/10 border-b border-[var(--color-success-vivid)]/20',
+    text: 'text-[var(--color-success-text)]',
     icon: CheckCircle2,
-    iconColor: 'text-[#22C55E]',
+    iconColor: 'text-[var(--color-success-vivid)]',
     dismissible: false,
   },
   conflict: {
-    bg: 'bg-[#EF4444]/10 border-b border-[#EF4444]/20',
-    text: 'text-[#991B1B]',
+    bg: 'bg-[var(--color-danger-strong)]/10 border-b border-[var(--color-danger-strong)]/20',
+    text: 'text-[var(--color-danger-800)]',
     icon: AlertTriangle,
-    iconColor: 'text-[#EF4444]',
+    iconColor: 'text-[var(--color-danger-strong)]',
     dismissible: false,
   },
   stale: {
-    bg: 'bg-[#F59E0B]/10 border-b border-[#F59E0B]/20',
-    text: 'text-[#92400E]',
+    bg: 'bg-[var(--color-marketing-accent)]/10 border-b border-[var(--color-marketing-accent)]/20',
+    text: 'text-[var(--color-marketing-accent-deep)]',
     icon: WifiOff,
-    iconColor: 'text-[#F59E0B]',
+    iconColor: 'text-[var(--color-marketing-accent)]',
     dismissible: false,
   },
 }
@@ -133,7 +133,7 @@ export function OfflineBanner() {
           </span>
           {bannerState === 'conflict' && (
             <button
-              className="ml-2 shrink-0 rounded-md bg-[#EF4444] px-3 py-1 text-[12px] font-semibold text-white hover:bg-[#DC2626] active:bg-[#B91C1C] transition-colors"
+              className="ml-2 shrink-0 rounded-md bg-[var(--color-danger-strong)] px-3 py-1 text-[12px] font-semibold text-white hover:bg-[var(--color-danger-600)] active:bg-[var(--color-danger-700)] transition-colors"
               style={{ minHeight: 28 }}
             >
               Resolve

@@ -118,8 +118,8 @@ export function NoSaleDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#F5A60B]/10">
-            <DollarSign className="h-6 w-6 text-[#F5A60B]" strokeWidth={2} />
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-marketing-accent-strong)]/10">
+            <DollarSign className="h-6 w-6 text-[var(--color-marketing-accent-strong)]" strokeWidth={2} />
           </div>
           <DialogTitle className="text-center">Open Cash Drawer</DialogTitle>
           <DialogDescription className="text-center">
@@ -137,7 +137,7 @@ export function NoSaleDialog({
               className={cn(
                 'flex w-full items-center gap-3 rounded-xl border px-4 transition-all',
                 selectedReason === option.value
-                  ? 'border-[#007AFF] bg-[#007AFF]/[0.05]'
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/[0.05]'
                   : 'border-black/[0.06] bg-white hover:border-black/[0.12] hover:bg-black/[0.01]'
               )}
               style={{ minHeight: 52 }}
@@ -146,7 +146,7 @@ export function NoSaleDialog({
               <span
                 className={cn(
                   'text-[15px] font-medium',
-                  selectedReason === option.value ? 'text-[#007AFF]' : 'text-[#1C1C1E]'
+                  selectedReason === option.value ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)]'
                 )}
               >
                 {option.label}
@@ -157,7 +157,7 @@ export function NoSaleDialog({
           {/* Other text input */}
           {selectedReason === 'other' && (
             <div className="pt-1">
-              <Label className="mb-1.5 block text-sm text-[#3C3C43]">
+              <Label className="mb-1.5 block text-sm text-[var(--color-text-secondary)]">
                 Describe the reason
               </Label>
               <Textarea
@@ -168,7 +168,7 @@ export function NoSaleDialog({
                 maxLength={200}
                 autoFocus
               />
-              <p className="mt-1 text-right text-[11px] text-[#C7C7CC]">
+              <p className="mt-1 text-right text-[11px] text-[var(--gray-400)]">
                 {otherText.length}/200
               </p>
             </div>
@@ -177,9 +177,9 @@ export function NoSaleDialog({
 
         {/* Error display */}
         {error && (
-          <div className="flex items-start gap-2 rounded-lg bg-[#FF3B30]/[0.06] px-3 py-2.5">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#FF3B30]" strokeWidth={2} />
-            <p className="text-sm text-[#FF3B30]">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg bg-[var(--color-danger-strong)]/[0.06] px-3 py-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-danger-strong)]" strokeWidth={2} />
+            <p className="text-sm text-[var(--color-danger-strong)]">{error}</p>
           </div>
         )}
 

@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
   return (
     <div
       className="flex min-h-screen items-center justify-center px-4"
-      style={{ backgroundColor: '#F2F2F7' }}
+      style={{ backgroundColor: 'var(--color-bg-muted)' }}
     >
       <div
         className="w-full max-w-md rounded-2xl border p-8 shadow-lg"

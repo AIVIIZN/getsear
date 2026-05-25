@@ -83,7 +83,7 @@ export default function OrganizationSettingsPage() {
         owner_name: org.owner_name ?? "",
         owner_email: org.owner_email ?? "",
         owner_phone: org.owner_phone ?? "",
-        primary_color: org.primary_color ?? "#007AFF",
+        primary_color: org.primary_color ?? "var(--color-primary)",
       });
       setTimezone((org.settings?.default_timezone as string) ?? "America/New_York");
       setCurrency((org.settings?.default_currency as string) ?? "USD");
@@ -231,7 +231,7 @@ export default function OrganizationSettingsPage() {
                 <Text
                   size="lg"
                   className="flex-1 font-mono"
-                  placeholder="#007AFF"
+                  placeholder="var(--color-primary)"
                   {...register("primary_color")}
                 />
               </div>

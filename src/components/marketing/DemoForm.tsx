@@ -94,12 +94,12 @@ export function DemoForm() {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-md rounded-2xl border border-[#34C759]/20 bg-[#34C759]/5 p-10 text-center">
-        <CheckCircle2 size={48} className="mx-auto text-[#34C759]" />
-        <h3 className="mt-5 text-[22px] font-semibold text-[#1C1C1E]">
+      <div className="mx-auto max-w-md rounded-2xl border border-[var(--color-success-strong)]/20 bg-[var(--color-success-strong)]/5 p-10 text-center">
+        <CheckCircle2 size={48} className="mx-auto text-[var(--color-success-strong)]" />
+        <h3 className="mt-5 text-[22px] font-semibold text-[var(--color-text)]">
           We&apos;ll be in touch!
         </h3>
-        <p className="mt-3 text-[15px] leading-relaxed text-[#78756D]">
+        <p className="mt-3 text-[15px] leading-relaxed text-[var(--color-marketing-text-muted)]">
           Check your email for a confirmation with next steps. We typically
           respond within 2 business hours.
         </p>
@@ -117,7 +117,7 @@ export function DemoForm() {
       <div>
         <label
           htmlFor="restaurant_name"
-          className="mb-1.5 block text-[14px] font-medium text-[#3D3D37]"
+          className="mb-1.5 block text-[14px] font-medium text-[var(--color-marketing-text)]"
         >
           Restaurant name
         </label>
@@ -126,10 +126,10 @@ export function DemoForm() {
           type="text"
           placeholder="The Copper Pot"
           {...register('restaurant_name')}
-          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[var(--color-text)] placeholder-[var(--color-neutral-350)] transition-colors focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
         />
         {errors.restaurant_name && (
-          <p className="mt-1 text-[13px] text-[#FF3B30]">
+          <p className="mt-1 text-[13px] text-[var(--color-danger-strong)]">
             {errors.restaurant_name.message}
           </p>
         )}
@@ -139,7 +139,7 @@ export function DemoForm() {
       <div>
         <label
           htmlFor="contact_name"
-          className="mb-1.5 block text-[14px] font-medium text-[#3D3D37]"
+          className="mb-1.5 block text-[14px] font-medium text-[var(--color-marketing-text)]"
         >
           Your name
         </label>
@@ -148,10 +148,10 @@ export function DemoForm() {
           type="text"
           placeholder="Maria Gonzalez"
           {...register('contact_name')}
-          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+          className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[var(--color-text)] placeholder-[var(--color-neutral-350)] transition-colors focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
         />
         {errors.contact_name && (
-          <p className="mt-1 text-[13px] text-[#FF3B30]">
+          <p className="mt-1 text-[13px] text-[var(--color-danger-strong)]">
             {errors.contact_name.message}
           </p>
         )}
@@ -162,7 +162,7 @@ export function DemoForm() {
         <div>
           <label
             htmlFor="email"
-            className="mb-1.5 block text-[14px] font-medium text-[#3D3D37]"
+            className="mb-1.5 block text-[14px] font-medium text-[var(--color-marketing-text)]"
           >
             Email
           </label>
@@ -171,10 +171,10 @@ export function DemoForm() {
             type="email"
             placeholder="maria@copperpot.com"
             {...register('email')}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[var(--color-text)] placeholder-[var(--color-neutral-350)] transition-colors focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
           />
           {errors.email && (
-            <p className="mt-1 text-[13px] text-[#FF3B30]">
+            <p className="mt-1 text-[13px] text-[var(--color-danger-strong)]">
               {errors.email.message}
             </p>
           )}
@@ -182,7 +182,7 @@ export function DemoForm() {
         <div>
           <label
             htmlFor="phone"
-            className="mb-1.5 block text-[14px] font-medium text-[#3D3D37]"
+            className="mb-1.5 block text-[14px] font-medium text-[var(--color-marketing-text)]"
           >
             Phone
           </label>
@@ -191,10 +191,10 @@ export function DemoForm() {
             type="tel"
             placeholder="(555) 123-4567"
             {...register('phone')}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[var(--color-text)] placeholder-[var(--color-neutral-350)] transition-colors focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
           />
           {errors.phone && (
-            <p className="mt-1 text-[13px] text-[#FF3B30]">
+            <p className="mt-1 text-[13px] text-[var(--color-danger-strong)]">
               {errors.phone.message}
             </p>
           )}
@@ -206,7 +206,7 @@ export function DemoForm() {
         <div>
           <label
             htmlFor="locations_count"
-            className="mb-1.5 block text-[14px] font-medium text-[#3D3D37]"
+            className="mb-1.5 block text-[14px] font-medium text-[var(--color-marketing-text)]"
           >
             Number of locations
           </label>
@@ -216,10 +216,10 @@ export function DemoForm() {
             min={1}
             max={999}
             {...register('locations_count', { valueAsNumber: true })}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] placeholder-[#A1A1A6] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[var(--color-text)] placeholder-[var(--color-neutral-350)] transition-colors focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
           />
           {errors.locations_count && (
-            <p className="mt-1 text-[13px] text-[#FF3B30]">
+            <p className="mt-1 text-[13px] text-[var(--color-danger-strong)]">
               {errors.locations_count.message}
             </p>
           )}
@@ -227,14 +227,14 @@ export function DemoForm() {
         <div>
           <label
             htmlFor="current_pos"
-            className="mb-1.5 block text-[14px] font-medium text-[#3D3D37]"
+            className="mb-1.5 block text-[14px] font-medium text-[var(--color-marketing-text)]"
           >
             Current POS
           </label>
           <select
             id="current_pos"
             {...register('current_pos')}
-            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[#1C1C1E] transition-colors focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+            className="w-full rounded-xl border border-[rgba(60,60,67,0.12)] bg-white px-4 py-3 text-[16px] text-[var(--color-text)] transition-colors focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
           >
             {posOptions.map((opt) => (
               <option key={opt.value} value={opt.value} disabled={!opt.value}>
@@ -243,7 +243,7 @@ export function DemoForm() {
             ))}
           </select>
           {errors.current_pos && (
-            <p className="mt-1 text-[13px] text-[#FF3B30]">
+            <p className="mt-1 text-[13px] text-[var(--color-danger-strong)]">
               {errors.current_pos.message}
             </p>
           )}
@@ -252,7 +252,7 @@ export function DemoForm() {
 
       {/* Server error */}
       {serverError && (
-        <div className="rounded-xl border border-[#FF3B30]/20 bg-[#FEF2F2] p-4 text-[14px] text-[#FF3B30]">
+        <div className="rounded-xl border border-[var(--color-danger-strong)]/20 bg-[var(--color-danger-soft-alt)] p-4 text-[14px] text-[var(--color-danger-strong)]">
           {serverError}
         </div>
       )}
@@ -261,7 +261,7 @@ export function DemoForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="btn-press flex w-full items-center justify-center gap-2 rounded-full bg-[#007AFF] py-4 text-[17px] font-semibold text-white shadow-lg shadow-[#007AFF]/25 transition-all hover:bg-[#0066D6] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn-press flex w-full items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] py-4 text-[17px] font-semibold text-white shadow-lg shadow-[var(--color-primary)]/25 transition-all hover:bg-[var(--color-primary-alt)] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? (
           <>
@@ -276,7 +276,7 @@ export function DemoForm() {
         )}
       </button>
 
-      <p className="text-center text-[13px] text-[#78756D]">
+      <p className="text-center text-[13px] text-[var(--color-marketing-text-muted)]">
         No spam. No pressure. We&apos;ll reach out within 2 business hours.
       </p>
     </form>

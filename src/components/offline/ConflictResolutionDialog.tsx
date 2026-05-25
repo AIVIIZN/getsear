@@ -76,14 +76,14 @@ export function ConflictResolutionDialog({
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-[rgba(60,60,67,0.12)]">
-          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[#EF4444]/10">
-            <AlertTriangle className="h-4.5 w-4.5 text-[#EF4444]" strokeWidth={2} />
+          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--color-danger-strong)]/10">
+            <AlertTriangle className="h-4.5 w-4.5 text-[var(--color-danger-strong)]" strokeWidth={2} />
           </div>
           <div>
-            <h2 className="text-[17px] font-semibold text-[#1C1C1E]">
+            <h2 className="text-[17px] font-semibold text-[var(--color-text)]">
               Resolve Conflict
             </h2>
-            <p className="text-[13px] text-[#8E8E93] mt-0.5">
+            <p className="text-[13px] text-[var(--color-text-muted)] mt-0.5">
               {conflict.description}
             </p>
           </div>
@@ -93,19 +93,19 @@ export function ConflictResolutionDialog({
         <div className="grid grid-cols-2 gap-0 overflow-auto" style={{ maxHeight: 360 }}>
           {/* Local (Your Version) */}
           <div className="border-r border-[rgba(60,60,67,0.12)]">
-            <div className="sticky top-0 px-4 py-2.5 bg-[#F59E0B]/5 border-b border-[rgba(60,60,67,0.12)]">
-              <span className="text-[13px] font-semibold text-[#92400E]">Your Version (Local)</span>
+            <div className="sticky top-0 px-4 py-2.5 bg-[var(--color-marketing-accent)]/5 border-b border-[rgba(60,60,67,0.12)]">
+              <span className="text-[13px] font-semibold text-[var(--color-marketing-accent-deep)]">Your Version (Local)</span>
             </div>
             <div className="px-4 py-3 space-y-2">
               {localEntries.map(([key, value]) => (
                 <div key={key} className={cn(
                   'rounded-md px-2.5 py-1.5',
-                  differingKeys.has(key) ? 'bg-[#F59E0B]/8' : ''
+                  differingKeys.has(key) ? 'bg-[var(--color-marketing-accent)]/8' : ''
                 )}>
-                  <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide">
+                  <div className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
                     {formatFieldName(key)}
                   </div>
-                  <div className="text-[14px] text-[#1C1C1E] mt-0.5 break-words">
+                  <div className="text-[14px] text-[var(--color-text)] mt-0.5 break-words">
                     {formatValue(value)}
                   </div>
                 </div>
@@ -115,19 +115,19 @@ export function ConflictResolutionDialog({
 
           {/* Server Version */}
           <div>
-            <div className="sticky top-0 px-4 py-2.5 bg-[#3B82F6]/5 border-b border-[rgba(60,60,67,0.12)]">
-              <span className="text-[13px] font-semibold text-[#1E40AF]">Server Version</span>
+            <div className="sticky top-0 px-4 py-2.5 bg-[var(--color-blue-legacy)]/5 border-b border-[rgba(60,60,67,0.12)]">
+              <span className="text-[13px] font-semibold text-[var(--color-blue-deep)]">Server Version</span>
             </div>
             <div className="px-4 py-3 space-y-2">
               {serverEntries.map(([key, value]) => (
                 <div key={key} className={cn(
                   'rounded-md px-2.5 py-1.5',
-                  differingKeys.has(key) ? 'bg-[#3B82F6]/8' : ''
+                  differingKeys.has(key) ? 'bg-[var(--color-blue-legacy)]/8' : ''
                 )}>
-                  <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide">
+                  <div className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
                     {formatFieldName(key)}
                   </div>
-                  <div className="text-[14px] text-[#1C1C1E] mt-0.5 break-words">
+                  <div className="text-[14px] text-[var(--color-text)] mt-0.5 break-words">
                     {formatValue(value)}
                   </div>
                 </div>
@@ -137,13 +137,13 @@ export function ConflictResolutionDialog({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-[rgba(60,60,67,0.12)] bg-[#F9F9F9]">
+        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-[rgba(60,60,67,0.12)] bg-[var(--color-neutral-100-alt)]">
           <button
             onClick={onClose}
             className={cn(
               'px-4 py-2 rounded-lg text-[14px] font-medium',
-              'text-[#3C3C43] bg-white border border-[rgba(60,60,67,0.12)]',
-              'hover:bg-[#F2F2F7] active:bg-[#E5E5EA] transition-colors'
+              'text-[var(--color-text-secondary)] bg-white border border-[rgba(60,60,67,0.12)]',
+              'hover:bg-[var(--color-bg-muted)] active:bg-[var(--gray-200)] transition-colors'
             )}
             style={{ minHeight: 40 }}
             disabled={isResolving}
@@ -155,8 +155,8 @@ export function ConflictResolutionDialog({
             disabled={isResolving}
             className={cn(
               'flex items-center gap-1.5 px-4 py-2 rounded-lg text-[14px] font-medium',
-              'text-[#1E40AF] bg-[#3B82F6]/10 border border-[#3B82F6]/20',
-              'hover:bg-[#3B82F6]/15 active:bg-[#3B82F6]/20 transition-colors',
+              'text-[var(--color-blue-deep)] bg-[var(--color-blue-legacy)]/10 border border-[var(--color-blue-legacy)]/20',
+              'hover:bg-[var(--color-blue-legacy)]/15 active:bg-[var(--color-blue-legacy)]/20 transition-colors',
               isResolving && selectedResolution === 'keep_server' && 'opacity-60'
             )}
             style={{ minHeight: 40 }}
@@ -169,8 +169,8 @@ export function ConflictResolutionDialog({
             disabled={isResolving}
             className={cn(
               'flex items-center gap-1.5 px-4 py-2 rounded-lg text-[14px] font-semibold',
-              'text-white bg-[#007AFF]',
-              'hover:bg-[#E05A0D] active:bg-[#C44D0B] transition-colors',
+              'text-white bg-[var(--color-primary)]',
+              'hover:bg-[var(--color-marketing-accent-hover)] active:bg-[var(--color-marketing-accent-active)] transition-colors',
               isResolving && selectedResolution === 'keep_local' && 'opacity-60'
             )}
             style={{ minHeight: 40 }}

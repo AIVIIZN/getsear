@@ -25,7 +25,7 @@ const STATUS_CONFIG: Record<ConnectionStatusType, {
     icon: CheckCircle2,
     label: 'Connected',
     bgColor: 'bg-[var(--success-bg)]',
-    textColor: 'text-[#16a34a]',
+    textColor: 'text-[var(--color-success-600)]',
     iconColor: 'text-[var(--success)]',
     dotColor: 'bg-[var(--success)]',
   },

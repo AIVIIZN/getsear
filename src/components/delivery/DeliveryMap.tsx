@@ -130,7 +130,7 @@ export function DeliveryMap() {
               <div className="absolute inset-0 opacity-10">
                 {/* Grid pattern for map placeholder */}
                 <div className="w-full h-full" style={{
-                  backgroundImage: 'radial-gradient(circle, #ccc 1px, transparent 1px)',
+                  backgroundImage: 'radial-gradient(circle, var(--color-border-fallback) 1px, transparent 1px)',
                   backgroundSize: '30px 30px',
                 }} />
               </div>

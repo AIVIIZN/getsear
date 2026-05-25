@@ -251,8 +251,8 @@ function CourseHeader({
         <Circle
           className="h-2 w-2"
           style={{
-            fill: isFired ? '#34C759' : '#8E8E93',
-            color: isFired ? '#34C759' : '#8E8E93',
+            fill: isFired ? 'var(--color-success-strong)' : 'var(--color-text-muted)',
+            color: isFired ? 'var(--color-success-strong)' : 'var(--color-text-muted)',
           }}
         />
         {isFired ? 'FIRE' : 'HOLD'}
@@ -539,7 +539,7 @@ export function OrderPanel({
                     <div className="flex items-center gap-2 px-4 py-1.5">
                       <span
                         className="flex h-5 w-5 items-center justify-center rounded-full text-caption-2 font-bold text-white"
-                        style={{ backgroundColor: seatColor ?? '#8E8E93' }}
+                        style={{ backgroundColor: seatColor ?? 'var(--color-text-muted)' }}
                       >
                         {seatGroup.seatNumber}
                       </span>
@@ -758,7 +758,7 @@ export function OrderPanel({
             className={cn(
               'btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline transition-all duration-150',
               hasUnsentItems
-                ? 'bg-gradient-to-b from-[#1a8aff] to-[#0066e6] text-white shadow-[0_2px_8px_rgba(0,122,255,0.3)] hover:shadow-[0_4px_16px_rgba(0,122,255,0.4)] active:shadow-none'
+                ? 'bg-gradient-to-b from-[var(--color-primary-bright)] to-[var(--color-primary-gradient-end)] text-white shadow-[0_2px_8px_rgba(0,122,255,0.3)] hover:shadow-[0_4px_16px_rgba(0,122,255,0.4)] active:shadow-none'
                 : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
             )}
             style={{ height: 56 }}
@@ -771,7 +771,7 @@ export function OrderPanel({
             <button
               type="button"
               onClick={onGoToPayment}
-              className="btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline bg-gradient-to-b from-[#3dd47e] to-[#28b862] text-white shadow-[0_2px_8px_rgba(52,199,89,0.3)] hover:shadow-[0_4px_16px_rgba(52,199,89,0.4)] active:shadow-none transition-all duration-150"
+              className="btn-press touch-target-xl flex flex-1 items-center justify-center gap-2 rounded-2xl text-headline bg-gradient-to-b from-[var(--color-success-hover-alt)] to-[var(--color-success-hover)] text-white shadow-[0_2px_8px_rgba(52,199,89,0.3)] hover:shadow-[0_4px_16px_rgba(52,199,89,0.4)] active:shadow-none transition-all duration-150"
               style={{ height: 56 }}
             >
               <CreditCard className="h-5 w-5" />

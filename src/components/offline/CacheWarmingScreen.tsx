@@ -21,7 +21,7 @@ export function CacheWarmingScreen() {
   return (
     <div
       className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-      style={{ backgroundColor: '#FAF9F7' }}
+      style={{ backgroundColor: 'var(--color-marketing-bg-muted)' }}
     >
       {/* Logo */}
       <div className="mb-8">
@@ -29,13 +29,13 @@ export function CacheWarmingScreen() {
           <div
             className="h-10 w-10 rounded-xl flex items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, #007AFF 0%, #E05A0D 100%)',
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-marketing-accent-hover) 100%)',
               boxShadow: '0 4px 12px rgba(240, 107, 24, 0.3)',
             }}
           >
             <span className="text-white text-[18px] font-bold">S</span>
           </div>
-          <span className="text-[24px] font-bold text-[#1C1C1E] tracking-tight">
+          <span className="text-[24px] font-bold text-[var(--color-text)] tracking-tight">
             Sear
           </span>
         </div>
@@ -59,7 +59,7 @@ export function CacheWarmingScreen() {
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#007AFF"
+            stroke="var(--color-primary)"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
@@ -72,7 +72,7 @@ export function CacheWarmingScreen() {
         </svg>
         {/* Percentage */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[20px] font-semibold text-[#1C1C1E] tabular-nums">
+          <span className="text-[20px] font-semibold text-[var(--color-text)] tabular-nums">
             {progress}%
           </span>
         </div>
@@ -80,17 +80,17 @@ export function CacheWarmingScreen() {
 
       {/* Status text */}
       <div className="text-center max-w-sm px-4">
-        <h2 className="text-[17px] font-semibold text-[#1C1C1E] mb-1">
+        <h2 className="text-[17px] font-semibold text-[var(--color-text)] mb-1">
           Preparing your station
         </h2>
-        <p className="text-[14px] text-[#8E8E93] leading-relaxed min-h-[20px]">
+        <p className="text-[14px] text-[var(--color-text-muted)] leading-relaxed min-h-[20px]">
           {stage || 'Initializing...'}
         </p>
       </div>
 
       {/* Subtle footer message */}
       <div className="absolute bottom-8 text-center">
-        <p className="text-[12px] text-[#C7C7CC]">
+        <p className="text-[12px] text-[var(--gray-400)]">
           Caching data for offline use
         </p>
       </div>

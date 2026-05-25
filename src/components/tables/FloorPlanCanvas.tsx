@@ -298,8 +298,8 @@ export function FloorPlanCanvas({
                   backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
                 }}
               />
-              <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[#007AFF]/10 px-2.5 py-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#007AFF]">
+              <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[var(--color-primary)]/10 px-2.5 py-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-primary)]">
                   Edit Mode
                 </span>
               </div>

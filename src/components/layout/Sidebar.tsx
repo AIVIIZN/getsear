@@ -104,13 +104,13 @@ function SidebarRow({ item, isActive }: { item: NavItem; isActive: boolean }) {
         "transition-colors duration-100",
         isActive
           ? "bg-[var(--primary)]/[0.12] text-[var(--primary)]"
-          : "text-[#3C3C43] hover:bg-black/[0.04] active:bg-black/[0.06]"
+          : "text-[var(--color-text-secondary)] hover:bg-black/[0.04] active:bg-black/[0.06]"
       )}
     >
       <Icon
         className={cn(
           "h-[20px] w-[20px] shrink-0",
-          isActive ? "text-[var(--primary)]" : "text-[#8E8E93]"
+          isActive ? "text-[var(--primary)]" : "text-[var(--color-text-muted)]"
         )}
         strokeWidth={isActive ? 2.2 : 1.8}
       />
@@ -140,7 +140,7 @@ function SidebarIcon({ item, isActive }: { item: NavItem; isActive: boolean }) {
         "transition-colors duration-100",
         isActive
           ? "bg-[var(--primary)]/[0.12] text-[var(--primary)]"
-          : "text-[#8E8E93] hover:bg-black/[0.04] active:bg-black/[0.06]"
+          : "text-[var(--color-text-muted)] hover:bg-black/[0.04] active:bg-black/[0.06]"
       )}
       style={{ minHeight: 48 }}
       title={item.label}
@@ -152,7 +152,7 @@ function SidebarIcon({ item, isActive }: { item: NavItem; isActive: boolean }) {
       <span
         className={cn(
           "text-[10px] leading-[12px] font-medium",
-          isActive ? "text-[var(--primary)]" : "text-[#8E8E93]"
+          isActive ? "text-[var(--primary)]" : "text-[var(--color-text-muted)]"
         )}
       >
         {(item.shortLabel ?? item.label).length > 8
@@ -195,7 +195,7 @@ function SidebarSection({
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between px-4 pb-1 pt-2"
       >
-        <span className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#8E8E93]">
+        <span className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-muted)]">
           {section.label}
         </span>
       </button>
@@ -221,7 +221,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
       style={{
         width: collapsed ? "var(--sidebar-collapsed)" : "var(--sidebar-expanded)",
         transition: "width 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
-        background: "#F2F2F7",
+        background: "var(--color-bg-muted)",
         borderRight: "0.5px solid rgba(60, 60, 67, 0.12)",
       }}
     >
@@ -271,14 +271,14 @@ export function Sidebar({ collapsed }: SidebarProps) {
           )}
         >
           <div className="relative">
-            <Clock className="h-4 w-4 shrink-0 text-[#34C759]" />
+            <Clock className="h-4 w-4 shrink-0 text-[var(--color-success-strong)]" />
             <div
-              className="absolute -right-0.5 -top-0.5 h-[7px] w-[7px] rounded-full bg-[#34C759]"
-              style={{ boxShadow: "0 0 0 2px #F2F2F7" }}
+              className="absolute -right-0.5 -top-0.5 h-[7px] w-[7px] rounded-full bg-[var(--color-success-strong)]"
+              style={{ boxShadow: "0 0 0 2px var(--color-bg-muted)" }}
             />
           </div>
           {!collapsed && (
-            <span className="text-[12px] font-medium text-[#8E8E93]">
+            <span className="text-[12px] font-medium text-[var(--color-text-muted)]">
               Clocked In
             </span>
           )}

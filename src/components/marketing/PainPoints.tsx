@@ -37,10 +37,10 @@ export function PainPoints() {
     <section className="bg-white py-20 md:py-28" ref={ref}>
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-[32px] font-bold tracking-tight text-[#1C1C1E] md:text-[40px]">
+          <h2 className="text-[32px] font-bold tracking-tight text-[var(--color-text)] md:text-[40px]">
             Sound familiar?
           </h2>
-          <p className="mt-4 text-[18px] leading-relaxed text-[#78756D]">
+          <p className="mt-4 text-[18px] leading-relaxed text-[var(--color-marketing-text-muted)]">
             The POS industry profits from locking restaurants in. We built Sear
             to change that.
           </p>
@@ -52,7 +52,7 @@ export function PainPoints() {
             return (
               <div
                 key={point.title}
-                className="group relative rounded-2xl border border-[rgba(60,60,67,0.08)] bg-[#FDFBF7] p-8 transition-all duration-500 hover:border-[#007AFF]/20 hover:shadow-lg"
+                className="group relative rounded-2xl border border-[rgba(60,60,67,0.08)] bg-[var(--color-marketing-bg)] p-8 transition-all duration-500 hover:border-[var(--color-primary)]/20 hover:shadow-lg"
                 style={{
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible
@@ -61,20 +61,20 @@ export function PainPoints() {
                   transition: `opacity 0.6s ease ${i * 0.15}s, transform 0.6s ease ${i * 0.15}s`,
                 }}
               >
-                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#007AFF] transition-colors group-hover:bg-[#007AFF] group-hover:text-white">
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-marketing-bg-warm)] text-[var(--color-primary)] transition-colors group-hover:bg-[var(--color-primary)] group-hover:text-white">
                   <Icon size={24} />
                 </div>
-                <h3 className="text-[20px] font-semibold text-[#1C1C1E]">
+                <h3 className="text-[20px] font-semibold text-[var(--color-text)]">
                   {point.title}
                 </h3>
-                <p className="mt-3 text-[15px] leading-relaxed text-[#78756D]">
+                <p className="mt-3 text-[15px] leading-relaxed text-[var(--color-marketing-text-muted)]">
                   {point.description}
                 </p>
                 <div className="mt-6 border-t border-[rgba(60,60,67,0.08)] pt-5">
-                  <span className="text-[28px] font-bold text-[#007AFF]">
+                  <span className="text-[28px] font-bold text-[var(--color-primary)]">
                     {point.stat}
                   </span>
-                  <span className="ml-2 text-[14px] text-[#78756D]">
+                  <span className="ml-2 text-[14px] text-[var(--color-marketing-text-muted)]">
                     {point.statLabel}
                   </span>
                 </div>

@@ -342,7 +342,7 @@ export function ItemEditPopover({
                     className={cn(
                       'btn-press rounded-lg px-2.5 py-1.5 text-caption-1 font-semibold transition-all',
                       isActive
-                        ? 'bg-[#007AFF] text-white shadow-sm'
+                        ? 'bg-[var(--color-primary)] text-white shadow-sm'
                         : 'bg-[var(--secondary)] text-foreground hover:bg-[var(--muted)]',
                       mod.label === 'Allergy' && !isActive && 'bg-red-50 text-red-600 hover:bg-red-100',
                       mod.label === 'Allergy' && isActive && 'bg-red-500 text-white',

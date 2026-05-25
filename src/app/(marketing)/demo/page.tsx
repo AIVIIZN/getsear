@@ -34,15 +34,15 @@ const trustPoints = [
 
 export default function DemoPage() {
   return (
-    <section className="bg-[#FDFBF7] py-16 md:py-24">
+    <section className="bg-[var(--color-marketing-bg)] py-16 md:py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-16 lg:grid-cols-2">
           {/* Left: value prop */}
           <div>
-            <h1 className="text-[36px] font-bold tracking-tight text-[#1C1C1E] md:text-[48px]">
+            <h1 className="text-[36px] font-bold tracking-tight text-[var(--color-text)] md:text-[48px]">
               See Sear in action
             </h1>
-            <p className="mt-4 text-[18px] leading-relaxed text-[#78756D] md:text-[20px]">
+            <p className="mt-4 text-[18px] leading-relaxed text-[var(--color-marketing-text-muted)] md:text-[20px]">
               Book a quick demo and we&apos;ll walk you through the full POS,
               show you the savings calculator with your real numbers, and answer
               every question.
@@ -53,14 +53,14 @@ export default function DemoPage() {
                 const Icon = point.icon;
                 return (
                   <div key={point.title} className="flex gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFF4EC] text-[#007AFF]">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-marketing-bg-warm)] text-[var(--color-primary)]">
                       <Icon size={22} />
                     </div>
                     <div>
-                      <h3 className="text-[16px] font-semibold text-[#1C1C1E]">
+                      <h3 className="text-[16px] font-semibold text-[var(--color-text)]">
                         {point.title}
                       </h3>
-                      <p className="mt-0.5 text-[14px] text-[#78756D]">
+                      <p className="mt-0.5 text-[14px] text-[var(--color-marketing-text-muted)]">
                         {point.description}
                       </p>
                     </div>
@@ -71,7 +71,7 @@ export default function DemoPage() {
 
             {/* What you'll see */}
             <div className="mt-10 rounded-2xl border border-[rgba(60,60,67,0.08)] bg-white p-6">
-              <h3 className="text-[16px] font-semibold text-[#1C1C1E]">
+              <h3 className="text-[16px] font-semibold text-[var(--color-text)]">
                 What we&apos;ll cover
               </h3>
               <ul className="mt-3 space-y-2">
@@ -83,9 +83,9 @@ export default function DemoPage() {
                 ].map((item) => (
                   <li
                     key={item}
-                    className="flex items-start gap-2 text-[14px] text-[#3D3D37]"
+                    className="flex items-start gap-2 text-[14px] text-[var(--color-marketing-text)]"
                   >
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#007AFF]" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" />
                     {item}
                   </li>
                 ))}
@@ -95,7 +95,7 @@ export default function DemoPage() {
 
           {/* Right: form */}
           <div className="rounded-2xl border border-[rgba(60,60,67,0.08)] bg-white p-8 md:p-10">
-            <h2 className="mb-8 text-center text-[22px] font-semibold text-[#1C1C1E]">
+            <h2 className="mb-8 text-center text-[22px] font-semibold text-[var(--color-text)]">
               Request a demo
             </h2>
             <DemoForm />

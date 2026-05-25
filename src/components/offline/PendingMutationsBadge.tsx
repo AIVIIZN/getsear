@@ -32,8 +32,8 @@ export function PendingMutationsBadge() {
           'text-[13px] font-medium tabular-nums',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
           hasFailed
-            ? 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#991B1B] hover:bg-[#EF4444]/15 active:bg-[#EF4444]/20 focus-visible:ring-[#EF4444]/50'
-            : 'border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#92400E] hover:bg-[#F59E0B]/15 active:bg-[#F59E0B]/20 focus-visible:ring-[#F59E0B]/50'
+            ? 'border-[var(--color-danger-strong)]/30 bg-[var(--color-danger-strong)]/10 text-[var(--color-danger-800)] hover:bg-[var(--color-danger-strong)]/15 active:bg-[var(--color-danger-strong)]/20 focus-visible:ring-[var(--color-danger-strong)]/50'
+            : 'border-[var(--color-marketing-accent)]/30 bg-[var(--color-marketing-accent)]/10 text-[var(--color-marketing-accent-deep)] hover:bg-[var(--color-marketing-accent)]/15 active:bg-[var(--color-marketing-accent)]/20 focus-visible:ring-[var(--color-marketing-accent)]/50'
         )}
       >
         <Inbox className="h-[14px] w-[14px] shrink-0" strokeWidth={2} />

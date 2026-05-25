@@ -84,7 +84,7 @@ function htmlPage(orgName: string | undefined): string {
       } as Record<string, string>
     )[c] ?? c
   })
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed</title></head><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:48px;text-align:center;color:#111;background:#fafafa"><div style="max-width:480px;margin:0 auto;background:#fff;padding:48px 32px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05)"><h1 style="margin:0 0 12px;font-size:24px;font-weight:600">You've been unsubscribed.</h1><p style="margin:0;color:#555;font-size:15px;line-height:1.5">You will no longer receive marketing emails from ${safeOrg}.</p></div></body></html>`
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed</title></head><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:48px;text-align:center;color:var(--color-neutral-950);background:var(--color-neutral-50-lower)"><div style="max-width:480px;margin:0 auto;background:var(--color-neutral-0);padding:48px 32px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05)"><h1 style="margin:0 0 12px;font-size:24px;font-weight:600">You've been unsubscribed.</h1><p style="margin:0;color:var(--color-neutral-750);font-size:15px;line-height:1.5">You will no longer receive marketing emails from ${safeOrg}.</p></div></body></html>`
 }
 
 export async function GET(request: NextRequest) {

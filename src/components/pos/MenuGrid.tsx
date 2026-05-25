@@ -27,16 +27,16 @@ interface MenuGridProps {
 
 // Category color palette — Toast-style pastels (soft, not alarming)
 const CATEGORY_COLORS = [
-  '#E3F0FB', // Light Blue — Appetizers
-  '#FFE6E9', // Light Pink — Entrees
-  '#E8F7D4', // Light Green — Salads
-  '#E3F0FB', // Light Blue — Drinks
-  '#F1E3FD', // Light Lavender — Desserts
-  '#E0F7FA', // Light Cyan — Sides
-  '#FFF0F5', // Light Rose — Specials
-  '#F2F2F7', // Light Gray — Wine/Beer
-  '#FBD9B6', // Light Peach
-  '#E8F7D4', // Light Mint
+  'var(--color-primary-soft)', // Light Blue — Appetizers
+  'var(--color-danger-soft)', // Light Pink — Entrees
+  'var(--color-success-soft)', // Light Green — Salads
+  'var(--color-primary-soft)', // Light Blue — Drinks
+  'var(--color-purple-soft)', // Light Lavender — Desserts
+  'var(--color-cyan-bg)', // Light Cyan — Sides
+  'var(--color-pink-soft)', // Light Rose — Specials
+  'var(--color-bg-muted)', // Light Gray — Wine/Beer
+  'var(--color-marketing-bg-warm)', // Light Peach
+  'var(--color-success-soft)', // Light Mint
 ]
 
 function getCategoryColor(index: number, customColor?: string): string {
@@ -44,9 +44,8 @@ function getCategoryColor(index: number, customColor?: string): string {
   return CATEGORY_COLORS[index % CATEGORY_COLORS.length]
 }
 
-// Generate a softer background tint from a hex color
-function tintColor(hex: string, opacity: number = 0.12): string {
-  return `${hex}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`
+function tintColor(color: string, opacity: number = 0.12): string {
+  return `color-mix(in srgb, ${color} ${Math.round(opacity * 100)}%, transparent)`
 }
 
 export function MenuGrid({ onItemTap }: MenuGridProps) {
@@ -142,7 +141,7 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
             All
           </button>
           {sortedCategories.map((cat) => {
-            const color = categoryColorMap.get(cat.id) ?? '#8E8E93'
+            const color = categoryColorMap.get(cat.id) ?? 'var(--color-text-muted)'
             const isActive = activeCategoryId === cat.id
             return (
               <button
@@ -157,8 +156,8 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
                   height: 36,
                   minWidth: 80,
                   backgroundColor: isActive ? color : 'transparent',
-                  color: isActive ? '#1C1C1E' : '#8E8E93',
-                  border: isActive ? '2px solid #007AFF' : '1.5px solid #E5E5EA',
+                  color: isActive ? 'var(--color-text)' : 'var(--color-text-muted)',
+                  border: isActive ? '2px solid var(--color-primary)' : '1.5px solid var(--gray-200)',
                 }}
               >
                 {cat.name}
@@ -218,7 +217,7 @@ export function MenuGrid({ onItemTap }: MenuGridProps) {
             }}
           >
             {filteredItems.map((item, index) => {
-              const catColor = categoryColorMap.get(item.category_id) ?? '#8E8E93'
+              const catColor = categoryColorMap.get(item.category_id) ?? 'var(--color-text-muted)'
               const imageUrl = (item as MenuItem & { image_url?: string | null }).image_url
               const hasImage = !!imageUrl
               const firstLetter = item.name.charAt(0).toUpperCase()

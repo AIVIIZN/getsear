@@ -34,7 +34,7 @@ export type { PMIXItem }
 const CLASSIFICATION_COLORS: Record<string, string> = {
   Star: 'var(--color-primary)',
   Plowhorse: 'var(--color-primary-active)',
-  Puzzle: '#7C3AED',
+  Puzzle: 'var(--color-purple-deep)',
   Dog: 'var(--color-text-muted)',
 }
 

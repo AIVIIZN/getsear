@@ -76,12 +76,12 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
         className="flex w-full items-center justify-between py-5 text-left"
         aria-expanded={open}
       >
-        <span className="pr-4 text-[16px] font-semibold text-[#1C1C1E]">
+        <span className="pr-4 text-[16px] font-semibold text-[var(--color-text)]">
           {item.question}
         </span>
         <ChevronDown
           size={20}
-          className={`shrink-0 text-[#78756D] transition-transform duration-200 ${
+          className={`shrink-0 text-[var(--color-marketing-text-muted)] transition-transform duration-200 ${
             open ? 'rotate-180' : ''
           }`}
         />
@@ -92,7 +92,7 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
         }`}
       >
         <div className="overflow-hidden">
-          <p className="text-[15px] leading-relaxed text-[#78756D]">
+          <p className="text-[15px] leading-relaxed text-[var(--color-marketing-text-muted)]">
             {item.answer}
           </p>
         </div>
@@ -105,7 +105,7 @@ export function PricingFAQ() {
   const { ref, isVisible } = useScrollFadeIn();
 
   return (
-    <section className="bg-[#FDFBF7] py-20 md:py-28" ref={ref}>
+    <section className="bg-[var(--color-marketing-bg)] py-20 md:py-28" ref={ref}>
       <div
         className="mx-auto max-w-3xl px-6"
         style={{
@@ -115,10 +115,10 @@ export function PricingFAQ() {
         }}
       >
         <div className="text-center">
-          <h2 className="text-[32px] font-bold tracking-tight text-[#1C1C1E] md:text-[40px]">
+          <h2 className="text-[32px] font-bold tracking-tight text-[var(--color-text)] md:text-[40px]">
             Frequently asked questions
           </h2>
-          <p className="mt-4 text-[18px] leading-relaxed text-[#78756D]">
+          <p className="mt-4 text-[18px] leading-relaxed text-[var(--color-marketing-text-muted)]">
             Honest answers to common questions. No sales pitch.
           </p>
         </div>

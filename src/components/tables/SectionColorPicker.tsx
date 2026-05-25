@@ -13,15 +13,15 @@ export type SectionColor =
   | 'mint'
   | 'gold'
 
-export const SECTION_COLOR_MAP: Record<SectionColor, { bg: string; text: string; hex: string; label: string }> = {
-  coral: { bg: 'bg-[#FF6B6B]', text: 'text-[#FF6B6B]', hex: '#FF6B6B', label: 'Coral' },
-  teal: { bg: 'bg-[#2EC4B6]', text: 'text-[#2EC4B6]', hex: '#2EC4B6', label: 'Teal' },
-  lavender: { bg: 'bg-[#B39DDB]', text: 'text-[#B39DDB]', hex: '#B39DDB', label: 'Lavender' },
-  lime: { bg: 'bg-[#8BC34A]', text: 'text-[#8BC34A]', hex: '#8BC34A', label: 'Lime' },
-  sky: { bg: 'bg-[#4FC3F7]', text: 'text-[#4FC3F7]', hex: '#4FC3F7', label: 'Sky' },
-  peach: { bg: 'bg-[#FFAB91]', text: 'text-[#FFAB91]', hex: '#FFAB91', label: 'Peach' },
-  mint: { bg: 'bg-[#80CBC4]', text: 'text-[#80CBC4]', hex: '#80CBC4', label: 'Mint' },
-  gold: { bg: 'bg-[#FFD54F]', text: 'text-[#FFD54F]', hex: '#FFD54F', label: 'Gold' },
+export const SECTION_COLOR_MAP: Record<SectionColor, { bg: string; text: string; cssVar: string; label: string }> = {
+  coral: { bg: 'bg-[var(--color-section-coral)]', text: 'text-[var(--color-section-coral)]', cssVar: 'var(--color-section-coral)', label: 'Coral' },
+  teal: { bg: 'bg-[var(--color-section-teal)]', text: 'text-[var(--color-section-teal)]', cssVar: 'var(--color-section-teal)', label: 'Teal' },
+  lavender: { bg: 'bg-[var(--color-section-lavender)]', text: 'text-[var(--color-section-lavender)]', cssVar: 'var(--color-section-lavender)', label: 'Lavender' },
+  lime: { bg: 'bg-[var(--color-section-lime)]', text: 'text-[var(--color-section-lime)]', cssVar: 'var(--color-section-lime)', label: 'Lime' },
+  sky: { bg: 'bg-[var(--color-section-sky)]', text: 'text-[var(--color-section-sky)]', cssVar: 'var(--color-section-sky)', label: 'Sky' },
+  peach: { bg: 'bg-[var(--color-section-peach)]', text: 'text-[var(--color-section-peach)]', cssVar: 'var(--color-section-peach)', label: 'Peach' },
+  mint: { bg: 'bg-[var(--color-section-mint)]', text: 'text-[var(--color-section-mint)]', cssVar: 'var(--color-section-mint)', label: 'Mint' },
+  gold: { bg: 'bg-[var(--color-section-gold)]', text: 'text-[var(--color-section-gold)]', cssVar: 'var(--color-section-gold)', label: 'Gold' },
 }
 
 export const SECTION_COLORS = Object.keys(SECTION_COLOR_MAP) as SectionColor[]

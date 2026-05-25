@@ -49,7 +49,7 @@ export default function ServerComparisonChart({ data }: ServerComparisonChartPro
           <Tooltip content={<ServerTooltip />} />
           <Legend />
           <Bar yAxisId="left" dataKey="total_sales" name="Total Sales" fill="var(--color-primary)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-          <Bar yAxisId="right" dataKey="avg_check" name="Avg Check" fill="#7C3AED" radius={[4, 4, 0, 0]} maxBarSize={40} />
+          <Bar yAxisId="right" dataKey="avg_check" name="Avg Check" fill="var(--color-purple-deep)" radius={[4, 4, 0, 0]} maxBarSize={40} />
         </BarChart>
       </ResponsiveContainer>
     </div>

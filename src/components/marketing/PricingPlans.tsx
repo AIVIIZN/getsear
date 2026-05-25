@@ -88,18 +88,18 @@ export function PricingPlans() {
   const { ref, isVisible } = useScrollFadeIn();
 
   return (
-    <section className="bg-[#FDFBF7] py-20 md:py-28" ref={ref}>
+    <section className="bg-[var(--color-marketing-bg)] py-20 md:py-28" ref={ref}>
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <div className="mb-5 inline-flex items-center rounded-full border border-[#34C759]/20 bg-[#34C759]/10 px-4 py-1.5">
-            <span className="text-[13px] font-semibold text-[#34C759]">
+          <div className="mb-5 inline-flex items-center rounded-full border border-[var(--color-success-strong)]/20 bg-[var(--color-success-strong)]/10 px-4 py-1.5">
+            <span className="text-[13px] font-semibold text-[var(--color-success-strong)]">
               No contracts. No hidden fees. Cancel anytime.
             </span>
           </div>
-          <h2 className="text-[32px] font-bold tracking-tight text-[#1C1C1E] md:text-[40px]">
+          <h2 className="text-[32px] font-bold tracking-tight text-[var(--color-text)] md:text-[40px]">
             Transparent pricing. Always.
           </h2>
-          <p className="mt-4 text-[18px] leading-relaxed text-[#78756D]">
+          <p className="mt-4 text-[18px] leading-relaxed text-[var(--color-marketing-text-muted)]">
             We publish everything. No &ldquo;contact sales for pricing.&rdquo;
             What you see is what you pay.
           </p>
@@ -111,7 +111,7 @@ export function PricingPlans() {
               key={plan.name}
               className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-500 ${
                 plan.popular
-                  ? 'border-[#007AFF]/30 bg-white shadow-xl shadow-[#007AFF]/10 md:-mt-4 md:mb-[-16px] md:pb-12 md:pt-10'
+                  ? 'border-[var(--color-primary)]/30 bg-white shadow-xl shadow-[var(--color-primary)]/10 md:-mt-4 md:mb-[-16px] md:pb-12 md:pt-10'
                   : 'border-[rgba(60,60,67,0.08)] bg-white'
               }`}
               style={{
@@ -125,27 +125,27 @@ export function PricingPlans() {
               {/* Popular badge */}
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#007AFF] px-4 py-1.5 text-[12px] font-bold uppercase tracking-wider text-white shadow-lg shadow-[#007AFF]/25">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary)] px-4 py-1.5 text-[12px] font-bold uppercase tracking-wider text-white shadow-lg shadow-[var(--color-primary)]/25">
                     <Star size={12} className="fill-white" />
                     Most Popular
                   </span>
                 </div>
               )}
 
-              <h3 className="text-[20px] font-semibold text-[#1C1C1E]">
+              <h3 className="text-[20px] font-semibold text-[var(--color-text)]">
                 {plan.name}
               </h3>
 
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-[48px] font-bold tracking-tight text-[#1C1C1E]">
+                <span className="text-[48px] font-bold tracking-tight text-[var(--color-text)]">
                   ${plan.price}
                 </span>
-                <span className="text-[15px] text-[#78756D]">
+                <span className="text-[15px] text-[var(--color-marketing-text-muted)]">
                   {plan.period}
                 </span>
               </div>
 
-              <p className="mt-3 text-[15px] leading-relaxed text-[#78756D]">
+              <p className="mt-3 text-[15px] leading-relaxed text-[var(--color-marketing-text-muted)]">
                 {plan.description}
               </p>
 
@@ -153,8 +153,8 @@ export function PricingPlans() {
                 href={plan.ctaHref}
                 className={`btn-press mt-8 inline-flex items-center justify-center rounded-full py-3.5 text-[15px] font-semibold transition-colors ${
                   plan.popular
-                    ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25 hover:bg-[#0066D6]'
-                    : 'bg-[#1C1C1E] text-white hover:bg-[#2C2C2E]'
+                    ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25 hover:bg-[var(--color-primary-alt)]'
+                    : 'bg-[var(--color-text)] text-white hover:bg-[var(--color-bg-muted)]'
                 }`}
               >
                 {plan.cta}
@@ -164,17 +164,17 @@ export function PricingPlans() {
                 {plan.features.map((feature) => (
                   <li
                     key={feature}
-                    className="flex items-start gap-3 text-[14px] text-[#3D3D37]"
+                    className="flex items-start gap-3 text-[14px] text-[var(--color-marketing-text)]"
                   >
                     {feature.endsWith(':') ? (
-                      <span className="font-semibold text-[#1C1C1E]">
+                      <span className="font-semibold text-[var(--color-text)]">
                         {feature}
                       </span>
                     ) : (
                       <>
                         <Check
                           size={16}
-                          className="mt-0.5 shrink-0 text-[#34C759]"
+                          className="mt-0.5 shrink-0 text-[var(--color-success-strong)]"
                         />
                         {feature}
                       </>

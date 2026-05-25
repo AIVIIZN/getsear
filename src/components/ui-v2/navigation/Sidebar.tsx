@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
  * Spec: docs/design/UI_V2_COMPONENT_SPEC.md (universal rules) +
  *       build-pipeline/versions/V6_VISUAL.md → 6.1.5 Navigation
  *
- * Light Apple iPadOS sidebar (#F2F2F7 via var(--color-sidebar)).
+ * Light Apple iPadOS sidebar (var(--color-bg-muted) via var(--color-sidebar)).
  * 240pt width via var(--sidebar-width).
  * Active item gets var(--color-sidebar-active) tint (12% primary).
  * Sub-parts: SidebarSection (heading group) + SidebarItem (link/button row).

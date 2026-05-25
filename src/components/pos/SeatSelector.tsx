@@ -27,7 +27,7 @@ export function SeatSelector({ guestCount, activeSeat, onSelect }: SeatSelectorP
         All
       </button>
       {seats.map((seat) => {
-        const color = getSeatColor(seat) ?? '#8E8E93'
+        const color = getSeatColor(seat) ?? 'var(--color-text-muted)'
         const isActive = activeSeat === seat
 
         return (
@@ -46,7 +46,7 @@ export function SeatSelector({ guestCount, activeSeat, onSelect }: SeatSelectorP
               backgroundColor: isActive
                 ? color
                 : `${color}1A`, // ~10% opacity
-              color: isActive ? '#fff' : color,
+              color: isActive ? 'var(--color-neutral-0)' : color,
             }}
           >
             {/* Colored dot */}

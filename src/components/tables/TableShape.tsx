@@ -35,51 +35,51 @@ interface TableShapeProps {
 const STATUS_STYLES: Record<TableStatus, { bg: string; border: string; text: string; badge: string }> = {
   available: {
     bg: 'bg-white',
-    border: 'border-[#D1D1D6]',
-    text: 'text-[#8E8E93]',
-    badge: 'bg-[#34C759]',
+    border: 'border-[var(--gray-300)]',
+    text: 'text-[var(--color-text-muted)]',
+    badge: 'bg-[var(--color-success-strong)]',
   },
   seated: {
-    bg: 'bg-[#E3F0FB]',
-    border: 'border-[#007AFF]',
-    text: 'text-[#1C1C1E]',
-    badge: 'bg-[#007AFF]',
+    bg: 'bg-[var(--color-primary-soft)]',
+    border: 'border-[var(--color-primary)]',
+    text: 'text-[var(--color-text)]',
+    badge: 'bg-[var(--color-primary)]',
   },
   ordered: {
-    bg: 'bg-[#E8F7D4]',
-    border: 'border-[#34C759]',
-    text: 'text-[#1C1C1E]',
-    badge: 'bg-[#34C759]',
+    bg: 'bg-[var(--color-success-soft)]',
+    border: 'border-[var(--color-success-strong)]',
+    text: 'text-[var(--color-text)]',
+    badge: 'bg-[var(--color-success-strong)]',
   },
   served: {
-    bg: 'bg-[#F1E3FD]',
-    border: 'border-[#AF52DE]',
-    text: 'text-[#1C1C1E]',
-    badge: 'bg-[#AF52DE]',
+    bg: 'bg-[var(--color-purple-soft)]',
+    border: 'border-[var(--color-purple)]',
+    text: 'text-[var(--color-text)]',
+    badge: 'bg-[var(--color-purple)]',
   },
   check_presented: {
-    bg: 'bg-[#FFF8E1]',
-    border: 'border-[#FF9500]',
-    text: 'text-[#1C1C1E]',
-    badge: 'bg-[#FF9500]',
+    bg: 'bg-[var(--color-warning-soft)]',
+    border: 'border-[var(--color-warning-strong)]',
+    text: 'text-[var(--color-text)]',
+    badge: 'bg-[var(--color-warning-strong)]',
   },
   dirty: {
-    bg: 'bg-[#F2F2F7]',
-    border: 'border-[#C7C7CC]',
-    text: 'text-[#8E8E93]',
-    badge: 'bg-[#8E8E93]',
+    bg: 'bg-[var(--color-bg-muted)]',
+    border: 'border-[var(--gray-400)]',
+    text: 'text-[var(--color-text-muted)]',
+    badge: 'bg-[var(--color-text-muted)]',
   },
   reserved: {
-    bg: 'bg-[#E5E5EA]',
-    border: 'border-[#5856D6]',
-    text: 'text-[#5856D6]',
-    badge: 'bg-[#5856D6]',
+    bg: 'bg-[var(--gray-200)]',
+    border: 'border-[var(--color-indigo)]',
+    text: 'text-[var(--color-indigo)]',
+    badge: 'bg-[var(--color-indigo)]',
   },
   needs_attention: {
-    bg: 'bg-[#FFE6E9]',
-    border: 'border-[#FF3B30]',
-    text: 'text-[#FF3B30]',
-    badge: 'bg-[#FF3B30]',
+    bg: 'bg-[var(--color-danger-soft)]',
+    border: 'border-[var(--color-danger-strong)]',
+    text: 'text-[var(--color-danger-strong)]',
+    badge: 'bg-[var(--color-danger-strong)]',
   },
 }
 
@@ -103,11 +103,11 @@ function getElapsedTime(seatedAt: string | null): string {
 }
 
 function getTimeColor(seatedAt: string | null): string {
-  if (!seatedAt) return 'text-[#8E8E93]'
+  if (!seatedAt) return 'text-[var(--color-text-muted)]'
   const mins = Math.floor((Date.now() - new Date(seatedAt).getTime()) / 60000)
-  if (mins < 30) return 'text-[#34C759]'   // Green — on time
-  if (mins < 60) return 'text-[#FF9500]'   // Orange — getting long
-  return 'text-[#FF3B30]'                   // Red — overdue
+  if (mins < 30) return 'text-[var(--color-success-strong)]'   // Green — on time
+  if (mins < 60) return 'text-[var(--color-warning-strong)]'   // Orange — getting long
+  return 'text-[var(--color-danger-strong)]'                   // Red — overdue
 }
 
 export function TableShape({
@@ -147,8 +147,8 @@ export function TableShape({
         !isOccupied && 'shadow-sm',
         'hover:shadow-lg hover:scale-[1.03] active:scale-[0.97]',
         status === 'needs_attention' && 'animate-pulse',
-        isEditMode && 'cursor-grab border-dashed !border-[#007AFF]',
-        isSelected && 'ring-2 ring-[#007AFF] ring-offset-2 ring-offset-[#F2F2F7]',
+        isEditMode && 'cursor-grab border-dashed !border-[var(--color-primary)]',
+        isSelected && 'ring-2 ring-[var(--color-primary)] ring-offset-2 ring-offset-[var(--color-bg-muted)]',
       )}
       style={{
         width: minWidth,
@@ -169,14 +169,14 @@ export function TableShape({
           {guestCount}/{capacity}
         </span>
       ) : (
-        <span className="mt-1 text-xs font-medium leading-none text-[#C7C7CC]">
+        <span className="mt-1 text-xs font-medium leading-none text-[var(--gray-400)]">
           {capacity} seats
         </span>
       )}
 
       {/* Server name chip */}
       {isOccupied && serverName && (
-        <span className="mt-1.5 max-w-[calc(100%-8px)] truncate rounded-full bg-black/10 px-2 py-0.5 text-[10px] font-medium leading-none text-[#3C3C43]">
+        <span className="mt-1.5 max-w-[calc(100%-8px)] truncate rounded-full bg-black/10 px-2 py-0.5 text-[10px] font-medium leading-none text-[var(--color-text-secondary)]">
           {serverName}
         </span>
       )}
@@ -190,7 +190,7 @@ export function TableShape({
 
       {/* Reserved badge */}
       {status === 'reserved' && (
-        <span className="mt-1 text-[10px] font-semibold leading-none text-[#5856D6]">
+        <span className="mt-1 text-[10px] font-semibold leading-none text-[var(--color-indigo)]">
           Reserved
         </span>
       )}
@@ -205,7 +205,7 @@ export function TableShape({
 
       {/* Edit mode drag handle */}
       {isEditMode && (
-        <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#007AFF] text-white shadow-sm">
+        <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow-sm">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
             <circle cx="3" cy="3" r="1.2" />
             <circle cx="7" cy="3" r="1.2" />
@@ -220,25 +220,25 @@ export function TableShape({
         <>
           {/* NW */}
           <div
-            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            className="absolute h-2 w-2 rounded-full bg-[var(--color-primary)] shadow-sm"
             style={{ top: -4, left: -4, cursor: 'nwse-resize' }}
             onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'nw', e) }}
           />
           {/* NE */}
           <div
-            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            className="absolute h-2 w-2 rounded-full bg-[var(--color-primary)] shadow-sm"
             style={{ top: -4, right: -4, cursor: 'nesw-resize' }}
             onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'ne', e) }}
           />
           {/* SW */}
           <div
-            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            className="absolute h-2 w-2 rounded-full bg-[var(--color-primary)] shadow-sm"
             style={{ bottom: -4, left: -4, cursor: 'nesw-resize' }}
             onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'sw', e) }}
           />
           {/* SE */}
           <div
-            className="absolute h-2 w-2 rounded-full bg-[#007AFF] shadow-sm"
+            className="absolute h-2 w-2 rounded-full bg-[var(--color-primary)] shadow-sm"
             style={{ bottom: -4, right: -4, cursor: 'nwse-resize' }}
             onPointerDown={(e) => { e.stopPropagation(); onResizeStart(id, 'se', e) }}
           />

@@ -28,9 +28,9 @@ interface StaffMember {
 /** Deterministic color from a string — yields a warm, readable hue */
 function avatarColor(name: string): string {
   const colors = [
-    '#0066D6', '#2563EB', '#16A34A', '#7C3AED', '#D97706',
-    '#0891B2', '#DC2626', '#6366F1', '#059669', '#DB2777',
-    '#CA8A04', '#9333EA', '#0D9488', '#E11D48', '#4F46E5',
+    'var(--color-primary-alt)', 'var(--color-blue-strong)', 'var(--color-success-600)', 'var(--color-purple-deep)', 'var(--color-marketing-warning)',
+    'var(--color-cyan-strong)', 'var(--color-danger-600)', 'var(--color-indigo-soft)', 'var(--color-teal-strong)', 'var(--color-pink-strong)',
+    'var(--color-warning-600)', 'var(--color-purple-vivid)', 'var(--color-teal)', 'var(--color-danger-rose)', 'var(--color-indigo-strong)',
   ]
   let hash = 0
   for (let i = 0; i < name.length; i++) {

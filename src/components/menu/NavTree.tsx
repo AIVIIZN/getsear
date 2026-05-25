@@ -49,8 +49,8 @@ interface NavTreeProps {
 }
 
 const CATEGORY_COLORS = [
-  '#007AFF', '#DC2626', '#16A34A', '#2563EB',
-  '#7C3AED', '#D97706', '#0891B2', '#EC4899',
+  'var(--color-primary)', 'var(--color-danger-600)', 'var(--color-success-600)', 'var(--color-blue-strong)',
+  'var(--color-purple-deep)', 'var(--color-marketing-warning)', 'var(--color-cyan-strong)', 'var(--color-pink)',
 ]
 
 function DroppableCategoryWrapper({
@@ -178,7 +178,7 @@ export function NavTree({
   const total86d = items.filter((i) => i.is_86d).length
 
   return (
-    <div className="flex h-full w-[240px] flex-shrink-0 flex-col border-r border-border bg-[#F2F2F7]">
+    <div className="flex h-full w-[240px] flex-shrink-0 flex-col border-r border-border bg-[var(--color-bg-muted)]">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/60 px-3 py-3">
         <h2 className="text-sm font-semibold text-foreground">Categories</h2>
@@ -361,7 +361,7 @@ export function NavTree({
                   <div className="flex items-center gap-2 rounded-lg bg-background px-3 py-2.5 text-sm font-medium shadow-lg ring-1 ring-foreground/10 opacity-90">
                     <div
                       className="size-2.5 rounded-full"
-                      style={{ backgroundColor: activeDragCategory.color || '#007AFF' }}
+                      style={{ backgroundColor: activeDragCategory.color || 'var(--color-primary)' }}
                     />
                     <span>{activeDragCategory.name}</span>
                   </div>

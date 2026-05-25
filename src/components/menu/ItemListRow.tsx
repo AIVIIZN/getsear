@@ -71,8 +71,8 @@ export function ItemListRow({
       onClick={handleClick}
       className={cn(
         'group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 transition-all cursor-pointer hover:bg-muted/50',
-        isSelected && 'border-[#007AFF] bg-accent',
-        isMultiSelected && 'border-[#007AFF] bg-accent',
+        isSelected && 'border-[var(--color-primary)] bg-accent',
+        isMultiSelected && 'border-[var(--color-primary)] bg-accent',
         item.is_86d && 'opacity-60',
         isDragging && 'opacity-50 z-50 shadow-lg bg-background',
       )}
@@ -93,7 +93,7 @@ export function ItemListRow({
           className={cn(
             'size-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors',
             isMultiSelected
-              ? 'border-[#007AFF] bg-[#007AFF] text-white'
+              ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
               : 'border-border bg-background'
           )}
         >

@@ -299,7 +299,7 @@ export function AvailabilityTab({
                 className={cn(
                   'flex items-center gap-2 rounded-lg border px-3 py-3 text-left transition-all min-h-[48px]',
                   availabilityType === at.value
-                    ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
                     : 'border-border bg-background text-foreground hover:bg-muted',
                 )}
               >
@@ -322,7 +322,7 @@ export function AvailabilityTab({
           {dayparts.length === 0 ? (
             <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border p-4 text-center">
               No dayparts configured.{' '}
-              <span className="text-[#007AFF] font-medium">
+              <span className="text-[var(--color-primary)] font-medium">
                 Configure dayparts first
               </span>{' '}
               from the menu toolbar.
@@ -339,7 +339,7 @@ export function AvailabilityTab({
                     className={cn(
                       'w-full flex items-center justify-between rounded-lg border px-4 py-3 transition-all min-h-[48px]',
                       isSelected
-                        ? 'border-[#007AFF] bg-[#007AFF]/5'
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
                         : 'border-border bg-background hover:bg-muted/50',
                     )}
                   >
@@ -356,7 +356,7 @@ export function AvailabilityTab({
                       className={cn(
                         'size-5 rounded border-2 flex items-center justify-center transition-colors',
                         isSelected
-                          ? 'border-[#007AFF] bg-[#007AFF]'
+                          ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
                           : 'border-gray-300',
                       )}
                     >
@@ -402,7 +402,7 @@ export function AvailabilityTab({
                   className={cn(
                     'flex-1 flex items-center justify-center rounded-lg border py-3 text-sm font-medium transition-all min-h-[48px]',
                     isSelected
-                      ? 'border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
                       : 'border-border bg-background text-muted-foreground hover:bg-muted',
                   )}
                 >
@@ -533,7 +533,7 @@ export function AvailabilityTab({
       <Button
         onClick={handleSave}
         disabled={isSaving}
-        className="w-full h-12 bg-[#007AFF] hover:bg-[#E05A0D] text-white font-medium"
+        className="w-full h-12 bg-[var(--color-primary)] hover:bg-[var(--color-marketing-accent-hover)] text-white font-medium"
       >
         {isSaving ? (
           <>
