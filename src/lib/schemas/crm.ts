@@ -92,6 +92,7 @@ export const crmLoyaltyRuleTypeSchema = z.enum(['points_per_dollar', 'points_per
 export const crmRewardTypeSchema = z.enum(['discount_amount', 'discount_percent', 'free_item', 'free_category_item', 'experience', 'surprise_delight'])
 export const crmRewardStatusSchema = z.enum(['draft', 'active', 'paused', 'archived'])
 export const crmRewardRedemptionStatusSchema = z.enum(['reserved', 'applied', 'voided', 'expired'])
+export const crmLoyaltyReviewStatusSchema = z.enum(['open', 'in_review', 'resolved', 'dismissed'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
@@ -425,6 +426,23 @@ export const redeemCrmRewardSchema = z.object({
   manager_pin: z.string().min(4).max(6).regex(/^\d+$/, 'PIN must be digits only').optional(),
   explanation: z.string().trim().min(1).max(500).default('Reward redeemed at checkout'),
   metadata: metadataSchema,
+})
+
+export const listCrmLoyaltyDashboardQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+})
+
+export const listCrmLoyaltyFraudQuerySchema = z.object({
+  status: crmLoyaltyReviewStatusSchema.optional(),
+  generate: z.coerce.boolean().default(true),
+  days: z.coerce.number().int().min(1).max(90).default(30),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const updateCrmLoyaltyReviewItemSchema = z.object({
+  review_item_id: z.string().uuid(),
+  status: crmLoyaltyReviewStatusSchema,
+  resolution_note: z.string().trim().max(1000).optional().nullable(),
 })
 
 export const crmCheckoutLoyaltyQuerySchema = z.object({
