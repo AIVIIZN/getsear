@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { recommendedRecoveryAction, recoveryDeadlineForSeverity, recoverySourceFromComplaint } from '@/lib/crm/recovery'
+import { buildReviewRequestDraft, recommendedRecoveryAction, recoveryDeadlineForSeverity, recoverySourceFromComplaint, summarizeRecoveryAnalytics } from '@/lib/crm/recovery'
 import { createCrmRecoveryActionSchema, createCrmRecoveryCaseSchema, resolveCrmRecoveryCaseSchema } from '@/lib/schemas/crm'
 
 const root = process.cwd()
@@ -64,5 +64,66 @@ describe('CRM-V9.2 service recovery center', () => {
     expect(auditLog).toContain("'crm_recovery_case_created'")
     expect(auditLog).toContain("'crm_recovery_action_logged'")
     expect(auditLog).toContain("'crm_recovery_case_resolved'")
+  })
+
+  it('summarizes recovery ROI, resolution speed, recovered visits, and top issues', () => {
+    const summary = summarizeRecoveryAnalytics([
+      {
+        id: crypto.randomUUID(),
+        status: 'resolved',
+        severity: 'high',
+        topics: ['service', 'speed'],
+        created_at: '2026-05-25T10:00:00.000Z',
+        resolved_at: '2026-05-25T14:00:00.000Z',
+        recovered_at: '2026-05-26T12:00:00.000Z',
+        recovered_revenue: '42.50',
+      },
+      {
+        id: crypto.randomUUID(),
+        status: 'new',
+        severity: 'medium',
+        topics: ['service'],
+        created_at: '2026-05-25T12:00:00.000Z',
+        resolved_at: null,
+        recovered_at: null,
+        recovered_revenue: 0,
+      },
+    ])
+
+    expect(summary).toMatchObject({
+      opened_count: 2,
+      resolved_count: 1,
+      average_resolution_hours: 4,
+      recovered_guest_count: 1,
+      recovered_revenue: 42.5,
+    })
+    expect(summary.top_issues[0]).toEqual({ topic: 'service', count: 2 })
+  })
+
+  it('keeps review request AI drafts approval-only and editable', () => {
+    const draft = buildReviewRequestDraft({
+      guestName: 'Mina',
+      rating: 5,
+      surveyResponseId: crypto.randomUUID(),
+      guestId: crypto.randomUUID(),
+      reviewUrl: 'https://reviews.example.com/sear',
+    })
+
+    expect(draft.status).toBe('draft')
+    expect(draft.approval_required).toBe(true)
+    expect(draft.editable_fields).toEqual(['subject', 'message_body', 'sms_body', 'review_url'])
+    expect(draft.message_body).toContain('Mina')
+
+    const analyticsRoute = read('src/app/api/crm/recovery/analytics/route.ts')
+    const feedbackRoute = read('src/app/api/crm/feedback/route.ts')
+    const recoveryPage = read('src/app/(backoffice)/recovery/page.tsx')
+
+    expect(analyticsRoute).toContain('summarizeRecoveryAnalytics')
+    expect(feedbackRoute).toContain('buildReviewRequestDraft')
+    expect(feedbackRoute).toContain('createRepeatedIssueInsight')
+    expect(feedbackRoute).toContain('notifyManagerOfStaffCompliment')
+    expect(recoveryPage).toContain('/api/crm/recovery/analytics?days=90')
+    expect(recoveryPage).toContain('Avg resolve time')
+    expect(recoveryPage).toContain('Top recovery issues')
   })
 })

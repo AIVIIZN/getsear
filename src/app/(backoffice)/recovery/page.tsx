@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Clock3, MessageSquareText, RefreshCw, UserRoundCheck } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Clock3, MessageSquareText, RefreshCw, TrendingUp, UserRoundCheck } from "lucide-react"
 import { Badge } from "@/components/ui-v2/data/Badge"
 import { Skeleton } from "@/components/ui-v2/data/Skeleton"
 import { EmptyState } from "@/components/ui-v2/feedback/EmptyState"
@@ -28,6 +28,14 @@ type RecoveryCase = {
   guests?: { display_name?: string | null; lifecycle_stage?: string | null } | null
   crm_recovery_actions?: Array<{ id: string; action_type: string; note?: string | null; created_at: string }>
   crm_recovery_followups?: Array<{ id: string; status: string; due_at?: string | null; outcome?: string | null }>
+}
+type RecoveryAnalytics = {
+  opened_count: number
+  resolved_count: number
+  average_resolution_hours: number | null
+  recovered_guest_count: number
+  recovered_revenue: number
+  top_issues: Array<{ topic: string; count: number }>
 }
 
 const statusOptions = [
@@ -78,6 +86,7 @@ export default function RecoveryPage() {
   const [note, setNote] = React.useState("")
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [analytics, setAnalytics] = React.useState<RecoveryAnalytics | null>(null)
 
   const selected = cases.find((item) => item.id === selectedId) ?? null
   const openCases = cases.filter((item) => !["resolved", "closed"].includes(item.status)).length
@@ -89,9 +98,13 @@ export default function RecoveryPage() {
     setError(null)
     try {
       const url = statusFilter === "open" ? "/api/crm/recovery?limit=75" : `/api/crm/recovery?limit=75&status=${statusFilter}`
-      const json = await fetchJson<{ data: RecoveryCase[] }>(url)
+      const [json, analyticsJson] = await Promise.all([
+        fetchJson<{ data: RecoveryCase[] }>(url),
+        fetchJson<{ data: RecoveryAnalytics }>("/api/crm/recovery/analytics?days=90"),
+      ])
       const next = statusFilter === "open" ? json.data.filter((item) => !["resolved", "closed"].includes(item.status)) : json.data
       setCases(next)
+      setAnalytics(analyticsJson.data)
       setSelectedId((current) => current && next.some((item) => item.id === current) ? current : next[0]?.id ?? null)
       setState("ready")
     } catch (err) {
@@ -160,7 +173,14 @@ export default function RecoveryPage() {
         <section className="grid gap-[var(--space-3)] md:grid-cols-3">
           <Metric icon={<AlertTriangle />} label="Open cases" value={String(openCases)} tone={openCases > 0 ? "warning" : "success"} />
           <Metric icon={<Clock3 />} label="Overdue" value={String(overdue)} tone={overdue > 0 ? "danger" : "success"} />
-          <Metric icon={<UserRoundCheck />} label="Recovered revenue" value={money(recoveredRevenue)} tone="primary" />
+          <Metric icon={<UserRoundCheck />} label="Recovered revenue" value={money(analytics?.recovered_revenue ?? recoveredRevenue)} tone="primary" />
+        </section>
+
+        <section className="grid gap-[var(--space-3)] md:grid-cols-4">
+          <Metric icon={<TrendingUp />} label="Opened 90d" value={String(analytics?.opened_count ?? cases.length)} tone="primary" />
+          <Metric icon={<CheckCircle2 />} label="Resolved 90d" value={String(analytics?.resolved_count ?? 0)} tone="success" />
+          <Metric icon={<Clock3 />} label="Avg resolve time" value={analytics?.average_resolution_hours == null ? "No data" : `${analytics.average_resolution_hours}h`} tone="primary" />
+          <Metric icon={<UserRoundCheck />} label="Guests recovered" value={String(analytics?.recovered_guest_count ?? 0)} tone="success" />
         </section>
 
         {error ? <div className="rounded-[var(--radius-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-bg)] p-[var(--space-3)] text-[var(--color-danger)]">{error}</div> : null}
@@ -209,6 +229,7 @@ export default function RecoveryPage() {
                     <Insight icon={<MessageSquareText />} label="Recommended action" value={selected.recommended_action ?? "Assign a manager and document the contact plan."} />
                     <Insight icon={<CheckCircle2 />} label="Return tracking" value={selected.recovered_at ? `Returned ${formatDate(selected.recovered_at)} · ${money(selected.recovered_revenue)}` : "No recovered visit attached yet."} />
                   </div>
+                  <Insight icon={<TrendingUp />} label="Top recovery issues" value={analytics?.top_issues.length ? analytics.top_issues.map((item) => `${item.topic.replaceAll("_", " ")} (${item.count})`).join(", ") : "No repeated issue pattern yet."} />
                   {selected.issue_detail ? <p className="rounded-[var(--radius-sm)] bg-[var(--color-bg-muted)] p-[var(--space-4)] text-[var(--color-text)]">{selected.issue_detail}</p> : null}
                   <div className="flex flex-wrap gap-[var(--space-2)]">{selected.topics.map((topic) => <Badge key={topic}>{topic}</Badge>)}</div>
                   <div className="grid gap-[var(--space-3)] lg:grid-cols-[220px_1fr]">

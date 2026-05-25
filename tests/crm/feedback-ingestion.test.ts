@@ -60,6 +60,10 @@ describe('CRM-V9.1 feedback and review ingestion', () => {
       severity: 'critical',
       topics: ['food', 'service', 'speed'],
     })
+    expect(classifyCrmFeedback({
+      rating: 3,
+      text: 'The visit was just okay and slower than expected.',
+    }).sentiment).toBe('negative')
 
     const feedbackRoute = read('src/app/api/crm/feedback/route.ts')
     const reviewsRoute = read('src/app/api/crm/reviews/route.ts')
@@ -69,6 +73,9 @@ describe('CRM-V9.1 feedback and review ingestion', () => {
     expect(feedbackRoute).toContain("from('crm_survey_responses')")
     expect(feedbackRoute).toContain("from('crm_complaints')")
     expect(feedbackRoute).toContain("event_type: classification.sentiment === 'negative' ? 'crm.recovery.opened'")
+    expect(feedbackRoute).toContain('review_request_draft')
+    expect(feedbackRoute).toContain('crm.staff_compliment.manager_notice')
+    expect(feedbackRoute).toContain('Repeated ${input.topic.replaceAll')
     expect(feedbackRoute).toContain("eq('org_id', user.org_id)")
     expect(feedbackRoute).toContain('Survey not found for this organization')
     expect(feedbackRoute).toContain('Staff user not found for this organization')
