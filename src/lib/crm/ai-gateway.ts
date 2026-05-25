@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { AuthUser } from '@/lib/api/auth'
 import { canReadGuestNote, canReadGuestVisibility, crmGuestComplianceRoles, crmGuestManagerRoles } from '@/lib/crm/api'
+import { applyRestaurantMemoryToText } from '@/lib/crm/restaurant-memory'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { z } from 'zod'
 import type { crmAiGatewaySchema, crmAiProviderSchema, crmAiTaskTypeSchema } from '@/lib/schemas/crm'
@@ -147,6 +148,18 @@ function citationsFor(sources: SanitizedSource[], titles: string[]): string[] {
   return citations.length > 0 ? citations : sources.map((source) => source.title).slice(0, 4)
 }
 
+function restaurantMemoryRecords(sources: SanitizedSource[]): Array<{ category: string; rule_text: string }> {
+  const memory = sources.find((source) => source.source_type === 'restaurant_memory')
+  const records = memory?.data.records
+  if (!Array.isArray(records)) return []
+  return records.flatMap((record) => {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) return []
+    const item = record as Record<string, unknown>
+    if (typeof item.rule_text !== 'string') return []
+    return [{ category: typeof item.category === 'string' ? item.category : 'other', rule_text: item.rule_text }]
+  })
+}
+
 function deterministicGuestBrainOutput(taskType: CrmAiTaskType, sources: SanitizedSource[]): {
   text: string
   confidence: number
@@ -161,6 +174,7 @@ function deterministicGuestBrainOutput(taskType: CrmAiTaskType, sources: Sanitiz
   const allergies = arrayRecords(sources.find((source) => source.title === 'Active allergy records'))
   const recoveryCases = arrayRecords(sources.find((source) => source.title === 'Service recovery cases'))
   const loyaltyAccounts = arrayRecords(sources.find((source) => source.title === 'Loyalty accounts'))
+  const memoryRules = restaurantMemoryRecords(sources)
   const notes = sources.filter((source) => source.source_type === 'guest_note')
   const name = typeof guest.display_name === 'string' ? guest.display_name : 'Guest'
   const lifecycle = typeof guest.lifecycle_stage === 'string' ? guest.lifecycle_stage.replaceAll('_', ' ') : 'unknown lifecycle'
@@ -174,6 +188,7 @@ function deterministicGuestBrainOutput(taskType: CrmAiTaskType, sources: Sanitiz
   const birthday = typeof guest.birthday === 'string' ? guest.birthday : null
   const birthdayThisMonth = birthday ? birthday.slice(5, 7) === String(new Date().getUTCMonth() + 1).padStart(2, '0') : false
   const hasLoyalty = loyaltyAccounts.some((item) => String(item.status ?? '').match(/active|enrolled/i))
+  const winePreference = preferences.some((item) => /wine|cabernet|pinot|chardonnay|sommelier/i.test(JSON.stringify(item)))
 
   if (taskType === 'guest_summary') {
     const lines = [
@@ -205,7 +220,9 @@ function deterministicGuestBrainOutput(taskType: CrmAiTaskType, sources: Sanitiz
   const action = openRecovery
     ? 'recover'
     : birthdayThisMonth
-      ? 'birthday reward'
+      ? 'birthday dessert'
+      : winePreference
+        ? 'event invite'
       : !hasLoyalty
         ? 'loyalty enrollment'
         : lifecycle.includes('vip') || visits >= 8
@@ -216,7 +233,9 @@ function deterministicGuestBrainOutput(taskType: CrmAiTaskType, sources: Sanitiz
   const reason = openRecovery
     ? `open recovery case: ${String(openRecovery.issue_summary ?? 'needs manager review')}`
     : birthdayThisMonth
-      ? 'birthday falls this month in the supplied guest profile'
+      ? 'birthday falls this month and Restaurant Memory prefers dessert over percent discounts'
+      : winePreference
+        ? 'wine preference evidence matches Restaurant Memory event-invite guidance'
       : !hasLoyalty
         ? 'no active loyalty account appeared in the supplied sources'
         : lifecycle.includes('vip') || visits >= 8
@@ -225,9 +244,9 @@ function deterministicGuestBrainOutput(taskType: CrmAiTaskType, sources: Sanitiz
             ? 'lapsed lifecycle stage in guest profile'
             : 'no stronger source-backed intervention was indicated'
   return {
-    text: `Next best action: ${action}. Reason: ${reason}.`,
+    text: applyRestaurantMemoryToText(`Next best action: ${action}. Reason: ${reason}.`, memoryRules),
     confidence: sources.length >= 4 ? 0.8 : 0.54,
-    source_citations: citationsFor(sources, ['Guest profile and visit totals', 'Service recovery cases', 'Loyalty accounts']),
+    source_citations: citationsFor(sources, ['Guest profile and visit totals', 'Service recovery cases', 'Loyalty accounts', 'Restaurant Memory Rules']),
   }
 }
 
@@ -253,7 +272,7 @@ function deterministicOutput(taskType: CrmAiTaskType, prompt: string, sources: S
   }
 
   return {
-    text: `${actionText[taskType]} based only on ${citations.join(', ')}. Operator request: ${prompt.slice(0, 280)}`,
+    text: applyRestaurantMemoryToText(`${actionText[taskType]} based only on ${citations.join(', ')}. Operator request: ${prompt.slice(0, 280)}`, restaurantMemoryRecords(sources)),
     confidence: sources.length > 0 ? 0.68 : 0.42,
     source_citations: citations,
   }
@@ -306,6 +325,7 @@ async function callModel(provider: CrmAiProvider, model: string, taskType: CrmAi
   const system = [
     'You are Sear POS GuestBrain for restaurant CRM.',
     'Use only the supplied redacted sources. Do not invent guest facts.',
+    'Follow active Restaurant Memory rules when shaping campaigns, recovery language, and next best actions.',
     'Cite source titles. Never expose payment-sensitive data or hidden notes.',
     'Return concise operational text only; actions requiring sends, merges, discounts, reports, or guest mutations need approval.',
   ].join(' ')

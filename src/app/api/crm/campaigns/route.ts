@@ -5,6 +5,7 @@ import { audit } from '@/lib/audit/log'
 import { crmGuestComplianceRoles } from '@/lib/crm/api'
 import { buildCrmCampaignPreview, summarizeCrmCampaignAttribution } from '@/lib/crm/campaigns'
 import type { CrmAttributionEventSummaryInput } from '@/lib/crm/campaigns'
+import { fetchActiveRestaurantMemoryRules } from '@/lib/crm/restaurant-memory'
 import { previewCrmSegment } from '@/lib/crm/segments'
 import { createCrmCampaignSchema, listCrmCampaignsQuerySchema } from '@/lib/schemas/crm'
 
@@ -124,7 +125,8 @@ export async function POST(request: NextRequest) {
   if (segmentError || !segment) return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
 
   const segmentPreview = await previewCrmSegment({ user, ruleTree: segment.rule_tree, supabase })
-  const campaignPreview = buildCrmCampaignPreview(parsed.data, segmentPreview.reachability)
+  const memoryRules = await fetchActiveRestaurantMemoryRules({ user, db: supabase, appliesTo: 'campaign', locationId: parsed.data.location_id ?? null })
+  const campaignPreview = buildCrmCampaignPreview(parsed.data, segmentPreview.reachability, memoryRules)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: campaign, error } = await (supabase.from('crm_campaigns') as any)

@@ -1,6 +1,7 @@
 import type { AuthUser } from '@/lib/api/auth'
 import { canReadGuestVisibility } from '@/lib/crm/api'
 import { executeCrmAiGateway, type CrmAiGatewayResult } from '@/lib/crm/ai-gateway'
+import { fetchActiveRestaurantMemoryRules, restaurantMemoryRulesToSource } from '@/lib/crm/restaurant-memory'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { z } from 'zod'
 import type { crmAiSourceSchema, crmGuestBrainSchema, crmGuestBrainTaskSchema } from '@/lib/schemas/crm'
@@ -102,6 +103,14 @@ async function fetchGuestBrainSources(input: {
       data: guest as Record<string, unknown>,
     }),
   ]
+
+  const memoryRules = await fetchActiveRestaurantMemoryRules({
+    db,
+    user,
+    appliesTo: request.tasks.includes('next_best_action') ? 'next_best_action' : 'guest_summary',
+    locationId: request.location_id ?? null,
+  })
+  if (memoryRules.length > 0) sources.push(source(restaurantMemoryRulesToSource(memoryRules)))
 
   if (request.table_id || request.table_name || request.order_id || request.service_context) {
     sources.push(source({
