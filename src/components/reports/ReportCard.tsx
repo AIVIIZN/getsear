@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { Card } from '@/components/ui-v2/Card'
 import {
   DollarSign, CreditCard, Banknote, Receipt, Timer, ChefHat,
-  TrendingUp, AlertTriangle, Users, UserCheck, LineChart, Salad,
+  TrendingUp, AlertTriangle, Users, UserCheck, LineChart, Salad, Sparkles,
 } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ElementType> = {
   DollarSign, CreditCard, Banknote, Receipt, Timer, ChefHat,
-  TrendingUp, AlertTriangle, Users, UserCheck, LineChart, Salad,
+  TrendingUp, AlertTriangle, Users, UserCheck, LineChart, Salad, Sparkles,
 }
 
 interface ReportCardProps {

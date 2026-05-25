@@ -147,7 +147,7 @@ export interface ReportDefinition {
   description: string
   href: string
   icon: string // Lucide icon name
-  section: 'daily' | 'financial' | 'staff' | 'trends'
+  section: 'daily' | 'financial' | 'staff' | 'trends' | 'crm'
 }
 
 export const REPORT_DEFINITIONS: ReportDefinition[] = [
@@ -163,6 +163,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
   { id: 'labor', name: 'Labor', description: 'Hours, cost, and labor percentage', href: '/reports/labor', icon: 'Users', section: 'staff' },
   { id: 'server', name: 'Server Performance', description: 'Sales, tips, and checks per server', href: '/reports/server-performance', icon: 'UserCheck', section: 'staff' },
   { id: 'trends', name: '13-Week Trends', description: 'Rolling averages for key metrics', href: '/reports/trends', icon: 'LineChart', section: 'trends' },
+  { id: 'crm-builder', name: 'CRM Report Builder', description: 'Guided semantic reports for campaign ROI and guest intelligence', href: '/reports/builder', icon: 'Sparkles', section: 'crm' },
 ]
 
 export const REPORT_SECTIONS = [
@@ -170,6 +171,7 @@ export const REPORT_SECTIONS = [
   { id: 'financial', label: 'Financial' },
   { id: 'staff', label: 'Staff Performance' },
   { id: 'trends', label: 'Trends' },
+  { id: 'crm', label: 'CRM Intelligence' },
 ] as const
 
 // ── Date Helpers ────────────────────────────────────────────────────────
