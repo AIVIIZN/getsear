@@ -126,10 +126,104 @@ export const crmSegmentOperatorSchema = z.enum([
   'days_since',
   'count_at_least',
 ])
+export const crmFeedbackSourceTypeSchema = z.enum([
+  'receipt_qr',
+  'email',
+  'sms',
+  'reservation_follow_up',
+  'online_order_follow_up',
+  'manual',
+  'review_import',
+])
+export const crmFeedbackSentimentSchema = z.enum(['positive', 'neutral', 'negative'])
+export const crmFeedbackTopicSchema = z.enum([
+  'food',
+  'service',
+  'speed',
+  'cleanliness',
+  'pricing',
+  'reservation',
+  'delivery',
+  'staff_compliment',
+])
+export const crmSurveyStatusSchema = z.enum(['draft', 'active', 'paused', 'archived'])
+export const crmSurveyTriggerEventSchema = z.enum([
+  'post_visit',
+  'receipt',
+  'reservation_complete',
+  'online_order_complete',
+  'manager_manual',
+  'review_import',
+])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
 const metadataSchema = z.record(z.string(), z.unknown()).default({})
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+export const createCrmSurveySchema = z.object({
+  location_id: optionalUuidSchema,
+  name: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).optional().nullable(),
+  status: crmSurveyStatusSchema.default('active'),
+  source_type: crmFeedbackSourceTypeSchema.default('receipt_qr'),
+  trigger_event: crmSurveyTriggerEventSchema.default('post_visit'),
+  questions: z.array(z.object({
+    key: z.string().trim().min(1).max(80),
+    label: z.string().trim().min(1).max(240),
+    type: z.enum(['rating', 'nps', 'text', 'single_choice', 'multi_choice']),
+    required: z.boolean().default(false),
+    options: z.array(z.string().trim().min(1).max(120)).max(12).optional(),
+  })).max(24).default([]),
+  metadata: metadataSchema,
+})
+
+export const createCrmSurveyResponseSchema = z.object({
+  location_id: optionalUuidSchema,
+  survey_id: optionalUuidSchema,
+  guest_id: optionalUuidSchema,
+  order_id: optionalUuidSchema,
+  staff_user_id: optionalUuidSchema,
+  source_type: crmFeedbackSourceTypeSchema,
+  rating: z.number().int().min(1).max(5).optional().nullable(),
+  nps_score: z.number().int().min(0).max(10).optional().nullable(),
+  sentiment: crmFeedbackSentimentSchema.optional(),
+  topics: z.array(crmFeedbackTopicSchema).max(8).default([]),
+  response_text: z.string().trim().max(4000).optional().nullable(),
+  contact_requested: z.boolean().default(false),
+  metadata: metadataSchema,
+})
+
+export const listCrmFeedbackQuerySchema = z.object({
+  sentiment: crmFeedbackSentimentSchema.optional(),
+  guest_id: z.string().uuid().optional(),
+  order_id: z.string().uuid().optional(),
+  source_type: crmFeedbackSourceTypeSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const createCrmReviewSchema = z.object({
+  location_id: optionalUuidSchema,
+  guest_id: optionalUuidSchema,
+  order_id: optionalUuidSchema,
+  provider: z.string().trim().min(1).max(80),
+  external_review_id: z.string().trim().max(180).optional().nullable(),
+  reviewer_display_name: z.string().trim().max(180).optional().nullable(),
+  rating: z.number().min(0).max(5).optional().nullable(),
+  title: z.string().trim().max(240).optional().nullable(),
+  body: z.string().trim().max(6000).optional().nullable(),
+  review_url: z.string().url().max(2000).optional().nullable(),
+  published_at: z.string().datetime().optional().nullable(),
+  sentiment: crmFeedbackSentimentSchema.optional(),
+  topics: z.array(crmFeedbackTopicSchema).max(8).default([]),
+  metadata: metadataSchema,
+})
+
+export const listCrmReviewsQuerySchema = z.object({
+  provider: z.string().trim().max(80).optional(),
+  sentiment: crmFeedbackSentimentSchema.optional(),
+  guest_id: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+})
 
 export const crmSegmentRuleSchema = z.object({
   field: crmSegmentFieldSchema,
