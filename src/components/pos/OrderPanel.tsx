@@ -292,6 +292,7 @@ export function OrderPanel({
     setCourseState,
     setCurrentOrderVersion,
     attachGuest,
+    updateCurrentOrderTotals,
   } = useOrderStore((s) => s.actions)
 
   // Popover state
@@ -545,10 +546,12 @@ export function OrderPanel({
         </div>
 
         <GuestAttachmentCard
+          orderId={currentOrder.id}
           guest={currentOrder.guest}
           orderTotalCents={currentOrder.total_cents}
           onAttach={handleAttachGuest}
           onDetach={handleDetachGuest}
+          onTotalsChanged={updateCurrentOrderTotals}
         />
       </div>
 

@@ -92,6 +92,11 @@ export async function POST(request: NextRequest) {
     ? `${location.address_line1 ?? ''}, ${location.city ?? ''}, ${location.state ?? ''} ${location.zip ?? ''}`
     : ''
 
+  const metadata = order.metadata as Record<string, unknown> | null
+  const checkoutCapture = metadata?.crm_checkout_capture as { consent?: { loyalty_signup?: boolean } } | undefined
+  const loyaltyReceipt = metadata?.crm_loyalty_receipt as { reward_progress_label?: string } | undefined
+  const loyaltySignupRequested = Boolean(checkoutCapture?.consent?.loyalty_signup)
+
   const receiptData = {
     locationName: location?.name ?? 'Restaurant',
     locationAddress,
@@ -126,15 +131,15 @@ export async function POST(request: NextRequest) {
     customerName,
     serverName,
     feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/feedback/${order.id}`,
-    loyaltySignupUrl: ((order.metadata as Record<string, unknown> | null)?.crm_checkout_capture as { consent?: { loyalty_signup?: boolean } } | undefined)?.consent?.loyalty_signup
+    loyaltySignupUrl: loyaltySignupRequested
       ? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/loyalty/signup?order_id=${order.id}`
       : undefined,
-    loyaltyQrUrl: ((order.metadata as Record<string, unknown> | null)?.crm_checkout_capture as { consent?: { loyalty_signup?: boolean } } | undefined)?.consent?.loyalty_signup
+    loyaltyQrUrl: loyaltySignupRequested
       ? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/api/loyalty/qr?order_id=${order.id}`
       : undefined,
-    rewardProgressLabel: ((order.metadata as Record<string, unknown> | null)?.crm_guest_id as string | undefined)
+    rewardProgressLabel: loyaltyReceipt?.reward_progress_label ?? ((metadata?.crm_guest_id as string | undefined)
       ? 'Your purchase can count toward your next reward.'
-      : 'Start earning rewards with this visit.',
+      : 'Start earning rewards with this visit.'),
     personalizedThankYou: customerName ? `Thanks for visiting, ${customerName}.` : undefined,
   }
 

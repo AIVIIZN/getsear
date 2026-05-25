@@ -1,7 +1,7 @@
 'use client'
 
-import { FormEvent, useMemo, useState } from 'react'
-import { AlertTriangle, Check, Loader2, Phone, Plus, Search, Sparkles, UserRound, X } from 'lucide-react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, Check, Gift, Loader2, Phone, Plus, Search, Sparkles, UserRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { OrderGuestMemory } from '@/stores/order-store'
@@ -12,10 +12,34 @@ type GuestLookupResponse = {
 }
 
 interface GuestAttachmentCardProps {
+  orderId: string
   guest: OrderGuestMemory | null
   orderTotalCents: number
   onAttach: (guest: OrderGuestMemory) => Promise<void> | void
   onDetach: () => Promise<void> | void
+  onTotalsChanged?: (totals: { subtotal_cents: number; discount_cents: number; tax_cents: number; total_cents: number }) => void
+}
+
+type LoyaltyReward = {
+  id: string
+  name: string
+  points_cost: number
+  value_cents: number
+  reward_type: string
+  percent_off: number | string | null
+  requires_manager_override: boolean
+}
+
+type LoyaltyCheckoutState = {
+  account: {
+    id: string
+    points_balance: number
+    crm_loyalty_programs?: { name?: string } | { name?: string }[] | null
+    crm_loyalty_tiers?: { name?: string } | { name?: string }[] | null
+  } | null
+  available_rewards: LoyaltyReward[]
+  next_reward: { name: string; points_needed: number } | null
+  receipt_cta: string
 }
 
 function formatDate(value: string | null): string {
@@ -30,7 +54,7 @@ function splitName(value: string): { first_name: string | null; last_name: strin
   return { first_name: parts[0], last_name: parts.slice(1).join(' ') }
 }
 
-export function GuestAttachmentCard({ guest, orderTotalCents, onAttach, onDetach }: GuestAttachmentCardProps) {
+export function GuestAttachmentCard({ orderId, guest, orderTotalCents, onAttach, onDetach, onTotalsChanged }: GuestAttachmentCardProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<OrderGuestMemory[]>([])
   const [loading, setLoading] = useState(false)
@@ -41,9 +65,49 @@ export function GuestAttachmentCard({ guest, orderTotalCents, onAttach, onDetach
   const [createName, setCreateName] = useState('')
   const [createPhone, setCreatePhone] = useState('')
   const [createEmail, setCreateEmail] = useState('')
+  const [loyalty, setLoyalty] = useState<LoyaltyCheckoutState | null>(null)
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false)
+  const [redeemingId, setRedeemingId] = useState<string | null>(null)
+  const [managerPinRewardId, setManagerPinRewardId] = useState<string | null>(null)
+  const [managerPin, setManagerPin] = useState('')
 
   const primaryWarning = useMemo(() => guest?.allergies[0] ?? null, [guest])
   const topPreference = useMemo(() => guest?.preferences[0] ?? null, [guest])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadLoyalty() {
+      if (!guest) {
+        setLoyalty(null)
+        return
+      }
+      setLoyaltyLoading(true)
+      try {
+        const params = new URLSearchParams({ guest_id: guest.id, order_id: orderId })
+        const res = await fetch(`/api/crm/loyalty/checkout?${params}`)
+        const json = await res.json().catch(() => ({}))
+        if (!cancelled && res.ok) setLoyalty(json.data ?? null)
+      } finally {
+        if (!cancelled) setLoyaltyLoading(false)
+      }
+    }
+    loadLoyalty()
+    return () => {
+      cancelled = true
+    }
+  }, [guest, orderId])
+
+  function programName(): string {
+    const program = loyalty?.account?.crm_loyalty_programs
+    const row = Array.isArray(program) ? program[0] : program
+    return row?.name ?? 'Rewards'
+  }
+
+  function tierName(): string | null {
+    const tier = loyalty?.account?.crm_loyalty_tiers
+    const row = Array.isArray(tier) ? tier[0] : tier
+    return row?.name ?? null
+  }
 
   async function searchGuests(event?: FormEvent) {
     event?.preventDefault()
@@ -143,18 +207,16 @@ export function GuestAttachmentCard({ guest, orderTotalCents, onAttach, onDetach
   }
 
   async function enrollLoyalty() {
-    if (!guest?.phone) return
+    if (!guest) return
     setEnrolling(true)
     try {
-      const nameParts = splitName(guest.display_name)
-      const res = await fetch('/api/loyalty/enroll', {
+      const res = await fetch('/api/crm/loyalty/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: guest.phone,
-          first_name: nameParts.first_name ?? undefined,
-          last_name: nameParts.last_name ?? undefined,
-          order_total: orderTotalCents,
+          action: 'enroll',
+          guest_id: guest.id,
+          order_id: orderId,
         }),
       })
       const json = await res.json().catch(() => ({}))
@@ -162,11 +224,57 @@ export function GuestAttachmentCard({ guest, orderTotalCents, onAttach, onDetach
         toast.error(json.error ?? 'Loyalty enrollment failed')
         return
       }
-      toast.success(json.data?.is_new ? 'Loyalty account started' : 'Guest is already enrolled')
+      setLoyalty(json.data ?? null)
+      toast.success(json.data?.account ? 'Loyalty account ready' : 'Loyalty account started')
     } catch {
       toast.error('Loyalty enrollment failed')
     } finally {
       setEnrolling(false)
+    }
+  }
+
+  async function redeemReward(reward: LoyaltyReward) {
+    if (!loyalty?.account) return
+    setRedeemingId(reward.id)
+    try {
+      const res = await fetch('/api/crm/loyalty/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'redeem',
+          account_id: loyalty.account.id,
+          reward_id: reward.id,
+          order_id: orderId,
+          manager_pin: managerPinRewardId === reward.id ? managerPin : undefined,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (json.requires_manager_pin) {
+          setManagerPinRewardId(reward.id)
+          toast.error('Manager PIN required for this reward')
+          return
+        }
+        toast.error(json.error ?? 'Reward redemption failed')
+        return
+      }
+      const totals = json.data?.order_totals
+      if (totals) {
+        onTotalsChanged?.({
+          subtotal_cents: Math.round(Number(totals.subtotal ?? 0) * 100),
+          discount_cents: Math.round(Number(totals.discount_total ?? 0) * 100),
+          tax_cents: Math.round(Number(totals.tax_total ?? 0) * 100),
+          total_cents: Math.round(Number(totals.total ?? 0) * 100),
+        })
+      }
+      setManagerPin('')
+      setManagerPinRewardId(null)
+      setLoyalty(json.data ?? null)
+      toast.success(`${reward.name} applied`)
+    } catch {
+      toast.error('Reward redemption failed')
+    } finally {
+      setRedeemingId(null)
     }
   }
 
@@ -230,17 +338,79 @@ export function GuestAttachmentCard({ guest, orderTotalCents, onAttach, onDetach
           </div>
         )}
 
-        {guest.phone && (
-          <button
-            type="button"
-            onClick={enrollLoyalty}
-            disabled={enrolling}
-            className="btn-press mt-[var(--space-3)] flex h-11 w-full items-center justify-center gap-[var(--space-2)] rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)] text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)] hover:bg-[color:var(--color-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {enrolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Loyalty handoff
-          </button>
-        )}
+        <div className="mt-[var(--space-3)] rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)] p-[var(--space-2)]">
+          <div className="flex items-center justify-between gap-[var(--space-2)]">
+            <div className="flex min-w-0 items-center gap-[var(--space-2)]">
+              <Gift className="h-4 w-4 shrink-0 text-[color:var(--color-primary)]" />
+              <div className="min-w-0">
+                <p className="truncate text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                  {loyalty?.account ? programName() : 'Rewards'}
+                </p>
+                <p className="truncate text-[length:var(--type-caption-size)] text-[color:var(--color-text-muted)]">
+                  {loyaltyLoading
+                    ? 'Checking loyalty...'
+                    : loyalty?.account
+                      ? `${Number(loyalty.account.points_balance ?? 0).toLocaleString()} pts${tierName() ? ` · ${tierName()}` : ''}`
+                      : `Earn from this ${orderTotalCents > 0 ? `$${(orderTotalCents / 100).toFixed(2)}` : 'check'}`}
+                </p>
+              </div>
+            </div>
+            {!loyalty?.account && (
+              <button
+                type="button"
+                onClick={enrollLoyalty}
+                disabled={enrolling || loyaltyLoading}
+                className="btn-press flex h-11 shrink-0 items-center justify-center gap-[var(--space-2)] rounded-[var(--radius-sm)] bg-[color:var(--color-primary)] px-[var(--space-3)] text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] text-[color:var(--color-primary-fg)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {enrolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Enroll
+              </button>
+            )}
+          </div>
+
+          {loyalty?.receipt_cta && (
+            <p className="mt-[var(--space-2)] text-[length:var(--type-caption-size)] text-[color:var(--color-text-muted)]">
+              Receipt CTA: {loyalty.receipt_cta}
+            </p>
+          )}
+
+          {loyalty?.available_rewards?.length ? (
+            <div className="mt-[var(--space-2)] grid gap-[var(--space-2)]">
+              {loyalty.available_rewards.map((reward) => (
+                <div key={reward.id} className="rounded-[var(--radius-xs)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-[var(--space-2)]">
+                  <div className="flex items-center justify-between gap-[var(--space-2)]">
+                    <div className="min-w-0">
+                      <p className="truncate text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                        {reward.name}
+                      </p>
+                      <p className="text-[length:var(--type-caption-size)] text-[color:var(--color-text-muted)]">
+                        {reward.points_cost.toLocaleString()} pts · {reward.reward_type === 'discount_percent' ? `${reward.percent_off}% off` : `$${(reward.value_cents / 100).toFixed(2)} off`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => redeemReward(reward)}
+                      disabled={redeemingId === reward.id}
+                      className="btn-press flex h-11 shrink-0 items-center justify-center gap-[var(--space-1)] rounded-[var(--radius-sm)] border border-[color:var(--color-border)] px-[var(--space-3)] text-[length:var(--type-footnote-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)] hover:bg-[color:var(--color-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {redeemingId === reward.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      Apply
+                    </button>
+                  </div>
+                  {managerPinRewardId === reward.id && (
+                    <input
+                      value={managerPin}
+                      onChange={(event) => setManagerPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Manager PIN"
+                      inputMode="numeric"
+                      className="mt-[var(--space-2)] h-11 w-full rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-bg-subtle)] px-[var(--space-3)] text-[length:var(--type-footnote-size)] outline-none focus:border-[color:var(--color-border-focus)]"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
     )
   }

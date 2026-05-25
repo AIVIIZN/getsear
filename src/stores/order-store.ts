@@ -126,6 +126,7 @@ interface OrderState {
     setActiveCourse: (course: number) => void
     setGuestCount: (count: number) => void
     attachGuest: (guest: OrderGuestMemory | null) => void
+    updateCurrentOrderTotals: (totals: { subtotal_cents: number; discount_cents: number; tax_cents: number; total_cents: number }) => void
     setOrderType: (type: OrderType) => void
     setTable: (tableId: string, tableName: string) => void
     setForHere: (forHere: boolean) => void
@@ -237,6 +238,15 @@ export const useOrderStore = create<OrderState>()(
       setCurrentOrder: (order) =>
         set((state) => {
           state.currentOrder = order
+        }),
+
+      updateCurrentOrderTotals: (totals) =>
+        set((state) => {
+          if (!state.currentOrder) return
+          state.currentOrder.subtotal_cents = totals.subtotal_cents
+          state.currentOrder.discount_cents = totals.discount_cents
+          state.currentOrder.tax_cents = totals.tax_cents
+          state.currentOrder.total_cents = totals.total_cents
         }),
 
       addItem: ({ menu_item_id, name, price_cents, modifiers, special_instructions, tax_class, is_taxable }) =>
