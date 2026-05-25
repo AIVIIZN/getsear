@@ -4,13 +4,16 @@ import * as React from "react"
 import {
   AlertCircle,
   BarChart3,
+  Bot,
   CheckCircle2,
   Download,
   FileText,
   Filter,
   HelpCircle,
   LayoutDashboard,
+  Link2,
   Megaphone,
+  MousePointer2,
   Save,
   Sparkles,
 } from "lucide-react"
@@ -26,9 +29,16 @@ import { Textarea } from "@/components/ui-v2/inputs/Textarea"
 import {
   buildCrmReportPreviewPayload,
   buildCrmReportWizardPayload,
+  buildCrmAiReportDraft,
+  buildCrmAiReportDraftGatewayPayload,
+  buildCrmReportCanvasValues,
   campaignRoiWizardDefaults,
+  crmReportCanvasBlocks,
   reportWizardSteps,
+  type CrmReportAiDraft,
   type CrmReportWizardAction,
+  type CrmReportCanvasBlockId,
+  type CrmReportCanvasConnection,
   type CrmReportWizardDimension,
   type CrmReportWizardMetric,
   type CrmReportWizardValues,
@@ -58,6 +68,17 @@ type PreviewResponse = {
     data_quality_warnings: string[]
     metric_keys: CrmReportWizardMetric[]
     dimension_keys: CrmReportWizardDimension[]
+  }
+}
+
+type AiGatewayResponse = {
+  data: {
+    output: {
+      text: string
+      confidence: number
+      source_citations: string[]
+      approval_required: boolean
+    } | null
   }
 }
 
@@ -119,8 +140,16 @@ export function CrmReportWizard() {
   const [state, setState] = React.useState<LoadState>("loading")
   const [preview, setPreview] = React.useState<PreviewResponse["data"] | null>(null)
   const [savedReportId, setSavedReportId] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState<"preview" | "save" | null>(null)
+  const [busy, setBusy] = React.useState<"preview" | "save" | "ai" | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [canvasBlocks, setCanvasBlocks] = React.useState<CrmReportCanvasBlockId[]>(["campaigns", "orders"])
+  const [canvasConnections, setCanvasConnections] = React.useState<CrmReportCanvasConnection[]>([
+    { from: "campaigns", to: "orders" },
+  ])
+  const [draggingBlock, setDraggingBlock] = React.useState<CrmReportCanvasBlockId | null>(null)
+  const [aiPrompt, setAiPrompt] = React.useState("Show campaign ROI by week and call out repeat visits.")
+  const [aiDraft, setAiDraft] = React.useState<CrmReportAiDraft | null>(null)
+  const [aiGatewayText, setAiGatewayText] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     async function loadDefinitions() {
@@ -150,6 +179,34 @@ export function CrmReportWizard() {
   function patch(next: Partial<CrmReportWizardValues>) {
     setValues((current) => ({ ...current, ...next }))
     setSavedReportId(null)
+    setAiDraft(null)
+  }
+
+  function setValuesFromBuilder(next: CrmReportWizardValues) {
+    setValues(next)
+    setSavedReportId(null)
+    setPreview(null)
+  }
+
+  function addCanvasBlock(blockId: CrmReportCanvasBlockId) {
+    setCanvasBlocks((current) => current.includes(blockId) ? current : [...current, blockId])
+  }
+
+  function removeCanvasBlock(blockId: CrmReportCanvasBlockId) {
+    setCanvasBlocks((current) => current.length <= 1 ? current : current.filter((id) => id !== blockId))
+    setCanvasConnections((current) => current.filter((connection) => connection.from !== blockId && connection.to !== blockId))
+  }
+
+  function toggleCanvasConnection(from: CrmReportCanvasBlockId, to: CrmReportCanvasBlockId) {
+    if (from === to) return
+    setCanvasConnections((current) => {
+      const exists = current.some((connection) => connection.from === from && connection.to === to)
+      return exists ? current.filter((connection) => !(connection.from === from && connection.to === to)) : [...current, { from, to }]
+    })
+  }
+
+  function applyCanvasReport() {
+    setValuesFromBuilder(buildCrmReportCanvasValues(values, canvasBlocks, canvasConnections))
   }
 
   function toggleMetric(metricKey: CrmReportWizardMetric) {
@@ -199,6 +256,36 @@ export function CrmReportWizard() {
     } finally {
       setBusy(null)
     }
+  }
+
+  async function askAiForDraft() {
+    if (!aiPrompt.trim()) return
+    setBusy("ai")
+    setError(null)
+    setAiGatewayText(null)
+    try {
+      const json = await fetchJson<AiGatewayResponse>("/api/ai/crm-gateway", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildCrmAiReportDraftGatewayPayload(aiPrompt, canvasBlocks, canvasConnections)),
+      })
+      const draft = buildCrmAiReportDraft(aiPrompt, values)
+      setAiGatewayText(json.data.output?.text ?? null)
+      setAiDraft({
+        ...draft,
+        sourceCitations: json.data.output?.source_citations?.length ? json.data.output.source_citations : draft.sourceCitations,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI report draft failed")
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function approveAiDraft() {
+    if (!aiDraft) return
+    setValuesFromBuilder(aiDraft.values)
+    setAiDraft(null)
   }
 
   async function saveReport() {
@@ -287,6 +374,128 @@ export function CrmReportWizard() {
             {error}
           </div>
         ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-[var(--space-2)]"><MousePointer2 className="size-[18px]" /> Visual canvas and Ask AI</CardTitle>
+            <CardDescription>Compose report sources visually, then let AI draft a semantic definition for approval.</CardDescription>
+          </CardHeader>
+          <CardBody className="gap-[var(--space-5)]">
+            <div className="grid gap-[var(--space-4)] xl:grid-cols-[280px_1fr_360px]">
+              <section className="space-y-[var(--space-3)]">
+                <h2 className="text-[var(--type-headline-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">Data blocks</h2>
+                <div className="grid gap-[var(--space-2)]">
+                  {crmReportCanvasBlocks.map((block) => {
+                    const active = canvasBlocks.includes(block.id)
+                    return (
+                      <button
+                        key={block.id}
+                        type="button"
+                        draggable
+                        onDragStart={() => setDraggingBlock(block.id)}
+                        onDragEnd={() => setDraggingBlock(null)}
+                        onClick={() => active ? removeCanvasBlock(block.id) : addCanvasBlock(block.id)}
+                        className={cn(
+                          "min-h-[76px] rounded-[var(--radius-md)] border p-[var(--space-3)] text-left transition-colors",
+                          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-border-focus)]",
+                          active
+                            ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]"
+                            : "border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)]",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-[var(--space-2)]">
+                          <span className="font-[var(--weight-semibold)] text-[var(--color-text)]">{block.label}</span>
+                          {active ? <CheckCircle2 className="size-[16px] text-[var(--color-primary)]" /> : null}
+                        </div>
+                        <div className="mt-[var(--space-1)] text-[var(--type-footnote-size)] text-[var(--color-text-muted)]">{block.description}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <section
+                className="min-h-[360px] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-[var(--space-4)]"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => {
+                  if (draggingBlock) addCanvasBlock(draggingBlock)
+                  setDraggingBlock(null)
+                }}
+              >
+                <div className="mb-[var(--space-4)] flex flex-wrap items-center justify-between gap-[var(--space-3)]">
+                  <div>
+                    <h2 className="text-[var(--type-headline-size)] font-[var(--weight-semibold)] text-[var(--color-text)]">Connected report map</h2>
+                    <p className="text-[var(--type-footnote-size)] text-[var(--color-text-muted)]">{canvasConnections.length} active connection{canvasConnections.length === 1 ? "" : "s"}</p>
+                  </div>
+                  <Button variant="secondary" onClick={applyCanvasReport} leadingIcon={<Link2 />}>Build from canvas</Button>
+                </div>
+
+                <div className="grid gap-[var(--space-3)] md:grid-cols-2">
+                  {canvasBlocks.map((blockId, index) => {
+                    const block = crmReportCanvasBlocks.find((item) => item.id === blockId)
+                    const nextBlock = canvasBlocks[index + 1]
+                    const linkedToNext = nextBlock ? canvasConnections.some((connection) => connection.from === blockId && connection.to === nextBlock) : false
+                    if (!block) return null
+                    return (
+                      <div key={block.id} className="relative rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-[var(--space-4)] shadow-[var(--shadow-sm)]">
+                        <div className="flex items-start justify-between gap-[var(--space-3)]">
+                          <div>
+                            <div className="font-[var(--weight-semibold)] text-[var(--color-text)]">{block.label}</div>
+                            <div className="mt-[var(--space-1)] text-[var(--type-footnote-size)] text-[var(--color-text-muted)]">{block.metrics.slice(0, 3).map(fieldLabel).join(", ")}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeCanvasBlock(block.id)}
+                            className="min-h-[32px] rounded-[var(--radius-sm)] px-[var(--space-2)] text-[var(--type-footnote-size)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        {nextBlock ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleCanvasConnection(block.id, nextBlock)}
+                            className={cn(
+                              "mt-[var(--space-3)] flex min-h-[40px] w-full items-center justify-center gap-[var(--space-2)] rounded-[var(--radius-sm)] border text-[var(--type-subhead-size)] transition-colors",
+                              linkedToNext
+                                ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                                : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]",
+                            )}
+                          >
+                            <Link2 className="size-[16px]" /> {linkedToNext ? "Connected" : "Connect to next"}
+                          </button>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <section className="space-y-[var(--space-3)]">
+                <Textarea label="Ask AI" rows={4} value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} />
+                <Button loading={busy === "ai"} disabled={!aiPrompt.trim()} onClick={askAiForDraft} leadingIcon={<Bot />}>Draft report</Button>
+                {aiDraft ? (
+                  <div className="rounded-[var(--radius-md)] border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-[var(--space-4)]">
+                    <div className="font-[var(--weight-semibold)] text-[var(--color-text)]">Approval required</div>
+                    <p className="mt-[var(--space-2)] text-[var(--type-subhead-size)] text-[var(--color-text-secondary)]">{aiDraft.rationale}</p>
+                    {aiGatewayText ? (
+                      <p className="mt-[var(--space-2)] text-[var(--type-footnote-size)] text-[var(--color-text-muted)]">{aiGatewayText}</p>
+                    ) : null}
+                    <div className="mt-[var(--space-3)] flex flex-wrap gap-[var(--space-2)]">
+                      {aiDraft.values.metricKeys.map((metric) => <Badge key={metric}>{fieldLabel(metric)}</Badge>)}
+                      {aiDraft.values.dimensionKeys.map((dimension) => <Badge key={dimension}>{fieldLabel(dimension)}</Badge>)}
+                    </div>
+                    <Button className="mt-[var(--space-4)]" onClick={approveAiDraft} leadingIcon={<CheckCircle2 />}>Approve draft</Button>
+                  </div>
+                ) : (
+                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-[var(--space-4)] text-[var(--type-subhead-size)] text-[var(--color-text-secondary)]">
+                    AI drafts stay separate from the saved report until approved.
+                  </div>
+                )}
+              </section>
+            </div>
+          </CardBody>
+        </Card>
 
         <div className="grid gap-[var(--space-4)] xl:grid-cols-[320px_1fr_360px]">
           <Card className="order-3 xl:order-1">
