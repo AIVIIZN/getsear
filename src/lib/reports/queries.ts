@@ -476,7 +476,7 @@ export async function getLaborData(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from('time_entries') as any)
-    .select('user_id, clock_in, clock_out, hourly_rate, cash_tips, credit_tips, role_during_shift, regular_hours, overtime_hours, total_pay, user:users(display_name)')
+    .select('id, user_id, clock_in, clock_out, hourly_rate, cash_tips, credit_tips, role_during_shift, regular_hours, overtime_hours, total_pay')
     .eq('org_id', orgId)
     .gte('clock_in', `${dateFrom}T00:00:00Z`)
     .lte('clock_in', `${dateTo}T23:59:59Z`)
@@ -484,8 +484,23 @@ export async function getLaborData(
   if (locationId) query = query.eq('location_id', locationId)
   const { data, error } = await query
 
-  if (error || !data || data.length === 0) {
+  if (error || !data) {
     return { data: null, is_mock: true }
+  }
+
+  const emptyLaborData = (): LaborData => ({
+    entries: [],
+    total_labor_cost: 0,
+    total_hours: 0,
+    labor_percentage: 0,
+    revenue: 0,
+    overtime_hours: 0,
+    overtime_cost: 0,
+    by_role: [],
+  })
+
+  if (data.length === 0) {
+    return { data: emptyLaborData(), is_mock: false }
   }
 
   // Check break compliance
@@ -501,6 +516,20 @@ export async function getLaborData(
     breaksData = breaks ?? []
   }
   const entryIdsWithBreaks = new Set(breaksData.map((b: { time_entry_id: string }) => b.time_entry_id))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userIds = [...new Set((data as any[]).map((e: any) => e.user_id).filter(Boolean))]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: users } = await (supabase.from('users') as any)
+    .select('id, display_name, first_name, last_name')
+    .in('id', userIds.length > 0 ? userIds : ['none'])
+  const userNames = new Map<string, string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const user of (users ?? []) as any[]) {
+    userNames.set(
+      user.id,
+      user.display_name ?? [user.first_name, user.last_name].filter(Boolean).join(' ') ?? 'Unknown'
+    )
+  }
 
   // Aggregate by employee
   const empMap = new Map<string, LaborEntry & { userId: string }>()
@@ -517,7 +546,7 @@ export async function getLaborData(
     const tips = cashTips + creditTips
 
     const existing = empMap.get(uid) ?? {
-      name: entry.user?.display_name ?? 'Unknown',
+      name: userNames.get(uid) ?? 'Unknown',
       role: entry.role_during_shift ?? 'Staff',
       hours: 0,
       rate,
