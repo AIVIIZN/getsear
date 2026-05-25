@@ -48,17 +48,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params
   const db = createAdminClient()
   const result = await runCrmAutomation({ db, user, automationId: id, testInput: { ...parsed.data, dry_run: false }, mode: 'run' })
-  if (result.error) return NextResponse.json({ error: result.error, data: result.result }, { status: result.status })
 
   await audit.record({
     actor: user,
     action: 'crm_automation_run_started',
     entity_type: 'crm_automation',
     entity_id: id,
-    after_state: result.result as Record<string, unknown>,
-    description: 'Ran CRM automation',
+    after_state: {
+      result: result.result,
+      error: result.error ?? null,
+      status: result.status,
+    } as Record<string, unknown>,
+    description: result.error ? 'CRM automation run blocked or failed' : 'Ran CRM automation',
     request,
   })
+
+  if (result.error) return NextResponse.json({ error: result.error, data: result.result }, { status: result.status })
 
   return NextResponse.json({ data: result.result }, { status: 201 })
 }

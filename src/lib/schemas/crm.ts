@@ -503,6 +503,21 @@ export const createCrmAutomationSchema = z.object({
     action_type: crmAutomationActionTypeSchema,
     config: metadataSchema,
   })).min(1).max(24),
+  safety_config: z.object({
+    frequency_cap_count: z.number().int().min(1).max(100).default(1),
+    frequency_cap_window_hours: z.number().int().min(1).max(8760).default(24),
+    audience_size_limit: z.number().int().min(1).max(100000).default(5000),
+    estimated_cost_cents: z.number().int().min(0).max(100000000).default(0),
+    suppression_rules: metadataSchema,
+    exit_conditions: z.array(z.record(z.string(), z.unknown())).max(24).default([]),
+  }).default({
+    frequency_cap_count: 1,
+    frequency_cap_window_hours: 24,
+    audience_size_limit: 5000,
+    estimated_cost_cents: 0,
+    suppression_rules: {},
+    exit_conditions: [],
+  }),
   measurement: metadataSchema,
   metadata: metadataSchema,
 })
@@ -517,11 +532,18 @@ export const testCrmAutomationSchema = z.object({
   guest_id: optionalUuidSchema,
   complaint_id: optionalUuidSchema,
   dry_run: z.boolean().default(true),
+  preview_mode: z.boolean().default(true),
+  audience_size: z.number().int().min(0).max(1000000).optional(),
   metadata: metadataSchema,
 }).superRefine((value, ctx) => {
   if (!value.guest_id && !value.complaint_id) {
     ctx.addIssue({ code: 'custom', path: ['guest_id'], message: 'Automation tests need guest_id or complaint_id.' })
   }
+})
+
+export const pauseCrmAutomationSchema = z.object({
+  paused: z.boolean().default(true),
+  reason: z.string().trim().min(1).max(500).optional().nullable(),
 })
 
 export const updateGuestSchema = createGuestSchema.partial()
