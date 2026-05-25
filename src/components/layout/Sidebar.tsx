@@ -64,7 +64,7 @@ const sections: NavSectionData[] = [
     items: [
       { label: "Menu", href: "/menu", icon: UtensilsCrossed },
       { label: "Staff", href: "/staff", icon: Users },
-      { label: "Customers", href: "/customers", icon: Contact },
+      { label: "Guests", href: "/guests", icon: Contact },
       { label: "Reports", href: "/reports", icon: BarChart3 },
     ],
   },
