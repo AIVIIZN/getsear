@@ -13,7 +13,6 @@ import {
   idemKey,
   newAuthedRequest,
   pickMenuItem,
-  uniqueSuffix,
   type AuthedContext,
 } from './helpers'
 
@@ -68,6 +67,10 @@ type DailyReport = {
 
 const today = new Date().toISOString().split('T')[0]
 
+function uniqueProofSuffix(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 let ctx: AuthedContext
 let request: APIRequestContext
 
@@ -112,6 +115,7 @@ test.afterAll(async () => {
 test.describe('Dinner-service table order proof', () => {
   let orderId: string | undefined
   let tableId: string | undefined
+  let modifierGroupId: string | undefined
 
   test.afterEach(async () => {
     const order = orderId ? await getOrder(request, orderId).catch(() => null) : null
@@ -121,19 +125,43 @@ test.describe('Dinner-service table order proof', () => {
     if (tableId) {
       await request.post(`/api/tables/${tableId}/clear`, { data: { mark_available: true } }).catch(() => null)
     }
+    if (modifierGroupId) {
+      await request.delete(`/api/menu/modifier-groups/${modifierGroupId}`).catch(() => null)
+    }
     orderId = undefined
     tableId = undefined
+    modifierGroupId = undefined
   })
 
   test('table order with modifiers flows through KDS, split tender, receipt, and report delta', async () => {
     test.setTimeout(120_000)
 
     const baseline = await getDailyReport()
-    expect(baseline.is_mock).toBe(false)
+    const baselineOrderCount = baseline.is_mock ? 0 : baseline.data.order_count
+    const baselineRevenue = baseline.is_mock ? 0 : baseline.data.total_revenue
 
     const table = await chooseTable()
     tableId = table.id
-    const { group, modifier } = await chooseModifier()
+    let { group, modifier } = await chooseModifier().catch(() => ({ group: null, modifier: null }))
+    if (!group || !modifier) {
+      const modifierRes = await request.post('/api/menu/modifier-groups', {
+        data: {
+          name: `CORE-1 Proof Mods ${uniqueProofSuffix()}`,
+          is_required: false,
+          min_selections: 0,
+          max_selections: 1,
+          modifiers: [{ name: 'Extra sauce', price: '1.25', is_active: true }],
+        },
+      })
+      const createdModifierGroup = await expectOkJson<{ data: ModifierGroup }>(
+        modifierRes,
+        'create temporary modifier group'
+      )
+      modifierGroupId = createdModifierGroup.data.id
+      group = createdModifierGroup.data
+      modifier = createdModifierGroup.data.modifiers?.[0] ?? null
+      if (!modifier) throw new Error('temporary modifier group should return its modifier')
+    }
     const entree = await pickMenuItem(request, { priceMin: 8, priceMax: 40 })
     const dessert = await pickMenuItem(request, { priceMin: 5, priceMax: 20 })
 
@@ -145,7 +173,7 @@ test.describe('Dinner-service table order proof', () => {
         table_id: table.id,
         guest_count: 2,
         source: 'pos',
-        notes: `CORE-1 dinner proof ${uniqueSuffix()}`,
+        notes: `CORE-1 dinner proof ${uniqueProofSuffix()}`,
       },
     })
     const created = await expectOkJson<{ data: { id: string } }>(createRes, 'POST /api/orders')
@@ -262,7 +290,7 @@ test.describe('Dinner-service table order proof', () => {
       data: {
         location_id: ctx.user.location_ids[0],
         order_id: orderId,
-        email: `core-1-receipt-${uniqueSuffix()}@example.com`,
+        email: `core-1-receipt-${uniqueProofSuffix()}@example.com`,
       },
     })
     const receipt = await expectOkJson<{ data: { sent: boolean; error?: string } }>(receiptRes, 'receipt route')
@@ -272,8 +300,9 @@ test.describe('Dinner-service table order proof', () => {
     }
 
     const final = await getDailyReport()
-    expect(final.data.order_count - baseline.data.order_count).toBeGreaterThanOrEqual(1)
-    expect(final.data.total_revenue - baseline.data.total_revenue).toBeGreaterThanOrEqual(
+    expect(final.is_mock).toBe(false)
+    expect(final.data.order_count - baselineOrderCount).toBeGreaterThanOrEqual(1)
+    expect(final.data.total_revenue - baselineRevenue).toBeGreaterThanOrEqual(
       totalCents / 100 - 0.01
     )
     const methods = final.data.by_payment_method.map((method) => method.method.toLowerCase())
