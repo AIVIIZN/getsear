@@ -13,6 +13,14 @@
 7. **No placeholder behavior.** If a component exposes an action state, the action must either perform real work or be absent. Loading and disabled states must represent actual async or permission conditions.
 8. **Dark mode is KDS-only.** KDS roots use `.kds-dark`; normal POS and back-office surfaces stay light-first.
 
+## Token Governance for Queue Agents
+
+- Treat `scripts/validate-no-raw-hex.mjs` as a shipping gate, not advisory output. A feature is incomplete if the guard reports any new violation in `src/components/**` or `src/app/**`.
+- Add new raw values only in `src/styles/tokens.css`, then expose them through semantic or component tokens before using them in UI code.
+- Do not work around the guard by moving colors into local constants, comments, chart arrays, inline style objects, or generated class strings. Those are still UI color decisions and must use tokens.
+- Keep visual intent when migrating colors. KDS urgency, table status, report series, marketing gradients, and destructive/success states need distinct semantic tokens rather than a generic primary fallback.
+- Before opening a PR that touches UI, run `npm run lint:raw-hex` and inspect at least the affected surface in a browser or screenshot pass.
+
 ## Universal State Matrix
 
 | State | Required treatment | Token pattern |
