@@ -67,8 +67,9 @@ export async function POST(request: NextRequest) {
   let itemsQuery = (supabase.from('order_items') as any)
     .select('id, order_id')
     .in('order_id', orderIds)
+    .eq('org_id', user.org_id)
     .eq('is_sent', true)
-    .eq('is_void', false)
+    .eq('is_voided', false)
 
   if (!isExpo && prepStationsFilter.length > 0) {
     itemsQuery = itemsQuery.in('prep_station', prepStationsFilter)
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     order_id: item.order_id,
     order_item_id: item.id,
     event_type: 'bumped',
-    data: { performed_by: user.id },
+    performed_by: user.id,
     created_at: now,
   }))
 
@@ -108,12 +109,14 @@ export async function POST(request: NextRequest) {
     await (supabase.from('order_items') as any)
       .update({ is_ready: true, ready_at: now })
       .in('id', itemIds)
+      .eq('org_id', user.org_id)
 
     // Mark all those orders as ready
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('orders') as any)
       .update({ status: 'ready' })
       .in('id', orderIds)
+      .eq('org_id', user.org_id)
   }
 
   return NextResponse.json({

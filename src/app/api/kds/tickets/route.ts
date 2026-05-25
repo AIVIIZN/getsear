@@ -9,12 +9,12 @@ interface RawOrderItem {
   menu_item_id: string
   name: string
   quantity: number
-  modifiers: string[] | null
-  special_instructions: string | null
+  order_item_modifiers?: Array<{ name: string; price_adjustment: string | number; quantity: number }>
+  notes: string | null
   seat_number: number | null
   course: number | null
   prep_station: string | null
-  is_void: boolean
+  is_voided: boolean
   is_sent: boolean
   is_fired: boolean
   is_ready: boolean
@@ -107,7 +107,6 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const stationId = params.get('station_id')
   const locationId = params.get('location_id')
-  const showBumped = params.get('_bumped') === 'true'
 
   if (!stationId) {
     return NextResponse.json({ error: 'station_id is required' }, { status: 400 })
@@ -158,8 +157,9 @@ export async function GET(request: NextRequest) {
   // 3. Get order items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let itemsQuery = (supabase.from('order_items') as any)
-    .select('*')
+    .select('*, order_item_modifiers(name, price_adjustment, quantity)')
     .in('order_id', orderIds)
+    .eq('org_id', user.org_id)
     .eq('is_sent', true)
 
   if (!isExpo && prepStationsFilter.length > 0) {
@@ -182,8 +182,9 @@ export async function GET(request: NextRequest) {
   // late-added item would treat it as the "original" batch.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allOrderItemsForDiff } = await (supabase.from('order_items') as any)
-    .select('id, order_id, sent_at, is_void')
+    .select('id, order_id, sent_at, is_voided')
     .in('order_id', orderIds)
+    .eq('org_id', user.org_id)
     .eq('is_sent', true)
 
   const addItemIds = new Set<string>()
@@ -193,10 +194,10 @@ export async function GET(request: NextRequest) {
       id: string
       order_id: string
       sent_at: string | null
-      is_void: boolean | null
+      is_voided: boolean | null
     }>) {
       const list = itemsByOrder.get(row.order_id) ?? []
-      list.push({ id: row.id, sent_at: row.sent_at, is_void: row.is_void })
+      list.push({ id: row.id, sent_at: row.sent_at, is_void: row.is_voided })
       itemsByOrder.set(row.order_id, list)
     }
     for (const orderItems of itemsByOrder.values()) {
@@ -212,7 +213,7 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allEvents } = await (supabase.from('kds_ticket_events') as any)
-    .select('order_item_id, event_type, station_id, metadata, data')
+    .select('order_item_id, event_type, station_id')
     .in('order_item_id', allItemIds)
     .in('event_type', ['bumped', 'recalled', 'refire'])
     .order('created_at', { ascending: true })
@@ -231,7 +232,6 @@ export async function GET(request: NextRequest) {
       order_item_id: string
       event_type: string
       station_id: string
-      metadata?: { reason_code?: string; refire_recall?: boolean }
     }>) {
       const itemId = evt.order_item_id
       if (!itemEventStates.has(itemId)) {
@@ -247,15 +247,9 @@ export async function GET(request: NextRequest) {
       if (evt.event_type === 'bumped') {
         state.bumpedAtStation.add(evt.station_id)
       } else if (evt.event_type === 'recalled') {
-        if (evt.metadata?.refire_recall) {
-          // Refire recall - remove bump from ALL stations (item needs to be re-prepped)
-          state.bumpedAtStation.clear()
-        } else {
-          state.bumpedAtStation.delete(evt.station_id)
-        }
+        state.bumpedAtStation.delete(evt.station_id)
       } else if (evt.event_type === 'refire') {
         state.refireCount++
-        state.lastRefireReason = evt.metadata?.reason_code ?? null
         state.isRefire = true
       }
     }
@@ -371,16 +365,19 @@ export async function GET(request: NextRequest) {
       id: item.id,
       name: item.name,
       quantity: item.quantity,
-      modifiers: item.modifiers ?? [],
-      special_instructions: item.special_instructions ?? '',
+      modifiers: (item.order_item_modifiers ?? []).map((mod) => {
+        const quantity = mod.quantity > 1 ? ` x${mod.quantity}` : ''
+        return `${mod.name}${quantity}`
+      }),
+      special_instructions: item.notes ?? '',
       seat_number: item.seat_number,
       course: item.course ?? 1,
-      status: item.is_void
+      status: item.is_voided
         ? 'voided'
         : isExpo
           ? (isBumpedAnywhere || item.is_ready ? 'completed' : item.is_fired ? 'in_progress' : 'pending')
           : (item.is_ready ? 'completed' : item.is_fired ? 'in_progress' : 'pending'),
-      is_void: item.is_void ?? false,
+      is_void: item.is_voided ?? false,
       is_fired: item.is_fired ?? false,
       is_bumped: isExpo ? (isBumpedAnywhere || item.is_ready) : isBumpedHere,
       is_refire: itemEvents?.isRefire ?? false,

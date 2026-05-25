@@ -29,11 +29,12 @@ export async function POST(request: NextRequest) {
    
   const { data: order, error: orderError } = await supabase.from('orders')
     .select(`
-      id, order_number, order_type, subtotal, tax_total, tip_amount, total,
+      id, order_number, order_type, subtotal, tax_total, tip_total, total,
       status, created_at, server_id, customer_id,
       location:locations(name, address_line1, city, state, zip)
     `)
     .eq('id', parsed.data.order_id)
+    .eq('org_id', auth.org_id)
     .single()
 
   if (orderError || !order) {
@@ -43,15 +44,17 @@ export async function POST(request: NextRequest) {
   // Fetch order items
    
   const { data: items } = await supabase.from('order_items')
-    .select('id, name, quantity, unit_price, modifiers')
+    .select('id, name, quantity, unit_price, order_item_modifiers(name, quantity)')
     .eq('order_id', parsed.data.order_id)
+    .eq('org_id', auth.org_id)
 
   // Fetch payment method
    
   const { data: payment } = await supabase.from('payments')
-    .select('payment_method, card_brand, last_four')
+    .select('payment_method, card_brand, card_last_four')
     .eq('order_id', parsed.data.order_id)
-    .eq('type', 'payment')
+    .eq('org_id', auth.org_id)
+    .eq('status', 'captured')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -101,18 +104,25 @@ export async function POST(request: NextRequest) {
       minute: '2-digit',
       hour12: true,
     }),
-    items: (items ?? []).map((item: { name: string; quantity: number; modifiers?: string[]; unit_price: string | number }) => ({
+    items: (items ?? []).map((item: {
+      name: string
+      quantity: number
+      order_item_modifiers?: Array<{ name: string; quantity: number }>
+      unit_price: string | number
+    }) => ({
       name: item.name,
       quantity: item.quantity,
-      modifiers: item.modifiers ?? undefined,
+      modifiers: item.order_item_modifiers?.map((mod) => (
+        mod.quantity > 1 ? `${mod.name} x${mod.quantity}` : mod.name
+      )),
       price: Math.round(Number(item.unit_price) * 100),
     })),
     subtotal: Math.round(Number(order.subtotal ?? 0) * 100),
     tax: Math.round(Number(order.tax_total ?? 0) * 100),
-    tip: Math.round(Number(order.tip_amount ?? 0) * 100),
+    tip: Math.round(Number(order.tip_total ?? 0) * 100),
     total: Math.round(Number(order.total ?? 0) * 100),
     paymentMethod: payment?.card_brand ?? payment?.payment_method ?? 'Card',
-    lastFour: payment?.last_four ?? undefined,
+    lastFour: payment?.card_last_four ?? undefined,
     customerName,
     serverName,
     feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://getsear.com'}/feedback/${order.id}`,

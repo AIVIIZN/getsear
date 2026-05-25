@@ -58,8 +58,9 @@ export async function POST(
   let itemsQuery = (supabase.from('order_items') as any)
     .select('id, prep_station')
     .eq('order_id', orderId)
+    .eq('org_id', user.org_id)
     .eq('is_sent', true)
-    .eq('is_void', false)
+    .eq('is_voided', false)
 
   if (!isExpo && prepStationsFilter.length > 0) {
     itemsQuery = itemsQuery.in('prep_station', prepStationsFilter)
@@ -86,7 +87,7 @@ export async function POST(
     order_id: orderId,
     order_item_id: itemId,
     event_type: 'bumped',
-    data: { performed_by: user.id },
+    performed_by: user.id,
     created_at: now,
   }))
 
@@ -110,8 +111,9 @@ export async function POST(
     const { data: pendingItems } = await (supabase.from('order_items') as any)
       .select('id')
       .eq('order_id', orderId)
+      .eq('org_id', user.org_id)
       .eq('is_sent', true)
-      .eq('is_void', false)
+      .eq('is_voided', false)
       .eq('is_ready', false)
 
     if (!pendingItems || pendingItems.length === 0) {
@@ -120,6 +122,7 @@ export async function POST(
       await (supabase.from('orders') as any)
         .update({ status: 'ready' })
         .eq('id', orderId)
+        .eq('org_id', user.org_id)
     }
   }
 

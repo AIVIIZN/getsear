@@ -20,7 +20,7 @@ const refireSchema = z.object({
  * POST /api/kds/tickets/[id]/items/[itemId]/refire
  *
  * Re-fire an individual item with a reason code.
- * - Creates a 'refire' event in kds_ticket_events with reason in metadata.
+ * - Creates a 'refire' event in kds_ticket_events.
  * - Resets is_ready = false on the order_item.
  * - Item reappears on prep station AND expo with RE-FIRE banner.
  * - Re-fired items automatically get refire priority (above RUSH).
@@ -81,6 +81,7 @@ export async function POST(
     .select('id, order_id, name, prep_station')
     .eq('id', itemId)
     .eq('order_id', orderId)
+    .eq('org_id', user.org_id)
     .single()
 
   if (!orderItem) {
@@ -106,13 +107,7 @@ export async function POST(
       order_id: orderId,
       order_item_id: itemId,
       event_type: 'refire',
-      data: { performed_by: user.id },
-      metadata: {
-        reason_code: reasonCode,
-        original_item_id: itemId,
-        refire_count: refireCount,
-        item_name: (orderItem as { name: string }).name,
-      },
+      performed_by: user.id,
       created_at: now,
     })
 
@@ -125,18 +120,21 @@ export async function POST(
   await (supabase.from('order_items') as any)
     .update({ is_ready: false, ready_at: null })
     .eq('id', itemId)
+    .eq('org_id', user.org_id)
 
   // Escalate order priority to 'refire' if not already higher
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('orders') as any)
     .update({ priority: 'refire' })
     .eq('id', orderId)
+    .eq('org_id', user.org_id)
 
   // If order was 'ready', set it back to 'in_progress'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('orders') as any)
     .update({ status: 'in_progress' })
     .eq('id', orderId)
+    .eq('org_id', user.org_id)
     .eq('status', 'ready')
 
   // Also create a "recalled" event to un-bump the item at this station
@@ -149,8 +147,7 @@ export async function POST(
       order_id: orderId,
       order_item_id: itemId,
       event_type: 'recalled',
-      data: { performed_by: user.id, reason: 'refire' },
-      metadata: { refire_recall: true },
+      performed_by: user.id,
       created_at: now,
     })
 

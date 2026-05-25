@@ -67,9 +67,10 @@ export async function POST(
   // Verify the item exists on this order
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orderItem } = await (supabase.from('order_items') as any)
-    .select('id, order_id, is_sent, is_void')
+    .select('id, order_id, is_sent, is_voided')
     .eq('id', itemId)
     .eq('order_id', orderId)
+    .eq('org_id', user.org_id)
     .single()
 
   if (!orderItem) {
@@ -117,8 +118,7 @@ export async function POST(
       order_id: orderId,
       order_item_id: itemId,
       event_type: 'bumped',
-      data: { performed_by: user.id },
-      metadata: { item_bump: true },
+      performed_by: user.id,
       created_at: now,
     })
 
@@ -134,8 +134,9 @@ export async function POST(
   let allItemsQuery = (supabase.from('order_items') as any)
     .select('id')
     .eq('order_id', orderId)
+    .eq('org_id', user.org_id)
     .eq('is_sent', true)
-    .eq('is_void', false)
+    .eq('is_voided', false)
 
   if (!isExpo && prepStationsFilter.length > 0) {
     allItemsQuery = allItemsQuery.in('prep_station', prepStationsFilter)
@@ -176,8 +177,7 @@ export async function POST(
         station_id: stationId,
         order_id: orderId,
         event_type: 'station_complete',
-        data: { performed_by: user.id },
-        metadata: { auto_complete: true },
+        performed_by: user.id,
         created_at: now,
       })
 
@@ -187,16 +187,18 @@ export async function POST(
       await (supabase.from('order_items') as any)
         .update({ is_ready: true, ready_at: now })
         .eq('order_id', orderId)
+        .eq('org_id', user.org_id)
         .eq('is_sent', true)
-        .eq('is_void', false)
+        .eq('is_voided', false)
 
       // Check if all items on the order are ready
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: pendingItems } = await (supabase.from('order_items') as any)
         .select('id')
         .eq('order_id', orderId)
+        .eq('org_id', user.org_id)
         .eq('is_sent', true)
-        .eq('is_void', false)
+        .eq('is_voided', false)
         .eq('is_ready', false)
 
       if (!pendingItems || pendingItems.length === 0) {
@@ -204,6 +206,7 @@ export async function POST(
         await (supabase.from('orders') as any)
           .update({ status: 'ready' })
           .eq('id', orderId)
+          .eq('org_id', user.org_id)
       }
     }
   }
