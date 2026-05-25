@@ -186,6 +186,9 @@ export const crmIntegrationCategorySchema = z.enum(['email', 'sms', 'reservation
 export const crmIntegrationStatusSchema = z.enum(['connected', 'disconnected', 'error', 'expired', 'pending'])
 export const crmIntegrationSyncStatusSchema = z.enum(['idle', 'syncing', 'succeeded', 'failed'])
 export const crmWebhookStatusSchema = z.enum(['active', 'disabled', 'failing', 'not_configured'])
+export const crmHealthIssueTypeSchema = z.enum(['duplicate_rate', 'no_contact', 'missing_consent', 'invalid_email', 'invalid_phone', 'unlinked_checks', 'unmatched_reservations', 'weak_identity', 'old_inactive_segment', 'broken_automation', 'failed_send'])
+export const crmHealthIssueStatusSchema = z.enum(['open', 'review_required', 'approved', 'resolved', 'dismissed'])
+export const crmHealthIssueSeveritySchema = z.enum(['critical', 'high', 'medium', 'low'])
 export const crmAiProviderSchema = z.enum(['gemini', 'openai', 'rules'])
 export const crmAiTaskTypeSchema = z.enum(['guest_summary', 'server_brief', 'next_best_action', 'segment_draft', 'campaign_draft', 'report_builder', 'recovery_message', 'data_cleanup'])
 export const crmAiGatewayStatusSchema = z.enum(['completed', 'refused', 'failed', 'cached', 'dry_run'])
@@ -820,6 +823,20 @@ export const listCrmIntegrationsQuerySchema = z.object({
   category: crmIntegrationCategorySchema.optional(),
   status: crmIntegrationStatusSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const listCrmHealthQuerySchema = z.object({
+  status: crmHealthIssueStatusSchema.optional(),
+  type: crmHealthIssueTypeSchema.optional(),
+  include_scan: z.enum(['true', 'false']).optional().transform((value) => value === 'true'),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const reviewCrmHealthIssueSchema = z.object({
+  issue_id: z.string().uuid(),
+  action: z.enum(['approve_fix', 'resolve', 'dismiss']),
+  review_note: z.string().trim().max(1000).optional().nullable(),
+  metadata: metadataSchema,
 })
 
 export const receiveCrmWebhookSchema = z.object({

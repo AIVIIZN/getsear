@@ -32,6 +32,7 @@ import {
   Clock,
   ShieldCheck,
   Gauge,
+  DatabaseZap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +86,7 @@ const sections: NavSectionData[] = [
       { label: "Segments", href: "/segments", icon: Filter },
       { label: "Campaigns", href: "/campaigns", icon: Send },
       { label: "Recovery", href: "/recovery", icon: HandHeart },
+      { label: "CRM Health", shortLabel: "Health", href: "/crm-health", icon: DatabaseZap },
       { label: "Delivery", href: "/delivery", icon: Truck },
       { label: "Catering", href: "/catering", icon: ChefHat },
       { label: "House Accounts", shortLabel: "Accounts", href: "/house-accounts", icon: Wallet },
