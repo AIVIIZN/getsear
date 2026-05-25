@@ -34,7 +34,7 @@ export async function processPaymentSync(entry: SyncQueueEntry): Promise<void> {
  * Sync a cash payment to the server.
  */
 async function syncCreatePayment(entry: SyncQueueEntry): Promise<void> {
-  const response = await fetch('/api/payments', {
+  const response = await fetch('/api/payments/process', {
     method: 'POST',
     headers: syncHeaders(entry),
     body: JSON.stringify({
@@ -86,7 +86,7 @@ async function syncSettlePayment(entry: SyncQueueEntry): Promise<void> {
   }
 
   // Step 2: Record the settled payment in Supabase
-  const response = await fetch('/api/payments', {
+  const response = await fetch('/api/payments/process', {
     method: 'POST',
     headers: syncHeaders(entry),
     body: JSON.stringify({

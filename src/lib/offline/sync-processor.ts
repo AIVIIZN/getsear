@@ -17,6 +17,7 @@ import { processOrderSync } from './order-sync'
 import { processPaymentSync } from './payment-sync'
 import { processClockSync } from './clock-sync'
 import { pingHealth } from './health-check'
+import { createConflict } from './conflict-resolver'
 import { useOfflineStore } from '@/stores/offline-store'
 import type { SyncQueueEntry } from './db'
 
@@ -86,6 +87,7 @@ export async function processSyncQueue(): Promise<{
 
             if (isConflictError(errorMsg)) {
               await markConflict(entry.id, errorMsg)
+              await recordConflict(entry, errorMsg)
               result.conflicts++
             } else {
               const isFinal = await markFailed(entry.id, errorMsg)
@@ -120,6 +122,17 @@ export async function processSyncQueue(): Promise<{
   })
 
   return result
+}
+
+async function recordConflict(entry: SyncQueueEntry, errorMsg: string): Promise<void> {
+  await createConflict({
+    entity_type: entry.entity_type,
+    entity_id: entry.entity_id,
+    local_data: entry.payload,
+    server_data: { error: errorMsg },
+    description: `${entry.entity_type} sync conflict: ${errorMsg}. Review the local change against the current server state before retrying.`,
+    location_id: entry.location_id,
+  })
 }
 
 /**
@@ -175,6 +188,8 @@ function isConflictError(error: string): boolean {
     'already assigned',
     'table occupied',
     'version mismatch',
+    'version_mismatch',
+    'order_version_mismatch',
     '409',
   ]
   const lower = error.toLowerCase()
