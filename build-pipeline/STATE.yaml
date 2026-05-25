@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-24T04:32:00Z
+last_updated_at: 2026-05-25T11:00:00Z
 current_version: V7
-current_batch: "SEC-2 SHIPPED (commit c6dc7d5). 45 RLS policies on 9 lockout tables (drive_thru_cars, drive_thru_lanes, inventory_waste_log, order_throttle_config, print_queue, print_routing, printers, receipt_config, shift_marketplace) — tenant_select/insert/update/delete + service_role_bypass each. schema_migrations row aligned to 20260505030000 (no drift). Hook design fix (c6dc7d5): apply_migration allowed unconditionally; only execute_sql DDL blocked. Remaining P0s: MARK-2 (unconstrained text status columns). MARK-1 fixed in session-p-E/MARK-1. DEVOPS-1 closed by verifying VM commit c6dc7d5 + committing ecosystem.config.js."
+current_batch: "7.1"
 in_flight: {}
 status: handoff_2026_05_05
 handoff_doc: SESSION_HANDOFF_2026_05_05.md
@@ -189,14 +189,15 @@ versions:
   V7:
     status: pending
     theme: Reliability & Scale
-    started_at: null
+    started_at: 2026-05-25T11:00:00Z
     completed_at: null
     batches:
       "7.0":
         type: sequential
-        status: pending
+        status: complete
+        completed_at: 2026-05-25T11:00:00Z
         tasks:
-          "7.0.1": { status: pending, agent: main, eta_hours: 1 }
+          "7.0.1": { status: complete, agent: main, eta_hours: 1, verified: "npm run db:diff returned no schema drift between linked DB and committed migrations" }
       "7.1":
         type: parallel
         status: pending
