@@ -10,6 +10,7 @@ import {
   hashGuestContactValue,
   normalizeGuestContactValue,
   noteVisibilityFilter,
+  sanitizeGuestForCrmRole,
 } from '@/lib/crm/api'
 import { createGuestContactPointSchema, updateGuestSchema } from '@/lib/schemas/crm'
 
@@ -54,7 +55,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .order('created_at', { ascending: false })
     .limit(25)
 
-  return NextResponse.json({ data: { ...guest, notes: notes ?? [] } })
+  return NextResponse.json({ data: sanitizeGuestForCrmRole({ ...guest, notes: notes ?? [] }, user) })
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {

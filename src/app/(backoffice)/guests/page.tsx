@@ -47,6 +47,7 @@ type Guest = {
   suppression_entries?: SuppressionEntry[]
   guest_tags?: GuestTag[]
   notes?: Note[]
+  crm_permissions?: CrmGuestPermissions
 }
 
 type ContactPoint = { id: string; contact_type: string; value: string; is_primary?: boolean }
@@ -70,8 +71,16 @@ type SuppressionEntry = { id: string; channel: ConsentChannel; purpose: ConsentP
 type GuestTag = { id: string; crm_tags?: { name: string; slug: string; tag_category: string; is_sensitive?: boolean } | null }
 type Note = { id: string; note_category: string; body: string; visibility: string }
 type TimelineEvent = { id: string; event_at: string; event_type: string; title: string; body?: string | null; visibility: string }
-type OrderRecord = { id: string; order_number: string; status: string; order_type: string; total: string; item_count: number; created_at: string; closed_at: string | null }
-type UserProfile = { role: string }
+type OrderRecord = { id: string; order_number: string; status: string; order_type: string; total: string | number | null; item_count: number; created_at: string; closed_at: string | null }
+type CrmGuestPermissions = {
+  can_view_hospitality_notes: boolean
+  can_view_recovery_details: boolean
+  can_view_revenue_attribution: boolean
+  can_view_do_not_contact_reason: boolean
+  can_view_internal_manager_notes: boolean
+  can_export_guest_data: boolean
+}
+type UserProfile = { role: string; crm_permissions?: CrmGuestPermissions }
 type IdentityCandidate = {
   id: string
   primary_guest_id: string
@@ -107,8 +116,6 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: "household", label: "Household" },
   { id: "consent", label: "Data & Consent" },
 ]
-
-const ownerRoles = new Set(["platform_admin", "owner", "admin", "analyst", "marketing"])
 
 function formatCurrency(value: string | number | null | undefined) {
   const amount = typeof value === "string" ? Number(value) : value ?? 0
@@ -157,7 +164,7 @@ export default function GuestsPage() {
   const [noteDraft, setNoteDraft] = React.useState("")
   const [savingNote, setSavingNote] = React.useState(false)
   const createForm = useForm<CreateGuestInput>({ resolver: zodResolver(createGuestSchema), defaultValues: { display_name: "", email: "", phone: "" } })
-  const isOwnerMode = profile ? ownerRoles.has(profile.role) : false
+  const canViewRevenue = Boolean(profile?.crm_permissions?.can_view_revenue_attribution)
 
   const loadGuests = React.useCallback(async (search: string) => {
     setListState("loading")
@@ -314,14 +321,14 @@ export default function GuestsPage() {
           {detailState === "error" ? <InlineState icon={AlertTriangle} title="Guest profile unavailable" body="The profile may have been archived or your role may not have access." /> : null}
           {detailState === "ready" && selectedGuest ? (
             <div className="flex h-full min-h-0 flex-col">
-              <ProfileHeader guest={selectedGuest} isOwnerMode={isOwnerMode} />
+              <ProfileHeader guest={selectedGuest} canViewRevenue={canViewRevenue} />
               <nav className="flex gap-[var(--space-2)] overflow-x-auto border-b border-[var(--color-border)] px-[var(--space-4)] py-[var(--space-2)]">
                 {tabs.map((tab) => (
                   <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={cn("min-h-[40px] rounded-[var(--radius-sm)] px-[var(--space-3)] text-[length:var(--type-footnote-size)] font-[var(--weight-medium)] transition-colors", activeTab === tab.id ? "bg-[var(--color-primary)] text-[var(--color-text-on-primary)]" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]")}>{tab.label}</button>
                 ))}
               </nav>
               <section className="min-h-0 flex-1 overflow-y-auto p-[var(--space-4)]">
-                <TabContent tab={activeTab} guest={selectedGuest} timeline={timeline} orders={orders} isOwnerMode={isOwnerMode} noteDraft={noteDraft} setNoteDraft={setNoteDraft} savingNote={savingNote} addNote={addNote} identityCandidates={identityCandidates} identityState={identityState} identityBusyId={identityBusyId} identityError={identityError} resolveIdentity={resolveIdentity} />
+                <TabContent tab={activeTab} guest={selectedGuest} timeline={timeline} orders={orders} canViewRevenue={canViewRevenue} noteDraft={noteDraft} setNoteDraft={setNoteDraft} savingNote={savingNote} addNote={addNote} identityCandidates={identityCandidates} identityState={identityState} identityBusyId={identityBusyId} identityError={identityError} resolveIdentity={resolveIdentity} />
               </section>
             </div>
           ) : null}
@@ -357,7 +364,7 @@ export default function GuestsPage() {
   )
 }
 
-function ProfileHeader({ guest, isOwnerMode }: { guest: Guest; isOwnerMode: boolean }) {
+function ProfileHeader({ guest, canViewRevenue }: { guest: Guest; canViewRevenue: boolean }) {
   const email = primaryContact(guest, "email")
   const phone = primaryContact(guest, "phone")
   return (
@@ -375,15 +382,15 @@ function ProfileHeader({ guest, isOwnerMode }: { guest: Guest; isOwnerMode: bool
             <span className="inline-flex items-center gap-[var(--space-1)]"><CalendarDays className="h-4 w-4" />Last visit {formatDate(guest.last_visit_at)}</span>
           </div>
         </div>
-        {isOwnerMode ? <div className="grid grid-cols-2 gap-[var(--space-2)] text-right"><Metric label="Spend" value={formatCurrency(guest.total_spend)} /><Metric label="Visits" value={String(guest.total_visits ?? 0)} /></div> : null}
+        {canViewRevenue ? <div className="grid grid-cols-2 gap-[var(--space-2)] text-right"><Metric label="Spend" value={formatCurrency(guest.total_spend)} /><Metric label="Visits" value={String(guest.total_visits ?? 0)} /></div> : null}
       </div>
     </div>
   )
 }
 
-function TabContent(props: { tab: TabId; guest: Guest; timeline: TimelineEvent[]; orders: OrderRecord[]; isOwnerMode: boolean; noteDraft: string; setNoteDraft: (value: string) => void; savingNote: boolean; addNote: () => void; identityCandidates: IdentityCandidate[]; identityState: "idle" | "loading" | "ready" | "error"; identityBusyId: string | null; identityError: string | null; resolveIdentity: (candidate: IdentityCandidate, action: "merge" | "dismiss" | "keep_separate" | "mark_household") => Promise<void> }) {
-  const { tab, guest, timeline, orders, isOwnerMode } = props
-  if (tab === "overview") return <Overview guest={guest} timeline={timeline} isOwnerMode={isOwnerMode} />
+function TabContent(props: { tab: TabId; guest: Guest; timeline: TimelineEvent[]; orders: OrderRecord[]; canViewRevenue: boolean; noteDraft: string; setNoteDraft: (value: string) => void; savingNote: boolean; addNote: () => void; identityCandidates: IdentityCandidate[]; identityState: "idle" | "loading" | "ready" | "error"; identityBusyId: string | null; identityError: string | null; resolveIdentity: (candidate: IdentityCandidate, action: "merge" | "dismiss" | "keep_separate" | "mark_household") => Promise<void> }) {
+  const { tab, guest, timeline, orders, canViewRevenue } = props
+  if (tab === "overview") return <Overview guest={guest} timeline={timeline} canViewRevenue={canViewRevenue} />
   if (tab === "orders") return <Orders orders={orders} />
   if (tab === "visits") return <Timeline events={timeline.filter((event) => event.event_type.includes("visit") || event.event_type.includes("order"))} emptyTitle="No visit timeline yet" />
   if (tab === "notes") return <Notes guest={guest} noteDraft={props.noteDraft} setNoteDraft={props.setNoteDraft} savingNote={props.savingNote} addNote={props.addNote} />
@@ -431,12 +438,12 @@ function IdentityResolution({ candidates, state, busyId, error, resolveIdentity 
   )
 }
 
-function Overview({ guest, timeline, isOwnerMode }: { guest: Guest; timeline: TimelineEvent[]; isOwnerMode: boolean }) {
+function Overview({ guest, timeline, canViewRevenue }: { guest: Guest; timeline: TimelineEvent[]; canViewRevenue: boolean }) {
   return (
     <div className="grid gap-[var(--space-4)] lg:grid-cols-2">
       <Panel title="Hospitality warnings"><Warnings guest={guest} /></Panel>
       <Panel title="Preferences">{guest.guest_preferences?.length ? guest.guest_preferences.map((pref) => <Row key={pref.id} title={pref.preference_key} body={pref.preference_category} />) : <InlineState icon={Sparkles} title="No preferences recorded" body="Preferences appear after server notes or POS-linked history." />}</Panel>
-      {isOwnerMode ? <Panel title="Guest value"><Metric label="Lifetime spend" value={formatCurrency(guest.total_spend)} /><Metric label="Total visits" value={String(guest.total_visits ?? 0)} /></Panel> : null}
+      {canViewRevenue ? <Panel title="Guest value"><Metric label="Lifetime spend" value={formatCurrency(guest.total_spend)} /><Metric label="Total visits" value={String(guest.total_visits ?? 0)} /></Panel> : null}
       <Panel title="Timeline"><Timeline events={timeline.slice(0, 6)} emptyTitle="No timeline events yet" /></Panel>
     </div>
   )
