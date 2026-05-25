@@ -15,6 +15,7 @@ import {
   ChefHat,
   Sparkles,
   Lock,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const settingsNav = [
   { href: "/settings/tax-rates", label: "Tax Rates", icon: Receipt },
   { href: "/settings/terminals", label: "Terminals", icon: Monitor },
   { href: "/settings/printers", label: "Printers", icon: Printer },
+  { href: "/settings/hardware-readiness", label: "Hardware Readiness", icon: ShieldCheck },
   { href: "/settings/kds", label: "KDS Stations", icon: ChefHat },
   { href: "/settings/roles", label: "Roles & Permissions", icon: Shield },
   { href: "/settings/modules", label: "Modules", icon: Puzzle },

@@ -67,6 +67,14 @@ test.describe('Back Office Pages', () => {
     await expect(page.locator('body')).not.toContainText('Application error')
   })
 
+  test('settings hardware readiness loads', async ({ page }) => {
+    await page.goto('/settings/hardware-readiness')
+    await expect(page).toHaveURL(/\/settings\/hardware-readiness/)
+    await expect(page.locator('body')).not.toContainText('Application error')
+    await expect(page.getByRole('heading', { level: 1, name: 'Hardware Readiness' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Receipt printer' })).toBeVisible({ timeout: 10000 })
+  })
+
   test('settings modules loads and toggles work', async ({ page }) => {
     await page.goto('/settings/modules')
     await expect(page).toHaveURL(/\/settings\/modules/)
