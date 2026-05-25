@@ -179,6 +179,9 @@ export const crmDimensionKeySchema = z.enum(['date', 'location', 'campaign', 'lo
 export const crmReportStatusSchema = z.enum(['draft', 'active', 'scheduled', 'archived'])
 export const crmReportTypeSchema = z.enum(['custom', 'campaign_roi', 'retention', 'loyalty', 'recovery', 'guest_ltv', 'menu_affinity', 'location_comparison'])
 export const crmReportVisualizationSchema = z.enum(['table', 'line', 'bar', 'stacked_bar', 'area', 'pie', 'scorecard', 'heatmap'])
+export const crmDashboardAudienceSchema = z.enum(['owner', 'manager', 'marketing', 'loyalty', 'data_quality'])
+export const crmDashboardStatusSchema = z.enum(['draft', 'active', 'archived'])
+export const crmDashboardWidgetTypeSchema = z.enum(['metric_card', 'trend', 'breakdown', 'table', 'alert_queue'])
 export const crmIntegrationCategorySchema = z.enum(['email', 'sms', 'reservations', 'online_ordering', 'delivery', 'accounting', 'gift_cards', 'reviews', 'data_warehouse', 'webhooks', 'automation'])
 export const crmIntegrationStatusSchema = z.enum(['connected', 'disconnected', 'error', 'expired', 'pending'])
 export const crmIntegrationSyncStatusSchema = z.enum(['idle', 'syncing', 'succeeded', 'failed'])
@@ -599,6 +602,43 @@ export const runCrmReportSchema = z.object({
   if (!value.report_definition_id && !value.metric_keys?.length) {
     ctx.addIssue({ code: 'custom', path: ['metric_keys'], message: 'Report runs need report_definition_id or metric_keys.' })
   }
+})
+
+export const crmDashboardWidgetSchema = z.object({
+  report_definition_id: optionalUuidSchema,
+  widget_key: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/),
+  title: z.string().trim().min(1).max(180),
+  widget_type: crmDashboardWidgetTypeSchema.default('metric_card'),
+  metric_keys: z.array(crmMetricKeySchema).min(1).max(6),
+  dimension_keys: z.array(crmDimensionKeySchema).max(4).default([]),
+  filters: metadataSchema,
+  visualization: crmReportVisualizationSchema.default('scorecard'),
+  position: z.object({
+    x: z.number().int().min(0).max(12),
+    y: z.number().int().min(0).max(60),
+    w: z.number().int().min(1).max(12),
+    h: z.number().int().min(1).max(8),
+  }),
+  settings: metadataSchema,
+})
+
+export const createCrmDashboardSchema = z.object({
+  location_id: optionalUuidSchema,
+  name: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).optional().nullable(),
+  audience: crmDashboardAudienceSchema.default('owner'),
+  status: crmDashboardStatusSchema.default('active'),
+  template_key: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/).optional().nullable(),
+  layout: metadataSchema,
+  widgets: z.array(crmDashboardWidgetSchema).min(1).max(24),
+  metadata: metadataSchema,
+})
+
+export const listCrmDashboardsQuerySchema = z.object({
+  audience: crmDashboardAudienceSchema.optional(),
+  status: crmDashboardStatusSchema.optional(),
+  include_templates: z.coerce.boolean().default(true),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
 export const updateGuestSchema = createGuestSchema.partial()
