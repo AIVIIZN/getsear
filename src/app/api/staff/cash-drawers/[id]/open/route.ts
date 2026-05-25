@@ -81,31 +81,37 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Record opening count
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('cash_drawer_counts') as any)
-    .insert({
-      cash_drawer_id: id,
-      count_type: 'opening',
-      denominations: parsed.data.denominations,
-      total: parsed.data.starting_cash,
-      counted_by: user.id,
-      created_at: now,
-    })
-    .catch(() => { /* table may not exist */ })
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('cash_drawer_counts') as any)
+      .insert({
+        cash_drawer_id: id,
+        count_type: 'opening',
+        denominations: parsed.data.denominations,
+        total: parsed.data.starting_cash,
+        counted_by: user.id,
+        created_at: now,
+      })
+  } catch {
+    // table may not exist
+  }
 
   // Record event
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('cash_drawer_events') as any)
-    .insert({
-      org_id: user.org_id,
-      cash_drawer_id: id,
-      event_type: 'open',
-      amount: parsed.data.starting_cash,
-      performed_by: user.id,
-      notes: `Opening count: $${parsed.data.starting_cash}`,
-      created_at: now,
-    })
-    .catch(() => { /* table may not exist */ })
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('cash_drawer_events') as any)
+      .insert({
+        org_id: user.org_id,
+        cash_drawer_id: id,
+        event_type: 'open',
+        amount: parsed.data.starting_cash,
+        performed_by: user.id,
+        notes: `Opening count: $${parsed.data.starting_cash}`,
+        created_at: now,
+      })
+  } catch {
+    // table may not exist
+  }
 
   return NextResponse.json({ data: updated })
 }
