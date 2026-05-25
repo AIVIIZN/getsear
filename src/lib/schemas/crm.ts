@@ -165,6 +165,7 @@ export const crmSurveyTriggerEventSchema = z.enum([
 export const crmCampaignTypeSchema = z.enum(['email', 'sms', 'push', 'guest_portal', 'receipt', 'qr', 'reservation_follow_up', 'review_request', 'win_back', 'birthday', 'anniversary', 'event_invite', 'menu_announcement', 'vip_invite', 'recovery'])
 export const crmCampaignStatusSchema = z.enum(['draft', 'ready', 'scheduled', 'sending', 'sent', 'paused', 'archived'])
 export const crmCampaignChannelSchema = z.enum(['email', 'sms', 'push', 'guest_portal', 'receipt', 'qr'])
+export const crmMessageSendChannelSchema = z.enum(['email', 'sms', 'push', 'receipt'])
 export const crmCampaignToneSchema = z.enum(['warm', 'polished', 'playful', 'urgent', 'grateful', 'concise'])
 
 const optionalUuidSchema = z.string().uuid().optional().nullable()
@@ -377,6 +378,29 @@ export const listCrmCampaignsQuerySchema = z.object({
   status: crmCampaignStatusSchema.optional(),
   segment_id: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
+})
+
+export const scheduleCrmCampaignSchema = z.object({
+  scheduled_for: z.string().datetime({ offset: true }).optional().nullable(),
+  throttle_per_minute: z.number().int().min(1).max(10000).default(60),
+  holdout_percent: z.number().min(0).max(50).default(0),
+  approval_note: z.string().trim().max(1000).optional().nullable(),
+  metadata: metadataSchema,
+})
+
+export const testSendCrmCampaignSchema = z.object({
+  channel: crmMessageSendChannelSchema.default('email'),
+  recipient_email: z.string().email().max(320).optional().nullable(),
+  recipient_phone: z.string().trim().min(7).max(32).optional().nullable(),
+  guest_id: z.string().uuid().optional().nullable(),
+  metadata: metadataSchema,
+}).superRefine((value, ctx) => {
+  if (value.channel === 'email' && !value.recipient_email && !value.guest_id) {
+    ctx.addIssue({ code: 'custom', path: ['recipient_email'], message: 'Email test sends need recipient_email or guest_id.' })
+  }
+  if (value.channel === 'sms' && !value.recipient_phone && !value.guest_id) {
+    ctx.addIssue({ code: 'custom', path: ['recipient_phone'], message: 'SMS test sends need recipient_phone or guest_id.' })
+  }
 })
 
 export const guestMergeConfidenceLevelSchema = z.enum(['100', '90', '75', '50', 'below_50'])
