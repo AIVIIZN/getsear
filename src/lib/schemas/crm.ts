@@ -886,6 +886,13 @@ export const listCrmAiAuditQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 })
 
+export const crmAdvancedIntelligenceQuerySchema = z.object({
+  location_id: optionalUuidSchema,
+  days: z.coerce.number().int().min(7).max(365).default(90),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  proposed_discount_percent: z.coerce.number().min(0).max(80).default(15),
+})
+
 export const restaurantMemoryRuleSchema = z.object({
   id: z.string().uuid().optional(),
   location_id: optionalUuidSchema,
