@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 /**
  * POST /api/orders/[id]/reopen — reopen a closed order (manager+ only)
@@ -77,6 +79,9 @@ export async function POST(
 
   const newVersion = (data as Record<string, unknown>)?.version as number | undefined
     ?? check.currentVersion + 1
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
   return NextResponse.json({ data }, {
     headers: { ETag: `"${newVersion}"` },
   })

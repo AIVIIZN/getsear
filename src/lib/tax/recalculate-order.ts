@@ -3,6 +3,7 @@
  * Used by all API routes that modify order items, discounts, or comps.
  */
 
+import { revalidateTag } from 'next/cache'
 import {
   calculateItemTax,
   calculateOrderTax,
@@ -13,6 +14,7 @@ import {
   type TaxableItem,
   type TaxRate,
 } from '@/lib/tax/tax-engine'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 /**
  * Thrown by {@link recalculateOrderTotals} when its final `orders` UPDATE
@@ -251,6 +253,10 @@ export async function recalculateOrderTotals(
   }
   if (expectedVersion !== null && !updated) {
     throw new StaleVersionError(orderId, expectedVersion)
+  }
+
+  for (const tag of orderCacheTags(orgId, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
   }
 }
 

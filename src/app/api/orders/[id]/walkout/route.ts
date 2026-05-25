@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { validateManagerPinForAction } from '@/lib/auth/manager-pin'
 import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 const walkoutSchema = z.object({
   /** Manager PIN for authorization (bcrypt-hashed in DB) */
@@ -118,7 +120,7 @@ export async function POST(
   // The schema uses 'voided' status since there's no 'walkout' enum value,
   // but we track the walkout in metadata and audit log
    
-  const { data: updatedOrder, error: updateError } = await supabase.from('orders')
+  const { error: updateError } = await supabase.from('orders')
     .update({
       status: 'voided',
       voided_at: new Date().toISOString(),
@@ -173,6 +175,10 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', order.table_id)
+  }
+
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
   }
 
   return NextResponse.json({

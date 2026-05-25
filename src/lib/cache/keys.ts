@@ -7,7 +7,6 @@
  * list tag and (when known) the per-id tag.
  *
  * Excluded by design:
- *   - orders (high-churn, realtime-driven; SWR cache offers no win)
  *   - audit log (append-only, dashboard-driven reads)
  *   - anything user/auth-state-specific
  *
@@ -19,6 +18,12 @@ export const cacheTags = {
   menu: (orgId: string) => `menu:${orgId}`,
   /** A single menu item. */
   menuItem: (orgId: string, id: string) => `menu-item:${orgId}:${id}`,
+  /** Orders list endpoints for an org. */
+  orders: (orgId: string) => `orders:${orgId}`,
+  /** Active orders list endpoints for an org. */
+  activeOrders: (orgId: string) => `orders-active:${orgId}`,
+  /** A single order with nested items/modifiers. */
+  order: (orgId: string, id: string) => `order:${orgId}:${id}`,
   /** All staff members for an org (list endpoint). */
   staff: (orgId: string) => `staff:${orgId}`,
   /** A single staff member. */
@@ -37,3 +42,9 @@ export type CacheTag = ReturnType<(typeof cacheTags)[keyof typeof cacheTags]>
  * instead of importing this constant.
  */
 export const CACHE_REVALIDATE_PROFILE = 'max' as const
+
+export function orderCacheTags(orgId: string, orderId?: string) {
+  return orderId
+    ? [cacheTags.orders(orgId), cacheTags.activeOrders(orgId), cacheTags.order(orgId, orderId)]
+    : [cacheTags.orders(orgId), cacheTags.activeOrders(orgId)]
+}

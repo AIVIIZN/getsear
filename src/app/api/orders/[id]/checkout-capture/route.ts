@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { audit } from '@/lib/audit/log'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -8,6 +9,7 @@ import {
   type GuestContactInput,
 } from '@/lib/crm/api'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 const checkoutCaptureSchema = z.object({
   email: z.string().email().optional().nullable(),
@@ -395,6 +397,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     request,
     location_id: order.location_id,
   })
+
+  for (const tag of orderCacheTags(user.org_id, order.id)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
 
   return NextResponse.json({
     data: {

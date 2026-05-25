@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 /**
  * POST /api/orders/[id]/send — send order to kitchen
@@ -79,6 +81,10 @@ export async function POST(
   const newVersion =
     (updatedOrder as Record<string, unknown>)?.version as number | undefined
     ?? check.currentVersion + 1
+
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
 
   return NextResponse.json(
     {

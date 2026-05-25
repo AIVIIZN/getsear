@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -14,6 +15,7 @@ import { assertVersion } from '@/lib/orders/concurrency'
 import { audit } from '@/lib/audit/log'
 import { getReqLoggerFromRequest } from '@/lib/observability/req-context'
 import { applyRateLimitHeaders } from '@/lib/api/rate-limit'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 const VOID_REASONS = [
   'customer_request',
@@ -288,6 +290,10 @@ export async function POST(
     status: 200,
     duration_ms: Date.now() - t0,
   })
+
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
 
   return NextResponse.json({
     data: {

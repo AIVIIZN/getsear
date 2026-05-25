@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
+import { CACHE_REVALIDATE_PROFILE, cacheTags, orderCacheTags } from '@/lib/cache/keys'
 
 const createOrderSchema = z.object({
   order_type: z.enum([
@@ -22,6 +24,58 @@ const createOrderSchema = z.object({
 /**
  * GET /api/orders — list orders with filters
  */
+function fetchOrdersList(
+  orgId: string,
+  filters: {
+    status: string | null
+    orderType: string | null
+    serverId: string | null
+    locationId: string | null
+    dateFrom: string | null
+    dateTo: string | null
+    page: number
+    limit: number
+  }
+) {
+  return unstable_cache(
+    async () => {
+      const offset = (filters.page - 1) * filters.limit
+      const supabase = createAdminClient()
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query = (supabase.from('orders') as any)
+        .select('*', { count: 'exact' })
+        .eq('org_id', orgId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + filters.limit - 1)
+
+      if (filters.status) query = query.eq('status', filters.status)
+      if (filters.orderType) query = query.eq('order_type', filters.orderType)
+      if (filters.serverId) query = query.eq('server_id', filters.serverId)
+      if (filters.locationId) query = query.eq('location_id', filters.locationId)
+      if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
+      if (filters.dateTo) query = query.lte('created_at', filters.dateTo)
+
+      const { data, error, count } = await query
+      if (error) return { error: 'Failed to fetch orders' as const, data: null, count: 0 }
+      return { error: null, data: data ?? [], count: count ?? 0 }
+    },
+    [
+      'orders-list',
+      orgId,
+      filters.status ?? '',
+      filters.orderType ?? '',
+      filters.serverId ?? '',
+      filters.locationId ?? '',
+      filters.dateFrom ?? '',
+      filters.dateTo ?? '',
+      String(filters.page),
+      String(filters.limit),
+    ],
+    { tags: [cacheTags.orders(orgId)], revalidate: 15 }
+  )()
+}
+
 export async function GET(request: NextRequest) {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
@@ -35,33 +89,25 @@ export async function GET(request: NextRequest) {
   const dateTo = params.get('date_to')
   const page = Math.max(1, parseInt(params.get('page') ?? '1', 10))
   const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') ?? '50', 10)))
-  const offset = (page - 1) * limit
 
-  const supabase = createAdminClient()
+  const result = await fetchOrdersList(user.org_id, {
+    status,
+    orderType,
+    serverId,
+    locationId,
+    dateFrom,
+    dateTo,
+    page,
+    limit,
+  })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('orders') as any)
-    .select('*', { count: 'exact' })
-    .eq('org_id', user.org_id)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
-
-  if (status) query = query.eq('status', status)
-  if (orderType) query = query.eq('order_type', orderType)
-  if (serverId) query = query.eq('server_id', serverId)
-  if (locationId) query = query.eq('location_id', locationId)
-  if (dateFrom) query = query.gte('created_at', dateFrom)
-  if (dateTo) query = query.lte('created_at', dateTo)
-
-  const { data, error, count } = await query
-
-  if (error) {
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: 500 })
   }
 
   return NextResponse.json({
-    data: data ?? [],
-    pagination: { page, limit, total: count ?? 0 },
+    data: result.data ?? [],
+    pagination: { page, limit, total: result.count },
   })
 }
 
@@ -131,6 +177,10 @@ export const POST = withIdempotency('orders.create', async (request: NextRequest
 
   if (error) {
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+  }
+
+  for (const tag of orderCacheTags(user.org_id, data.id)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
   }
 
   return NextResponse.json({ data }, { status: 201 })

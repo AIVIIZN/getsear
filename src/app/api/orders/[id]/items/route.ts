@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -6,6 +7,7 @@ import { withIdempotency } from '@/lib/api/idempotency'
 import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
 import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
 import { getReqLoggerFromRequest } from '@/lib/observability/req-context'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 const modifierSchema = z.object({
   modifier_id: z.string().uuid(),
@@ -228,6 +230,10 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
     status: 201,
     duration_ms: Date.now() - t0,
   })
+
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
 
   return NextResponse.json(
     { data: completeItem },

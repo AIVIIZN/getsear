@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint && npm run lint:raw-hex",
     "lint:raw-hex": "node scripts/validate-no-raw-hex.mjs",
+    "lint:bundle-budget": "node scripts/check-bundle-budget.mjs",
     "prepare": "node scripts/install-pre-commit-hook.mjs",
     "seed": "npx tsx src/scripts/seed.ts",
     "reset": "npx tsx src/scripts/reset.ts",

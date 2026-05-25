@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { recalculateOrderTotals, StaleVersionError } from '@/lib/tax/recalculate-order'
 import { assertVersion, checkUpdateAffectedRow } from '@/lib/orders/concurrency'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 
 const updateItemSchema = z.object({
   quantity: z.number().int().min(1).max(999).optional(),
@@ -115,6 +117,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
   const newVersion = (refreshed?.version as number | undefined) ?? check.currentVersion + 1
 
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
+
   return NextResponse.json(
     { data },
     { headers: { ETag: `"${newVersion}"` } }
@@ -191,6 +197,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   // above), so we recalc unconditionally with expectedVersion=null. The
   // version-bump trigger still fires on the orders UPDATE.
   await recalculateOrderTotals(supabase, orderId, user.org_id, null)
+
+  for (const tag of orderCacheTags(user.org_id, orderId)) {
+    revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
+  }
 
   return NextResponse.json({ data })
 }

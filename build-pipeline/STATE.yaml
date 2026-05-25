@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-25T12:28:56Z
+last_updated_at: 2026-05-25T14:25:26Z
 current_version: V7
-current_batch: "7.2"
+current_batch: "7.3"
 in_flight: {}
 status: handoff_2026_05_05
 handoff_doc: SESSION_HANDOFF_2026_05_05.md
@@ -209,12 +209,13 @@ versions:
           "7.1.4": { status: complete, agent: devops, eta_hours: 1, review: "CI/deploy SENTRY_RELEASE wiring + alert rules" }
       "7.2":
         type: parallel
-        status: pending
+        status: complete
+        completed_at: 2026-05-25T14:25:26Z
         tasks:
-          "7.2.1": { status: pending, agent: perf-analyzer+backend-dev, eta_hours: 3 }
-          "7.2.2": { status: pending, agent: performance-engineer, eta_hours: 3 }
-          "7.2.3": { status: pending, agent: coder, eta_hours: 2 }
-          "7.2.4": { status: pending, agent: coder, eta_hours: 2 }
+          "7.2.1": { status: complete, agent: perf-analyzer+backend-dev, eta_hours: 3, review: "existing V7 index audit migration/docs retained; top-query audit waivers documented" }
+          "7.2.2": { status: complete, agent: performance-engineer, eta_hours: 3, review: "orders/menu/staff GET endpoints use tag-scoped SWR; order/menu/staff mutations invalidate tags" }
+          "7.2.3": { status: complete, agent: coder, eta_hours: 2, review: "POS index bundle budget guard added and passing under 200kb gzip" }
+          "7.2.4": { status: complete, agent: coder, eta_hours: 2, review: "menu image pipeline already uses Next/Image AVIF/WebP sizes blur placeholders and above-fold priority" }
       "7.3":
         type: parallel
         status: complete
