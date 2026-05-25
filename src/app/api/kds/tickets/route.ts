@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
     .select('*')
     .eq('org_id', user.org_id)
     .eq('location_id', effectiveLocationId)
-    .in('status', ['open', 'fired', 'sent', 'in_progress', 'ready'])
+    .in('status', ['open', 'fired', 'ready'])
     .order('created_at', { ascending: true })
 
   if (ordersError) {

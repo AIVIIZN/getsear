@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     .select('id')
     .eq('org_id', user.org_id)
     .eq('location_id', locationId)
-    .in('status', ['fired', 'sent', 'in_progress', 'ready'])
+    .in('status', ['open', 'fired', 'ready'])
 
   if (!orders || orders.length === 0) {
     return NextResponse.json({ data: { bumped_count: 0 } })
