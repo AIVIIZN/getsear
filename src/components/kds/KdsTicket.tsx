@@ -121,11 +121,11 @@ export function KdsTicket({ ticket, onBump, onItemBump, onRefire }: KdsTicketPro
   // Priority-based border effects
   const priorityBorderClass =
     ticket.priority === 'refire'
-      ? 'ring-2 ring-[#FF2D55] animate-pulse-attention'
+      ? 'ring-2 ring-[var(--color-kds-priority-refire)] animate-pulse-attention'
       : ticket.priority === 'rush'
         ? 'ring-2 ring-red-500'
         : ticket.priority === 'vip'
-          ? 'ring-2 ring-[#FFD700]'
+          ? 'ring-2 ring-[var(--color-kds-priority-vip)]'
           : ''
 
   return (
@@ -340,7 +340,7 @@ function TicketItemRow({
             <Badge
               size="sm"
               className="font-[number:var(--weight-bold)] !text-white"
-              style={{ backgroundColor: '#FF2D55' }}
+              style={{ backgroundColor: 'var(--color-kds-priority-refire)' }}
             >
               RE-FIRE{(item.refire_count ?? 0) > 1 ? ` x${item.refire_count}` : ''}
             </Badge>
@@ -395,8 +395,8 @@ function TicketItemRow({
           <div
             className="mt-1 rounded-[var(--radius-sm)] px-2.5 py-1 text-caption-1 font-semibold"
             style={{
-              backgroundColor: 'rgba(255, 45, 85, 0.20)',
-              color: '#FF2D55',
+              backgroundColor: 'color-mix(in srgb, var(--color-kds-priority-refire) 20%, transparent)',
+              color: 'var(--color-kds-priority-refire)',
             }}
           >
             Reason: {item.refire_reason.replace(/_/g, ' ')}

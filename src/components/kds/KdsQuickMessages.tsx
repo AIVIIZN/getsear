@@ -62,8 +62,8 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
   // If no mode is active, show the quick message buttons
   if (activeMode === null) {
     return (
-      <div className="border-t border-[#2a2a2a] px-4 py-2">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#666]">
+      <div className="border-t border-[var(--color-kds-border)] px-4 py-2">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-kds-text-subtle)]">
           Quick Messages
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -110,9 +110,9 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
 
   // Expanded mode — show parameterized input
   return (
-    <div className="border-t border-[#2a2a2a] px-4 py-3">
+    <div className="border-t border-[var(--color-kds-border)] px-4 py-3">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-[#888]">
+        <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-kds-text-muted)]">
           {activeMode === '86_item' && '86 Item'}
           {activeMode === 'refire' && 'Re-fire Ticket'}
           {activeMode === 'behind' && 'Running Behind'}
@@ -120,7 +120,7 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
         </p>
         <button
           onClick={() => setActiveMode(null)}
-          className="text-xs text-[#888] hover:text-white"
+          className="text-xs text-[var(--color-kds-text-muted)] hover:text-white"
         >
           Cancel
         </button>
@@ -133,12 +133,12 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
             value={itemName}
             onChange={(e) => setItemName(e.target.value)}
             placeholder="Item name (e.g., Salmon)"
-            className="rounded-lg border border-[#333] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:border-[var(--primary)]"
+            className="rounded-lg border border-[var(--color-kds-border-strong)] bg-[var(--color-kds-input-bg)] px-3 py-2.5 text-sm text-white placeholder-[var(--color-kds-placeholder)] outline-none focus:border-[var(--color-primary)]"
             autoFocus
             autoComplete="off"
           />
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#888]">in</span>
+            <span className="text-xs text-[var(--color-kds-text-muted)]">in</span>
             <div className="flex gap-1">
               {['5', '10', '15', '30', '60'].map((m) => (
                 <button
@@ -147,8 +147,8 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
                   className={cn(
                     'rounded-lg px-3 py-2 text-xs font-bold transition-colors',
                     minutes === m
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'bg-[#2a2a2a] text-[#888] hover:bg-[#333]'
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-muted)] hover:bg-[var(--color-kds-surface-hover)]'
                   )}
                 >
                   {m}m
@@ -163,7 +163,7 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
               'mt-1 flex h-12 items-center justify-center rounded-xl text-sm font-bold transition-colors',
               itemName.trim()
                 ? 'bg-red-600 text-white hover:bg-red-500'
-                : 'bg-[#2a2a2a] text-[#555]'
+                : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-disabled)]'
             )}
           >
             Send: 86 {itemName.trim() || '...'} in {minutes} min
@@ -178,7 +178,7 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
             value={ticketNumber}
             onChange={(e) => setTicketNumber(e.target.value.replace(/[^0-9-]/g, ''))}
             placeholder="Ticket # (e.g., 0042)"
-            className="rounded-lg border border-[#333] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:border-[var(--primary)]"
+            className="rounded-lg border border-[var(--color-kds-border-strong)] bg-[var(--color-kds-input-bg)] px-3 py-2.5 text-sm text-white placeholder-[var(--color-kds-placeholder)] outline-none focus:border-[var(--color-primary)]"
             autoFocus
             autoComplete="off"
             inputMode="numeric"
@@ -190,7 +190,7 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
               'flex h-12 items-center justify-center rounded-xl text-sm font-bold transition-colors',
               ticketNumber.trim()
                 ? 'bg-orange-600 text-white hover:bg-orange-500'
-                : 'bg-[#2a2a2a] text-[#555]'
+                : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-disabled)]'
             )}
           >
             Send: Need re-fire on ticket #{ticketNumber.trim() || '...'}
@@ -201,7 +201,7 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
       {activeMode === 'behind' && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#888]">Add</span>
+            <span className="text-xs text-[var(--color-kds-text-muted)]">Add</span>
             <div className="flex gap-1">
               {['2', '5', '10', '15', '20'].map((m) => (
                 <button
@@ -210,15 +210,15 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
                   className={cn(
                     'rounded-lg px-3 py-2 text-xs font-bold transition-colors',
                     minutes === m
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'bg-[#2a2a2a] text-[#888] hover:bg-[#333]'
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-muted)] hover:bg-[var(--color-kds-surface-hover)]'
                   )}
                 >
                   {m}m
                 </button>
               ))}
             </div>
-            <span className="text-xs text-[#888]">to all tickets</span>
+            <span className="text-xs text-[var(--color-kds-text-muted)]">to all tickets</span>
           </div>
           <button
             onClick={handleSendBehind}
@@ -236,7 +236,7 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
             value={ticketNumber}
             onChange={(e) => setTicketNumber(e.target.value.replace(/[^0-9-]/g, ''))}
             placeholder="Ticket # (e.g., 0042)"
-            className="rounded-lg border border-[#333] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:border-[var(--primary)]"
+            className="rounded-lg border border-[var(--color-kds-border-strong)] bg-[var(--color-kds-input-bg)] px-3 py-2.5 text-sm text-white placeholder-[var(--color-kds-placeholder)] outline-none focus:border-[var(--color-primary)]"
             autoFocus
             autoComplete="off"
             inputMode="numeric"
@@ -248,7 +248,7 @@ export function KdsQuickMessages({ stationId, locationId, onSend }: KdsQuickMess
               'flex h-12 items-center justify-center rounded-xl text-sm font-bold transition-colors',
               ticketNumber.trim()
                 ? 'bg-purple-600 text-white hover:bg-purple-500'
-                : 'bg-[#2a2a2a] text-[#555]'
+                : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-disabled)]'
             )}
           >
             Send: Check ticket #{ticketNumber.trim() || '...'}
@@ -275,7 +275,7 @@ function QuickButton({
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1.5 rounded-lg bg-[#2a2a2a] px-3 py-2 text-xs font-semibold transition-colors hover:bg-[#333]',
+        'flex items-center gap-1.5 rounded-lg bg-[var(--color-kds-surface-active)] px-3 py-2 text-xs font-semibold transition-colors hover:bg-[var(--color-kds-surface-hover)]',
         color
       )}
       style={{ minHeight: 44 }}

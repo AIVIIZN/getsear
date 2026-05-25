@@ -584,7 +584,7 @@ export default function KdsPage() {
   return (
     <div
       className="kds-dark flex h-full w-full flex-col no-select no-overscroll"
-      style={{ backgroundColor: 'var(--kds-bg)' }}
+      style={{ backgroundColor: 'var(--color-kds-bg)' }}
     >
       {/* Kitchen closed banner */}
       {isKitchenClosed && (
@@ -603,7 +603,7 @@ export default function KdsPage() {
         className="z-30 flex flex-shrink-0 items-center gap-2 px-4"
         style={{
           height: 48,
-          backgroundColor: 'var(--kds-topbar)',
+          backgroundColor: 'var(--color-kds-topbar)',
           borderBottom: '0.5px solid var(--color-border)',
         }}
       >

@@ -6,9 +6,9 @@ import { type RefireReasonCode, REFIRE_REASON_LABELS } from '@/stores/kds-store'
 /**
  * KDS Priority Banner Component
  *
- * RE-FIRE: #FF2D55 (iOS pink-red), pulsing animation
- * RUSH: #FF3B30 (iOS red), pulsing animation
- * VIP: #FFD700 (gold), subtle shimmer
+ * RE-FIRE: --color-kds-priority-refire, pulsing animation
+ * RUSH: --color-kds-priority-rush, pulsing animation
+ * VIP: --color-kds-priority-vip, subtle shimmer
  */
 
 interface KdsPriorityBannerProps {
@@ -22,7 +22,7 @@ export function KdsPriorityBanner({ priority, refireReason, refireCount }: KdsPr
 
   if (priority === 'refire') {
     return (
-      <div className="flex items-center justify-center gap-2 bg-[#FF2D55] px-3 py-2 animate-pulse-attention">
+      <div className="flex items-center justify-center gap-2 bg-[var(--color-kds-priority-refire)] px-3 py-2 animate-pulse-attention">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
@@ -49,7 +49,7 @@ export function KdsPriorityBanner({ priority, refireReason, refireCount }: KdsPr
 
   if (priority === 'rush') {
     return (
-      <div className="flex items-center justify-center bg-[#FF3B30] px-3 py-2 animate-pulse-attention">
+      <div className="flex items-center justify-center bg-[var(--color-kds-priority-rush)] px-3 py-2 animate-pulse-attention">
         <span className="text-subhead font-black uppercase tracking-wider text-white">
           RUSH
         </span>
@@ -59,16 +59,16 @@ export function KdsPriorityBanner({ priority, refireReason, refireCount }: KdsPr
 
   if (priority === 'vip') {
     return (
-      <div className="flex items-center justify-center gap-2 bg-[#FFD700] px-3 py-2">
+      <div className="flex items-center justify-center gap-2 bg-[var(--color-kds-priority-vip)] px-3 py-2">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className="h-4 w-4 text-[#1a1a1a]"
+          className="h-4 w-4 text-[var(--color-kds-priority-vip-fg)]"
         >
           <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
-        <span className="text-subhead font-black uppercase tracking-wider text-[#1a1a1a]">
+        <span className="text-subhead font-black uppercase tracking-wider text-[var(--color-kds-priority-vip-fg)]">
           VIP
         </span>
       </div>

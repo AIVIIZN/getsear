@@ -17,14 +17,14 @@ function formatElapsed(seconds: number): string {
  * Timer color tracks the same aging buckets as the ticket border so the eye
  * lands on a single hue at any given moment.
  *   < 5 min  : default text  (--color-text)
- *   5-7.5    : amber         (--kds-aging-aging)
- *   7.5-10   : orange        (--kds-aging-late)
- *   > 10 min : red           (--kds-aging-critical)
+ *   5-7.5    : amber         (--color-kds-aging-aging)
+ *   7.5-10   : orange        (--color-kds-aging-late)
+ *   > 10 min : red           (--color-kds-aging-critical)
  */
 function getTimerColor(seconds: number): string {
-  if (seconds >= 600) return 'var(--kds-aging-critical)'
-  if (seconds >= 450) return 'var(--kds-aging-late)'
-  if (seconds >= 300) return 'var(--kds-aging-aging)'
+  if (seconds >= 600) return 'var(--color-kds-aging-critical)'
+  if (seconds >= 450) return 'var(--color-kds-aging-late)'
+  if (seconds >= 300) return 'var(--color-kds-aging-aging)'
   return 'var(--color-text)'
 }
 

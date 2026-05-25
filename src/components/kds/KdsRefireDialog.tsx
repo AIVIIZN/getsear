@@ -35,20 +35,20 @@ export function KdsRefireDialog({ itemName, isOpen, onSelect, onClose }: KdsRefi
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-[#1a1a1a] border border-[#333] shadow-2xl">
+      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-[var(--color-kds-surface)] border border-[var(--color-kds-border-strong)] shadow-2xl">
         {/* Header */}
-        <div className="border-b border-[#333] px-5 py-4">
-          <h3 className="text-lg font-black uppercase tracking-wider text-[#FF2D55]">
+        <div className="border-b border-[var(--color-kds-border-strong)] px-5 py-4">
+          <h3 className="text-lg font-black uppercase tracking-wider text-[var(--color-kds-priority-refire)]">
             Re-Fire Item
           </h3>
-          <p className="mt-1 text-subhead text-[#888]">
+          <p className="mt-1 text-subhead text-[var(--color-kds-text-muted)]">
             {itemName}
           </p>
         </div>
 
         {/* Reason codes */}
         <div className="p-3">
-          <p className="mb-2 px-2 text-caption-1 font-semibold uppercase tracking-wider text-[#666]">
+          <p className="mb-2 px-2 text-caption-1 font-semibold uppercase tracking-wider text-[var(--color-kds-text-subtle)]">
             Select Reason
           </p>
           <div className="space-y-1.5">
@@ -56,7 +56,7 @@ export function KdsRefireDialog({ itemName, isOpen, onSelect, onClose }: KdsRefi
               <button
                 key={code}
                 onClick={() => onSelect(code)}
-                className="btn-press flex w-full items-center rounded-xl bg-[#222] px-4 text-left transition-colors hover:bg-[#333] active:bg-[#444]"
+                className="btn-press flex w-full items-center rounded-xl bg-[var(--color-kds-surface-raised)] px-4 text-left transition-colors hover:bg-[var(--color-kds-surface-hover)] active:bg-[var(--color-kds-surface-pressed)]"
                 style={{ height: 52, minHeight: 48 }}
               >
                 <span className="text-callout font-semibold text-white">
@@ -68,10 +68,10 @@ export function KdsRefireDialog({ itemName, isOpen, onSelect, onClose }: KdsRefi
         </div>
 
         {/* Cancel */}
-        <div className="border-t border-[#333] p-3">
+        <div className="border-t border-[var(--color-kds-border-strong)] p-3">
           <button
             onClick={onClose}
-            className="btn-press flex w-full items-center justify-center rounded-xl bg-[#333] px-4 text-callout font-semibold text-[#888] transition-colors hover:bg-[#444]"
+            className="btn-press flex w-full items-center justify-center rounded-xl bg-[var(--color-kds-surface-hover)] px-4 text-callout font-semibold text-[var(--color-kds-text-muted)] transition-colors hover:bg-[var(--color-kds-surface-pressed)]"
             style={{ height: 48 }}
           >
             Cancel

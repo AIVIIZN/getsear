@@ -8,10 +8,10 @@
  *
  * Aging categories come from the server (ticket.age_category in the KDS store)
  * and are bucketed into:
- *   fresh    : < 5 min  → green border (--kds-aging-fresh)
- *   aging    : 5–7.5    → amber       (--kds-aging-aging)
- *   late     : 7.5–10   → orange      (--kds-aging-late)
- *   critical : > 10 min → red         (--kds-aging-critical)
+ *   fresh    : < 5 min  → green border (--color-kds-aging-fresh)
+ *   aging    : 5–7.5    → amber       (--color-kds-aging-aging)
+ *   late     : 7.5–10   → orange      (--color-kds-aging-late)
+ *   critical : > 10 min → red         (--color-kds-aging-critical)
  *
  * Smooth interpolation uses CSS color-mix between adjacent buckets so the
  * border eases through the gradient without JS recompute on every render —
@@ -24,14 +24,14 @@ export type AgingCategory = 'fresh' | 'aging' | 'late' | 'critical'
 export function getTicketAgingColor(category: AgingCategory): string {
   switch (category) {
     case 'fresh':
-      return 'var(--kds-aging-fresh)'
+      return 'var(--color-kds-aging-fresh)'
     case 'aging':
       // 50% mix of green→amber gives a "warming" hue at the start of the bucket.
-      return 'color-mix(in srgb, var(--kds-aging-fresh) 30%, var(--kds-aging-aging) 70%)'
+      return 'color-mix(in srgb, var(--color-kds-aging-fresh) 30%, var(--color-kds-aging-aging) 70%)'
     case 'late':
-      return 'color-mix(in srgb, var(--kds-aging-aging) 30%, var(--kds-aging-late) 70%)'
+      return 'color-mix(in srgb, var(--color-kds-aging-aging) 30%, var(--color-kds-aging-late) 70%)'
     case 'critical':
-      return 'var(--kds-aging-critical)'
+      return 'var(--color-kds-aging-critical)'
   }
 }
 
@@ -39,13 +39,13 @@ export function getTicketAgingColor(category: AgingCategory): string {
 export function getAgingBackground(category: AgingCategory): string {
   switch (category) {
     case 'fresh':
-      return 'var(--kds-ticket-bg)'
+      return 'var(--color-kds-ticket-bg)'
     case 'aging':
-      return 'var(--kds-ticket-bg-aging)'
+      return 'var(--color-kds-ticket-bg-aging)'
     case 'late':
-      return 'var(--kds-ticket-bg-late)'
+      return 'var(--color-kds-ticket-bg-late)'
     case 'critical':
-      return 'var(--kds-ticket-bg-critical)'
+      return 'var(--color-kds-ticket-bg-critical)'
   }
 }
 
@@ -53,11 +53,11 @@ export function getAgingBackground(category: AgingCategory): string {
 export function getItemAgingBorder(ageCategory: string | undefined): string {
   switch (ageCategory) {
     case 'aging':
-      return 'var(--kds-aging-aging)'
+      return 'var(--color-kds-aging-aging)'
     case 'late':
-      return 'var(--kds-aging-late)'
+      return 'var(--color-kds-aging-late)'
     case 'critical':
-      return 'var(--kds-aging-critical)'
+      return 'var(--color-kds-aging-critical)'
     default:
       return 'transparent'
   }

@@ -109,17 +109,17 @@ export function KdsMessagePanel({
       />
 
       {/* Panel — slide from right */}
-      <div className="relative flex w-full max-w-md flex-col bg-[#1a1a1a] shadow-2xl animate-slide-in-right">
+      <div className="relative flex w-full max-w-md flex-col bg-[var(--color-kds-surface)] shadow-2xl animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#2a2a2a] px-4 py-3">
+        <div className="flex items-center justify-between border-b border-[var(--color-kds-border)] px-4 py-3">
           <div className="flex items-center gap-3">
-            <MessageSquare className="h-5 w-5 text-[var(--primary)]" />
+            <MessageSquare className="h-5 w-5 text-[var(--color-primary)]" />
             <h2 className="text-lg font-bold text-white">Messages</h2>
-            <span className="text-sm text-[#888]">{stationName}</span>
+            <span className="text-sm text-[var(--color-kds-text-muted)]">{stationName}</span>
           </div>
           <button
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2a2a2a] text-[#888] transition-colors hover:bg-[#333] hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-muted)] transition-colors hover:bg-[var(--color-kds-surface-hover)] hover:text-white"
           >
             <X className="h-5 w-5" />
             <span className="sr-only">Close</span>
@@ -127,16 +127,16 @@ export function KdsMessagePanel({
         </div>
 
         {/* Target selector */}
-        <div className="flex items-center gap-2 border-b border-[#2a2a2a] px-4 py-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#888]">To:</span>
+        <div className="flex items-center gap-2 border-b border-[var(--color-kds-border)] px-4 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-kds-text-muted)]">To:</span>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setSelectedTarget(null)}
               className={cn(
                 'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
                 selectedTarget === null
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'bg-[#2a2a2a] text-[#888] hover:bg-[#333]'
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-muted)] hover:bg-[var(--color-kds-surface-hover)]'
               )}
             >
               All Stations
@@ -148,8 +148,8 @@ export function KdsMessagePanel({
                 className={cn(
                   'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
                   selectedTarget === s.id
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[#2a2a2a] text-[#888] hover:bg-[#333]'
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-muted)] hover:bg-[var(--color-kds-surface-hover)]'
                 )}
               >
                 {s.name}
@@ -168,7 +168,7 @@ export function KdsMessagePanel({
         >
           {relevantMessages.length === 0 ? (
             <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-[#666]">No messages yet</p>
+              <p className="text-sm text-[var(--color-kds-text-subtle)]">No messages yet</p>
             </div>
           ) : (
             relevantMessages.map((msg) => {
@@ -185,15 +185,15 @@ export function KdsMessagePanel({
                 >
                   {/* Sender info */}
                   <div className="mb-1 flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[#888]">
+                    <span className="text-xs font-semibold text-[var(--color-kds-text-muted)]">
                       {isFromMe ? 'You' : msg.from_station_name}
                     </span>
                     {isBroadcast && (
-                      <span className="rounded bg-[#333] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#888]">
+                      <span className="rounded bg-[var(--color-kds-surface-hover)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--color-kds-text-muted)]">
                         All
                       </span>
                     )}
-                    <span className="text-[10px] text-[#555]">
+                    <span className="text-[10px] text-[var(--color-kds-text-disabled)]">
                       {formatTime(msg.created_at)}
                     </span>
                   </div>
@@ -203,9 +203,9 @@ export function KdsMessagePanel({
                     className={cn(
                       'max-w-[85%] rounded-xl px-4 py-2.5 text-sm',
                       isFromMe
-                        ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[#2a2a2a] text-white',
-                      msg.message_type === 'quick' && !isFromMe && 'border border-[#444]'
+                        ? 'bg-[var(--color-primary)] text-white'
+                        : 'bg-[var(--color-kds-surface-active)] text-white',
+                      msg.message_type === 'quick' && !isFromMe && 'border border-[var(--color-kds-message-border)]'
                     )}
                   >
                     {msg.message}
@@ -224,7 +224,7 @@ export function KdsMessagePanel({
         />
 
         {/* Custom message input */}
-        <div className="border-t border-[#2a2a2a] px-4 py-3">
+        <div className="border-t border-[var(--color-kds-border)] px-4 py-3">
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
@@ -233,7 +233,7 @@ export function KdsMessagePanel({
               onChange={(e) => setCustomMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
-              className="flex-1 rounded-xl border border-[#333] bg-[#0a0a0a] px-4 py-3 text-sm text-white placeholder-[#555] outline-none focus:border-[var(--primary)]"
+              className="flex-1 rounded-xl border border-[var(--color-kds-border-strong)] bg-[var(--color-kds-input-bg)] px-4 py-3 text-sm text-white placeholder-[var(--color-kds-placeholder)] outline-none focus:border-[var(--color-primary)]"
               maxLength={500}
               autoComplete="off"
               inputMode="text"
@@ -245,8 +245,8 @@ export function KdsMessagePanel({
               className={cn(
                 'flex h-12 w-12 items-center justify-center rounded-xl transition-colors',
                 customMessage.trim()
-                  ? 'bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]'
-                  : 'bg-[#2a2a2a] text-[#555]'
+                  ? 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]'
+                  : 'bg-[var(--color-kds-surface-active)] text-[var(--color-kds-text-disabled)]'
               )}
             >
               <Send className="h-5 w-5" />

@@ -19,7 +19,7 @@ export function KdsAllergenBanner({ allergens }: KdsAllergenBannerProps) {
     <div
       role="alert"
       aria-live="assertive"
-      className="flex items-center justify-center gap-2 bg-[#FF0000] px-3 py-2.5"
+      className="flex items-center justify-center gap-2 bg-[var(--color-kds-priority-allergen)] px-3 py-2.5"
       style={{ pointerEvents: 'none' }}
     >
       {/* Warning icon */}
