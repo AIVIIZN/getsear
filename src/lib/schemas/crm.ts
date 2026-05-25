@@ -809,6 +809,18 @@ export const crmAiGatewaySchema = z.object({
   metadata: metadataSchema,
 })
 
+export const crmGuestBrainTaskSchema = z.enum(['guest_summary', 'server_brief', 'next_best_action'])
+
+export const crmGuestBrainSchema = z.object({
+  tasks: z.array(crmGuestBrainTaskSchema).min(1).max(3).default(['guest_summary', 'server_brief', 'next_best_action']),
+  location_id: optionalUuidSchema,
+  order_id: optionalUuidSchema,
+  table_id: optionalUuidSchema,
+  table_name: z.string().trim().max(80).optional().nullable(),
+  service_context: z.string().trim().max(500).optional().nullable(),
+  dry_run: z.boolean().default(false),
+})
+
 export const listCrmAiAuditQuerySchema = z.object({
   task_type: crmAiTaskTypeSchema.optional(),
   guest_id: z.string().uuid().optional(),
