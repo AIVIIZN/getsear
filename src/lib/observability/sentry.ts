@@ -40,3 +40,16 @@ export function captureLoggedError(message: string, fields: LogFields) {
     Sentry.captureException(error);
   });
 }
+
+export function captureRouteGroupError(
+  error: Error & { digest?: string },
+  routeGroup: string,
+) {
+  if (!hasSentryDsn()) return;
+
+  Sentry.withScope((scope) => {
+    scope.setTag("route_group", routeGroup);
+    if (error.digest) scope.setTag("digest", error.digest);
+    Sentry.captureException(error);
+  });
+}

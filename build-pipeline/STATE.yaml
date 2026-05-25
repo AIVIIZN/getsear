@@ -233,7 +233,7 @@ versions:
         type: parallel
         status: pending
         tasks:
-          "7.5.1": { status: pending, agent: coder, eta_hours: 2 }
+          "7.5.1": { status: complete, agent: coder, eta_hours: 2, review: "route-group error.tsx screens capture to Sentry and show branded reload UI" }
           # Inserted 2026-05-03: bucket B lint debt — high-risk realtime infrastructure. Remove from eslint.config.mjs bucketBLintDebt as each is fixed.
           # These touch the realtime sync layer and require careful refactor to avoid breaking KDS/POS/table updates.
           "7.5.2": { status: pending, agent: coder, eta_hours: 3, name: "lint debt: TableListView component-during-render refactor" }
