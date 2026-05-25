@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
 import { classifyCrmFeedback, crmComplaintSummary, crmFeedbackManageRoles, crmFeedbackReadRoles } from '@/lib/crm/feedback'
+import { createRecoveryCaseFromComplaint } from '@/lib/crm/recovery'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createCrmReviewSchema, listCrmReviewsQuerySchema } from '@/lib/schemas/crm'
 
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
   if (error || !review) return NextResponse.json({ error: 'Failed to import review' }, { status: 500 })
 
   let complaint = null
+  let recoveryCase = null
   if (classification.sentiment === 'negative') {
     const { data: complaintRow, error: complaintError } = await db
       .from('crm_complaints')
@@ -113,6 +115,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Review imported but recovery routing failed' }, { status: 409 })
     }
     complaint = complaintRow
+    const { caseRow, error: recoveryError } = await createRecoveryCaseFromComplaint({ db, user, complaint: complaintRow })
+    if (recoveryError || !caseRow) {
+      return NextResponse.json({ error: 'Review imported but recovery case creation failed' }, { status: 409 })
+    }
+    recoveryCase = caseRow
   }
 
   if (references.guest_id) {
@@ -127,7 +134,7 @@ export async function POST(request: NextRequest) {
       title: classification.sentiment === 'negative' ? 'Negative public review routed to recovery' : 'Public review imported',
       body: parsed.data.body ?? parsed.data.title ?? null,
       visibility: classification.sentiment === 'negative' ? 'manager' : 'service',
-      metadata: { review_id: review.id, complaint_id: complaint?.id ?? null, topics: classification.topics },
+      metadata: { review_id: review.id, complaint_id: complaint?.id ?? null, recovery_case_id: recoveryCase?.id ?? null, topics: classification.topics },
     })
   }
 
@@ -136,13 +143,13 @@ export async function POST(request: NextRequest) {
     action: classification.sentiment === 'negative' ? 'crm_negative_review_routed' : 'crm_review_imported',
     entity_type: 'crm_review',
     entity_id: review.id,
-    after_state: { review, complaint } as Record<string, unknown>,
+    after_state: { review, complaint, recovery_case: recoveryCase } as Record<string, unknown>,
     description: classification.sentiment === 'negative' ? 'Imported negative review and routed it to recovery' : 'Imported CRM review',
     request,
     location_id: references.location_id,
   })
 
-  return NextResponse.json({ data: { review, complaint, recovery_required: classification.sentiment === 'negative' } }, { status: 201 })
+  return NextResponse.json({ data: { review, complaint, recovery_case: recoveryCase, recovery_required: classification.sentiment === 'negative' } }, { status: 201 })
 }
 
 async function resolveReviewReferences(input: {

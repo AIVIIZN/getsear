@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
 import { classifyCrmFeedback, crmComplaintSummary, crmFeedbackReadRoles, crmFeedbackManageRoles } from '@/lib/crm/feedback'
+import { createRecoveryCaseFromComplaint } from '@/lib/crm/recovery'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createCrmSurveyResponseSchema, listCrmFeedbackQuerySchema } from '@/lib/schemas/crm'
 
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
   if (error || !response) return NextResponse.json({ error: 'Failed to create feedback response' }, { status: 500 })
 
   let complaint = null
+  let recoveryCase = null
   if (classification.sentiment === 'negative') {
     const { data: complaintRow, error: complaintError } = await db
       .from('crm_complaints')
@@ -120,6 +122,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Feedback saved but recovery routing failed' }, { status: 409 })
     }
     complaint = complaintRow
+    const { caseRow, error: recoveryError } = await createRecoveryCaseFromComplaint({ db, user, complaint: complaintRow })
+    if (recoveryError || !caseRow) {
+      return NextResponse.json({ error: 'Feedback saved but recovery case creation failed' }, { status: 409 })
+    }
+    recoveryCase = caseRow
   }
 
   if (references.guest_id) {
@@ -134,7 +141,7 @@ export async function POST(request: NextRequest) {
       title: classification.sentiment === 'negative' ? 'Negative feedback routed to recovery' : 'Guest feedback received',
       body: parsed.data.response_text ?? null,
       visibility: classification.sentiment === 'negative' ? 'manager' : 'service',
-      metadata: { response_id: response.id, complaint_id: complaint?.id ?? null, topics: classification.topics },
+      metadata: { response_id: response.id, complaint_id: complaint?.id ?? null, recovery_case_id: recoveryCase?.id ?? null, topics: classification.topics },
     })
   }
 
@@ -143,13 +150,13 @@ export async function POST(request: NextRequest) {
     action: classification.sentiment === 'negative' ? 'crm_negative_feedback_routed' : 'crm_feedback_created',
     entity_type: 'crm_survey_response',
     entity_id: response.id,
-    after_state: { response, complaint } as Record<string, unknown>,
+    after_state: { response, complaint, recovery_case: recoveryCase } as Record<string, unknown>,
     description: classification.sentiment === 'negative' ? 'Captured negative feedback and routed it to recovery' : 'Captured CRM feedback',
     request,
     location_id: locationId,
   })
 
-  return NextResponse.json({ data: { response, complaint, recovery_required: classification.sentiment === 'negative' } }, { status: 201 })
+  return NextResponse.json({ data: { response, complaint, recovery_case: recoveryCase, recovery_required: classification.sentiment === 'negative' } }, { status: 201 })
 }
 
 async function resolveFeedbackReferences(input: {
