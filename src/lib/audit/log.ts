@@ -111,6 +111,10 @@ export type AuditAction =
   | 'crm_loyalty_reward_created'
   | 'crm_loyalty_reward_redeemed'
   | 'crm_loyalty_review_item_updated'
+  | 'crm_segment_created'
+  | 'crm_segment_updated'
+  | 'crm_segment_previewed'
+  | 'crm_segment_materialized'
   // Tenant admin
   | 'audit_log_exported'
   | 'org_settings_changed'
@@ -140,6 +144,7 @@ export type EntityType =
   | 'loyalty_reward'
   | 'loyalty_redemption'
   | 'loyalty_review_item'
+  | 'crm_segment'
   | 'organization'
   | 'terminal'
   | 'audit_log'
