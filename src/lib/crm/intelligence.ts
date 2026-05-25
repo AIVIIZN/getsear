@@ -24,6 +24,7 @@ type ClosedOrder = {
   location_id: string | null
   order_type: string | null
   total: number | string | null
+  discount_total?: number | string | null
   closed_at: string | null
   created_at: string
 }
@@ -53,9 +54,35 @@ export type GuestIntelligenceSummary = {
   favorite_categories: Array<{ name: string; quantity: number; revenue: number; order_count: number }>
   channel_preference: string | null
   location_preference: string | null
+  discounted_order_ratio: number
   lifecycle_stage: GuestLifecycleStage
   lifecycle_explanation: string
 }
+
+export type GuestSmartTagSuggestion = {
+  slug: string
+  name: string
+  tag_category: 'lifecycle' | 'preference' | 'marketing' | 'loyalty' | 'risk' | 'system'
+  is_sensitive: boolean
+  confidence: number
+  reason: string
+  source: 'closed_checks' | 'guest_profile' | 'crm_case'
+}
+
+const SMART_TAG_SLUGS = [
+  'first-time',
+  'second-visit',
+  'regular',
+  'lapsed-regular',
+  'at-risk-vip',
+  'high-ltv',
+  'wine-lover',
+  'brunch-regular',
+  'delivery-only',
+  'discount-sensitive',
+  'birthday-this-month',
+  'complaint-unresolved',
+] as const
 
 function money(value: number): number {
   return Math.round(value * 100) / 100
@@ -82,6 +109,176 @@ function mostCommonValue(values: Array<string | null | undefined>): string | nul
     counts.set(value, { value, count: (counts.get(value)?.count ?? 0) + 1 })
   }
   return topByCount(counts)?.value ?? null
+}
+
+function hasBirthdayThisMonth(birthday: string | null | undefined, now: Date): boolean {
+  if (!birthday) return false
+  const [, month] = birthday.split('-')
+  return month === String(now.getUTCMonth() + 1).padStart(2, '0')
+}
+
+function containsCategory(summary: GuestIntelligenceSummary, category: string): boolean {
+  return summary.favorite_categories.some((entry) => entry.name.toLowerCase().includes(category))
+}
+
+function containsItem(summary: GuestIntelligenceSummary, pattern: RegExp): boolean {
+  return summary.favorite_items.some((entry) => pattern.test(entry.name.toLowerCase()))
+}
+
+export function calculateGuestSmartTags(input: {
+  summary: GuestIntelligenceSummary
+  birthday?: string | null
+  hasUnresolvedComplaint?: boolean
+  now?: Date
+}): GuestSmartTagSuggestion[] {
+  const { summary } = input
+  const suggestions: GuestSmartTagSuggestion[] = []
+  const add = (tag: GuestSmartTagSuggestion) => suggestions.push(tag)
+
+  const lifecycleTagByStage: Partial<Record<GuestLifecycleStage, GuestSmartTagSuggestion>> = {
+    first_time: {
+      slug: 'first-time',
+      name: 'First-time guest',
+      tag_category: 'lifecycle',
+      is_sensitive: false,
+      confidence: 1,
+      reason: 'Guest has exactly 1 closed check.',
+      source: 'closed_checks',
+    },
+    second_time: {
+      slug: 'second-visit',
+      name: 'Second visit',
+      tag_category: 'lifecycle',
+      is_sensitive: false,
+      confidence: 1,
+      reason: 'Guest has exactly 2 closed checks.',
+      source: 'closed_checks',
+    },
+    regular: {
+      slug: 'regular',
+      name: 'Regular guest',
+      tag_category: 'lifecycle',
+      is_sensitive: false,
+      confidence: 1,
+      reason: 'Guest has at least 5 closed checks.',
+      source: 'closed_checks',
+    },
+    lapsed: {
+      slug: 'lapsed-regular',
+      name: 'Lapsed regular',
+      tag_category: 'risk',
+      is_sensitive: true,
+      confidence: 0.95,
+      reason: summary.lifecycle_explanation,
+      source: 'closed_checks',
+    },
+    at_risk: {
+      slug: 'at-risk-vip',
+      name: 'At-risk VIP',
+      tag_category: 'risk',
+      is_sensitive: true,
+      confidence: 0.95,
+      reason: summary.lifecycle_explanation,
+      source: 'closed_checks',
+    },
+    vip: {
+      slug: 'high-ltv',
+      name: 'High LTV',
+      tag_category: 'loyalty',
+      is_sensitive: false,
+      confidence: 0.9,
+      reason: 'Guest reached VIP threshold from deterministic visit or spend totals.',
+      source: 'closed_checks',
+    },
+  }
+
+  const lifecycleTag = lifecycleTagByStage[summary.lifecycle_stage]
+  if (lifecycleTag) add(lifecycleTag)
+
+  if (summary.total_spend >= 1000) {
+    add({
+      slug: 'high-ltv',
+      name: 'High LTV',
+      tag_category: 'loyalty',
+      is_sensitive: false,
+      confidence: 0.9,
+      reason: `Guest lifetime spend is $${summary.total_spend}.`,
+      source: 'closed_checks',
+    })
+  }
+  if (containsCategory(summary, 'wine') || containsItem(summary, /\bwine\b|cabernet|merlot|pinot|chardonnay|sauvignon/)) {
+    add({
+      slug: 'wine-lover',
+      name: 'Wine lover',
+      tag_category: 'preference',
+      is_sensitive: false,
+      confidence: 0.8,
+      reason: 'Wine appears in favorite items or categories from closed checks.',
+      source: 'closed_checks',
+    })
+  }
+  if (containsCategory(summary, 'brunch') || containsItem(summary, /brunch|mimosa|benedict|pancake|waffle/)) {
+    add({
+      slug: 'brunch-regular',
+      name: 'Brunch regular',
+      tag_category: 'preference',
+      is_sensitive: false,
+      confidence: 0.75,
+      reason: 'Brunch items or categories appear in repeat order history.',
+      source: 'closed_checks',
+    })
+  }
+  if (summary.total_visits > 0 && summary.channel_preference === 'delivery') {
+    add({
+      slug: 'delivery-only',
+      name: 'Delivery-only',
+      tag_category: 'preference',
+      is_sensitive: false,
+      confidence: 0.85,
+      reason: 'Delivery is the most common closed-check channel.',
+      source: 'closed_checks',
+    })
+  }
+  if (summary.total_visits >= 2 && summary.discounted_order_ratio >= 0.5) {
+    add({
+      slug: 'discount-sensitive',
+      name: 'Discount-sensitive',
+      tag_category: 'marketing',
+      is_sensitive: true,
+      confidence: 0.7,
+      reason: `${Math.round(summary.discounted_order_ratio * 100)}% of closed checks include discounts.`,
+      source: 'closed_checks',
+    })
+  }
+  if (hasBirthdayThisMonth(input.birthday, input.now ?? new Date())) {
+    add({
+      slug: 'birthday-this-month',
+      name: 'Birthday this month',
+      tag_category: 'marketing',
+      is_sensitive: false,
+      confidence: 1,
+      reason: 'Guest birthday falls in the current month.',
+      source: 'guest_profile',
+    })
+  }
+  if (input.hasUnresolvedComplaint) {
+    add({
+      slug: 'complaint-unresolved',
+      name: 'Complaint unresolved',
+      tag_category: 'risk',
+      is_sensitive: true,
+      confidence: 1,
+      reason: 'Guest has an active service recovery note or unresolved complaint marker.',
+      source: 'crm_case',
+    })
+  }
+
+  const bySlug = new Map<string, GuestSmartTagSuggestion>()
+  for (const suggestion of suggestions) {
+    const existing = bySlug.get(suggestion.slug)
+    if (!existing || suggestion.confidence > existing.confidence) bySlug.set(suggestion.slug, suggestion)
+  }
+  return Array.from(bySlug.values())
 }
 
 function calculateLifecycle(input: {
@@ -128,6 +325,7 @@ export function calculateGuestIntelligence(input: {
   })
   const totalVisits = orders.length
   const totalSpend = money(orders.reduce((sum, order) => sum + asNumber(order.total), 0))
+  const discountedOrders = orders.filter((order) => asNumber(order.discount_total) > 0).length
   const firstOrder = orders[0] ?? null
   const lastOrder = orders[orders.length - 1] ?? null
   const firstVisitAt = firstOrder ? firstOrder.closed_at ?? firstOrder.created_at : null
@@ -186,9 +384,19 @@ export function calculateGuestIntelligence(input: {
       .map((category) => ({ name: category.name, quantity: category.quantity, revenue: money(category.revenue), order_count: category.orderIds.size })),
     channel_preference: channelPreference,
     location_preference: locationPreference,
+    discounted_order_ratio: totalVisits > 0 ? money(discountedOrders / totalVisits) : 0,
     lifecycle_stage: lifecycle.stage,
     lifecycle_explanation: lifecycle.explanation,
   }
+}
+
+function suppressedAutoTagSlugs(metadata: unknown): Set<string> {
+  const autoTags = metadata && typeof metadata === 'object'
+    ? (metadata as { crm_auto_tags?: { suppressed_slugs?: unknown } }).crm_auto_tags
+    : null
+  return new Set(Array.isArray(autoTags?.suppressed_slugs)
+    ? autoTags.suppressed_slugs.filter((slug): slug is string => typeof slug === 'string')
+    : [])
 }
 
 async function loadCategoryMap(db: DbClient, orgId: string, menuItemIds: string[]): Promise<Map<string, string>> {
@@ -215,7 +423,7 @@ export async function recalculateGuestIntelligence(input: {
   const db = input.db ?? createAdminClient()
   const { data: guest, error: guestError } = await db
     .from('guests')
-    .select('id, org_id, location_id, legacy_customer_id, lifecycle_stage, metadata')
+    .select('id, org_id, location_id, legacy_customer_id, lifecycle_stage, birthday, metadata')
     .eq('id', input.guestId)
     .eq('org_id', input.user.org_id)
     .is('deleted_at', null)
@@ -227,7 +435,7 @@ export async function recalculateGuestIntelligence(input: {
 
   const { data: crmOrders, error: crmOrdersError } = await db
     .from('orders')
-    .select('id, location_id, order_type, total, closed_at, created_at')
+    .select('id, location_id, order_type, total, discount_total, closed_at, created_at')
     .eq('org_id', input.user.org_id)
     .eq('status', 'closed')
     .contains('metadata', { crm_guest_id: input.guestId })
@@ -239,7 +447,7 @@ export async function recalculateGuestIntelligence(input: {
   if (legacyCustomerId) {
     const { data: legacyOrders, error: legacyOrdersError } = await db
       .from('orders')
-      .select('id, location_id, order_type, total, closed_at, created_at')
+      .select('id, location_id, order_type, total, discount_total, closed_at, created_at')
       .eq('org_id', input.user.org_id)
       .eq('status', 'closed')
       .eq('customer_id', legacyCustomerId)
@@ -268,6 +476,14 @@ export async function recalculateGuestIntelligence(input: {
     return menuItemId ? [menuItemId] : []
   })))
   const categoryByMenuItemId = await loadCategoryMap(db, input.user.org_id, menuItemIds)
+  const { data: complaintNotes } = await db
+    .from('guest_notes')
+    .select('id')
+    .eq('org_id', input.user.org_id)
+    .eq('guest_id', input.guestId)
+    .eq('note_category', 'service_recovery')
+    .is('deleted_at', null)
+    .limit(1)
   const summary = calculateGuestIntelligence({
     previousStage: (guest as { lifecycle_stage: GuestLifecycleStage }).lifecycle_stage,
     orders: closedOrders,
@@ -276,11 +492,19 @@ export async function recalculateGuestIntelligence(input: {
   })
   const previousStage = (guest as { lifecycle_stage: GuestLifecycleStage }).lifecycle_stage
   const now = new Date().toISOString()
+  const smartTags = calculateGuestSmartTags({
+    summary,
+    birthday: (guest as { birthday?: string | null }).birthday,
+    hasUnresolvedComplaint: (complaintNotes ?? []).length > 0,
+  })
+  const suppressedSlugs = suppressedAutoTagSlugs((guest as { metadata?: Record<string, unknown> | null }).metadata)
+  const activeSmartTags = smartTags.filter((tag) => !suppressedSlugs.has(tag.slug))
   const metadata = {
     ...(((guest as { metadata?: Record<string, unknown> | null }).metadata) ?? {}),
     crm_intelligence: {
       calculated_at: now,
       visit_frequency_days: summary.visit_frequency_days,
+      discounted_order_ratio: summary.discounted_order_ratio,
       favorite_items: summary.favorite_items,
       favorite_categories: summary.favorite_categories,
       channel_preference: summary.channel_preference,
@@ -288,6 +512,14 @@ export async function recalculateGuestIntelligence(input: {
       lifecycle_explanation: summary.lifecycle_explanation,
       source: 'closed_checks',
       deterministic: true,
+    },
+    crm_auto_tags: {
+      ...(((guest as { metadata?: { crm_auto_tags?: Record<string, unknown> } | null }).metadata)?.crm_auto_tags ?? {}),
+      calculated_at: now,
+      source: 'closed_checks',
+      applied_slugs: activeSmartTags.map((tag) => tag.slug),
+      suppressed_slugs: Array.from(suppressedSlugs),
+      explanations: Object.fromEntries(activeSmartTags.map((tag) => [tag.slug, tag.reason])),
     },
   }
 
@@ -335,19 +567,119 @@ export async function recalculateGuestIntelligence(input: {
     })
   }
 
+  await applyGuestSmartTags({
+    db,
+    user: input.user,
+    guestId: input.guestId,
+    locationId: (guest as { location_id: string | null }).location_id,
+    suggestions: activeSmartTags,
+    now,
+  })
+
   await audit.record({
     actor: input.user,
     action: 'crm_guest_intelligence_recalculated',
     entity_type: 'guest',
     entity_id: input.guestId,
     before_state: { lifecycle_stage: previousStage },
-    after_state: summary as unknown as Record<string, unknown>,
+    after_state: { ...summary, auto_tags: activeSmartTags } as unknown as Record<string, unknown>,
     description: 'Recalculated CRM guest intelligence from closed checks',
     request: input.request,
     location_id: (guest as { location_id: string | null }).location_id,
   })
 
-  return { data: { guest: updated, intelligence: summary, lifecycle_changed: previousStage !== summary.lifecycle_stage } }
+  return { data: { guest: updated, intelligence: summary, auto_tags: activeSmartTags, lifecycle_changed: previousStage !== summary.lifecycle_stage } }
+}
+
+async function applyGuestSmartTags(input: {
+  db: DbClient
+  user: Pick<AuthUser, 'id' | 'email' | 'org_id' | 'role'>
+  guestId: string
+  locationId: string | null
+  suggestions: GuestSmartTagSuggestion[]
+  now: string
+}) {
+  const slugs = input.suggestions.map((tag) => tag.slug)
+  const desiredSlugs = new Set(slugs)
+
+  const { data: existingTags } = await input.db
+    .from('crm_tags')
+    .select('id, slug')
+    .eq('org_id', input.user.org_id)
+    .in('slug', [...SMART_TAG_SLUGS])
+    .is('deleted_at', null)
+
+  const tagIdBySlug = new Map(((existingTags ?? []) as Array<{ id: string; slug: string }>).map((tag) => [tag.slug, tag.id]))
+  for (const suggestion of input.suggestions) {
+    if (tagIdBySlug.has(suggestion.slug)) continue
+    const { data: created } = await input.db
+      .from('crm_tags')
+      .insert({
+        org_id: input.user.org_id,
+        location_id: input.locationId,
+        name: suggestion.name,
+        slug: suggestion.slug,
+        description: suggestion.reason,
+        tag_category: suggestion.tag_category,
+        is_system: true,
+        is_sensitive: suggestion.is_sensitive,
+        metadata: { auto_tag_rule: suggestion.slug, source: suggestion.source },
+      })
+      .select('id, slug')
+      .single()
+    if (created) tagIdBySlug.set((created as { slug: string }).slug, (created as { id: string }).id)
+  }
+
+  const tagIds = Array.from(tagIdBySlug.values())
+  if (tagIds.length === 0) return
+  const { data: existingAssignments } = await input.db
+    .from('guest_tags')
+    .select('id, tag_id, assignment_source, metadata')
+    .eq('org_id', input.user.org_id)
+    .eq('guest_id', input.guestId)
+    .in('tag_id', tagIds)
+    .is('deleted_at', null)
+
+  const slugByTagId = new Map(Array.from(tagIdBySlug.entries()).map(([slug, id]) => [id, slug]))
+  const typedAssignments = (existingAssignments ?? []) as Array<{ id: string; tag_id: string; assignment_source?: string | null }>
+  const staleAutoAssignmentIds = typedAssignments.flatMap((assignment) => {
+    const slug = slugByTagId.get(assignment.tag_id)
+    if (!slug || desiredSlugs.has(slug) || assignment.assignment_source !== 'auto_rule') return []
+    return [assignment.id]
+  })
+  if (staleAutoAssignmentIds.length > 0) {
+    await input.db
+      .from('guest_tags')
+      .update({ deleted_at: input.now })
+      .eq('org_id', input.user.org_id)
+      .in('id', staleAutoAssignmentIds)
+  }
+
+  const activeAssignmentByTagId = new Map(typedAssignments.map((assignment) => [assignment.tag_id, assignment]))
+  const assignments = input.suggestions.flatMap((suggestion) => {
+    const tagId = tagIdBySlug.get(suggestion.slug)
+    if (!tagId || activeAssignmentByTagId.has(tagId)) return []
+    return [{
+      org_id: input.user.org_id,
+      location_id: input.locationId,
+      guest_id: input.guestId,
+      tag_id: tagId,
+      assigned_by_user_id: input.user.id,
+      assignment_source: 'auto_rule',
+      assignment_reason: suggestion.reason,
+      confidence: suggestion.confidence,
+      metadata: {
+        auto_tag_rule: suggestion.slug,
+        auto_tag_source: suggestion.source,
+        auto_tag_run_at: input.now,
+        manual_override_supported: true,
+      },
+    }]
+  })
+
+  if (assignments.length > 0) {
+    await input.db.from('guest_tags').insert(assignments)
+  }
 }
 
 export async function recalculateGuestIntelligenceForOrder(input: {

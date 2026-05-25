@@ -128,6 +128,24 @@ function sanitizeSuppressionEntries(value: unknown, permissions: CrmGuestPermiss
   })
 }
 
+function sanitizeGuestTags(value: unknown, permissions: CrmGuestPermissions): unknown {
+  if (!Array.isArray(value)) return value
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [entry]
+    const row = { ...(entry as Record<string, unknown>) }
+    const tags = row.crm_tags
+    const tag = Array.isArray(tags) ? tags[0] : tags
+    const isSensitive = Boolean(tag && typeof tag === 'object' && (tag as { is_sensitive?: unknown }).is_sensitive)
+    if (!isSensitive) return [row]
+    if (!permissions.can_view_internal_manager_notes) return []
+    return [{
+      ...row,
+      assignment_reason: permissions.can_view_recovery_details ? row.assignment_reason : null,
+      metadata: permissions.can_view_recovery_details ? row.metadata : {},
+    }]
+  })
+}
+
 export function sanitizeGuestForCrmRole<T extends Record<string, unknown>>(guest: T, user: Pick<AuthUser, 'role'>): T & { crm_permissions: CrmGuestPermissions } {
   const permissions = getCrmGuestPermissions(user)
   const sanitized = { ...guest } as Record<string, unknown> & { crm_permissions: CrmGuestPermissions }
@@ -137,6 +155,7 @@ export function sanitizeGuestForCrmRole<T extends Record<string, unknown>>(guest
   }
 
   sanitized.suppression_entries = sanitizeSuppressionEntries(sanitized.suppression_entries, permissions)
+  sanitized.guest_tags = sanitizeGuestTags(sanitized.guest_tags, permissions)
   if (!permissions.can_view_do_not_contact_reason && sanitized.lifecycle_stage === 'do_not_contact') {
     sanitized.metadata = {}
   }
