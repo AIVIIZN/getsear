@@ -17,7 +17,7 @@ const createModifierGroupSchema = z.object({
   ).optional().default([]),
 })
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   const user = await getAuthUser()
   if (user instanceof NextResponse) return user
 
@@ -73,13 +73,14 @@ export async function POST(request: NextRequest) {
 
   const nextSortOrder = (maxRow?.sort_order ?? -1) + 1
 
-  const { modifiers: modifiersList, ...groupData } = parsed.data
+  const { modifiers: modifiersList, is_required: isRequired, ...groupData } = parsed.data
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: group, error: groupErr } = await (supabase.from('modifier_groups') as any)
     .insert({
       org_id: user.org_id,
       sort_order: nextSortOrder,
+      is_required_prompt: isRequired,
       ...groupData,
     })
     .select()
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
       org_id: user.org_id,
       modifier_group_id: group.id,
       name: mod.name,
-      price: mod.price,
+      price_adjustment: mod.price,
       is_active: mod.is_active,
       sort_order: idx,
     }))
