@@ -17,6 +17,8 @@
  *   - Errors should pass `err: error.message` and optionally `err_stack`.
  */
 
+import { addSentryBreadcrumb, captureLoggedError } from './sentry'
+
 export interface LogFields {
   req_id?: string
   user_id?: string
@@ -46,6 +48,13 @@ function emit(level: Level, msg: string, fields: LogFields = {}): void {
     console.error(line)
   } else {
     console.log(line)
+  }
+
+  if (level === 'warn' || level === 'error') {
+    addSentryBreadcrumb(msg, fields)
+  }
+  if (level === 'error') {
+    captureLoggedError(msg, fields)
   }
 }
 

@@ -59,6 +59,14 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
 
   git pull origin main
   npm ci
+
+  # Source build-time env before `next build` so Sentry can tag releases and
+  # upload source maps when SENTRY_AUTH_TOKEN/SENTRY_* are configured.
+  set -a
+  source /opt/sear/app/.env.local
+  export SENTRY_RELEASE=$(git rev-parse HEAD)
+  set +a
+
   npm run build
 
   # Copy standalone assets — use rm+cp pattern to avoid nested directories on
@@ -71,6 +79,7 @@ ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new "$VM_HOST" '
   # Source env — LOAD-BEARING V5.3 P0: see header comment.
   set -a
   source /opt/sear/app/.env.local
+  export SENTRY_RELEASE=$(git rev-parse HEAD)
   set +a
 
   # Reload with zero-downtime. If sear-pos process is missing (VM reboot or

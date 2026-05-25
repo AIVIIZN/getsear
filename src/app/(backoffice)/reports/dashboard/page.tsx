@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui-v2/data/Skeleton'
 import { EmptyState } from '@/components/ui-v2/feedback/EmptyState'
 import { OwnerDashboardCard } from '@/components/reports/OwnerDashboardCard'
 import { ComparisonArrow } from '@/components/reports/ComparisonArrow'
-import { DollarSign, Users, AlertTriangle, Receipt, RefreshCw } from 'lucide-react'
+import { DollarSign, Users, AlertTriangle, Receipt, RefreshCw, Activity } from 'lucide-react'
 
 interface DashboardData {
   today_revenue: number
@@ -23,9 +23,20 @@ interface DashboardData {
   alerts: Array<{ type: string; message: string; severity: 'warning' | 'critical' }>
 }
 
+interface ObservabilityData {
+  rum: Array<{
+    route: string
+    sample_count: number
+    poor_count: number
+    metrics: Partial<Record<'LCP' | 'CLS' | 'INP' | 'FCP' | 'TTFB', { p75: number; latest: number; rating: string }>>
+  }>
+  alert_rules: Array<{ id: string; name: string; threshold: number; window: string; severity: string }>
+}
+
 export default function OwnerDashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
+  const [observability, setObservability] = useState<ObservabilityData | null>(null)
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
@@ -35,6 +46,11 @@ export default function OwnerDashboardPage() {
       if (res.ok) {
         const json = await res.json()
         if (json.data) setData(json.data)
+      }
+      const obsRes = await fetch('/api/reports/observability')
+      if (obsRes.ok) {
+        const json = await obsRes.json()
+        if (json.data) setObservability(json.data)
       }
     } catch {
       // Silently fail on refresh
@@ -170,6 +186,59 @@ export default function OwnerDashboardPage() {
               </p>
             </Card>
           )}
+
+          <Card padding="default">
+            <div className="flex items-center justify-between gap-[var(--space-3)]">
+              <div className="flex items-center gap-[var(--space-2)]">
+                <Activity className="h-5 w-5 text-[color:var(--color-primary)]" />
+                <div>
+                  <p className="text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)] text-[color:var(--color-text-muted)] uppercase tracking-wide">
+                    Web vitals
+                  </p>
+                  <p className="text-[length:var(--type-subhead-size)] font-[var(--weight-semibold)] text-[color:var(--color-text)]">
+                    {observability?.rum.length ?? 0} routes sampled
+                  </p>
+                </div>
+              </div>
+              <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)] text-right">
+                Alerts: {observability?.alert_rules.length ?? 0}
+              </p>
+            </div>
+
+            <div className="mt-[var(--space-3)] space-y-[var(--space-2)]">
+              {(observability?.rum ?? []).slice(0, 3).map((route) => (
+                <div
+                  key={route.route}
+                  className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-[var(--space-2)]"
+                >
+                  <div className="flex items-center justify-between gap-[var(--space-2)]">
+                    <p className="min-w-0 truncate text-[length:var(--type-caption-1-size)] font-[var(--weight-medium)]">
+                      {route.route}
+                    </p>
+                    <p className="shrink-0 text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                      {route.sample_count} samples
+                    </p>
+                  </div>
+                  <div className="mt-[var(--space-2)] grid grid-cols-3 gap-[var(--space-2)] text-[length:var(--type-caption-1-size)]">
+                    {(['LCP', 'CLS', 'INP'] as const).map((name) => (
+                      <div key={name}>
+                        <p className="text-[color:var(--color-text-muted)]">{name}</p>
+                        <p className="font-[var(--weight-semibold)] tabular-nums">
+                          {route.metrics[name] ? route.metrics[name]?.p75 : '-'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {observability && observability.rum.length === 0 && (
+                <p className="text-[length:var(--type-caption-1-size)] text-[color:var(--color-text-muted)]">
+                  Vitals appear after staff browsers load POS routes.
+                </p>
+              )}
+            </div>
+          </Card>
         </>
       )}
 

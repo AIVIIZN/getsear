@@ -43,7 +43,7 @@ function handle(metric: Metric, route: string) {
     value: Math.round(metric.value * 100) / 100,
     rating: metric.rating,
     route,
-    href: typeof window !== 'undefined' ? window.location.pathname : '/',
+    href: typeof window !== 'undefined' ? window.location.href : '/',
     ts: new Date().toISOString(),
   })
 }
