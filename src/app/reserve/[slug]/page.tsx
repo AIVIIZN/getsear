@@ -15,7 +15,7 @@ interface TimeSlot {
 export default function ReserveWidget() {
   const params = useParams()
   const router = useRouter()
-  const slug = params.slug as string
+  const slug = String(params?.slug ?? '')
 
   const [locationName, setLocationName] = useState<string>('')
   const [step, setStep] = useState<'select' | 'info'>('select')
