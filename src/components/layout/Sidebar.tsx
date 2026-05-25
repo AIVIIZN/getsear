@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Clock,
   ShieldCheck,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +66,7 @@ const sections: NavSectionData[] = [
   {
     label: "Management",
     items: [
+      { label: "Friday Night", shortLabel: "Friday", href: "/friday-night", icon: Gauge },
       { label: "Menu", href: "/menu", icon: UtensilsCrossed },
       { label: "Staff", href: "/staff", icon: Users },
       { label: "Guests", href: "/guests", icon: Contact },

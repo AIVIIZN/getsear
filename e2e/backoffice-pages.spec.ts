@@ -34,6 +34,13 @@ test.describe('Back Office Pages', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible()
   })
 
+  test('friday night mode cockpit loads', async ({ page }) => {
+    await page.goto('/friday-night')
+    await expect(page).toHaveURL(/\/friday-night/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Friday Night Mode' })).toBeVisible()
+    await expect(page.getByText('Who needs help now')).toBeVisible({ timeout: 10000 })
+  })
+
   test('settings organization loads', async ({ page }) => {
     await page.goto('/settings/organization')
     await expect(page).toHaveURL(/\/settings\/organization/)
