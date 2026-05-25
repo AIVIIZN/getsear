@@ -547,6 +547,8 @@ export default function OrdersPage() {
             location_id: activeLocationId,
             table_id: currentOrder.table_id,
             guest_count: currentOrder.guest_count,
+            guest_name: currentOrder.guest?.display_name ?? null,
+            guest_phone: currentOrder.guest?.phone ?? null,
             notes: currentOrder.notes,
           }),
         })
@@ -558,6 +560,19 @@ export default function OrdersPage() {
 
         const createJson = await createRes.json()
         orderId = createJson.data.id
+
+        if (currentOrder.guest?.id) {
+          const attachRes = await fetch(`/api/orders/${orderId}/guest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guest_id: currentOrder.guest.id }),
+          })
+          if (!attachRes.ok) {
+            const body = await attachRes.json().catch(() => ({}))
+            toast.error(body?.error ?? 'Failed to attach guest')
+            return
+          }
+        }
 
         for (const item of currentOrder.items.filter((i) => !i.voided)) {
           await fetch(`/api/orders/${orderId}/items`, {

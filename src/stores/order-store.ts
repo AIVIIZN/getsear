@@ -57,6 +57,20 @@ interface OrderItem {
 
 type SyncStatus = 'synced' | 'pending' | 'syncing' | 'failed' | 'conflict' | 'store_and_forward'
 
+export interface OrderGuestMemory {
+  id: string
+  display_name: string
+  phone: string | null
+  email: string | null
+  lifecycle_stage: string
+  is_vip: boolean
+  total_visits: number
+  total_spend: number
+  last_visit_at: string | null
+  allergies: { allergen: string; severity: string }[]
+  preferences: { preference_category: string; preference_key: string }[]
+}
+
 interface Order {
   id: string
   order_number: string
@@ -67,6 +81,7 @@ interface Order {
   server_id: string
   server_name: string
   guest_count: number
+  guest: OrderGuestMemory | null
   items: OrderItem[]
   subtotal_cents: number
   discount_cents: number
@@ -110,6 +125,7 @@ interface OrderState {
     setActiveSeat: (seat: number | null) => void
     setActiveCourse: (course: number) => void
     setGuestCount: (count: number) => void
+    attachGuest: (guest: OrderGuestMemory | null) => void
     setOrderType: (type: OrderType) => void
     setTable: (tableId: string, tableName: string) => void
     setForHere: (forHere: boolean) => void
@@ -203,6 +219,7 @@ export const useOrderStore = create<OrderState>()(
             server_id,
             server_name,
             guest_count: 1,
+            guest: null,
             items: [],
             subtotal_cents: 0,
             discount_cents: 0,
@@ -384,6 +401,12 @@ export const useOrderStore = create<OrderState>()(
       setGuestCount: (count) =>
         set((state) => {
           if (state.currentOrder) state.currentOrder.guest_count = count
+        }),
+
+      attachGuest: (guest) =>
+        set((state) => {
+          if (!state.currentOrder) return
+          state.currentOrder.guest = guest
         }),
 
       setOrderType: (type) =>

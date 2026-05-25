@@ -30,32 +30,61 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
   }
 
-  if (!guest.legacy_customer_id) {
-    return NextResponse.json({
-      data: [],
-      pagination: { page, limit, total: 0, total_pages: 0 },
-    })
-  }
+  const orderMap = new Map<string, unknown>()
+  let total = 0
 
-  const { data, error, count } = await supabase
+  const crmLinkedQuery = supabase
     .from('orders')
-    .select('id, order_number, status, order_type, subtotal, tax_total, total, item_count, created_at, closed_at', { count: 'exact' })
-    .eq('customer_id', guest.legacy_customer_id)
+    .select('id, order_number, status, order_type, subtotal, tax_total, total, item_count, created_at, closed_at, guest_name, guest_phone, metadata', { count: 'exact' })
     .eq('org_id', user.org_id)
+    .contains('metadata', { crm_guest_id: id })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
-  if (error) {
+  const { data: crmLinkedOrders, error: crmLinkedError, count: crmLinkedCount } = await crmLinkedQuery
+
+  if (crmLinkedError) {
     return NextResponse.json({ error: 'Failed to fetch CRM guest order history' }, { status: 500 })
   }
 
+  for (const order of crmLinkedOrders ?? []) {
+    orderMap.set((order as { id: string }).id, order)
+  }
+  total += crmLinkedCount ?? 0
+
+  if (guest.legacy_customer_id) {
+    const { data: legacyOrders, error: legacyError, count: legacyCount } = await supabase
+      .from('orders')
+      .select('id, order_number, status, order_type, subtotal, tax_total, total, item_count, created_at, closed_at, guest_name, guest_phone, metadata', { count: 'exact' })
+      .eq('customer_id', guest.legacy_customer_id)
+      .eq('org_id', user.org_id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (legacyError) {
+      return NextResponse.json({ error: 'Failed to fetch CRM guest order history' }, { status: 500 })
+    }
+
+    for (const order of legacyOrders ?? []) {
+      orderMap.set((order as { id: string }).id, order)
+    }
+    total += legacyCount ?? 0
+  }
+
+  const data = Array.from(orderMap.values())
+    .sort((a, b) => {
+      const left = new Date((a as { created_at: string }).created_at).getTime()
+      const right = new Date((b as { created_at: string }).created_at).getTime()
+      return right - left
+    })
+
   return NextResponse.json({
-    data: data ?? [],
+    data,
     pagination: {
       page,
       limit,
-      total: count ?? 0,
-      total_pages: Math.ceil((count ?? 0) / limit),
+      total,
+      total_pages: Math.ceil(total / limit),
     },
   })
 }
