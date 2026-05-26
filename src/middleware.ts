@@ -12,10 +12,12 @@ const PUBLIC_ROUTES = [
   '/favicon.ico',
   '/api/auth',
   '/api/webhooks',
+  '/api/billing/webhook',
   '/api/integrations/resend/webhook',
   '/api/terminals/activate',
   '/api/terminals/heartbeat',
   '/api/observability/rum',
+  '/email-previews',
 ]
 
 /**
@@ -57,6 +59,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === '/version') {
+    const response = NextResponse.next()
+    response.headers.set('x-request-id', reqId)
+    return response
+  }
+
+  if (pathname === '/api/billing/webhook') {
+    const response = NextResponse.next()
+    response.headers.set('x-request-id', reqId)
+    return response
+  }
+
+  if (pathname.startsWith('/email-previews') && process.env.NODE_ENV !== 'production') {
     const response = NextResponse.next()
     response.headers.set('x-request-id', reqId)
     return response

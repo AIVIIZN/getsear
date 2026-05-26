@@ -9,6 +9,7 @@ import {
   Shield,
   ToggleLeft,
   Calculator,
+  CreditCard,
   ChefHat,
   Plug2,
   Sparkles,
@@ -78,6 +79,12 @@ const settingsLinks = [
     icon: Calculator,
     label: 'Accounting',
     description: 'QuickBooks integration',
+  },
+  {
+    href: '/settings/billing',
+    icon: CreditCard,
+    label: 'Billing',
+    description: 'Trial, subscription tier, and feature access',
   },
   {
     href: '/settings/ai',

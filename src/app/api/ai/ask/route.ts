@@ -7,6 +7,7 @@ import { AI_TOOLS } from '@/lib/ai/tools'
 import { executeToolCall } from '@/lib/ai/tool-handlers'
 import { checkRateLimit } from '@/lib/ai/cost-tracker'
 import { getCachedResponse, setCachedResponse } from '@/lib/ai/cache'
+import { billingFeatures, requireFeatureTier } from '@/lib/billing/features'
 import type Anthropic from '@anthropic-ai/sdk'
 
 const askSchema = z.object({
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
 
   const roleErr = requireRole(user, ['owner', 'admin', 'manager', 'shift_manager', 'server', 'bartender'])
   if (roleErr) return roleErr
+
+  const billingErr = await requireFeatureTier(user.org_id, billingFeatures.ai)
+  if (billingErr) return billingErr
 
   let body: unknown
   try {
