@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:dev": "playwright test --config=playwright.dev.config.ts",
+    "security:rls": "node scripts/rls-fuzz.mjs",
     "db:diff": "node scripts/db-diff.mjs",
     "backup:daily": "bash scripts/backup.sh",
     "restore:staging": "bash scripts/restore-staging.sh"
