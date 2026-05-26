@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   const locationId = searchParams.get('location_id') ?? user.location_ids[0]
 
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch tables' }, { status: 500 })
+    return apiError(500, 'Failed to fetch tables')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -73,15 +74,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createTableSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -95,7 +93,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!floorPlan) {
-    return NextResponse.json({ error: 'Floor plan not found' }, { status: 404 })
+    return apiError(404, 'Floor plan not found')
   }
 
   // Check table name uniqueness within floor plan
@@ -108,10 +106,7 @@ export async function POST(request: NextRequest) {
     .limit(1)
 
   if (existing && existing.length > 0) {
-    return NextResponse.json(
-      { error: 'A table with this name already exists in this floor plan' },
-      { status: 409 }
-    )
+    return apiError(409, 'A table with this name already exists in this floor plan')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +122,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create table' }, { status: 500 })
+    return apiError(500, 'Failed to create table')
   }
 
   return NextResponse.json({ data }, { status: 201 })

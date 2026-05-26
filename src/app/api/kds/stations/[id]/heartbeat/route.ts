@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -34,10 +35,7 @@ export async function POST(
 
   const parsed = heartbeatSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { active_ticket_count, active_item_count, utilization_pct } = parsed.data
@@ -53,7 +51,7 @@ export async function POST(
     .single()
 
   if (fetchError || !station) {
-    return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+    return apiError(404, 'Station not found')
   }
 
   const previousHeartbeat = station.last_heartbeat_at
@@ -81,7 +79,7 @@ export async function POST(
     .eq('id', id)
 
   if (updateError) {
-    return NextResponse.json({ error: 'Failed to update heartbeat' }, { status: 500 })
+    return apiError(500, 'Failed to update heartbeat')
   }
 
   // If station was offline and is now back, broadcast recovery event

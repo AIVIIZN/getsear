@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id required' }, { status: 400 })
+    return apiError(400, 'location_id required')
   }
 
   const config = await getIntegrationConfigMasked(locationId, 'sendgrid')
@@ -57,7 +58,7 @@ export async function PUT(request: NextRequest) {
   const body = await request.json()
   const parsed = UpdateConfigSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+    return apiError(400, parsed.error.issues[0].message)
   }
 
   const { location_id, is_active, ...configFields } = parsed.data
@@ -66,9 +67,6 @@ export async function PUT(request: NextRequest) {
     await saveIntegrationConfig(location_id, 'sendgrid', configFields, is_active ?? true)
     return NextResponse.json({ data: { success: true } })
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to save config' },
-      { status: 500 }
-    )
+    return apiError(500, err instanceof Error ? err.message : 'Failed to save config')
   }
 }

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -19,7 +20,7 @@ export async function GET() {
     .order('current_stock', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   const alerts = (items ?? [])

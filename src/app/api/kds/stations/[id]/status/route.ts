@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -33,7 +34,7 @@ export async function GET(
     .single()
 
   if (error || !station) {
-    return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+    return apiError(404, 'Station not found')
   }
 
   const lastHeartbeat = station.last_heartbeat_at

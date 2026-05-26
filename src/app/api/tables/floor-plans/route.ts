@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const locationId = searchParams.get('location_id') ?? user.location_ids[0]
 
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     .order('sort_order', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch floor plans' }, { status: 500 })
+    return apiError(500, 'Failed to fetch floor plans')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -55,20 +56,17 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createFloorPlanSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const locationId = (body as Record<string, unknown>).location_id as string | undefined ?? user.location_ids[0]
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const supabase = createAdminClient()
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create floor plan' }, { status: 500 })
+    return apiError(500, 'Failed to create floor plan')
   }
 
   return NextResponse.json({ data }, { status: 201 })

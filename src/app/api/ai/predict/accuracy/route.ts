@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { getPredictionAccuracy } from '@/lib/ai/prediction-engine'
@@ -33,9 +34,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(accuracy)
   } catch (err) {
     console.error('[api/ai/predict/accuracy] Error:', err)
-    return NextResponse.json(
-      { error: 'Failed to calculate accuracy' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to calculate accuracy')
   }
 }

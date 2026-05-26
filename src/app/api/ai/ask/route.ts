@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -50,15 +51,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = askSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { message, history } = parsed.data
@@ -67,13 +65,7 @@ export async function POST(request: NextRequest) {
   // Rate limit check
   const rateLimit = await checkRateLimit(user.org_id, user.id)
   if (!rateLimit.allowed) {
-    return NextResponse.json(
-      {
-        error: 'Rate limit exceeded',
-        message: `You've reached your daily limit of queries. ${rateLimit.remaining} remaining. Resets at midnight.`,
-      },
-      { status: 429 }
-    )
+    return apiError(429, 'Rate limit exceeded')
   }
 
   // Check cache
@@ -231,15 +223,9 @@ export async function POST(request: NextRequest) {
     console.error('[api/ai/ask] Error:', errMsg)
 
     if (errMsg.includes('ANTHROPIC_API_KEY')) {
-      return NextResponse.json(
-        { error: 'AI assistant is not configured. Please set your Anthropic API key.' },
-        { status: 503 }
-      )
+      return apiError(503, 'AI assistant is not configured. Please set your Anthropic API key.')
     }
 
-    return NextResponse.json(
-      { error: 'AI assistant is temporarily unavailable. Please try again in a few minutes.' },
-      { status: 503 }
-    )
+    return apiError(503, 'AI assistant is temporarily unavailable. Please try again in a few minutes.')
   }
 }

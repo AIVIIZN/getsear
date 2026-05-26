@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listRedemptionsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { page, limit, account_id, reward_id, order_id } = parsed.data
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error, count } = await query
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch CRM loyalty redemptions' }, { status: 500 })
+    return apiError(500, 'Failed to fetch CRM loyalty redemptions')
   }
 
   return NextResponse.json({

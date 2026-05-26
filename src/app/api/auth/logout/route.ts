@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -8,9 +9,6 @@ export async function POST() {
 
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json(
-      { error: 'Failed to sign out. Please try again.' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to sign out. Please try again.')
   }
 }

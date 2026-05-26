@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { calculateCrmAdvancedIntelligence } from '@/lib/crm/advanced-intelligence'
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   if (roleErr) return roleErr
 
   const parsed = crmAdvancedIntelligenceQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams.entries()))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid advanced intelligence query', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid advanced intelligence query', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const since = new Date(Date.now() - parsed.data.days * 86_400_000).toISOString()
   const db = createAdminClient()
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.location_id) guestQuery = guestQuery.eq('location_id', parsed.data.location_id)
 
   const { data: guests, error: guestError } = await guestQuery
-  if (guestError) return NextResponse.json({ error: 'Failed to fetch CRM guests for advanced intelligence' }, { status: 500 })
+  if (guestError) return apiError(500, 'Failed to fetch CRM guests for advanced intelligence')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let orderQuery = (db.from('orders') as any)
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.location_id) orderQuery = orderQuery.eq('location_id', parsed.data.location_id)
 
   const { data: rawOrders, error: orderError } = await orderQuery
-  if (orderError) return NextResponse.json({ error: 'Failed to fetch CRM order signals for advanced intelligence' }, { status: 500 })
+  if (orderError) return apiError(500, 'Failed to fetch CRM order signals for advanced intelligence')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: campaigns, error: campaignError } = await (db.from('crm_campaigns') as any)
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
     .order('updated_at', { ascending: false })
     .limit(100)
 
-  if (campaignError) return NextResponse.json({ error: 'Failed to fetch CRM campaigns for advanced intelligence' }, { status: 500 })
+  if (campaignError) return apiError(500, 'Failed to fetch CRM campaigns for advanced intelligence')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: attributionEvents, error: attributionError } = await (db.from('crm_attribution_events') as any)
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
     .gte('event_at', since)
     .limit(5000)
 
-  if (attributionError) return NextResponse.json({ error: 'Failed to fetch CRM attribution signals for advanced intelligence' }, { status: 500 })
+  if (attributionError) return apiError(500, 'Failed to fetch CRM attribution signals for advanced intelligence')
 
   const orders = ((rawOrders ?? []) as Array<Record<string, unknown>>).map((order) => ({
     ...order,

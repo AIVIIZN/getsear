@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const parsed = invoiceSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 })
+    return apiError(400, parsed.error.flatten().fieldErrors)
   }
 
   const db = createAdminClient()
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
   const { data: locations } = await query
 
   if (!locations || locations.length === 0) {
-    return NextResponse.json({ error: 'No locations found' }, { status: 404 })
+    return apiError(404, 'No locations found')
   }
 
   // Get gross sales for each location in the period

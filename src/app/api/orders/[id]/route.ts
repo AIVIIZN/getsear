@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -58,7 +59,7 @@ export async function GET(
   const result = await fetchOrderDetail(user.org_id, id)
 
   if (result.error || !result.data) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   // Surface the optimistic-lock version as ETag so clients can pass it back
@@ -91,15 +92,12 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateOrderSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -138,7 +136,7 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
     const { data, error } = await updateQuery.select().maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
+      return apiError(500, 'Failed to update order')
     }
 
     const staleResp = await checkUpdateAffectedRow(
@@ -202,7 +200,7 @@ export const PATCH = withIdempotency<{ params: Promise<{ id: string }> }>('order
   const { data, error } = await updateQuery.select().maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
+    return apiError(500, 'Failed to update order')
   }
 
   const staleResp = await checkUpdateAffectedRow(

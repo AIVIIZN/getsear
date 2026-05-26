@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -44,15 +45,12 @@ export const PATCH = withIdempotency<RouteParams>('tables.update', async (reques
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateTableSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -69,7 +67,7 @@ export const PATCH = withIdempotency<RouteParams>('tables.update', async (reques
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update table' }, { status: 500 })
+    return apiError(500, 'Failed to update table')
   }
 
   return NextResponse.json({ data })
@@ -97,14 +95,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!table) {
-    return NextResponse.json({ error: 'Table not found' }, { status: 404 })
+    return apiError(404, 'Table not found')
   }
 
   if (table.current_order_id) {
-    return NextResponse.json(
-      { error: 'Cannot delete a table with an active order' },
-      { status: 400 }
-    )
+    return apiError(400, 'Cannot delete a table with an active order')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,7 +112,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .eq('org_id', user.org_id)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete table' }, { status: 500 })
+    return apiError(500, 'Failed to delete table')
   }
 
   return NextResponse.json({ data: { success: true } })

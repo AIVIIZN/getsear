@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const supabase = createAdminClient()
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     .order('station_name', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch routing rules' }, { status: 500 })
+    return apiError(500, 'Failed to fetch routing rules')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -62,15 +63,12 @@ export async function PUT(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateRoutingSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.flatten().fieldErrors, extra: { "details": parsed.error.flatten().fieldErrors } })
   }
 
   const { location_id, rules } = parsed.data
@@ -85,7 +83,7 @@ export async function PUT(request: NextRequest) {
     .single()
 
   if (!location) {
-    return NextResponse.json({ error: 'Location not found' }, { status: 404 })
+    return apiError(404, 'Location not found')
   }
 
   // Delete existing rules for this location
@@ -114,10 +112,7 @@ export async function PUT(request: NextRequest) {
     .select('id, station_name, primary_printer_id, fallback_printer_id')
 
   if (insertError) {
-    return NextResponse.json(
-      { error: 'Failed to save routing rules' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to save routing rules')
   }
 
   return NextResponse.json({ data: inserted ?? [] })

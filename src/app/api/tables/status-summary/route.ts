@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   const floorPlanId = searchParams.get('floor_plan_id')
 
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch status summary' }, { status: 500 })
+    return apiError(500, 'Failed to fetch status summary')
   }
 
   // Count by status

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -29,7 +30,7 @@ export async function POST(
   // Parse the composite ticket ID
   const underscoreIdx = ticketId.indexOf('_')
   if (underscoreIdx === -1) {
-    return NextResponse.json({ error: 'Invalid ticket ID format' }, { status: 400 })
+    return apiError(400, 'Invalid ticket ID format')
   }
 
   const stationId = body.station_id ?? ticketId.substring(0, underscoreIdx)
@@ -46,7 +47,7 @@ export async function POST(
     .single()
 
   if (!station) {
-    return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+    return apiError(404, 'Station not found')
   }
 
   // Check recall window: only allow recall within 30 minutes
@@ -63,10 +64,7 @@ export async function POST(
     .gte('created_at', cutoff)
 
   if (!bumpEvents || bumpEvents.length === 0) {
-    return NextResponse.json(
-      { error: 'No bumped items found within recall window' },
-      { status: 404 }
-    )
+    return apiError(404, 'No bumped items found within recall window')
   }
 
   const itemIds = [...new Set((bumpEvents as Array<{ order_item_id: string }>).map((e) => e.order_item_id))]
@@ -88,7 +86,7 @@ export async function POST(
     .insert(recallEvents)
 
   if (eventError) {
-    return NextResponse.json({ error: 'Failed to recall ticket' }, { status: 500 })
+    return apiError(500, 'Failed to recall ticket')
   }
 
   // If this was an expo station, reset is_ready on the items

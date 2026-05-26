@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   const { data: shifts, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch open shifts' }, { status: 500 })
+    return apiError(500, 'Failed to fetch open shifts')
   }
 
   return NextResponse.json({ data: shifts ?? [] })

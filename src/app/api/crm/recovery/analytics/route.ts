@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { crmRecoveryReadRoles, summarizeRecoveryAnalytics } from '@/lib/crm/recovery'
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(5000)
 
-  if (error) return NextResponse.json({ error: 'Failed to fetch recovery analytics' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch recovery analytics')
 
   return NextResponse.json({
     data: {

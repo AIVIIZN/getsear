@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -57,15 +58,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = discountSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -102,7 +100,7 @@ export async function POST(
       .single()
 
     if (!item) {
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+      return apiError(404, 'Item not found')
     }
 
     baseAmount = parseFloat(item.line_total)
@@ -136,13 +134,7 @@ export async function POST(
 
   if (requiresManagerPin) {
     if (!manager_pin) {
-      return NextResponse.json(
-        {
-          error: `Discount over the threshold requires manager PIN`,
-          requires_manager_pin: true,
-        },
-        { status: 403 }
-      )
+      return apiError(403, `Discount over the threshold requires manager PIN`, { extra: { "requires_manager_pin": true } })
     }
 
     const pinResult = await validateManagerPinForAction({
@@ -152,19 +144,13 @@ export async function POST(
       supabase,
     })
     if (pinResult.kind === 'rate_limited') {
-      const res = NextResponse.json(
-        { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
       applyRateLimitHeaders(res.headers, pinResult.rateLimit)
       res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
       return res
     }
     if (pinResult.kind === 'invalid') {
-      return NextResponse.json(
-        { error: 'Invalid manager PIN' },
-        { status: 403 }
-      )
+      return apiError(403, 'Invalid manager PIN')
     }
     managerPinUserId = pinResult.manager_user_id
   }
@@ -192,7 +178,7 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to apply discount' }, { status: 500 })
+    return apiError(500, 'Failed to apply discount')
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%)

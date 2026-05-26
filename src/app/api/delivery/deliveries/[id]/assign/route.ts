@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -22,15 +23,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = assignSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -44,11 +42,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .single()
 
   if (!delivery) {
-    return NextResponse.json({ error: 'Delivery not found' }, { status: 404 })
+    return apiError(404, 'Delivery not found')
   }
 
   if (delivery.status !== 'pending') {
-    return NextResponse.json({ error: 'Delivery is not in a pending state' }, { status: 400 })
+    return apiError(400, 'Delivery is not in a pending state')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,7 +61,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Failed to assign driver' }, { status: 500 })
+    return apiError(500, 'Failed to assign driver')
   }
 
   return NextResponse.json({ data })

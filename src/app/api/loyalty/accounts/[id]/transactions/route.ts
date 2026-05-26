@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -26,7 +27,7 @@ export async function GET(
     .maybeSingle()
 
   if (!account) {
-    return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+    return apiError(404, 'Account not found')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +38,7 @@ export async function GET(
     .range(offset, offset + limit - 1)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
+    return apiError(500, 'Failed to fetch transactions')
   }
 
   return NextResponse.json({

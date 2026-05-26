@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -19,10 +20,7 @@ export async function GET(request: NextRequest) {
   const locationIdsParam = params.get('location_ids')
 
   if (!dateFrom || !dateTo) {
-    return NextResponse.json(
-      { error: 'date_from and date_to are required' },
-      { status: 400 },
-    )
+    return apiError(400, 'date_from and date_to are required')
   }
 
   const supabase = createAdminClient()
@@ -41,7 +39,7 @@ export async function GET(request: NextRequest) {
   const { data: locations, error: locError } = await locQuery
 
   if (locError) {
-    return NextResponse.json({ error: 'Failed to fetch locations' }, { status: 500 })
+    return apiError(500, 'Failed to fetch locations')
   }
 
   const locationList = (locations ?? []) as Array<{ id: string; name: string }>

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -28,15 +29,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = openDrawerSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.flatten().fieldErrors, extra: { "details": parsed.error.flatten().fieldErrors } })
   }
 
   const { printerId, staffId, terminalId, reason, eventType } = parsed.data
@@ -58,15 +56,15 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (printerError || !printer) {
-    return NextResponse.json({ error: 'Printer not found' }, { status: 404 })
+    return apiError(404, 'Printer not found')
   }
 
   if (!printer.is_active) {
-    return NextResponse.json({ error: 'Printer is offline' }, { status: 400 })
+    return apiError(400, 'Printer is offline')
   }
 
   if (!printer.cash_drawer_enabled) {
-    return NextResponse.json({ error: 'Cash drawer is not enabled on this printer' }, { status: 400 })
+    return apiError(400, 'Cash drawer is not enabled on this printer')
   }
 
   // Log the cash drawer event
@@ -83,10 +81,7 @@ export async function POST(request: NextRequest) {
     })
 
   if (insertError) {
-    return NextResponse.json(
-      { error: 'Failed to log cash drawer event' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to log cash drawer event')
   }
 
   // Check no-sale count for this staff member's current shift

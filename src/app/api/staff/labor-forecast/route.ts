@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   const weekStart = searchParams.get('week_start')
 
   if (!locationId || !weekStart) {
-    return NextResponse.json({ error: 'location_id and week_start are required' }, { status: 400 })
+    return apiError(400, 'location_id and week_start are required')
   }
 
   const supabase = createAdminClient()

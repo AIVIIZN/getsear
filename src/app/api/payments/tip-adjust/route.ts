@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -26,15 +27,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = tipAdjustSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { payment_id, new_tip_cents } = parsed.data
@@ -48,24 +46,18 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (paymentErr || !payment) {
-    return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+    return apiError(404, 'Payment not found')
   }
 
   const paymentData = payment as Record<string, unknown>
 
   // Cannot adjust tips on settled or voided payments
   if (paymentData.status === 'settled') {
-    return NextResponse.json(
-      { error: 'Cannot adjust tip on settled payment. The batch has already been settled.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Cannot adjust tip on settled payment. The batch has already been settled.')
   }
 
   if (paymentData.status === 'voided') {
-    return NextResponse.json(
-      { error: 'Cannot adjust tip on voided payment' },
-      { status: 400 }
-    )
+    return apiError(400, 'Cannot adjust tip on voided payment')
   }
 
   // Enforce 24-hour adjustment window
@@ -77,10 +69,7 @@ export async function POST(request: NextRequest) {
     const now = new Date()
     const hoursSincePayment = (now.getTime() - paymentDate.getTime()) / (1000 * 60 * 60)
     if (hoursSincePayment > 24) {
-      return NextResponse.json(
-        { error: 'Tip adjustment window has expired. Tips can only be adjusted within 24 hours.' },
-        { status: 400 }
-      )
+      return apiError(400, 'Tip adjustment window has expired. Tips can only be adjusted within 24 hours.')
     }
   }
 
@@ -142,7 +131,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to adjust tip' }, { status: 500 })
+    return apiError(500, 'Failed to adjust tip')
   }
 
   // Update order tip total and amount_paid

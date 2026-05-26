@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const parsed = runCrmReportSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid report run payload', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid report run payload', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const db = createAdminClient()
   let metricKeys = parsed.data.metric_keys ?? []
@@ -29,14 +30,14 @@ export async function POST(request: NextRequest) {
       .eq('org_id', user.org_id)
       .is('deleted_at', null)
       .single()
-    if (error || !report) return NextResponse.json({ error: 'Report definition not found' }, { status: 404 })
+    if (error || !report) return apiError(404, 'Report definition not found')
     metricKeys = crmMetricKeySchema.array().parse((report as { metric_keys: unknown }).metric_keys)
     dimensionKeys = crmDimensionKeySchema.array().parse((report as { dimension_keys: unknown }).dimension_keys)
     filters = (report as { filters: Record<string, unknown> }).filters
   }
 
   const validation = validateReportMetricSelection({ metric_keys: metricKeys, dimension_keys: dimensionKeys })
-  if (!validation.ok) return NextResponse.json({ error: 'Invalid metric selection', details: validation.errors, warnings: validation.warnings }, { status: 400 })
+  if (!validation.ok) return apiError(400, 'Invalid metric selection', { details: validation.errors, extra: { "details": validation.errors, "warnings": validation.warnings } })
 
   const status = parsed.data.preview ? 'preview' : 'queued'
   const now = new Date().toISOString()
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error || !data) return NextResponse.json({ error: 'Failed to start CRM report run' }, { status: 500 })
+  if (error || !data) return apiError(500, 'Failed to start CRM report run')
 
   await audit.record({
     actor: user,

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 /**
  * POST /api/payments/terminals/discover
  *
@@ -33,15 +34,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Manager PIN is required', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Manager PIN is required', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   // SEC-1a: canonical helper validates against ACTIVE managers only.
@@ -53,13 +51,13 @@ export async function POST(request: NextRequest) {
     supabase,
   })
   if (pinResult.kind === 'rate_limited') {
-    const res = NextResponse.json({ error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' }, { status: 429 })
+    const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
     applyRateLimitHeaders(res.headers, pinResult.rateLimit)
     res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
     return res
   }
   if (pinResult.kind === 'invalid') {
-    return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+    return apiError(403, 'Invalid manager PIN')
   }
   const validatingManagerId = pinResult.manager_user_id
 
@@ -68,13 +66,7 @@ export async function POST(request: NextRequest) {
   try {
     binding = await requireProcessorBinding(user.org_id)
   } catch (err) {
-    return NextResponse.json(
-      {
-        error: 'No processor binding for this org. Onboarding incomplete.',
-        details: err instanceof Error ? err.message : String(err),
-      },
-      { status: 400 }
-    )
+    return apiError(400, 'No processor binding for this org. Onboarding incomplete.', { details: err instanceof Error ? err.message : String(err), extra: { "details": err instanceof Error ? err.message : String(err) } })
   }
 
   const devices = await autoDetect(binding.processor, {

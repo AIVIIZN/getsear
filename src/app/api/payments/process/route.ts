@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -74,7 +75,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
       status: 400,
       duration_ms: Date.now() - t0,
     })
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = processPaymentSchema.safeParse(body)
@@ -85,10 +86,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
       status: 400,
       duration_ms: Date.now() - t0,
     })
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const {
@@ -131,7 +129,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
       status: 404,
       duration_ms: Date.now() - t0,
     })
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   // Build payment record
@@ -204,15 +202,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
           duration_ms: Date.now() - t0,
         })
 
-        return NextResponse.json(
-          {
-            error: 'Payment declined',
-            reason: result.decline_reason ?? 'Card declined',
-            decline_code: result.decline_code,
-            data: declined,
-          },
-          { status: 402 }
-        )
+        return apiError(402, 'Payment declined', { extra: { "reason": result.decline_reason ?? 'Card declined', "decline_code": result.decline_code, "data": declined } })
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Payment processing error'
@@ -236,10 +226,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
         duration_ms: Date.now() - t0,
       })
 
-      return NextResponse.json(
-        { error: 'Payment processing failed', reason: errorMessage },
-        { status: 500 }
-      )
+      return apiError(500, 'Payment processing failed', { extra: { "reason": errorMessage } })
     }
   }
   // ---------------------------------------------------------------------------
@@ -248,10 +235,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
   else if (payment_method === 'cash') {
     const tendered = cash_tendered_cents ?? total_cents
     if (tendered < total_cents) {
-      return NextResponse.json(
-        { error: 'Cash tendered is less than total' },
-        { status: 400 }
-      )
+      return apiError(400, 'Cash tendered is less than total')
     }
     paymentRecord.status = 'captured'
     paymentRecord.cash_tendered = (tendered / 100).toFixed(2)
@@ -262,10 +246,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
   // ---------------------------------------------------------------------------
   else if (payment_method === 'gift_card') {
     if (!gift_card_number) {
-      return NextResponse.json(
-        { error: 'Gift card number required' },
-        { status: 400 }
-      )
+      return apiError(400, 'Gift card number required')
     }
 
     const cardHash = crypto.createHash('sha256').update(gift_card_number).digest('hex')
@@ -277,21 +258,18 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
       .single()
 
     if (cardErr || !card) {
-      return NextResponse.json({ error: 'Gift card not found' }, { status: 404 })
+      return apiError(404, 'Gift card not found')
     }
 
     const cardRecord = card as { id: string; current_balance: string; is_active: boolean }
 
     if (!cardRecord.is_active) {
-      return NextResponse.json({ error: 'Gift card is inactive' }, { status: 400 })
+      return apiError(400, 'Gift card is inactive')
     }
 
     const balanceCents = Math.round(parseFloat(cardRecord.current_balance) * 100)
     if (balanceCents < total_cents) {
-      return NextResponse.json(
-        { error: 'Insufficient gift card balance', balance_cents: balanceCents },
-        { status: 400 }
-      )
+      return apiError(400, 'Insufficient gift card balance', { extra: { "balance_cents": balanceCents } })
     }
 
     // Deduct from gift card
@@ -327,10 +305,7 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
     .single()
 
   if (paymentErr) {
-    return NextResponse.json(
-      { error: 'Failed to create payment record' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to create payment record')
   }
 
   const paymentData = payment as Record<string, unknown>

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -32,7 +33,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error || !customer) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    return apiError(404, 'Customer not found')
   }
 
   // Fetch addresses
@@ -69,15 +70,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateCustomerSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -90,11 +88,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 })
+    return apiError(500, 'Failed to update customer')
   }
 
   if (!data) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    return apiError(404, 'Customer not found')
   }
 
   return NextResponse.json({ data })
@@ -116,7 +114,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .is('deleted_at', null)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete customer' }, { status: 500 })
+    return apiError(500, 'Failed to delete customer')
   }
 
   return NextResponse.json({ data: { success: true } })

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch waitlist' }, { status: 500 })
+    return apiError(500, 'Failed to fetch waitlist')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -54,22 +55,19 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = addToWaitlistSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
   const locationId = parsed.data.location_id ?? user.location_ids[0]
 
   if (!locationId) {
-    return NextResponse.json({ error: 'No location specified' }, { status: 400 })
+    return apiError(400, 'No location specified')
   }
 
   // Get the next position number
@@ -102,7 +100,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to add to waitlist' }, { status: 500 })
+    return apiError(500, 'Failed to add to waitlist')
   }
 
   return NextResponse.json({ data }, { status: 201 })

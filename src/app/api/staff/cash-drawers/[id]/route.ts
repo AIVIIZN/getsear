@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -34,7 +35,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error || !drawer) {
-    return NextResponse.json({ error: 'Cash drawer not found' }, { status: 404 })
+    return apiError(404, 'Cash drawer not found')
   }
 
   return NextResponse.json({ data: serializeDrawer(drawer) })
@@ -61,15 +62,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -83,7 +81,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update cash drawer' }, { status: 500 })
+    return apiError(500, 'Failed to update cash drawer')
   }
 
   return NextResponse.json({ data: serializeDrawer(data) })

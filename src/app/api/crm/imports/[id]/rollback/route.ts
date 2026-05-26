@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -20,9 +21,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     .eq('org_id', user.org_id)
     .single()
 
-  if (!job) return NextResponse.json({ error: 'Import job not found' }, { status: 404 })
-  if (!job.rollback_safe) return NextResponse.json({ error: 'Import job is not marked rollback-safe' }, { status: 409 })
-  if (job.status === 'rolled_back') return NextResponse.json({ error: 'Import job already rolled back' }, { status: 409 })
+  if (!job) return apiError(404, 'Import job not found')
+  if (!job.rollback_safe) return apiError(409, 'Import job is not marked rollback-safe')
+  if (job.status === 'rolled_back') return apiError(409, 'Import job already rolled back')
 
   const { data: rows } = await supabase
     .from('crm_import_rows')

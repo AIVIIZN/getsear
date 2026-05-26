@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ is_mock: false, data: null, error: error.message }, { status: 500 })
+    return apiError(500, error.message, { extra: { "is_mock": false, "data": null } })
   }
 
   // Aggregate by category. Supabase types embedded relations as arrays even

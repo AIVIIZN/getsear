@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -21,15 +22,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = reloadSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { card_number, amount_cents, order_id } = parsed.data
@@ -43,11 +41,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (cardErr || !card) {
-    return NextResponse.json({ error: 'Gift card not found' }, { status: 404 })
+    return apiError(404, 'Gift card not found')
   }
 
   if (!card.is_active) {
-    return NextResponse.json({ error: 'Gift card is inactive' }, { status: 400 })
+    return apiError(400, 'Gift card is inactive')
   }
 
   const currentCents = Math.round(parseFloat(card.current_balance) * 100)
@@ -60,7 +58,7 @@ export async function POST(request: NextRequest) {
     .eq('id', card.id)
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to reload gift card' }, { status: 500 })
+    return apiError(500, 'Failed to reload gift card')
   }
 
   // Record transaction

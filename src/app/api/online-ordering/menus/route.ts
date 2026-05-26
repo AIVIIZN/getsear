@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch online menus' }, { status: 500 })
+    return apiError(500, 'Failed to fetch online menus')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -61,15 +62,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createMenuSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -83,7 +81,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ error: 'Slug already in use' }, { status: 409 })
+    return apiError(409, 'Slug already in use')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +98,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create online menu' }, { status: 500 })
+    return apiError(500, 'Failed to create online menu')
   }
 
   return NextResponse.json({ data }, { status: 201 })

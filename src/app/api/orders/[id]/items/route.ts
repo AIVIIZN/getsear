@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -73,7 +74,7 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
       status: 400,
       duration_ms: Date.now() - t0,
     })
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = addItemSchema.safeParse(body)
@@ -84,10 +85,7 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
       status: 400,
       duration_ms: Date.now() - t0,
     })
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -105,7 +103,7 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
   }
 
   if (order.status === 'closed' || order.status === 'voided') {
-    return NextResponse.json({ error: 'Cannot add items to a closed or voided order' }, { status: 400 })
+    return apiError(400, 'Cannot add items to a closed or voided order')
   }
 
   // Check if kitchen is closed — only drink items allowed
@@ -123,10 +121,7 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
       .single()
 
     if (menuItem && menuItem.course !== 'drink') {
-      return NextResponse.json(
-        { error: 'Kitchen is closed. Only drink items can be added.' },
-        { status: 400 }
-      )
+      return apiError(400, 'Kitchen is closed. Only drink items can be added.')
     }
   }
 
@@ -166,7 +161,7 @@ export const POST = withIdempotency<{ params: Promise<{ id: string }> }>('orders
     .single()
 
   if (itemError || !item) {
-    return NextResponse.json({ error: 'Failed to add item' }, { status: 500 })
+    return apiError(500, 'Failed to add item')
   }
 
   // Insert modifiers if any

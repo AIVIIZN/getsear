@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -32,7 +33,7 @@ export async function GET() {
     .order('module_id', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch modules' }, { status: 500 })
+    return apiError(500, 'Failed to fetch modules')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -49,15 +50,12 @@ export async function PATCH(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateModuleSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -89,7 +87,7 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update module', detail: error.message }, { status: 500 })
+      return apiError(500, 'Failed to update module', { extra: { "detail": error.message } })
     }
 
     return NextResponse.json({ data })
@@ -109,7 +107,7 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to enable module', detail: error.message }, { status: 500 })
+      return apiError(500, 'Failed to enable module', { extra: { "detail": error.message } })
     }
 
     return NextResponse.json({ data }, { status: 201 })

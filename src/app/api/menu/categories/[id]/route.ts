@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -30,15 +31,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateCategorySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -53,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
+    return apiError(500, 'Failed to update category')
   }
 
   return NextResponse.json({ data })
@@ -76,7 +74,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .eq('org_id', user.org_id)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 })
+    return apiError(500, 'Failed to delete category')
   }
 
   return NextResponse.json({ data: { success: true } })

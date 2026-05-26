@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listGuestsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { page, limit, sort_by, sort_dir, search, preference, tag_id, lifecycle_stage, birthday, location_id, last_visit_after, last_visit_before } = parsed.data
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
     .range(offset, offset + limit - 1)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch guests' }, { status: 500 })
+    return apiError(500, 'Failed to fetch guests')
   }
 
   return NextResponse.json({
@@ -152,12 +153,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createGuestRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { contact_points, ...guestInput } = parsed.data
@@ -175,7 +176,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !guest) {
-    return NextResponse.json({ error: 'Failed to create guest' }, { status: 500 })
+    return apiError(500, 'Failed to create guest')
   }
 
   if (contact_points.length > 0) {
@@ -193,7 +194,7 @@ export async function POST(request: NextRequest) {
     })
     const { error: contactError } = await supabase.from('guest_contact_points').insert(rows)
     if (contactError) {
-      return NextResponse.json({ error: 'Guest created but contact point insert failed' }, { status: 409 })
+      return apiError(409, 'Guest created but contact point insert failed')
     }
   }
 

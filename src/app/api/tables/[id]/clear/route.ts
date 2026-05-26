@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!table) {
-    return NextResponse.json({ error: 'Table not found' }, { status: 404 })
+    return apiError(404, 'Table not found')
   }
 
   const now = new Date().toISOString()
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to clear table' }, { status: 500 })
+    return apiError(500, 'Failed to clear table')
   }
 
   // Create table_history record if the table was occupied

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -25,15 +26,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = exportSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { format, period_start, period_end, location_id } = parsed.data
@@ -57,7 +55,7 @@ export async function POST(request: NextRequest) {
     .not('clock_out', 'is', null)
 
   if (!entries || entries.length === 0) {
-    return NextResponse.json({ error: 'No time entries found for this period' }, { status: 404 })
+    return apiError(404, 'No time entries found for this period')
   }
 
   // Get unique users

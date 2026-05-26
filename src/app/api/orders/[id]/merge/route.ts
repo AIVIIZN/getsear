@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -25,15 +26,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = mergeSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'source_order_id is required', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'source_order_id is required', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -56,12 +54,12 @@ export async function POST(
     .single()
 
   if (!sourceOrder) {
-    return NextResponse.json({ error: 'Source order not found' }, { status: 404 })
+    return apiError(404, 'Source order not found')
   }
 
   const targetStatus = check.currentRow.status as string
   if (targetStatus === 'closed' || targetStatus === 'voided') {
-    return NextResponse.json({ error: 'Target order is closed or voided' }, { status: 400 })
+    return apiError(400, 'Target order is closed or voided')
   }
 
   // Move all items from source to target

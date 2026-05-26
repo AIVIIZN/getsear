@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -23,12 +24,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = scheduleCrmCampaignSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -40,8 +41,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .is('deleted_at', null)
     .single()
 
-  if (campaignError || !campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-  if (!campaign.segment_id) return NextResponse.json({ error: 'Campaign needs a segment before scheduling' }, { status: 422 })
+  if (campaignError || !campaign) return apiError(404, 'Campaign not found')
+  if (!campaign.segment_id) return apiError(422, 'Campaign needs a segment before scheduling')
 
   const { data: segment, error: segmentError } = await supabase
     .from('crm_segments')
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .is('deleted_at', null)
     .single()
 
-  if (segmentError || !segment) return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
+  if (segmentError || !segment) return apiError(404, 'Segment not found')
 
   const segmentPreview = await previewCrmSegment({ user, ruleTree: segment.rule_tree, supabase })
   const compliance = assessCrmCampaignCompliance({
@@ -77,11 +78,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   if (!compliance.can_send) {
-    return NextResponse.json({
-      error: 'Campaign failed compliance checks',
+    return apiError(422, 'Campaign failed compliance checks', {
       details: compliance.blocking_reasons,
-      compliance,
-    }, { status: 422 })
+      extra: { compliance },
+    })
   }
 
   const holdoutCount = Math.floor(segmentPreview.matched_guest_ids.length * (parsed.data.holdout_percent / 100))
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .select()
     .single()
 
-  if (jobError || !job) return NextResponse.json({ error: 'Failed to create send job' }, { status: 500 })
+  if (jobError || !job) return apiError(500, 'Failed to create send job')
 
   const rows = buildCrmCampaignSendRows({
     campaign: { ...campaign, org_id: user.org_id },
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: sends, error: sendsError } = await (supabase.from('crm_message_sends') as any)
       .insert(rows)
       .select('id, guest_id, channel, status')
-    if (sendsError) return NextResponse.json({ error: 'Failed to queue message sends' }, { status: 500 })
+    if (sendsError) return apiError(500, 'Failed to queue message sends')
     if (sends?.length) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('crm_message_events') as any).insert(sends.map((send: { id: string; guest_id: string | null; channel: string; status: string }) => ({

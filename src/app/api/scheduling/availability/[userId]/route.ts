@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -23,7 +24,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .order('start_time', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch availability' }, { status: 500 })
+    return apiError(500, 'Failed to fetch availability')
   }
 
   return NextResponse.json({ data: data ?? [] })

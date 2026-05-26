@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -13,10 +14,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const parsed = previewCrmReportSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid report preview payload', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid report preview payload', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const validation = validateReportMetricSelection(parsed.data)
-  if (!validation.ok) return NextResponse.json({ error: 'Invalid metric selection', details: validation.errors, warnings: validation.warnings }, { status: 400 })
+  if (!validation.ok) return apiError(400, 'Invalid metric selection', { details: validation.errors, extra: { "details": validation.errors, "warnings": validation.warnings } })
 
   await audit.record({
     actor: user,

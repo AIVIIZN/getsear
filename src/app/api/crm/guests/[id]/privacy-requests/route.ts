@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { audit } from '@/lib/audit/log'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -41,7 +42,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .is('deleted_at', null)
     .maybeSingle()
 
-  if (!guest) return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+  if (!guest) return apiError(404, 'Guest not found')
 
   const { data, error } = await supabase
     .from('privacy_requests')
@@ -50,7 +51,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .eq('org_id', user.org_id)
     .order('created_at', { ascending: false })
 
-  if (error) return NextResponse.json({ error: 'Failed to fetch privacy requests' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch privacy requests')
   return NextResponse.json({ data: data ?? [] })
 }
 
@@ -65,18 +66,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createPrivacyRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { id } = await params
   const supabase = createAdminClient()
   const guest = await loadGuest(supabase, user.org_id, id)
-  if (!guest) return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+  if (!guest) return apiError(404, 'Guest not found')
 
   const { data, error } = await supabase
     .from('privacy_requests')
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .select()
     .single()
 
-  if (error || !data) return NextResponse.json({ error: 'Failed to create privacy request' }, { status: 500 })
+  if (error || !data) return apiError(500, 'Failed to create privacy request')
 
   await logPrivacyAccess(supabase, {
     org_id: user.org_id,
@@ -147,18 +148,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updatePrivacyRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { id } = await params
   const supabase = createAdminClient()
   const guest = await loadGuest(supabase, user.org_id, id)
-  if (!guest) return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+  if (!guest) return apiError(404, 'Guest not found')
 
   const { data: existing } = await supabase
     .from('privacy_requests')
@@ -169,8 +170,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
 
   const privacyRequest = existing as (Record<string, unknown> & { id: string; request_type: string; status: string }) | null
-  if (!privacyRequest) return NextResponse.json({ error: 'Privacy request not found' }, { status: 404 })
-  if (terminalStatuses.has(privacyRequest.status)) return NextResponse.json({ error: 'Privacy request is already closed' }, { status: 409 })
+  if (!privacyRequest) return apiError(404, 'Privacy request not found')
+  if (terminalStatuses.has(privacyRequest.status)) return apiError(409, 'Privacy request is already closed')
 
   const now = new Date().toISOString()
   const statusPatch = await applyPrivacyAction({
@@ -185,7 +186,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     now,
   })
 
-  if ('error' in statusPatch) return NextResponse.json({ error: statusPatch.error }, { status: statusPatch.status })
+  if ('error' in statusPatch) return apiError(statusPatch.status, statusPatch.error)
 
   const { data, error } = await supabase
     .from('privacy_requests')
@@ -201,7 +202,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .select('*, data_export_jobs(*), data_deletion_jobs(*), data_access_logs(*)')
     .single()
 
-  if (error || !data) return NextResponse.json({ error: 'Failed to update privacy request' }, { status: 500 })
+  if (error || !data) return apiError(500, 'Failed to update privacy request')
 
   await audit.record({
     actor: user,

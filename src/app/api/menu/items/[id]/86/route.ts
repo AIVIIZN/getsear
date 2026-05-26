@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -34,7 +35,7 @@ export async function PATCH(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (fetchError || !item) {
-    return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    return apiError(404, 'Item not found')
   }
 
   const newStatus = !item.is_86d
@@ -49,7 +50,7 @@ export async function PATCH(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to toggle 86 status' }, { status: 500 })
+    return apiError(500, 'Failed to toggle 86 status')
   }
 
   // Log to eighty_six_log

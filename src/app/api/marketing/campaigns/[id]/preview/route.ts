@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -27,7 +28,7 @@ export async function GET(
     .single()
 
   if (error || !campaign) {
-    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    return apiError(404, 'Campaign not found')
   }
 
   // Get a sample customer from the segment for preview

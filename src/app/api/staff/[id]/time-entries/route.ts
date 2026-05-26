@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch time entries' }, { status: 500 })
+    return apiError(500, 'Failed to fetch time entries')
   }
 
   return NextResponse.json({ data: data ?? [] })

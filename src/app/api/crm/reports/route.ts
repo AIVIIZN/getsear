@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   if (roleErr) return roleErr
 
   const query = listCrmReportsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
-  if (!query.success) return NextResponse.json({ error: 'Invalid report query', details: query.error.flatten() }, { status: 400 })
+  if (!query.success) return apiError(400, 'Invalid report query', { details: query.error.flatten(), extra: { "details": query.error.flatten() } })
 
   const db = createAdminClient()
   let builder = db
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
   if (query.data.report_type) builder = builder.eq('report_type', query.data.report_type)
 
   const { data, error } = await builder
-  if (error) return NextResponse.json({ error: 'Failed to fetch CRM reports' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch CRM reports')
 
   return NextResponse.json({ data: data ?? [] })
 }
@@ -42,10 +43,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const parsed = createCrmReportSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid report payload', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid report payload', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const validation = validateReportMetricSelection(parsed.data)
-  if (!validation.ok) return NextResponse.json({ error: 'Invalid metric selection', details: validation.errors, warnings: validation.warnings }, { status: 400 })
+  if (!validation.ok) return apiError(400, 'Invalid metric selection', { details: validation.errors, extra: { "details": validation.errors, "warnings": validation.warnings } })
 
   const db = createAdminClient()
   const row = {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data, error } = await db.from('crm_report_definitions').insert(row).select().single()
-  if (error || !data) return NextResponse.json({ error: 'Failed to create CRM report' }, { status: 500 })
+  if (error || !data) return apiError(500, 'Failed to create CRM report')
 
   await audit.record({
     actor: user,

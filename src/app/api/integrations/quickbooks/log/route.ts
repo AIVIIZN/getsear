@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const locationId = searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id required' }, { status: 400 })
+    return apiError(400, 'location_id required')
   }
 
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100)
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     .range(offset, offset + limit - 1)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   return NextResponse.json({

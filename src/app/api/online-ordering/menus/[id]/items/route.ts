@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -33,7 +34,7 @@ export async function GET(
     .maybeSingle()
 
   if (!menu) {
-    return NextResponse.json({ error: 'Menu not found' }, { status: 404 })
+    return apiError(404, 'Menu not found')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,7 +44,7 @@ export async function GET(
     .order('sort_order', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch menu items' }, { status: 500 })
+    return apiError(500, 'Failed to fetch menu items')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -65,15 +66,12 @@ export async function PATCH(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateItemsSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -87,7 +85,7 @@ export async function PATCH(
     .maybeSingle()
 
   if (!menu) {
-    return NextResponse.json({ error: 'Menu not found' }, { status: 404 })
+    return apiError(404, 'Menu not found')
   }
 
   // Upsert items
@@ -105,7 +103,7 @@ export async function PATCH(
     .select()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update menu items' }, { status: 500 })
+    return apiError(500, 'Failed to update menu items')
   }
 
   return NextResponse.json({ data: data ?? [] })

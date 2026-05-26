@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -22,15 +23,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = pickupSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -44,11 +42,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!shift) {
-    return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+    return apiError(404, 'Shift not found')
   }
 
   if (shift.user_id) {
-    return NextResponse.json({ error: 'Shift is already assigned' }, { status: 409 })
+    return apiError(409, 'Shift is already assigned')
   }
 
   // Check for conflicts: user already has a shift at overlapping time
@@ -62,7 +60,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .limit(1)
 
   if (conflicts && conflicts.length > 0) {
-    return NextResponse.json({ error: 'Employee has a conflicting shift at this time' }, { status: 409 })
+    return apiError(409, 'Employee has a conflicting shift at this time')
   }
 
   // Assign the shift
@@ -77,7 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to pick up shift' }, { status: 500 })
+    return apiError(500, 'Failed to pick up shift')
   }
 
   return NextResponse.json({ data: updated })

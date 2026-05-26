@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser } from '@/lib/api/auth'
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   const listings = (data ?? []).map((item: Record<string, unknown>) => {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const parsed = postShiftSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 })
+    return apiError(400, parsed.error.flatten().fieldErrors)
   }
 
   const db = createAdminClient()
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!shift) {
-    return NextResponse.json({ error: 'Shift not found or not yours' }, { status: 404 })
+    return apiError(404, 'Shift not found or not yours')
   }
 
   const { data, error } = await db
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   // Mark shift as posted

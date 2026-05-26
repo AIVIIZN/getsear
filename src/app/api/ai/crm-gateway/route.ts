@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { audit } from '@/lib/audit/log'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   if (roleErr) return roleErr
 
   const parsed = listCrmAiAuditQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams.entries()))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid AI audit query', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid AI audit query', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const admin = createAdminClient()
   let query = admin
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.status) query = query.eq('status', parsed.data.status)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: 'Failed to fetch CRM AI audit logs' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch CRM AI audit logs')
 
   return NextResponse.json({ data: data ?? [] })
 }
@@ -42,10 +43,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const parsed = crmAiGatewaySchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid CRM AI gateway payload', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid CRM AI gateway payload', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   if (!canUseCrmAiTask(user, parsed.data.task_type)) {
-    return NextResponse.json({ error: 'Forbidden: insufficient CRM AI task permissions' }, { status: 403 })
+    return apiError(403, 'Forbidden: insufficient CRM AI task permissions')
   }
 
   const result = await executeCrmAiGateway(parsed.data, user)
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (result.status === 'refused') {
-    return NextResponse.json({ error: 'CRM AI request refused by safety filter', audit_log_id: result.audit_log_id, safety_flags: result.safety_flags, redaction_summary: result.redaction_summary }, { status: 422 })
+    return apiError(422, 'CRM AI request refused by safety filter', { extra: { "audit_log_id": result.audit_log_id, "safety_flags": result.safety_flags, "redaction_summary": result.redaction_summary } })
   }
 
   return NextResponse.json({ data: result })

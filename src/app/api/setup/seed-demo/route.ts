@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -190,9 +191,6 @@ export async function POST() {
     }, { status: 201 })
   } catch (error) {
     console.error('Demo seed error:', error)
-    return NextResponse.json(
-      { error: 'Failed to seed demo data. Please try again.' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to seed demo data. Please try again.')
   }
 }

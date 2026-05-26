@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -51,10 +52,7 @@ export async function POST(request: NextRequest) {
   // Rate-limit payment-mutating endpoints
   const rl = await checkRateLimit('payment', user.id)
   if (!rl.allowed) {
-    const res = NextResponse.json(
-      { error: 'Too many payment operations. Slow down.' },
-      { status: 429 }
-    )
+    const res = apiError(429, 'Too many payment operations. Slow down.')
     applyRateLimitHeaders(res.headers, rl)
     res.headers.set('Retry-After', String(rl.retryAfterSeconds))
     return res
@@ -66,15 +64,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = voidSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { payment_id, reason, reason_detail, manager_pin } = parsed.data
@@ -88,25 +83,19 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (paymentErr || !payment) {
-    return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+    return apiError(404, 'Payment not found')
   }
 
   const paymentData = payment as Record<string, unknown>
 
   // Only void authorized or captured (unsettled) transactions
   if (!['authorized', 'captured'].includes(paymentData.status as string)) {
-    return NextResponse.json(
-      { error: 'Payment cannot be voided in current status. Only authorized or captured (unsettled) payments can be voided.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Payment cannot be voided in current status. Only authorized or captured (unsettled) payments can be voided.')
   }
 
   // Check if already settled
   if (paymentData.status === 'settled') {
-    return NextResponse.json(
-      { error: 'Payment has been settled. Use refund instead of void.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Payment has been settled. Use refund instead of void.')
   }
 
   const totalCents = Math.round(parseFloat(paymentData.total_amount as string) * 100)
@@ -125,19 +114,13 @@ export async function POST(request: NextRequest) {
     supabase,
   })
   if (pinResult.kind === 'rate_limited') {
-    const res = NextResponse.json(
-      { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
-      { status: 429 }
-    )
+    const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
     applyRateLimitHeaders(res.headers, pinResult.rateLimit)
     res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
     return res
   }
   if (pinResult.kind === 'invalid') {
-    return NextResponse.json(
-      { error: 'Invalid manager PIN' },
-      { status: 403 }
-    )
+    return apiError(403, 'Invalid manager PIN')
   }
   const managerPinUserId = pinResult.manager_user_id
 
@@ -153,10 +136,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!voidResult.success) {
-      return NextResponse.json(
-        { error: 'Void failed at processor. The transaction may have already been settled.' },
-        { status: 502 }
-      )
+      return apiError(502, 'Void failed at processor. The transaction may have already been settled.')
     }
   }
 
@@ -193,7 +173,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to update payment record' }, { status: 500 })
+    return apiError(500, 'Failed to update payment record')
   }
 
   // Restore order balance — reopen the check

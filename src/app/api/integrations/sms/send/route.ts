@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const parsed = SendSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+    return apiError(400, parsed.error.issues[0].message)
   }
 
   const result = await sendSms({

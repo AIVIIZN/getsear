@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     .order('name')
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   // Fetch historical usage — average daily usage from recipes + order items

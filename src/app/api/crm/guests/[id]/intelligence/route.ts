@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { crmGuestManagerRoles } from '@/lib/crm/api'
@@ -14,8 +15,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params
   const result = await recalculateGuestIntelligence({ user, guestId: id, request })
-  if ('error' in result && result.error === 'Guest not found') return NextResponse.json({ error: result.error }, { status: 404 })
-  if ('error' in result && result.error) return NextResponse.json({ error: result.error }, { status: 500 })
+  if ('error' in result && result.error === 'Guest not found') return apiError(404, result.error)
+  if ('error' in result && result.error) return apiError(500, result.error)
 
   return NextResponse.json(result.data)
 }

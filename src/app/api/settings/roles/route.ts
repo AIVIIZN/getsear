@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -31,7 +32,7 @@ export async function GET() {
     .order('code', { ascending: true })
 
   if (permError) {
-    return NextResponse.json({ error: 'Failed to fetch permissions' }, { status: 500 })
+    return apiError(500, 'Failed to fetch permissions')
   }
 
   // Fetch role_permissions (no org_id - global mapping)
@@ -40,7 +41,7 @@ export async function GET() {
     .select('*') as { data: RolePermissionRow[] | null; error: unknown }
 
   if (rpError) {
-    return NextResponse.json({ error: 'Failed to fetch role permissions' }, { status: 500 })
+    return apiError(500, 'Failed to fetch role permissions')
   }
 
   // Group by role
@@ -78,15 +79,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createRolePermissionsSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -111,7 +109,7 @@ export async function POST(request: NextRequest) {
       .insert(inserts)
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to create role permissions' }, { status: 500 })
+      return apiError(500, 'Failed to create role permissions')
     }
   }
 

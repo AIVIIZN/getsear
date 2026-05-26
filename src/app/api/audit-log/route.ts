@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser } from '@/lib/api/auth'
 import { audit, type AuditAction, type EntityType } from '@/lib/audit/log'
-import { badRequest, forbidden } from '@/lib/api/error-response'
+import { apiError, badRequest, forbidden } from '@/lib/api/error-response'
 import { checkRateLimit, applyRateLimitHeaders } from '@/lib/api/rate-limit'
 
 const querySchema = z.object({
@@ -37,10 +37,7 @@ export async function GET(request: NextRequest) {
 
   const rl = await checkRateLimit('standard', user.id)
   if (!rl.allowed) {
-    const res = NextResponse.json(
-      { error: 'Too many requests.', code: 'RATE_LIMITED' },
-      { status: 429 }
-    )
+    const res = apiError(429, 'Too many requests.')
     applyRateLimitHeaders(res.headers, rl)
     return res
   }

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -22,15 +23,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateRoleSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -55,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .insert(inserts)
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update role permissions' }, { status: 500 })
+      return apiError(500, 'Failed to update role permissions')
     }
   }
 
@@ -75,7 +73,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   // Prevent deleting built-in roles
   const builtInRoles = ['owner', 'admin', 'manager', 'server', 'bartender', 'host', 'kitchen', 'cashier']
   if (builtInRoles.includes(role)) {
-    return NextResponse.json({ error: 'Cannot delete built-in roles' }, { status: 400 })
+    return apiError(400, 'Cannot delete built-in roles')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,7 +83,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .eq('role', role)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete role' }, { status: 500 })
+    return apiError(500, 'Failed to delete role')
   }
 
   return NextResponse.json({ data: { success: true } })

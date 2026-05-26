@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -44,7 +45,7 @@ export async function GET(
     .single()
 
   if (!campaign) {
-    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    return apiError(404, 'Campaign not found')
   }
 
   // Defense-in-depth: even though the campaign id was already verified
@@ -63,7 +64,7 @@ export async function GET(
   const { data, error, count } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+    return apiError(500, 'Failed to fetch recipients')
   }
 
   return NextResponse.json({
@@ -91,15 +92,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = recipientsBodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 },
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
   const { customer_ids } = parsed.data
 
@@ -123,7 +121,7 @@ export async function POST(
     .single()
 
   if (campaignErr || !campaign) {
-    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    return apiError(404, 'Campaign not found')
   }
 
   const channel = (campaign.campaign_type as string) ?? 'email'
@@ -144,7 +142,7 @@ export async function POST(
     .select()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to add recipients' }, { status: 500 })
+    return apiError(500, 'Failed to add recipients')
   }
 
   return NextResponse.json({ data }, { status: 201 })

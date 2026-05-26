@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { getDailySales, getLaborData, getProductMix, getServerPerformance, getPaymentSummary, getTaxData, getCashDrawerReport, getVoidCompData } from '@/lib/reports/queries'
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const locationId = params.get('location_id') ?? undefined
 
   if (!reportType) {
-    return NextResponse.json({ error: 'type parameter is required' }, { status: 400 })
+    return apiError(400, 'type parameter is required')
   }
 
   const locationName = 'Sear POS Location' // Would resolve from DB
@@ -188,7 +189,7 @@ export async function GET(request: NextRequest) {
       break
     }
     default:
-      return NextResponse.json({ error: `Unknown report type: ${reportType}` }, { status: 400 })
+      return apiError(400, `Unknown report type: ${reportType}`)
   }
 
   return new NextResponse(csv, {

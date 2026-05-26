@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/api/auth'
 import { exportMenuCSV } from '@/lib/menu/csv-exporter'
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
   const activeOnly = searchParams.get('active_only') === 'true'
 
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const csv = await exportMenuCSV(user.org_id, locationId, {

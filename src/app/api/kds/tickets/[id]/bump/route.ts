@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -30,7 +31,7 @@ export async function POST(
   // Parse the composite ticket ID: station_id_order_id
   const underscoreIdx = ticketId.indexOf('_')
   if (underscoreIdx === -1) {
-    return NextResponse.json({ error: 'Invalid ticket ID format' }, { status: 400 })
+    return apiError(400, 'Invalid ticket ID format')
   }
 
   const stationId = body.station_id ?? ticketId.substring(0, underscoreIdx)
@@ -47,7 +48,7 @@ export async function POST(
     .single()
 
   if (!station) {
-    return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+    return apiError(404, 'Station not found')
   }
 
   const prepStationsFilter: string[] = station.prep_stations ?? []
@@ -74,7 +75,7 @@ export async function POST(
   const { data: items, error: itemsError } = await itemsQuery
 
   if (itemsError || !items || items.length === 0) {
-    return NextResponse.json({ error: 'No items to bump' }, { status: 404 })
+    return apiError(404, 'No items to bump')
   }
 
   const itemIds = (items as Array<{ id: string }>).map((i) => i.id)
@@ -96,7 +97,7 @@ export async function POST(
     .insert(bumpEvents)
 
   if (eventError) {
-    return NextResponse.json({ error: 'Failed to create bump events' }, { status: 500 })
+    return apiError(500, 'Failed to create bump events')
   }
 
   // For expo station, mark items as ready on order_items

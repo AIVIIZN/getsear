@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const parsed = orderSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 })
+    return apiError(400, parsed.error.flatten().fieldErrors)
   }
 
   const db = createAdminClient()
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!location) {
-    return NextResponse.json({ error: 'Location not found' }, { status: 404 })
+    return apiError(404, 'Location not found')
   }
 
   // Check throttle — count orders in current 15-min slot
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (settings && !settings.is_active) {
-    return NextResponse.json({ error: 'Online ordering is currently closed' }, { status: 503 })
+    return apiError(503, 'Online ordering is currently closed')
   }
 
   const maxPerSlot = (settings?.max_orders_per_slot as number) ?? 10
@@ -74,14 +75,7 @@ export async function POST(request: NextRequest) {
     const nextSlot = new Date(slotStart)
     nextSlot.setMinutes(nextSlot.getMinutes() + 15)
     const minsUntil = Math.ceil((nextSlot.getTime() - now.getTime()) / 60000)
-    return NextResponse.json(
-      {
-        error: `We're busy right now. Please try again in ${minsUntil} minute${minsUntil > 1 ? 's' : ''}.`,
-        throttled: true,
-        retry_after_minutes: minsUntil,
-      },
-      { status: 429 }
-    )
+    return apiError(429, `We're busy right now. Please try again in ${minsUntil} minute${minsUntil > 1 ? 's' : ''}.`, { extra: { "throttled": true, "retry_after_minutes": minsUntil } })
   }
 
   // Calculate order total
@@ -148,7 +142,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (orderError) {
-    return NextResponse.json({ error: orderError.message }, { status: 500 })
+    return apiError(500, orderError.message)
   }
 
   // Insert order items

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (roleErr) return roleErr
 
   const parsed = listCrmDashboardsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid dashboard query', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid dashboard query', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const db = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,10 +57,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const parsed = createCrmDashboardSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid dashboard payload', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid dashboard payload', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const validation = validateDashboardWidgets(parsed.data.widgets)
-  if (!validation.ok) return NextResponse.json({ error: 'Invalid dashboard widgets', details: validation.errors, warnings: validation.warnings }, { status: 400 })
+  if (!validation.ok) return apiError(400, 'Invalid dashboard widgets', { details: validation.errors, extra: { "details": validation.errors, "warnings": validation.warnings } })
 
   const db = createAdminClient()
   const { widgets, ...dashboardPayload } = parsed.data
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (dashboardError || !dashboard) return NextResponse.json({ error: 'Failed to create CRM dashboard' }, { status: 500 })
+  if (dashboardError || !dashboard) return apiError(500, 'Failed to create CRM dashboard')
 
   const widgetRows = widgets.map((widget, index) => ({
     ...widget,
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
       .delete()
       .eq('id', dashboard.id as string)
       .eq('org_id', user.org_id)
-    return NextResponse.json({ error: 'Failed to create CRM dashboard widgets' }, { status: 500 })
+    return apiError(500, 'Failed to create CRM dashboard widgets')
   }
 
   const afterState = { ...dashboard, crm_dashboard_widgets: savedWidgets ?? [] } as Record<string, unknown>

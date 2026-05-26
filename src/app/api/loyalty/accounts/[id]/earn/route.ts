@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -22,15 +23,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = earnSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -44,7 +42,7 @@ export async function POST(
     .maybeSingle()
 
   if (!account) {
-    return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+    return apiError(404, 'Account not found')
   }
 
   const newBalance = (account.points_balance ?? 0) + parsed.data.points
@@ -60,7 +58,7 @@ export async function POST(
     .eq('id', id)
 
   if (updateError) {
-    return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 })
+    return apiError(500, 'Failed to update balance')
   }
 
   // Create transaction record
@@ -78,7 +76,7 @@ export async function POST(
     .single()
 
   if (txError) {
-    return NextResponse.json({ error: 'Failed to record transaction' }, { status: 500 })
+    return apiError(500, 'Failed to record transaction')
   }
 
   return NextResponse.json({

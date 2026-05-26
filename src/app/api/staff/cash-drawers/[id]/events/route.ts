@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -32,7 +33,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .order('created_at', { ascending: false })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 })
+    return apiError(500, 'Failed to fetch events')
   }
 
   // Get user names for events
@@ -83,15 +84,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = eventSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -106,11 +104,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!drawer) {
-    return NextResponse.json({ error: 'Cash drawer not found' }, { status: 404 })
+    return apiError(404, 'Cash drawer not found')
   }
 
   if (!drawer.is_open) {
-    return NextResponse.json({ error: 'Drawer must be open to record events' }, { status: 409 })
+    return apiError(409, 'Drawer must be open to record events')
   }
 
   // Update expected cash based on event type
@@ -150,7 +148,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to record event' }, { status: 500 })
+    return apiError(500, 'Failed to record event')
   }
 
   // Record denomination count for safe drops

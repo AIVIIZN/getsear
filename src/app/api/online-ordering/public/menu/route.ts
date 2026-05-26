@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -7,7 +8,7 @@ export async function GET(request: NextRequest) {
   const slug = searchParams.get('slug')
 
   if (!slug) {
-    return NextResponse.json({ error: 'Location slug required' }, { status: 400 })
+    return apiError(400, 'Location slug required')
   }
 
   const db = createAdminClient()
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (!location) {
-    return NextResponse.json({ error: 'Location not found' }, { status: 404 })
+    return apiError(404, 'Location not found')
   }
 
   // Fetch menu categories

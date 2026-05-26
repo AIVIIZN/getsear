@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -23,15 +24,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = countSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -45,7 +43,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .single()
 
   if (itemErr || !item) {
-    return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    return apiError(404, 'Item not found')
   }
 
   const variance = parsed.data.counted_quantity - (item.current_stock ?? 0)
@@ -73,7 +71,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .single()
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to update count' }, { status: 500 })
+    return apiError(500, 'Failed to update count')
   }
 
   return NextResponse.json({ data: updated, variance })

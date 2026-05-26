@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   const targetPct = parseFloat(searchParams.get('target_pct') ?? '30')
 
   if (!weekStart) {
-    return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
+    return apiError(400, 'week_start is required')
   }
 
   // Get shifts for the week

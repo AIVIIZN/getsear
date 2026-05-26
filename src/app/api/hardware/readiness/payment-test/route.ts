@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -18,15 +19,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = paymentTestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -38,14 +36,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !terminal) {
-    return NextResponse.json({ error: 'Payment terminal not found' }, { status: 404 })
+    return apiError(404, 'Payment terminal not found')
   }
 
   if (!['registered', 'online', 'ready', 'active'].includes(terminal.status)) {
-    return NextResponse.json(
-      { error: 'Payment terminal is not ready for a test authorization' },
-      { status: 409 }
-    )
+    return apiError(409, 'Payment terminal is not ready for a test authorization')
   }
 
   return NextResponse.json({

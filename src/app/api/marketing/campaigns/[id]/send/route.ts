@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -59,15 +60,12 @@ export async function POST(
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+      return apiError(400, 'Invalid JSON')
     }
   }
   const parsed = sendBodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid request', details: parsed.error.flatten() },
-      { status: 400 },
-    )
+    return apiError(400, 'Invalid request', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
   }
   const { manager_pin } = parsed.data
 
@@ -84,26 +82,17 @@ export async function POST(
     .single()
 
   if (campaignErr || !campaign) {
-    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    return apiError(404, 'Campaign not found')
   }
 
   if (campaign.status !== 'draft' && campaign.status !== 'scheduled') {
-    return NextResponse.json(
-      { error: `Campaign cannot be sent from status '${campaign.status}'` },
-      { status: 409 },
-    )
+    return apiError(409, `Campaign cannot be sent from status '${campaign.status}'`)
   }
 
   // 2. Manager-PIN gate ------------------------------------------------------
   if (campaign.requires_approval === true) {
     if (!manager_pin) {
-      return NextResponse.json(
-        {
-          error: 'This campaign requires manager approval. Provide manager_pin.',
-          requires_manager_pin: true,
-        },
-        { status: 403 },
-      )
+      return apiError(403, 'This campaign requires manager approval. Provide manager_pin.', { extra: { "requires_manager_pin": true } })
     }
 
     const pinResult = await validateManagerPinForAction({
@@ -113,16 +102,13 @@ export async function POST(
       supabase,
     })
     if (pinResult.kind === 'rate_limited') {
-      const res = NextResponse.json(
-        { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
       applyRateLimitHeaders(res.headers, pinResult.rateLimit)
       res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
       return res
     }
     if (pinResult.kind === 'invalid') {
-      return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+      return apiError(403, 'Invalid manager PIN')
     }
     const approvingManagerId = pinResult.manager_user_id
 
@@ -153,10 +139,7 @@ export async function POST(
       .single()
 
     if (schedErr) {
-      return NextResponse.json(
-        { error: 'Failed to schedule campaign' },
-        { status: 500 },
-      )
+      return apiError(500, 'Failed to schedule campaign')
     }
     return NextResponse.json({ data: scheduled, scheduled: true })
   }
@@ -172,10 +155,7 @@ export async function POST(
       segment: campaign.target_segment,
     })
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to resolve recipients' },
-      { status: 500 },
-    )
+    return apiError(500, err instanceof Error ? err.message : 'Failed to resolve recipients')
   }
 
   if (recipients.length === 0) {
@@ -219,10 +199,7 @@ export async function POST(
 
   if (insertErr || !insertedRecipients) {
     console.error('[campaign-send] insert failed:', insertErr)
-    return NextResponse.json(
-      { error: 'Failed to populate recipients' },
-      { status: 500 },
-    )
+    return apiError(500, 'Failed to populate recipients')
   }
 
   // 6. Enqueue jobs ----------------------------------------------------------
@@ -269,10 +246,7 @@ export async function POST(
 
   if (updateErr) {
     console.error('[campaign-send] campaign status update failed:', updateErr)
-    return NextResponse.json(
-      { error: 'Recipients enqueued but campaign status update failed' },
-      { status: 500 },
-    )
+    return apiError(500, 'Recipients enqueued but campaign status update failed')
   }
 
   return NextResponse.json({

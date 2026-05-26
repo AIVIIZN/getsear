@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -33,7 +34,7 @@ export async function GET(
     .single()
 
   if (cbErr || !chargeback) {
-    return NextResponse.json({ error: 'Chargeback case not found' }, { status: 404 })
+    return apiError(404, 'Chargeback case not found')
   }
 
   const cbData = chargeback as Record<string, unknown>
@@ -115,15 +116,12 @@ export async function PATCH(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateChargebackSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -136,7 +134,7 @@ export async function PATCH(
     .single()
 
   if (!existing) {
-    return NextResponse.json({ error: 'Chargeback case not found' }, { status: 404 })
+    return apiError(404, 'Chargeback case not found')
   }
 
   const updateData: Record<string, unknown> = {
@@ -159,7 +157,7 @@ export async function PATCH(
     .single()
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to update chargeback' }, { status: 500 })
+    return apiError(500, 'Failed to update chargeback')
   }
 
   // Audit trail

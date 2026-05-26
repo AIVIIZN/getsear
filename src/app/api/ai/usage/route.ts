@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { getUsageSummary } from '@/lib/ai/cost-tracker'
@@ -37,9 +38,6 @@ export async function GET() {
     })
   } catch (err) {
     console.error('[api/ai/usage] Error:', err)
-    return NextResponse.json(
-      { error: 'Failed to fetch usage data' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to fetch usage data')
   }
 }

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (roleErr) return roleErr
 
   const parsed = listCrmHealthQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid CRM health query', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid CRM health query', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const db = createAdminClient()
   let latestRun = null
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.type) builder = builder.eq('issue_type', parsed.data.type)
 
   const { data, error } = await builder
-  if (error) return NextResponse.json({ error: 'Failed to fetch CRM health issues' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch CRM health issues')
 
   const issues = data ?? []
   const launchReadiness = buildCrmLaunchReadiness({
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const parsed = reviewCrmHealthIssueSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid CRM health review', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid CRM health review', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const db = createAdminClient()
   const { data: issue, error: issueError } = await db
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
     .eq('org_id', user.org_id)
     .single()
 
-  if (issueError || !issue) return NextResponse.json({ error: 'CRM health issue not found' }, { status: 404 })
+  if (issueError || !issue) return apiError(404, 'CRM health issue not found')
 
   const now = new Date().toISOString()
   const nextStatus = parsed.data.action === 'approve_fix' ? 'approved' : parsed.data.action === 'resolve' ? 'resolved' : 'dismissed'
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (updateError || !updated) return NextResponse.json({ error: 'Failed to review CRM health issue' }, { status: 500 })
+  if (updateError || !updated) return apiError(500, 'Failed to review CRM health issue')
 
   await audit.record({
     actor: user,

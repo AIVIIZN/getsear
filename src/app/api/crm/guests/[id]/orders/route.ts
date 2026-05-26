@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!guest) {
-    return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+    return apiError(404, 'Guest not found')
   }
 
   const orderMap = new Map<string, unknown>()
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const { data: crmLinkedOrders, error: crmLinkedError, count: crmLinkedCount } = await crmLinkedQuery
 
   if (crmLinkedError) {
-    return NextResponse.json({ error: 'Failed to fetch CRM guest order history' }, { status: 500 })
+    return apiError(500, 'Failed to fetch CRM guest order history')
   }
 
   for (const order of crmLinkedOrders ?? []) {
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .range(offset, offset + limit - 1)
 
     if (legacyError) {
-      return NextResponse.json({ error: 'Failed to fetch CRM guest order history' }, { status: 500 })
+      return apiError(500, 'Failed to fetch CRM guest order history')
     }
 
     for (const order of legacyOrders ?? []) {

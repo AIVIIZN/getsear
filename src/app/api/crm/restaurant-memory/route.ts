@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { audit } from '@/lib/audit/log'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const parsed = upsertRestaurantMemoryRulesSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid restaurant memory payload', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid restaurant memory payload', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const before = await listRestaurantMemoryRules({ user })
   const rules = await upsertRestaurantMemoryRules({ user, rules: parsed.data.rules })

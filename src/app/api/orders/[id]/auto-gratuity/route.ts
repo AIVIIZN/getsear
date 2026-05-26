@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -32,15 +33,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = autoGratuitySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -71,12 +69,7 @@ export async function POST(
 
   // Check if guest count meets threshold
   if (guest_count < threshold) {
-    return NextResponse.json(
-      {
-        error: `Auto-gratuity requires ${threshold}+ guests. Current: ${guest_count}.`,
-      },
-      { status: 400 }
-    )
+    return apiError(400, `Auto-gratuity requires ${threshold}+ guests. Current: ${guest_count}.`)
   }
 
   // Check if auto-gratuity already applied
@@ -88,10 +81,7 @@ export async function POST(
     .limit(1)
 
   if (existing && existing.length > 0) {
-    return NextResponse.json(
-      { error: 'Auto-gratuity already applied to this order' },
-      { status: 409 }
-    )
+    return apiError(409, 'Auto-gratuity already applied to this order')
   }
 
   // Calculate auto-gratuity amount (percentage of subtotal)
@@ -115,7 +105,7 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to apply auto-gratuity' }, { status: 500 })
+    return apiError(500, 'Failed to apply auto-gratuity')
   }
 
   // Update order: add gratuity to tip_total and update metadata
@@ -222,10 +212,7 @@ export async function DELETE(
     .eq('name', 'Auto-Gratuity')
 
   if (!gratuityRecords || gratuityRecords.length === 0) {
-    return NextResponse.json(
-      { error: 'No auto-gratuity found on this order' },
-      { status: 404 }
-    )
+    return apiError(404, 'No auto-gratuity found on this order')
   }
 
   // Calculate total gratuity amount being removed

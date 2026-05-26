@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -19,15 +20,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = bumpAllSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { station_id: stationId, location_id: locationId } = parsed.data
@@ -42,7 +40,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!station) {
-    return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+    return apiError(404, 'Station not found')
   }
 
   const prepStationsFilter: string[] = station.prep_stations ?? []
@@ -99,7 +97,7 @@ export async function POST(request: NextRequest) {
     .insert(bumpEvents)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to bump all tickets' }, { status: 500 })
+    return apiError(500, 'Failed to bump all tickets')
   }
 
   // For expo, mark all items as ready

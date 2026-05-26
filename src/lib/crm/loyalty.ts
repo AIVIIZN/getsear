@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api/error-response'
 import type { NextRequest } from 'next/server'
 import type { AuthUser } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -62,7 +62,7 @@ export async function assertCrmGuest(db: DbClient, user: AuthUser, guestId: stri
     .single()
 
   if (error || !guest) {
-    return { error: NextResponse.json({ error: 'Guest not found' }, { status: 404 }) }
+    return { error: apiError(404, 'Guest not found') }
   }
 
   return { guest: guest as { id: string; legacy_customer_id: string | null } }
@@ -77,10 +77,10 @@ export async function assertProgram(db: DbClient, user: AuthUser, programId: str
     .single()
 
   if (error || !program) {
-    return { error: NextResponse.json({ error: 'Loyalty program not found' }, { status: 404 }) }
+    return { error: apiError(404, 'Loyalty program not found') }
   }
   if ((program as { status: string }).status !== 'active') {
-    return { error: NextResponse.json({ error: 'Loyalty program is not active' }, { status: 400 }) }
+    return { error: apiError(400, 'Loyalty program is not active') }
   }
 
   return { program }
@@ -95,7 +95,7 @@ export async function loadAccount(db: DbClient, user: AuthUser, accountId: strin
     .single()
 
   if (error || !account) {
-    return { error: NextResponse.json({ error: 'Loyalty account not found' }, { status: 404 }) }
+    return { error: apiError(404, 'Loyalty account not found') }
   }
 
   const typedAccount = account as unknown as LoyaltyAccount | (Omit<LoyaltyAccount, 'crm_loyalty_programs'> & {
@@ -141,10 +141,10 @@ export async function earnPoints(input: {
       .single()
 
     if (orderError || !order) {
-      return { error: NextResponse.json({ error: 'Order not found' }, { status: 404 }) }
+      return { error: apiError(404, 'Order not found') }
     }
     if ((order as { status: string }).status !== 'closed') {
-      return { error: NextResponse.json({ error: 'Loyalty points can only be earned from closed checks' }, { status: 400 }) }
+      return { error: apiError(400, 'Loyalty points can only be earned from closed checks') }
     }
     locationId = (order as { location_id: string | null }).location_id ?? locationId
     if (!amountCents) amountCents = Math.round(asNumber((order as { total: number | string }).total) * 100)
@@ -156,7 +156,7 @@ export async function earnPoints(input: {
   const earnedPoints = input.points ?? Math.floor((amountCents / 100) * rate) + input.visits * visitPoints
 
   if (earnedPoints <= 0) {
-    return { error: NextResponse.json({ error: 'No loyalty points were earned from this activity' }, { status: 400 }) }
+    return { error: apiError(400, 'No loyalty points were earned from this activity') }
   }
 
   const newBalance = account.points_balance + earnedPoints
@@ -177,7 +177,7 @@ export async function earnPoints(input: {
     .single()
 
   if (updateError || !updated) {
-    return { error: NextResponse.json({ error: 'Failed to update loyalty account' }, { status: 500 }) }
+    return { error: apiError(500, 'Failed to update loyalty account') }
   }
 
   const { data: ledger, error: ledgerError } = await db
@@ -201,7 +201,7 @@ export async function earnPoints(input: {
     .single()
 
   if (ledgerError || !ledger) {
-    return { error: NextResponse.json({ error: 'Failed to write loyalty ledger' }, { status: 500 }) }
+    return { error: apiError(500, 'Failed to write loyalty ledger') }
   }
 
   await audit.record({
@@ -240,15 +240,15 @@ export async function redeemReward(input: {
     .single()
 
   if (rewardError || !reward) {
-    return { error: NextResponse.json({ error: 'Reward not found' }, { status: 404 }) }
+    return { error: apiError(404, 'Reward not found') }
   }
 
   const typedReward = reward as LoyaltyReward
   if (typedReward.status !== 'active') {
-    return { error: NextResponse.json({ error: 'Reward is not active' }, { status: 400 }) }
+    return { error: apiError(400, 'Reward is not active') }
   }
   if (account.points_balance < typedReward.points_cost) {
-    return { error: NextResponse.json({ error: 'Insufficient points balance', available: account.points_balance }, { status: 400 }) }
+    return { error: apiError(400, 'Insufficient points balance', { extra: { "available": account.points_balance } }) }
   }
 
   let locationId = account.location_id
@@ -260,7 +260,7 @@ export async function redeemReward(input: {
       .eq('org_id', user.org_id)
       .single()
 
-    if (!order) return { error: NextResponse.json({ error: 'Order not found' }, { status: 404 }) }
+    if (!order) return { error: apiError(404, 'Order not found') }
     locationId = (order as { location_id: string | null }).location_id ?? locationId
   }
 
@@ -284,7 +284,7 @@ export async function redeemReward(input: {
     .single()
 
   if (redemptionError || !redemption) {
-    return { error: NextResponse.json({ error: 'Failed to redeem reward' }, { status: 500 }) }
+    return { error: apiError(500, 'Failed to redeem reward') }
   }
 
   const newBalance = account.points_balance - typedReward.points_cost
@@ -303,7 +303,7 @@ export async function redeemReward(input: {
     .single()
 
   if (updateError || !updated) {
-    return { error: NextResponse.json({ error: 'Failed to update loyalty account' }, { status: 500 }) }
+    return { error: apiError(500, 'Failed to update loyalty account') }
   }
 
   const { data: ledger, error: ledgerError } = await db
@@ -328,7 +328,7 @@ export async function redeemReward(input: {
     .single()
 
   if (ledgerError || !ledger) {
-    return { error: NextResponse.json({ error: 'Failed to write loyalty ledger' }, { status: 500 }) }
+    return { error: apiError(500, 'Failed to write loyalty ledger') }
   }
 
   await audit.record({

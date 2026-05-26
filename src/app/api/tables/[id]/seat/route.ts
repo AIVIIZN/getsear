@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -23,15 +24,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = seatSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -45,18 +43,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!table) {
-    return NextResponse.json({ error: 'Table not found' }, { status: 404 })
+    return apiError(404, 'Table not found')
   }
 
   if (!table.is_active) {
-    return NextResponse.json({ error: 'Table is inactive' }, { status: 400 })
+    return apiError(400, 'Table is inactive')
   }
 
   if (!['available', 'reserved', 'dirty'].includes(table.status)) {
-    return NextResponse.json(
-      { error: `Cannot seat at table with status "${table.status}"` },
-      { status: 400 }
-    )
+    return apiError(400, `Cannot seat at table with status "${table.status}"`)
   }
 
   const now = new Date().toISOString()
@@ -76,7 +71,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to seat table' }, { status: 500 })
+    return apiError(500, 'Failed to seat table')
   }
 
   return NextResponse.json({ data })

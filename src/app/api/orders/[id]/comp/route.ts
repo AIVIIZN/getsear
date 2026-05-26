@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -64,15 +65,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = compSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -87,7 +85,7 @@ export async function POST(
     .single()
 
   if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   const currentStatus = order.status as OrderState
@@ -120,10 +118,7 @@ export async function POST(
 
   if (isAfterClose) {
     if (!manager_pin) {
-      return NextResponse.json(
-        { error: 'Manager PIN required to comp a closed/refunded order' },
-        { status: 403 }
-      )
+      return apiError(403, 'Manager PIN required to comp a closed/refunded order')
     }
 
     const pinResult = await validateManagerPinForAction({
@@ -133,16 +128,13 @@ export async function POST(
       supabase,
     })
     if (pinResult.kind === 'rate_limited') {
-      const res = NextResponse.json(
-        { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
       applyRateLimitHeaders(res.headers, pinResult.rateLimit)
       res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
       return res
     }
     if (pinResult.kind === 'invalid') {
-      return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+      return apiError(403, 'Invalid manager PIN')
     }
     approvedByManagerId = pinResult.manager_user_id
 
@@ -155,7 +147,7 @@ export async function POST(
       })
     } catch (err) {
       if (err instanceof IllegalTransitionError) {
-        return NextResponse.json({ error: err.message }, { status: 422 })
+        return apiError(422, err.message)
       }
       throw err
     }
@@ -215,7 +207,7 @@ export async function POST(
       .single()
 
     if (!item) {
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+      return apiError(404, 'Item not found')
     }
 
     const amount = comp_amount ?? item.line_total
@@ -310,7 +302,7 @@ export async function POST(
         assertTransition('served', { type: 'CLOSE', balance_due_cents: newBalanceCents })
       } catch (err) {
         if (err instanceof IllegalTransitionError) {
-          return NextResponse.json({ error: err.message }, { status: 422 })
+          return apiError(422, err.message)
         }
         throw err
       }

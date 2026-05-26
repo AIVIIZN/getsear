@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { fetchAccounts } from '@/lib/integrations/quickbooks-client'
@@ -10,13 +11,13 @@ export async function GET(request: NextRequest) {
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id required' }, { status: 400 })
+    return apiError(400, 'location_id required')
   }
 
   const result = await fetchAccounts(locationId)
 
   if (!result.success) {
-    return NextResponse.json({ error: result.error }, { status: 500 })
+    return apiError(500, result.error)
   }
 
   return NextResponse.json({ data: result.accounts })

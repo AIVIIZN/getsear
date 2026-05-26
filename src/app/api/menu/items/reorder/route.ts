@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -25,15 +26,12 @@ export async function PATCH(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = reorderSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -51,7 +49,7 @@ export async function PATCH(request: NextRequest) {
   const failed = results.some((r) => r.error)
 
   if (failed) {
-    return NextResponse.json({ error: 'Failed to reorder items' }, { status: 500 })
+    return apiError(500, 'Failed to reorder items')
   }
 
   // Reordering changes sort_order on the cached list payload.

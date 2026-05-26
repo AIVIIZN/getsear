@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const filter = request.nextUrl.searchParams.get('filter') ?? 'all'
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch seasonal items' }, { status: 500 })
+    return apiError(500, 'Failed to fetch seasonal items')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -92,15 +93,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createSeasonalSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 },
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -114,7 +112,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!menuItem) {
-    return NextResponse.json({ error: 'Menu item not found' }, { status: 404 })
+    return apiError(404, 'Menu item not found')
   }
 
   const { data, error } = await supabase
@@ -132,7 +130,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create seasonal item' }, { status: 500 })
+    return apiError(500, 'Failed to create seasonal item')
   }
 
   return NextResponse.json({ data }, { status: 201 })
@@ -153,24 +151,21 @@ export async function PATCH(request: NextRequest) {
   try {
     body = await request.json() as Record<string, unknown>
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const id = body.id
   if (typeof id !== 'string') {
-    return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    return apiError(400, 'id is required')
   }
 
   const parsed = updateSeasonalSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 },
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   if (Object.keys(parsed.data).length === 0) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    return apiError(400, 'No fields to update')
   }
 
   const supabase = createAdminClient()
@@ -183,7 +178,7 @@ export async function PATCH(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Failed to update seasonal item' }, { status: 500 })
+    return apiError(500, 'Failed to update seasonal item')
   }
 
   return NextResponse.json({ data })
@@ -202,7 +197,7 @@ export async function DELETE(request: NextRequest) {
 
   const id = request.nextUrl.searchParams.get('id')
   if (!id) {
-    return NextResponse.json({ error: 'id query parameter is required' }, { status: 400 })
+    return apiError(400, 'id query parameter is required')
   }
 
   const supabase = createAdminClient()
@@ -213,7 +208,7 @@ export async function DELETE(request: NextRequest) {
     .eq('org_id', user.org_id)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete seasonal item' }, { status: 500 })
+    return apiError(500, 'Failed to delete seasonal item')
   }
 
   return NextResponse.json({ success: true })

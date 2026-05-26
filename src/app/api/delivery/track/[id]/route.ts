@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -16,7 +17,7 @@ export async function GET(
     .single()
 
   if (error || !delivery) {
-    return NextResponse.json({ error: 'Delivery not found' }, { status: 404 })
+    return apiError(404, 'Delivery not found')
   }
 
   // Calculate ETA from current position (simple estimate)

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .is('deleted_at', null)
     .single()
 
-  if (error || !segment) return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
+  if (error || !segment) return apiError(404, 'Segment not found')
 
   const preview = await previewCrmSegment({ user, ruleTree: segment.rule_tree, supabase, sampleLimit: 25 })
 
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }))
   if (rows.length > 0) {
     const { error: insertError } = await supabase.from('crm_segment_memberships').insert(rows)
-    if (insertError) return NextResponse.json({ error: 'Failed to materialize segment' }, { status: 500 })
+    if (insertError) return apiError(500, 'Failed to materialize segment')
   }
 
   await supabase

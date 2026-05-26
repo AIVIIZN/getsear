@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser, requireRole } from '@/lib/api/auth';
@@ -29,7 +30,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (printerError || !printer) {
-    return NextResponse.json({ error: 'Printer not found' }, { status: 404 });
+    return apiError(404, 'Printer not found');
   }
 
   // Fetch the location name
@@ -52,13 +53,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
     const status = await relay.getStatus();
     if (!status.relayOnline) {
-      return NextResponse.json(
-        {
-          error: 'Print relay is not running. Start the relay service on your local network.',
-          offline: true,
-        },
-        { status: 503 }
-      );
+      return apiError(503, 'Print relay is not running. Start the relay service on your local network.', { extra: { "offline": true } });
     }
 
     await relay.print({
@@ -78,6 +73,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: true, message: 'Test print sent successfully' });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to send test print';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(500, message);
   }
 }

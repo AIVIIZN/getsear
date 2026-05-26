@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -16,19 +17,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = pauseCrmAutomationSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { id } = await params
   const db = createAdminClient()
   const result = await pauseCrmAutomation({ db, user, automationId: id, pause: parsed.data })
   if (result.error || !result.automation) {
-    return NextResponse.json({ error: result.error ?? 'Failed to update automation pause state' }, { status: result.status })
+    return apiError(result.status, result.error ?? 'Failed to update automation pause state')
   }
 
   await audit.record({

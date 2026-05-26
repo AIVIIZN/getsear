@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { generateInsights } from '@/lib/ai/insight-generator'
@@ -30,9 +31,6 @@ export async function POST() {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[api/ai/insights/generate] Error:', msg)
-    return NextResponse.json(
-      { error: 'Failed to generate insights' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to generate insights')
   }
 }

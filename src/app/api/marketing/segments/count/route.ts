@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const criteria = body as Record<string, unknown>
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
   const { count, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to count segment' }, { status: 500 })
+    return apiError(500, 'Failed to count segment')
   }
 
   return NextResponse.json({ count: count ?? 0 })

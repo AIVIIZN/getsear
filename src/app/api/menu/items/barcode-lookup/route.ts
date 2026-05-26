@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -26,10 +27,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0].message },
-      { status: 400 }
-    )
+    return apiError(400, parsed.error.issues[0].message)
   }
 
   const { barcode, plu } = parsed.data
@@ -74,17 +72,11 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('[barcode-lookup] Database error:', error)
-    return NextResponse.json(
-      { error: 'Failed to look up item' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to look up item')
   }
 
   if (!items || items.length === 0) {
-    return NextResponse.json(
-      { error: `No menu item found for ${barcode ? 'barcode' : 'PLU'}: ${lookupValue}` },
-      { status: 404 }
-    )
+    return apiError(404, `No menu item found for ${barcode ? 'barcode' : 'PLU'}: ${lookupValue}`)
   }
 
   const item = items[0]

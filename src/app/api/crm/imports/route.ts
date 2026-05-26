@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listCrmImportJobsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest) {
 
   if (parsed.data.status) query = query.eq('status', parsed.data.status)
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: 'Failed to fetch import jobs' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch import jobs')
 
   return NextResponse.json({ data: data ?? [] })
 }
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const parsed = createCrmImportJobSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const input = parsed.data
@@ -182,7 +183,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (jobError || !job) return NextResponse.json({ error: 'Failed to create import job' }, { status: 500 })
+  if (jobError || !job) return apiError(500, 'Failed to create import job')
 
   const importRows = validation.rows.map((row) => ({
     org_id: user.org_id,

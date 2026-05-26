@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -32,7 +33,7 @@ export async function GET() {
     .limit(20)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch insights' }, { status: 500 })
+    return apiError(500, 'Failed to fetch insights')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -52,15 +53,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = actionSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -73,7 +71,7 @@ export async function POST(request: NextRequest) {
       .eq('org_id', user.org_id)
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to dismiss insight' }, { status: 500 })
+      return apiError(500, 'Failed to dismiss insight')
     }
 
     return NextResponse.json({ success: true })
@@ -87,11 +85,11 @@ export async function POST(request: NextRequest) {
       .eq('org_id', user.org_id)
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to save feedback' }, { status: 500 })
+      return apiError(500, 'Failed to save feedback')
     }
 
     return NextResponse.json({ success: true })
   }
 
-  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  return apiError(400, 'Unknown action')
 }

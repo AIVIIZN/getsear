@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -26,7 +27,7 @@ export async function POST() {
     .eq('provider', 'quickbooks')
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to disconnect' }, { status: 500 })
+    return apiError(500, 'Failed to disconnect')
   }
 
   return NextResponse.json({ success: true })

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -27,15 +28,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = receiveSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -49,11 +47,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .single()
 
   if (!po) {
-    return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    return apiError(404, 'Purchase order not found')
   }
 
   if (po.status !== 'submitted' && po.status !== 'draft') {
-    return NextResponse.json({ error: 'PO is not in a receivable state' }, { status: 400 })
+    return apiError(400, 'PO is not in a receivable state')
   }
 
   // Process each received item

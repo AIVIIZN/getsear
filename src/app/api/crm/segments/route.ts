@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listCrmSegmentsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.search) query = query.ilike('name', `%${parsed.data.search.replace(/[%_]/g, '\\$&')}%`)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: 'Failed to fetch segments' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch segments')
 
   return NextResponse.json({ data: data ?? [] })
 }
@@ -47,12 +48,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmSegmentSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (previewError || !previewRun) {
-    return NextResponse.json({ error: 'Failed to preview segment' }, { status: 500 })
+    return apiError(500, 'Failed to preview segment')
   }
 
   const { data: segment, error } = await supabase
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !segment) {
-    return NextResponse.json({ error: 'Failed to create segment' }, { status: 500 })
+    return apiError(500, 'Failed to create segment')
   }
 
   const rules = flattenCrmSegmentRules(parsed.data.rule_tree).map((rule) => ({
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
   }))
   if (rules.length > 0) {
     const { error: rulesError } = await supabase.from('crm_segment_rules').insert(rules)
-    if (rulesError) return NextResponse.json({ error: 'Segment created but rule persistence failed' }, { status: 409 })
+    if (rulesError) return apiError(409, 'Segment created but rule persistence failed')
   }
 
   await supabase

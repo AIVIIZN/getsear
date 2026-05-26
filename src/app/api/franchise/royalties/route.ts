@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
   const { data, error, count } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch royalties' }, { status: 500 })
+    return apiError(500, 'Failed to fetch royalties')
   }
 
   return NextResponse.json({

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -22,12 +23,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmAttributionEventSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .is('deleted_at', null)
     .single()
 
-  if (campaignError || !campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  if (campaignError || !campaign) return apiError(404, 'Campaign not found')
 
   let sentAt: string | null = null
   if (parsed.data.send_id) {
@@ -50,10 +51,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('campaign_id', id)
       .eq('id', parsed.data.send_id)
       .single()
-    if (sendError || !send) return NextResponse.json({ error: 'Message send not found for campaign' }, { status: 404 })
+    if (sendError || !send) return apiError(404, 'Message send not found for campaign')
     sentAt = send.sent_at ?? send.scheduled_for ?? null
     if (send.status === 'holdout' && !parsed.data.excluded_from_roi) {
-      return NextResponse.json({ error: 'Holdout sends must be excluded from ROI attribution.' }, { status: 422 })
+      return apiError(422, 'Holdout sends must be excluded from ROI attribution.')
     }
   }
 
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .select()
     .single()
 
-  if (eventError || !event) return NextResponse.json({ error: 'Failed to record attribution event' }, { status: 500 })
+  if (eventError || !event) return apiError(500, 'Failed to record attribution event')
 
   await audit.record({
     actor: user,

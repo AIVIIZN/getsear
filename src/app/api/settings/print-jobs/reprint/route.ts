@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { reprintJob } from '@/lib/printing/print-job-logger'
@@ -18,28 +19,19 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json(
-      { error: 'Invalid JSON body' },
-      { status: 400 }
-    )
+    return apiError(400, 'Invalid JSON body')
   }
 
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid request body', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Invalid request body', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { job_id, printer_id } = parsed.data
 
   const newJobId = await reprintJob(job_id, printer_id)
   if (!newJobId) {
-    return NextResponse.json(
-      { error: 'Failed to create reprint job. Original job may not exist.' },
-      { status: 404 }
-    )
+    return apiError(404, 'Failed to create reprint job. Original job may not exist.')
   }
 
   return NextResponse.json({

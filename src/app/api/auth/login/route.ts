@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'node:crypto'
 import { createClient } from '@/lib/supabase/server'
@@ -69,10 +70,7 @@ export async function POST(request: NextRequest) {
         after_state: { scope: 'ip', client_ip: ip },
         request,
       })
-      const res = NextResponse.json(
-        { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many login attempts. Please wait 15 minutes before trying again.')
       applyRateLimitHeaders(res.headers, ipRl)
       res.headers.set('Retry-After', String(ipRl.retryAfterSeconds))
       return res
@@ -82,10 +80,7 @@ export async function POST(request: NextRequest) {
     const { email, password } = body
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required.' },
-        { status: 400 }
-      )
+      return apiError(400, 'Email and password are required.')
     }
 
     // 2. Per-email rate limit (defends against attacker rotating IPs).
@@ -110,10 +105,7 @@ export async function POST(request: NextRequest) {
         after_state: { scope: 'email', client_ip: ip, email_redacted: redactEmail(emailNormalised) },
         request,
       })
-      const res = NextResponse.json(
-        { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many login attempts. Please wait 15 minutes before trying again.')
       applyRateLimitHeaders(res.headers, emailRl)
       res.headers.set('Retry-After', String(emailRl.retryAfterSeconds))
       return res
@@ -130,10 +122,7 @@ export async function POST(request: NextRequest) {
         reason: 'invalid_credentials',
         duration_ms: Date.now() - t0,
       })
-      const res = NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      )
+      const res = apiError(401, GENERIC_AUTH_ERROR)
       applyRateLimitHeaders(res.headers, ipRl)
       return res
     }
@@ -156,10 +145,7 @@ export async function POST(request: NextRequest) {
         reason: 'profile_not_found',
         duration_ms: Date.now() - t0,
       })
-      const res = NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      )
+      const res = apiError(401, GENERIC_AUTH_ERROR)
       applyRateLimitHeaders(res.headers, ipRl)
       return res
     }
@@ -176,10 +162,7 @@ export async function POST(request: NextRequest) {
         reason: 'inactive_account',
         duration_ms: Date.now() - t0,
       })
-      const res = NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      )
+      const res = apiError(401, GENERIC_AUTH_ERROR)
       applyRateLimitHeaders(res.headers, ipRl)
       return res
     }
@@ -217,9 +200,6 @@ export async function POST(request: NextRequest) {
       status: 500,
       duration_ms: Date.now() - t0,
     })
-    return NextResponse.json(
-      { error: 'An unexpected error occurred. Please try again.' },
-      { status: 500 }
-    )
+    return apiError(500, 'An unexpected error occurred. Please try again.')
   }
 }

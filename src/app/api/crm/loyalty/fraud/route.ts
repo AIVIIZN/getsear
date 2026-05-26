@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listCrmLoyaltyFraudQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.status) query = query.eq('status', parsed.data.status)
 
   const { data, error, count } = await query
-  if (error) return NextResponse.json({ error: 'Failed to fetch loyalty review items' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch loyalty review items')
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0 })
 }
@@ -47,12 +48,12 @@ export async function PATCH(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateCrmLoyaltyReviewItemSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -71,7 +72,7 @@ export async function PATCH(request: NextRequest) {
     .select()
     .single()
 
-  if (error || !data) return NextResponse.json({ error: 'Failed to update loyalty review item' }, { status: 500 })
+  if (error || !data) return apiError(500, 'Failed to update loyalty review item')
 
   await audit.record({
     actor: user,

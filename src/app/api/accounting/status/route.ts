@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -17,7 +18,7 @@ export async function GET() {
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch status' }, { status: 500 })
+    return apiError(500, 'Failed to fetch status')
   }
 
   if (!data) {

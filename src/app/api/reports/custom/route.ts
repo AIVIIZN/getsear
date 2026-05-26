@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   const locationId = params.get('location_id')
 
   if (!dateFrom || !dateTo) {
-    return NextResponse.json({ error: 'date_from and date_to are required' }, { status: 400 })
+    return apiError(400, 'date_from and date_to are required')
   }
 
   const supabase = createAdminClient()

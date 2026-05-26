@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -30,15 +31,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = verifyManagerPinBodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'A 4-6 digit PIN is required', details: parsed.error.issues },
-      { status: 400 },
-    )
+    return apiError(400, 'A 4-6 digit PIN is required', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
   const { pin } = parsed.data
 
@@ -51,20 +49,14 @@ export async function POST(request: NextRequest) {
   })
 
   if (result.kind === 'rate_limited') {
-    const res = NextResponse.json(
-      {
-        error: 'Too many PIN attempts. Please wait 15 minutes before trying again.',
-        scope: result.scope,
-      },
-      { status: 429 }
-    )
+    const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.', { extra: { "scope": result.scope } })
     applyRateLimitHeaders(res.headers, result.rateLimit)
     res.headers.set('Retry-After', String(result.rateLimit.retryAfterSeconds))
     return res
   }
 
   if (result.kind === 'invalid') {
-    const res = NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
+    const res = apiError(401, 'Invalid PIN')
     applyRateLimitHeaders(res.headers, result.ipRateLimit)
     return res
   }

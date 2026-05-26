@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
@@ -71,13 +72,7 @@ export async function POST(request: NextRequest) {
         after_state: { scope: 'ip', client_ip: ip, route: 'pin-login' },
         request,
       })
-      const res = NextResponse.json(
-        {
-          error:
-            'Too many failed PIN attempts. Please wait 15 minutes before trying again.',
-        },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many failed PIN attempts. Please wait 15 minutes before trying again.')
       applyRateLimitHeaders(res.headers, ipRl)
       res.headers.set('Retry-After', String(ipRl.retryAfterSeconds))
       return res
@@ -89,15 +84,12 @@ export async function POST(request: NextRequest) {
       body = await request.json()
     } catch (err) {
       console.error('[auth/pin-login] invalid JSON body', err)
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+      return apiError(400, 'Invalid JSON')
     }
 
     const parsed = pinLoginSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'User ID and PIN are required.', details: parsed.error.issues },
-        { status: 400 }
-      )
+      return apiError(400, 'User ID and PIN are required.', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
     }
 
     const { user_id, pin } = parsed.data
@@ -128,14 +120,7 @@ export async function POST(request: NextRequest) {
         after_state: { scope: 'user', user_id, client_ip: ip, route: 'pin-login' },
         request,
       })
-      const res = NextResponse.json(
-        {
-          error:
-            'Too many failed PIN attempts on this account. Please wait 15 minutes before trying again.',
-          locked_until: userRl.resetAt * 1000,
-        },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many failed PIN attempts on this account. Please wait 15 minutes before trying again.', { extra: { "locked_until": userRl.resetAt * 1000 } })
       applyRateLimitHeaders(res.headers, userRl)
       res.headers.set('Retry-After', String(userRl.retryAfterSeconds))
       return res
@@ -170,10 +155,7 @@ export async function POST(request: NextRequest) {
         ip,
         reason: 'user_not_found',
       })
-      const res = NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      )
+      const res = apiError(401, GENERIC_AUTH_ERROR)
       applyRateLimitHeaders(res.headers, userRl)
       return res
     }
@@ -193,10 +175,7 @@ export async function POST(request: NextRequest) {
         ip,
         reason: 'inactive_account',
       })
-      const res = NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      )
+      const res = apiError(401, GENERIC_AUTH_ERROR)
       applyRateLimitHeaders(res.headers, userRl)
       return res
     }
@@ -220,10 +199,7 @@ export async function POST(request: NextRequest) {
         ip,
         reason: 'no_pin_set',
       })
-      const res = NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      )
+      const res = apiError(401, GENERIC_AUTH_ERROR)
       applyRateLimitHeaders(res.headers, userRl)
       return res
     }
@@ -245,10 +221,7 @@ export async function POST(request: NextRequest) {
         ip,
         reason: 'invalid_pin',
       })
-      const res = NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      )
+      const res = apiError(401, GENERIC_AUTH_ERROR)
       applyRateLimitHeaders(res.headers, userRl)
       return res
     }
@@ -288,10 +261,7 @@ export async function POST(request: NextRequest) {
       duration_ms: Date.now() - t0,
     })
     console.error('[auth/pin-login]', err)
-    return NextResponse.json(
-      { error: 'An unexpected error occurred. Please try again.' },
-      { status: 500 }
-    )
+    return apiError(500, 'An unexpected error occurred. Please try again.')
   }
 }
 

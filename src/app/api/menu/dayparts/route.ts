@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const supabase = createAdminClient()
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
     .order('start_time', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch dayparts' }, { status: 500 })
+    return apiError(500, 'Failed to fetch dayparts')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -111,15 +112,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createDaypartSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 },
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -143,12 +141,7 @@ export async function POST(request: NextRequest) {
 
     for (const ex of existing) {
       if (daypartsOverlap(ex as DaypartRow, newDaypart)) {
-        return NextResponse.json(
-          {
-            error: `Overlaps with existing daypart "${(ex as DaypartRow & { name?: string }).id}". Dayparts cannot overlap for the same section and day.`,
-          },
-          { status: 409 },
-        )
+        return apiError(409, `Overlaps with existing daypart "${(ex as DaypartRow & { name?: string }).id}". Dayparts cannot overlap for the same section and day.`)
       }
     }
   }
@@ -163,7 +156,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create daypart' }, { status: 500 })
+    return apiError(500, 'Failed to create daypart')
   }
 
   return NextResponse.json({ data }, { status: 201 })

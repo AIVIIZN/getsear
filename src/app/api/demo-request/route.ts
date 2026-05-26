@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -30,13 +31,7 @@ export async function POST(request: Request) {
     const parsed = demoRequestSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
+      return apiError(400, 'Validation failed', { details: parsed.error.flatten().fieldErrors, extra: { "details": parsed.error.flatten().fieldErrors } });
     }
 
     const data = parsed.data;
@@ -157,9 +152,6 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error('Demo request error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(500, 'Internal server error');
   }
 }

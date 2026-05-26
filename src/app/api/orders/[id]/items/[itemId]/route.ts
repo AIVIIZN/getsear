@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -36,15 +37,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateItemSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -86,7 +84,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Failed to update item' }, { status: 500 })
+    return apiError(500, 'Failed to update item')
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%)
@@ -146,15 +144,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = voidItemSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'void_reason is required', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'void_reason is required', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -167,7 +162,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!item) {
-    return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    return apiError(404, 'Item not found')
   }
 
   if (item.is_sent) {
@@ -189,7 +184,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to void item' }, { status: 500 })
+    return apiError(500, 'Failed to void item')
   }
 
   // Recalculate order totals using the tax engine (no more hardcoded 8.5%).
