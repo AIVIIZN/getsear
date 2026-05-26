@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getPrintJobHistory } from '@/lib/printing/print-job-logger'
@@ -29,10 +30,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = querySchema.safeParse(rawParams)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid query parameters', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Invalid query parameters', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { org_id, location_id, job_type, status, printer_id, start_date, end_date, page, page_size } = parsed.data

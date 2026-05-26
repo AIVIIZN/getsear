@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -24,12 +25,12 @@ export async function POST(
     .single()
 
   if (error || !account) {
-    return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+    return apiError(404, 'Account not found')
   }
 
   const balance = parseFloat(account.balance as string)
   if (balance <= 0) {
-    return NextResponse.json({ error: 'No balance to bill' }, { status: 400 })
+    return apiError(400, 'No balance to bill')
   }
 
   // Check if auto-charge is configured

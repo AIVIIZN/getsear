@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -22,7 +23,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Delivery not found' }, { status: 404 })
+    return apiError(404, 'Delivery not found')
   }
 
   return NextResponse.json({ data })
@@ -46,11 +47,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .single()
 
   if (!delivery) {
-    return NextResponse.json({ error: 'Delivery not found' }, { status: 404 })
+    return apiError(404, 'Delivery not found')
   }
 
   if (delivery.status === 'delivered' || delivery.status === 'cancelled') {
-    return NextResponse.json({ error: 'Cannot cancel this delivery' }, { status: 400 })
+    return apiError(400, 'Cannot cancel this delivery')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -62,7 +63,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Failed to cancel delivery' }, { status: 500 })
+    return apiError(500, 'Failed to cancel delivery')
   }
 
   return NextResponse.json({ data })

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -19,23 +20,17 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const { registration_code, device_info } = body
 
   if (!registration_code || registration_code.length !== 6) {
-    return NextResponse.json(
-      { error: 'A valid 6-digit registration code is required' },
-      { status: 400 }
-    )
+    return apiError(400, 'A valid 6-digit registration code is required')
   }
 
   if (!device_info) {
-    return NextResponse.json(
-      { error: 'device_info is required' },
-      { status: 400 }
-    )
+    return apiError(400, 'device_info is required')
   }
 
   const supabase = createAdminClient()
@@ -48,19 +43,13 @@ export async function POST(request: Request) {
     .single()
 
   if (findError || !terminal) {
-    return NextResponse.json(
-      { error: 'Invalid registration code' },
-      { status: 404 }
-    )
+    return apiError(404, 'Invalid registration code')
   }
 
   // Check expiry
   const expiresAt = new Date(terminal.registration_code_expires_at)
   if (expiresAt < new Date()) {
-    return NextResponse.json(
-      { error: 'Registration code has expired' },
-      { status: 410 }
-    )
+    return apiError(410, 'Registration code has expired')
   }
 
   // Activate the terminal
@@ -84,10 +73,7 @@ export async function POST(request: Request) {
 
   if (updateError) {
     console.error('Terminal activate error:', updateError)
-    return NextResponse.json(
-      { error: 'Failed to activate terminal' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to activate terminal')
   }
 
   return NextResponse.json({

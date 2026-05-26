@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,10 +30,7 @@ export async function POST(
 
   const parsed = seatSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -46,14 +44,11 @@ export async function POST(
     .single()
 
   if (fetchErr || !existing) {
-    return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
+    return apiError(404, 'Reservation not found')
   }
 
   if (existing.status === 'cancelled' || existing.status === 'no_show') {
-    return NextResponse.json(
-      { error: `Cannot seat reservation with status "${existing.status}"` },
-      { status: 400 }
-    )
+    return apiError(400, `Cannot seat reservation with status "${existing.status}"`)
   }
 
   const updatePayload: Record<string, unknown> = { status: 'seated' }
@@ -69,7 +64,7 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to seat reservation' }, { status: 500 })
+    return apiError(500, 'Failed to seat reservation')
   }
 
   return NextResponse.json({ data })

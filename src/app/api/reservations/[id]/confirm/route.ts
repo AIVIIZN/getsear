@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -25,14 +26,11 @@ export async function POST(
     .single()
 
   if (fetchErr || !existing) {
-    return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
+    return apiError(404, 'Reservation not found')
   }
 
   if (existing.status !== 'pending') {
-    return NextResponse.json(
-      { error: `Cannot confirm reservation with status "${existing.status}"` },
-      { status: 400 }
-    )
+    return apiError(400, `Cannot confirm reservation with status "${existing.status}"`)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,7 +44,7 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to confirm reservation' }, { status: 500 })
+    return apiError(500, 'Failed to confirm reservation')
   }
 
   return NextResponse.json({ data })

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -42,15 +43,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = importSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { org_id, location_id, rows, create_categories, update_existing } = parsed.data
@@ -58,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   // Verify the user belongs to this org
   if (org_id !== user.org_id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return apiError(403, 'Forbidden')
   }
 
   // 1. Build category map — fetch existing categories

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -24,10 +25,7 @@ export async function GET(request: NextRequest) {
   const params = Object.fromEntries(request.nextUrl.searchParams.entries())
   const parsed = querySchema.safeParse(params)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { date_from, date_to, group_by } = parsed.data
@@ -53,7 +51,7 @@ export async function GET(request: NextRequest) {
   const { data: records, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch turn times' }, { status: 500 })
+    return apiError(500, 'Failed to fetch turn times')
   }
 
   if (!records || records.length === 0) {

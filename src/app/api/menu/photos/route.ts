@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   const itemId = request.nextUrl.searchParams.get('item_id')
   if (!itemId) {
-    return NextResponse.json({ error: 'item_id is required' }, { status: 400 })
+    return apiError(400, 'item_id is required')
   }
 
   const supabase = createAdminClient()
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     .order('sort_order', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch photos' }, { status: 500 })
+    return apiError(500, 'Failed to fetch photos')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -44,29 +45,23 @@ export async function POST(request: NextRequest) {
   try {
     formData = await request.formData()
   } catch {
-    return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
+    return apiError(400, 'Invalid form data')
   }
 
   const file = formData.get('file') as File | null
   const itemId = formData.get('item_id') as string | null
 
   if (!file || !itemId) {
-    return NextResponse.json({ error: 'file and item_id are required' }, { status: 400 })
+    return apiError(400, 'file and item_id are required')
   }
 
   // Validate file
   if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json(
-      { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF' },
-      { status: 400 }
-    )
+    return apiError(400, 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF')
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB` },
-      { status: 400 }
-    )
+    return apiError(400, `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`)
   }
 
   const supabase = createAdminClient()
@@ -81,7 +76,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (itemErr || !item) {
-    return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    return apiError(404, 'Item not found')
   }
 
   // Upload to storage
@@ -97,10 +92,7 @@ export async function POST(request: NextRequest) {
     })
 
   if (uploadError) {
-    return NextResponse.json(
-      { error: 'Failed to upload file' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to upload file')
   }
 
   // Get public URL
@@ -145,7 +137,7 @@ export async function POST(request: NextRequest) {
   if (insertError) {
     // Clean up uploaded file on DB insert failure
     await supabase.storage.from(BUCKET_NAME).remove([filePath])
-    return NextResponse.json({ error: 'Failed to save photo record' }, { status: 500 })
+    return apiError(500, 'Failed to save photo record')
   }
 
   // If primary, update the menu item's image_url

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -23,7 +24,7 @@ export async function GET(
     .single()
 
   if (error || !event) {
-    return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    return apiError(404, 'Event not found')
   }
 
   // Get org info

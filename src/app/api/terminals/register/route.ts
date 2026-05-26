@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -21,16 +22,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const { location_id, name, terminal_type } = body
 
   if (!location_id || !name) {
-    return NextResponse.json(
-      { error: 'location_id and name are required' },
-      { status: 400 }
-    )
+    return apiError(400, 'location_id and name are required')
   }
 
   // Generate random 6-digit code
@@ -56,10 +54,7 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error('Terminal register error:', error)
-    return NextResponse.json(
-      { error: 'Failed to create terminal' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to create terminal')
   }
 
   return NextResponse.json({

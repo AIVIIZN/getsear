@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -18,15 +19,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = syncSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -39,10 +37,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (!integration?.is_connected) {
-    return NextResponse.json(
-      { error: 'QuickBooks is not connected. Please connect first.' },
-      { status: 400 }
-    )
+    return apiError(400, 'QuickBooks is not connected. Please connect first.')
   }
 
   // In production: call QBO API to create journal entries / invoices based on sync_type
@@ -62,7 +57,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create sync log' }, { status: 500 })
+    return apiError(500, 'Failed to create sync log')
   }
 
   // Update last_sync_at on the integration record

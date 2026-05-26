@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listCrmCampaignsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.segment_id) query = query.eq('segment_id', parsed.data.segment_id)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: 'Failed to fetch campaigns' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch campaigns')
 
   const campaigns = data ?? []
   const campaignIds = campaigns.map((campaign: { id: string }) => campaign.id)
@@ -105,12 +106,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmCampaignSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
     .is('deleted_at', null)
     .single()
 
-  if (segmentError || !segment) return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
+  if (segmentError || !segment) return apiError(404, 'Segment not found')
 
   const segmentPreview = await previewCrmSegment({ user, ruleTree: segment.rule_tree, supabase })
   const memoryRules = await fetchActiveRestaurantMemoryRules({ user, db: supabase, appliesTo: 'campaign', locationId: parsed.data.location_id ?? null })
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error || !campaign) return NextResponse.json({ error: 'Failed to create campaign' }, { status: 500 })
+  if (error || !campaign) return apiError(500, 'Failed to create campaign')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('crm_campaign_variants') as any).insert({

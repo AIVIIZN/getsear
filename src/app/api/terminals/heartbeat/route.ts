@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -11,16 +12,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const { terminal_id, current_user_id } = body
 
   if (!terminal_id) {
-    return NextResponse.json(
-      { error: 'terminal_id is required' },
-      { status: 400 }
-    )
+    return apiError(400, 'terminal_id is required')
   }
 
   const supabase = createAdminClient()
@@ -42,10 +40,7 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error('Terminal heartbeat error:', error)
-    return NextResponse.json(
-      { error: 'Failed to update heartbeat' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to update heartbeat')
   }
 
   return NextResponse.json({ ok: true })

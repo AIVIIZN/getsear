@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server';
 import { getAuthUser, requireRole } from '@/lib/api/auth';
 import { discoverPrinters } from '@/lib/printing/printer-discovery';
@@ -16,9 +17,6 @@ export async function GET() {
     const printers = await discoverPrinters(relayUrl);
     return NextResponse.json({ data: printers });
   } catch {
-    return NextResponse.json(
-      { error: 'Failed to discover printers. Is the print relay running?' },
-      { status: 503 }
-    );
+    return apiError(503, 'Failed to discover printers. Is the print relay running?');
   }
 }

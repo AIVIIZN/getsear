@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -20,15 +21,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = rejectSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -42,14 +40,11 @@ export async function POST(
     .maybeSingle()
 
   if (!queueItem) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   if (queueItem.status !== 'pending') {
-    return NextResponse.json(
-      { error: `Cannot reject order with status: ${queueItem.status}` },
-      { status: 400 }
-    )
+    return apiError(400, `Cannot reject order with status: ${queueItem.status}`)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,7 +59,7 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to reject order' }, { status: 500 })
+    return apiError(500, 'Failed to reject order')
   }
 
   return NextResponse.json({ data })

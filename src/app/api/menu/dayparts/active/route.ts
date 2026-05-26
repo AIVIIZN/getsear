@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const section = request.nextUrl.searchParams.get('section') ?? undefined
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (locErr || !location) {
-    return NextResponse.json({ error: 'Location not found' }, { status: 404 })
+    return apiError(404, 'Location not found')
   }
 
   const timezone = location.timezone || 'America/New_York'
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     .eq('is_active', true)
 
   if (dpErr) {
-    return NextResponse.json({ error: 'Failed to fetch dayparts' }, { status: 500 })
+    return apiError(500, 'Failed to fetch dayparts')
   }
 
   const dayparts = (daypartRows ?? []) as unknown as Daypart[]
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
     .eq('is_active', true)
 
   if (itemErr) {
-    return NextResponse.json({ error: 'Failed to fetch menu items' }, { status: 500 })
+    return apiError(500, 'Failed to fetch menu items')
   }
 
   const menuItems = items ?? []

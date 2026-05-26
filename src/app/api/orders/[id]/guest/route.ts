@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -39,12 +40,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = attachGuestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { id: orderId } = await params
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   const { data: guest, error: guestError } = await supabase
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (guestError || !guest) {
-    return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+    return apiError(404, 'Guest not found')
   }
 
   const guestRow = guest as GuestAttachRow
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (updateError || !updatedOrder) {
-    return NextResponse.json({ error: 'Failed to attach guest to order' }, { status: 500 })
+    return apiError(500, 'Failed to attach guest to order')
   }
 
   await supabase.from('guest_timeline_events').insert({
@@ -161,7 +162,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   const previousMetadata = (order.metadata as Record<string, unknown> | null) ?? {}
@@ -188,7 +189,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (updateError || !updatedOrder) {
-    return NextResponse.json({ error: 'Failed to detach guest from order' }, { status: 500 })
+    return apiError(500, 'Failed to detach guest from order')
   }
 
   if (previousGuestId) {

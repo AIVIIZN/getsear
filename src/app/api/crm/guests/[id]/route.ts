@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -41,7 +42,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error || !guest) {
-    return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+    return apiError(404, 'Guest not found')
   }
 
   const { data: notes } = await supabase
@@ -70,12 +71,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateGuestRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -89,7 +90,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!before) {
-    return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+    return apiError(404, 'Guest not found')
   }
 
   const patch = {
@@ -108,7 +109,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error || !guest) {
-    return NextResponse.json({ error: 'Failed to update guest' }, { status: 500 })
+    return apiError(500, 'Failed to update guest')
   }
 
   if (contact_points) {
@@ -146,7 +147,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           })
 
       if (contactResult.error) {
-        return NextResponse.json({ error: 'Guest updated but contact point update failed' }, { status: 409 })
+        return apiError(409, 'Guest updated but contact point update failed')
       }
     }
   }

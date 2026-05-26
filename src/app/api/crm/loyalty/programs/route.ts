@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listCrmLoyaltyProgramsQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { page, limit, status, location_id } = parsed.data
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error, count } = await query
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch CRM loyalty programs' }, { status: 500 })
+    return apiError(500, 'Failed to fetch CRM loyalty programs')
   }
 
   return NextResponse.json({
@@ -52,12 +53,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmLoyaltyProgramSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { rules, tiers, ...programInput } = parsed.data
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !program) {
-    return NextResponse.json({ error: 'Failed to create CRM loyalty program' }, { status: 500 })
+    return apiError(500, 'Failed to create CRM loyalty program')
   }
 
   if (rules.length) {
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       org_id: user.org_id,
       program_id: (program as { id: string }).id,
     })))
-    if (rulesError) return NextResponse.json({ error: 'Failed to create CRM loyalty rules' }, { status: 500 })
+    if (rulesError) return apiError(500, 'Failed to create CRM loyalty rules')
   }
 
   for (const tier of tiers) {
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (tierError || !createdTier) {
-      return NextResponse.json({ error: 'Failed to create CRM loyalty tier' }, { status: 500 })
+      return apiError(500, 'Failed to create CRM loyalty tier')
     }
 
     if (benefits.length) {
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
         org_id: user.org_id,
         tier_id: (createdTier as { id: string }).id,
       })))
-      if (benefitsError) return NextResponse.json({ error: 'Failed to create CRM loyalty tier benefits' }, { status: 500 })
+      if (benefitsError) return apiError(500, 'Failed to create CRM loyalty tier benefits')
     }
   }
 

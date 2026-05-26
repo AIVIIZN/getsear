@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -21,14 +22,14 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const parsed = menuPushSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 })
+    return apiError(400, parsed.error.flatten().fieldErrors)
   }
 
   const db = createAdminClient()
   const { location_ids, items, confirm } = parsed.data
 
   if (!confirm) {
-    return NextResponse.json({ error: 'Menu push requires confirmation' }, { status: 400 })
+    return apiError(400, 'Menu push requires confirmation')
   }
 
   let pushed = 0

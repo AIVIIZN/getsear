@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { crmAiGatewayRoles, canUseCrmAiTask } from '@/lib/crm/ai-gateway'
@@ -17,24 +18,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = crmGuestBrainSchema.safeParse(body ?? {})
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   for (const task of parsed.data.tasks) {
     if (!canUseCrmAiTask(user, task)) {
-      return NextResponse.json({ error: 'Forbidden: insufficient CRM AI task permissions' }, { status: 403 })
+      return apiError(403, 'Forbidden: insufficient CRM AI task permissions')
     }
   }
 
   const { id } = await params
   const result = await generateGuestBrain({ user, guestId: id, request: parsed.data })
-  if ('error' in result && result.error === 'Guest not found') return NextResponse.json({ error: result.error }, { status: 404 })
-  if ('error' in result) return NextResponse.json({ error: result.error }, { status: 500 })
+  if ('error' in result && result.error === 'Guest not found') return apiError(404, result.error)
+  if ('error' in result) return apiError(500, result.error)
 
   return NextResponse.json(result.data)
 }

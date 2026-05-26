@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -16,22 +17,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmRecoveryActionSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { id } = await params
   const db = createAdminClient()
   const { data: current } = await db.from('crm_recovery_cases').select('*').eq('id', id).eq('org_id', user.org_id).maybeSingle()
-  if (!current) return NextResponse.json({ error: 'Recovery case not found for this organization' }, { status: 404 })
+  if (!current) return apiError(404, 'Recovery case not found for this organization')
 
   if (parsed.data.assigned_manager_user_id) {
     const { data: manager } = await db.from('users').select('id').eq('id', parsed.data.assigned_manager_user_id).eq('org_id', user.org_id).maybeSingle()
-    if (!manager) return NextResponse.json({ error: 'Assigned manager not found for this organization' }, { status: 400 })
+    if (!manager) return apiError(400, 'Assigned manager not found for this organization')
   }
 
   const now = new Date().toISOString()
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq('org_id', user.org_id)
     .select()
     .single()
-  if (updateError || !updated) return NextResponse.json({ error: 'Failed to update recovery case' }, { status: 500 })
+  if (updateError || !updated) return apiError(500, 'Failed to update recovery case')
 
   const { data: action, error: actionError } = await db
     .from('crm_recovery_actions')
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
     .select()
     .single()
-  if (actionError || !action) return NextResponse.json({ error: 'Recovery case updated but action log failed' }, { status: 409 })
+  if (actionError || !action) return apiError(409, 'Recovery case updated but action log failed')
 
   if (parsed.data.followup_due_at) {
     await db.from('crm_recovery_followups').insert({

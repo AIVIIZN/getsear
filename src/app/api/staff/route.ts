@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
 
   const result = await fetchStaffList(user.org_id, { roleFilter, statusFilter })
   if (result.error) {
-    return NextResponse.json({ error: result.error }, { status: 500 })
+    return apiError(500, result.error)
   }
   const staff = result.data
 
@@ -119,15 +120,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createStaffSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { pin, ...staffData } = parsed.data
@@ -145,10 +143,7 @@ export async function POST(request: NextRequest) {
       for (const existing of existingStaff) {
         const matches = await bcrypt.compare(pin, existing.pin_hash)
         if (matches) {
-          return NextResponse.json(
-            { error: 'PIN is already in use by another staff member' },
-            { status: 409 }
-          )
+          return apiError(409, 'PIN is already in use by another staff member')
         }
       }
     }
@@ -171,7 +166,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error('[staff/POST]', error.message, error.details, error.hint)
-    return NextResponse.json({ error: 'Failed to create staff member', details: error.message }, { status: 500 })
+    return apiError(500, 'Failed to create staff member', { details: error.message, extra: { "details": error.message } })
   }
 
   revalidateTag(cacheTags.staff(user.org_id), CACHE_REVALIDATE_PROFILE)

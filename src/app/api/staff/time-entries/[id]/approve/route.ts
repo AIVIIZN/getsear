@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -26,7 +27,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!existing) {
-    return NextResponse.json({ error: 'Time entry not found' }, { status: 404 })
+    return apiError(404, 'Time entry not found')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,7 +42,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to approve time entry' }, { status: 500 })
+    return apiError(500, 'Failed to approve time entry')
   }
 
   return NextResponse.json({ data })

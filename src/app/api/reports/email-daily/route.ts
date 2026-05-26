@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
   const results = await aggregateAllLocations(user.org_id, businessDate)
 
   if (results.length === 0) {
-    return NextResponse.json({ error: 'No locations found to aggregate' }, { status: 400 })
+    return apiError(400, 'No locations found to aggregate')
   }
 
   // Get org details and recipient list

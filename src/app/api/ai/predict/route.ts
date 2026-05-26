@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { generatePredictions } from '@/lib/ai/prediction-engine'
@@ -44,10 +45,7 @@ export async function GET(request: NextRequest) {
   // Validate date format
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/
   if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-    return NextResponse.json(
-      { error: 'Invalid date format. Use YYYY-MM-DD.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Invalid date format. Use YYYY-MM-DD.')
   }
 
   // Limit range to 30 days
@@ -55,10 +53,7 @@ export async function GET(request: NextRequest) {
   const end = new Date(endDate)
   const diffDays = Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
   if (diffDays > 30) {
-    return NextResponse.json(
-      { error: 'Date range too large. Maximum 30 days.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Date range too large. Maximum 30 days.')
   }
 
   try {
@@ -79,9 +74,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (err) {
     console.error('[api/ai/predict] Error:', err)
-    return NextResponse.json(
-      { error: 'Failed to generate predictions' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to generate predictions')
   }
 }

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -16,21 +17,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = resolveCrmRecoveryCaseSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
 
   const { id } = await params
   const db = createAdminClient()
   const { data: current } = await db.from('crm_recovery_cases').select('*').eq('id', id).eq('org_id', user.org_id).maybeSingle()
-  if (!current) return NextResponse.json({ error: 'Recovery case not found for this organization' }, { status: 404 })
+  if (!current) return apiError(404, 'Recovery case not found for this organization')
 
   const recovered = parsed.data.recovered_order_id
     ? await resolveRecoveredOrder(db, user.org_id, parsed.data.recovered_order_id, (current as { guest_id: string | null }).guest_id)
     : { data: null as null, error: undefined }
-  if (recovered.error) return NextResponse.json({ error: recovered.error }, { status: 400 })
+  if (recovered.error) return apiError(400, recovered.error)
 
   const now = new Date().toISOString()
   const { data: updated, error } = await db
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq('org_id', user.org_id)
     .select()
     .single()
-  if (error || !updated) return NextResponse.json({ error: 'Failed to resolve recovery case' }, { status: 500 })
+  if (error || !updated) return apiError(500, 'Failed to resolve recovery case')
 
   const { data: action } = await db.from('crm_recovery_actions').insert({
     org_id: user.org_id,

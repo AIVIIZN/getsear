@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!customer) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    return apiError(404, 'Customer not found')
   }
   const { data, error, count } = await supabase.from('orders')
     .select('id, order_number, status, order_type, subtotal, tax_total, total, item_count, created_at, closed_at', { count: 'exact' })
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .range(offset, offset + limit - 1)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch order history' }, { status: 500 })
+    return apiError(500, 'Failed to fetch order history')
   }
 
   return NextResponse.json({

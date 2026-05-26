@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -18,10 +19,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (authError || !authUser) {
-      return NextResponse.json(
-        { error: 'Not authenticated.' },
-        { status: 401 }
-      )
+      return apiError(401, 'Not authenticated.')
     }
 
     const admin = createAdminClient()
@@ -34,17 +32,11 @@ export async function GET() {
     const profile = data as UserProfile | null
 
     if (profileError || !profile) {
-      return NextResponse.json(
-        { error: 'User profile not found.' },
-        { status: 404 }
-      )
+      return apiError(404, 'User profile not found.')
     }
 
     if (!profile.is_active) {
-      return NextResponse.json(
-        { error: 'Account deactivated.' },
-        { status: 401 }
-      )
+      return apiError(401, 'Account deactivated.')
     }
 
     const displayName =
@@ -66,9 +58,6 @@ export async function GET() {
       },
     })
   } catch {
-    return NextResponse.json(
-      { error: 'An unexpected error occurred.' },
-      { status: 500 }
-    )
+    return apiError(500, 'An unexpected error occurred.')
   }
 }

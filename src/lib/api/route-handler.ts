@@ -4,7 +4,7 @@ import { getAuthUser, requireRole, type AuthUser } from './auth'
 import { validateBody, validateQuery } from './validate'
 import { requireLocation } from './require-location'
 import { checkRateLimit, applyRateLimitHeaders, type RateLimitTier, type RateLimitResult } from './rate-limit'
-import { internalError } from './error-response'
+import { internalError, rateLimited } from './error-response'
 
 interface RouteHandlerOptions {
   /** Rate limit tier for this route. Defaults to 'standard'. */
@@ -85,10 +85,7 @@ export function createHandler<TBody = unknown, TQuery = unknown>(
       const identifier = options.isPublic ? request.headers.get('x-forwarded-for') || '0.0.0.0' : user.id
       const rl = await checkRateLimit(tier, identifier)
       if (!rl.allowed) {
-        const res = NextResponse.json(
-          { error: 'Too many requests. Please try again later.', code: 'RATE_LIMITED' },
-          { status: 429 }
-        )
+        const res = rateLimited(rl.retryAfterSeconds)
         applyRateLimitHeaders(res.headers, rl)
         return res
       }

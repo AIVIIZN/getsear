@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -18,7 +19,7 @@ export async function GET() {
     .is('clock_out', null)
 
   if (entriesError) {
-    return NextResponse.json({ error: 'Failed to fetch active entries' }, { status: 500 })
+    return apiError(500, 'Failed to fetch active entries')
   }
 
   if (!activeEntries || activeEntries.length === 0) {
@@ -33,7 +34,7 @@ export async function GET() {
     .eq('is_active', true)
 
   if (staffError) {
-    return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
+    return apiError(500, 'Failed to fetch staff')
   }
 
   type ActiveEntry = { id: string; user_id: string; clock_in: string | null; location_id: string | null }

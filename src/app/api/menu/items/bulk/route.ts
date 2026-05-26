@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -26,15 +27,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = bulkActionSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { action, item_ids, category_id, price_change_type, price_change_value } = parsed.data
@@ -53,7 +51,7 @@ export async function POST(request: NextRequest) {
   switch (action) {
     case 'move': {
       if (!category_id) {
-        return NextResponse.json({ error: 'category_id required for move' }, { status: 400 })
+        return apiError(400, 'category_id required for move')
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,7 +61,7 @@ export async function POST(request: NextRequest) {
         .eq('org_id', user.org_id)
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to move items' }, { status: 500 })
+        return apiError(500, 'Failed to move items')
       }
 
       invalidateMenuCache()
@@ -78,7 +76,7 @@ export async function POST(request: NextRequest) {
         .eq('org_id', user.org_id)
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to 86 items' }, { status: 500 })
+        return apiError(500, 'Failed to 86 items')
       }
 
       invalidateMenuCache()
@@ -93,7 +91,7 @@ export async function POST(request: NextRequest) {
         .eq('org_id', user.org_id)
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to restore items' }, { status: 500 })
+        return apiError(500, 'Failed to restore items')
       }
 
       invalidateMenuCache()
@@ -109,7 +107,7 @@ export async function POST(request: NextRequest) {
         .eq('org_id', user.org_id)
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to delete items' }, { status: 500 })
+        return apiError(500, 'Failed to delete items')
       }
 
       invalidateMenuCache()
@@ -118,10 +116,7 @@ export async function POST(request: NextRequest) {
 
     case 'price_change': {
       if (price_change_type === undefined || price_change_value === undefined) {
-        return NextResponse.json(
-          { error: 'price_change_type and price_change_value required' },
-          { status: 400 }
-        )
+        return apiError(400, 'price_change_type and price_change_value required')
       }
 
       // Fetch current prices
@@ -132,7 +127,7 @@ export async function POST(request: NextRequest) {
         .eq('org_id', user.org_id)
 
       if (fetchError || !items) {
-        return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
+        return apiError(500, 'Failed to fetch items')
       }
 
       // Calculate new prices and update each
@@ -164,6 +159,6 @@ export async function POST(request: NextRequest) {
     }
 
     default:
-      return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+      return apiError(400, 'Unknown action')
   }
 }

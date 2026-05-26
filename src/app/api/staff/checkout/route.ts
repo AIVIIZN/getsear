@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -26,15 +27,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = checkoutSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { user_id, date, location_id, cash_tips_declared_cents, starting_cash_cents } = parsed.data
@@ -51,7 +49,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (!targetUser) {
-    return NextResponse.json({ error: 'Employee not found in your organization' }, { status: 404 })
+    return apiError(404, 'Employee not found in your organization')
   }
 
   // Verify location_id belongs to caller's org
@@ -63,7 +61,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (!targetLocation) {
-    return NextResponse.json({ error: 'Location not found in your organization' }, { status: 404 })
+    return apiError(404, 'Location not found in your organization')
   }
 
   // Get the time entry for this shift
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (!timeEntry) {
-    return NextResponse.json({ error: 'No time entry found for this employee on this date' }, { status: 404 })
+    return apiError(404, 'No time entry found for this employee on this date')
   }
 
   // Get orders closed by this server during the shift

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -33,15 +34,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = splitSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -64,14 +62,14 @@ export async function POST(
     .single()
 
   if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   const items = order.order_items ?? []
   const activeItems = items.filter((i: { is_voided: boolean }) => !i.is_voided)
 
   if (activeItems.length === 0) {
-    return NextResponse.json({ error: 'No items to split' }, { status: 400 })
+    return apiError(400, 'No items to split')
   }
 
   const { mode } = parsed.data
@@ -87,7 +85,7 @@ export async function POST(
     }
 
     if (seats.size < 2) {
-      return NextResponse.json({ error: 'Need items on at least 2 seats to split by seat' }, { status: 400 })
+      return apiError(400, 'Need items on at least 2 seats to split by seat')
     }
 
     // Create a new order for each seat (first seat keeps original order)

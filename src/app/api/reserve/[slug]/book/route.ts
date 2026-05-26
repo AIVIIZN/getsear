@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -27,15 +28,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = bookSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -49,7 +47,7 @@ export async function POST(
     .single()
 
   if (locErr || !location) {
-    return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+    return apiError(404, 'Restaurant not found')
   }
 
   // Check for double-booking at the same time slot
@@ -86,10 +84,7 @@ export async function POST(
   }
 
   if (overlapping >= totalMatchingTables) {
-    return NextResponse.json(
-      { error: 'No tables available for this time slot. Please choose a different time.' },
-      { status: 409 }
-    )
+    return apiError(409, 'No tables available for this time slot. Please choose a different time.')
   }
 
   // Create the reservation
@@ -116,7 +111,7 @@ export async function POST(
 
   if (createErr || !reservation) {
     console.error('[reserve/book] Create error:', createErr)
-    return NextResponse.json({ error: 'Failed to create reservation' }, { status: 500 })
+    return apiError(500, 'Failed to create reservation')
   }
 
   // Send confirmation SMS (fire and forget)

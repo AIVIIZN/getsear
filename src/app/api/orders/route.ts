@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (result.error) {
-    return NextResponse.json({ error: result.error }, { status: 500 })
+    return apiError(500, result.error)
   }
 
   return NextResponse.json({
@@ -126,15 +127,12 @@ export const POST = withIdempotency('orders.create', async (request: NextRequest
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createOrderSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -176,7 +174,7 @@ export const POST = withIdempotency('orders.create', async (request: NextRequest
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+    return apiError(500, 'Failed to create order')
   }
 
   for (const tag of orderCacheTags(user.org_id, data.id)) {

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { applyRateLimitHeaders, checkRateLimit, getClientIp } from '@/lib/api/rate-limit'
 import { verifyWebhookSignature } from '@/lib/crm/integrations'
@@ -16,7 +17,7 @@ function headersSnapshot(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const rateLimit = await checkRateLimit('public', `crm-webhook:${getClientIp(request)}`)
   if (!rateLimit.allowed) {
-    const response = NextResponse.json({ error: 'Too many webhook attempts' }, { status: 429 })
+    const response = apiError(429, 'Too many webhook attempts')
     applyRateLimitHeaders(response.headers, rateLimit)
     return response
   }
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
   })()
   const parsed = receiveCrmWebhookSchema.safeParse(parsedJson)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid webhook payload', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return apiError(400, 'Invalid webhook payload', { details: parsed.error.flatten(), extra: { "details": parsed.error.flatten() } })
 
   const db = createAdminClient()
   const { data: connection, error } = await db
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     .is('deleted_at', null)
     .single()
 
-  if (error || !connection) return NextResponse.json({ error: 'Unknown webhook connection' }, { status: 404 })
+  if (error || !connection) return apiError(404, 'Unknown webhook connection')
 
   const credentialRef = (connection as { credential_ref?: string | null }).credential_ref
   const secret = credentialRef ? process.env[credentialRef] : null
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (!signatureVerified) {
-    const response = NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 401 })
+    const response = apiError(401, 'Webhook signature verification failed')
     applyRateLimitHeaders(response.headers, rateLimit)
     return response
   }

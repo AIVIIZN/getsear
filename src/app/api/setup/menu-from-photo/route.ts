@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -23,25 +24,19 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = requestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { image } = parsed.data
 
   // Validate image size (base64 string should be reasonable)
   if (image.length > 15_000_000) {
-    return NextResponse.json(
-      { error: 'Image too large. Maximum 10MB.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Image too large. Maximum 10MB.')
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -102,10 +97,7 @@ Return ONLY a valid JSON array. No markdown, no explanation. Example:
     if (!response.ok) {
       const errorData = await response.json()
       console.error('Claude API error:', errorData)
-      return NextResponse.json(
-        { error: 'AI extraction failed. Please try again or use CSV import.' },
-        { status: 502 }
-      )
+      return apiError(502, 'AI extraction failed. Please try again or use CSV import.')
     }
 
     const data = await response.json()
@@ -122,10 +114,7 @@ Return ONLY a valid JSON array. No markdown, no explanation. Example:
       items = JSON.parse(jsonStr)
     } catch {
       console.error('Failed to parse Claude response:', rawText)
-      return NextResponse.json(
-        { error: 'Could not parse the extracted menu. Please try with a clearer photo.' },
-        { status: 422 }
-      )
+      return apiError(422, 'Could not parse the extracted menu. Please try with a clearer photo.')
     }
 
     // Validate and clean items
@@ -140,10 +129,7 @@ Return ONLY a valid JSON array. No markdown, no explanation. Example:
     return NextResponse.json({ items: cleanedItems })
   } catch (error) {
     console.error('Menu extraction error:', error)
-    return NextResponse.json(
-      { error: 'Failed to extract menu items. Please try again.' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to extract menu items. Please try again.')
   }
 }
 

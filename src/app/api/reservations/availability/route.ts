@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -13,11 +14,11 @@ export async function GET(request: NextRequest) {
   const locationId = params.get('location_id') ?? user.location_ids[0]
 
   if (!date) {
-    return NextResponse.json({ error: 'date parameter is required' }, { status: 400 })
+    return apiError(400, 'date parameter is required')
   }
 
   if (!locationId) {
-    return NextResponse.json({ error: 'No location specified' }, { status: 400 })
+    return apiError(400, 'No location specified')
   }
 
   const supabase = createAdminClient()

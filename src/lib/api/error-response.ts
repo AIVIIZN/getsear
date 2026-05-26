@@ -7,6 +7,7 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
+  | 'PRECONDITION_REQUIRED'
   | 'INTERNAL_ERROR'
   | 'BAD_REQUEST'
   | 'MFA_REQUIRED'
@@ -17,25 +18,94 @@ export type ApiErrorCode =
 interface ApiErrorPayload {
   error: string
   code: ApiErrorCode
-  details?: Record<string, unknown>
+  message: string
+  action: string
+  details?: unknown
+  [key: string]: unknown
+}
+
+interface ApiErrorOptions {
+  code?: ApiErrorCode
+  action?: string
+  details?: unknown
+  extra?: Record<string, unknown>
+}
+
+const DEFAULT_ACTION_BY_CODE: Record<ApiErrorCode, string> = {
+  VALIDATION_ERROR: 'Fix the highlighted fields and try again.',
+  UNAUTHORIZED: 'Sign in again to continue.',
+  FORBIDDEN: 'Ask a manager to grant access.',
+  NOT_FOUND: 'Go back and refresh the page.',
+  CONFLICT: 'Refresh the page, review the latest changes, and try again.',
+  RATE_LIMITED: 'Wait a moment, then try again.',
+  PRECONDITION_REQUIRED: 'Refresh the order and try the change again.',
+  INTERNAL_ERROR: 'Try again. If it still fails, contact support.',
+  BAD_REQUEST: 'Review the request and try again.',
+  MFA_REQUIRED: 'Complete multi-factor verification to continue.',
+  MFA_INVALID: 'Check the code and try again.',
+  ACCOUNT_LOCKED: 'Wait for the lockout to expire or ask a manager for help.',
+  LOCATION_ACCESS_DENIED: 'Switch locations or ask a manager for access.',
+}
+
+function codeForStatus(status: number): ApiErrorCode {
+  if (status === 400) return 'BAD_REQUEST'
+  if (status === 401) return 'UNAUTHORIZED'
+  if (status === 403) return 'FORBIDDEN'
+  if (status === 404) return 'NOT_FOUND'
+  if (status === 409) return 'CONFLICT'
+  if (status === 422) return 'VALIDATION_ERROR'
+  if (status === 428) return 'PRECONDITION_REQUIRED'
+  if (status === 429) return 'RATE_LIMITED'
+  return 'INTERNAL_ERROR'
+}
+
+function sentenceCase(message: string): string {
+  const trimmed = message.trim()
+  if (!trimmed) return 'Something went wrong.'
+  const withCapital = trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+  return /[.!?]$/.test(withCapital) ? withCapital : `${withCapital}.`
+}
+
+function toDisplayMessage(error: unknown): string {
+  if (typeof error === 'string') return sentenceCase(error)
+  if (error instanceof Error) return sentenceCase(error.message)
+  return 'Something went wrong.'
 }
 
 /**
  * Build a consistent API error response.
  * Every error from any route returns the same shape:
- * { error: string, code: string, details?: object }
+ * { error: string, code: string, message: string, action: string, details?: unknown }
  */
 export function errorResponse(
   status: number,
-  error: string,
+  error: unknown,
   code: ApiErrorCode,
-  details?: Record<string, unknown>
+  details?: unknown,
+  action?: string,
+  extra?: Record<string, unknown>
 ): NextResponse<ApiErrorPayload> {
-  const body: ApiErrorPayload = { error, code }
+  const message = toDisplayMessage(error)
+  const body: ApiErrorPayload = {
+    ...(extra ?? {}),
+    error: message,
+    code,
+    message,
+    action: action ?? DEFAULT_ACTION_BY_CODE[code],
+  }
   if (details) {
     body.details = details
   }
   return NextResponse.json(body, { status })
+}
+
+export function apiError(
+  status: number,
+  error: unknown,
+  options: ApiErrorOptions = {}
+): NextResponse<ApiErrorPayload> {
+  const code = options.code ?? codeForStatus(status)
+  return errorResponse(status, error, code, options.details, options.action, options.extra)
 }
 
 /** 400 Bad Request */

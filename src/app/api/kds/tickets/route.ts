@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -109,12 +110,12 @@ export async function GET(request: NextRequest) {
   const locationId = params.get('location_id')
 
   if (!stationId) {
-    return NextResponse.json({ error: 'station_id is required' }, { status: 400 })
+    return apiError(400, 'station_id is required')
   }
   // Fall back to user's first location if not specified
   const effectiveLocationId = locationId ?? user.location_ids?.[0]
   if (!effectiveLocationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const supabase = createAdminClient()
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (stationError || !station) {
-    return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+    return apiError(404, 'Station not found')
   }
 
   const stationType = station.station_type as string
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: true })
 
   if (ordersError) {
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
+    return apiError(500, 'Failed to fetch orders')
   }
 
   if (!orders || orders.length === 0) {
@@ -169,7 +170,7 @@ export async function GET(request: NextRequest) {
   const { data: items, error: itemsError } = await itemsQuery
 
   if (itemsError) {
-    return NextResponse.json({ error: 'Failed to fetch order items' }, { status: 500 })
+    return apiError(500, 'Failed to fetch order items')
   }
 
   if (!items || items.length === 0) {

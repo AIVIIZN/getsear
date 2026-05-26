@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -20,7 +21,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!customer) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    return apiError(404, 'Customer not found')
   }
   const { data: loyalty, error } = await supabase.from('loyalty_accounts')
     .select('*')

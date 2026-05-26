@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -20,10 +21,7 @@ export async function GET(
   const dateTo = searchParams.get('date_to')
 
   if (!dateFrom || !dateTo) {
-    return NextResponse.json(
-      { error: 'date_from and date_to parameters are required' },
-      { status: 400 }
-    )
+    return apiError(400, 'date_from and date_to parameters are required')
   }
 
   const supabase = createAdminClient()
@@ -37,7 +35,7 @@ export async function GET(
     .single()
 
   if (accErr || !account) {
-    return NextResponse.json({ error: 'House account not found' }, { status: 404 })
+    return apiError(404, 'House account not found')
   }
 
   // Get transactions in date range
@@ -50,7 +48,7 @@ export async function GET(
     .order('created_at', { ascending: true })
 
   if (txErr) {
-    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
+    return apiError(500, 'Failed to fetch transactions')
   }
 
   const txList = transactions ?? []

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -66,15 +67,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = closingCountSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { drawer_id, denominations, total_cents, notes } = parsed.data
@@ -88,29 +86,19 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (drawerErr || !drawer) {
-    return NextResponse.json({ error: 'Cash drawer not found' }, { status: 404 })
+    return apiError(404, 'Cash drawer not found')
   }
 
   const drawerData = drawer as Record<string, unknown>
 
   if (!drawerData.is_open) {
-    return NextResponse.json(
-      { error: 'Drawer is not open. Cannot perform closing count.' },
-      { status: 409 }
-    )
+    return apiError(409, 'Drawer is not open. Cannot perform closing count.')
   }
 
   // Validate total matches denomination count
   const calculatedTotal = calculateDenominationTotal(denominations)
   if (Math.abs(calculatedTotal - total_cents) > 1) {
-    return NextResponse.json(
-      {
-        error: 'Total does not match denomination count',
-        calculated_cents: calculatedTotal,
-        provided_cents: total_cents,
-      },
-      { status: 400 }
-    )
+    return apiError(400, 'Total does not match denomination count', { extra: { "calculated_cents": calculatedTotal, "provided_cents": total_cents } })
   }
 
   // Calculate expected cash from all drawer events
@@ -188,7 +176,7 @@ export async function POST(request: NextRequest) {
     .eq('id', drawer_id)
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to close drawer' }, { status: 500 })
+    return apiError(500, 'Failed to close drawer')
   }
 
   // Record closing count event
@@ -205,7 +193,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (eventErr) {
-    return NextResponse.json({ error: 'Failed to record closing count event' }, { status: 500 })
+    return apiError(500, 'Failed to record closing count event')
   }
 
   // Audit trail for significant variances

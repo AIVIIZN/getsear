@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { audit } from '@/lib/audit/log'
@@ -29,7 +30,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .is('deleted_at', null)
     .maybeSingle()
 
-  if (!guest) return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+  if (!guest) return apiError(404, 'Guest not found')
 
   const { data, error } = await supabase
     .from('guest_consents')
@@ -39,7 +40,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .order('channel', { ascending: true })
     .order('purpose', { ascending: true })
 
-  if (error) return NextResponse.json({ error: 'Failed to fetch guest consents' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch guest consents')
 
   const { data: suppressions } = await supabase
     .from('suppression_entries')
@@ -63,12 +64,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = upsertConsentRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { id } = await params
@@ -82,7 +83,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
 
   const guestRow = guest as { id: string; location_id: string | null } | null
-  if (!guestRow) return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+  if (!guestRow) return apiError(404, 'Guest not found')
 
   const now = new Date().toISOString()
   const { data: before } = await supabase
@@ -118,7 +119,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .upsert(rows, { onConflict: 'org_id,guest_id,channel,purpose' })
     .select()
 
-  if (error) return NextResponse.json({ error: 'Failed to save guest consent' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to save guest consent')
 
   const revokedRows = rows.filter((row) => row.status === 'revoked')
   if (revokedRows.length > 0) {

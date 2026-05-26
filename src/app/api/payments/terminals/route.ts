@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 /**
  * /api/payments/terminals
  *
@@ -51,7 +52,7 @@ export async function GET() {
       return NextResponse.json({ data: [] })
     }
     console.error('[GET /api/payments/terminals] failed:', error)
-    return NextResponse.json({ error: 'Failed to load terminals' }, { status: 500 })
+    return apiError(500, 'Failed to load terminals')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -65,15 +66,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = registerSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { device_class, identifier, manager_pin, name } = parsed.data
@@ -88,13 +86,13 @@ export async function POST(request: NextRequest) {
     supabase,
   })
   if (pinResult.kind === 'rate_limited') {
-    const res = NextResponse.json({ error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' }, { status: 429 })
+    const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
     applyRateLimitHeaders(res.headers, pinResult.rateLimit)
     res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
     return res
   }
   if (pinResult.kind === 'invalid') {
-    return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+    return apiError(403, 'Invalid manager PIN')
   }
   const validatingManagerId = pinResult.manager_user_id
 
@@ -103,22 +101,13 @@ export async function POST(request: NextRequest) {
   try {
     binding = await requireProcessorBinding(user.org_id)
   } catch (err) {
-    return NextResponse.json(
-      {
-        error: 'No processor binding for this org',
-        details: err instanceof Error ? err.message : String(err),
-      },
-      { status: 400 }
-    )
+    return apiError(400, 'No processor binding for this org', { details: err instanceof Error ? err.message : String(err), extra: { "details": err instanceof Error ? err.message : String(err) } })
   }
 
   // Compatibility check — single source of truth.
   const matrixEntry = COMPATIBILITY_MATRIX[device_class]
   if (!matrixEntry) {
-    return NextResponse.json(
-      { error: `Unknown device_class: ${device_class}`, code: 'unknown_device_class' },
-      { status: 400 }
-    )
+    return apiError(400, `Unknown device_class: ${device_class}`)
   }
 
   const cert = matrixEntry.processors[binding.processor]
@@ -129,10 +118,7 @@ export async function POST(request: NextRequest) {
         : cert === 'unsupported_until_psp_listed'
         ? `${device_class} requires Valor on the platform PSP allowlist; status: not yet listed.`
         : `${device_class} is not supported with processor ${binding.processor}.`
-    return NextResponse.json(
-      { error: reason, code: 'driver_not_certified', cert_status: cert ?? null },
-      { status: 400 }
-    )
+    return apiError(400, reason, { extra: { "cert_status": cert ?? null } })
   }
 
   // Driver registry sanity check — every 'live' device_class must have a
@@ -140,13 +126,7 @@ export async function POST(request: NextRequest) {
   // can never be 'live' here without a code change.)
   const driver = getDriver(device_class)
   if (!driver) {
-    return NextResponse.json(
-      {
-        error: `No driver registered for ${device_class}`,
-        code: 'no_driver',
-      },
-      { status: 500 }
-    )
+    return apiError(500, `No driver registered for ${device_class}`)
   }
 
   // Insert — if `payment_terminals` doesn't exist yet, fall back to a
@@ -185,10 +165,7 @@ export async function POST(request: NextRequest) {
       })
     }
     console.error('[POST /api/payments/terminals] insert failed:', error)
-    return NextResponse.json(
-      { error: 'Failed to register terminal' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to register terminal')
   }
 
   return NextResponse.json({ data })

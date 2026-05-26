@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -26,15 +27,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = fireCourseSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'course number is required', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'course number is required', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -57,7 +55,7 @@ export async function POST(
     .select()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fire course' }, { status: 500 })
+    return apiError(500, 'Failed to fire course')
   }
 
   // Update order status to fired if not already. We gate on version when the

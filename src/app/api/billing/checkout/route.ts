@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
+import { apiError } from '@/lib/api/error-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkoutPlanSchema, createCheckoutSession } from '@/lib/billing/stripe'
 
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = checkoutPlanSchema.safeParse(await request.json())
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+    return apiError(400, parsed.error.issues[0].message)
   }
 
   const origin = request.nextUrl.origin
@@ -34,9 +35,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: { id: session.id, url: session.url } })
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to create checkout session' },
-      { status: 500 },
-    )
+    return apiError(500, error instanceof Error ? error.message : 'Unable to create checkout session')
   }
 }

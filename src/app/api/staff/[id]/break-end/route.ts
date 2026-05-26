@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -25,7 +26,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
 
   if (findError || !activeEntry) {
-    return NextResponse.json({ error: 'Staff member is not clocked in' }, { status: 404 })
+    return apiError(404, 'Staff member is not clocked in')
   }
 
   // Find active break
@@ -38,7 +39,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
 
   if (breakError || !activeBreak) {
-    return NextResponse.json({ error: 'No active break found' }, { status: 404 })
+    return apiError(404, 'No active break found')
   }
 
   const now = new Date()
@@ -56,7 +57,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to end break' }, { status: 500 })
+    return apiError(500, 'Failed to end break')
   }
 
   return NextResponse.json({ data: breakEntry })

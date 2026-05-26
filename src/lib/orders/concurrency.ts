@@ -35,13 +35,16 @@
  */
 
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api/error-response'
 
 export const IF_MATCH_HEADER = 'if-match'
 
 /** Shape of a 409 stale-write response. The client knows this contract. */
 export interface StaleOrderResponseBody {
   error: 'order_version_mismatch'
+  code: 'CONFLICT'
   message: string
+  action: string
   /** What the client thought was current. May be `null` if header missing. */
   expected_version: number | null
   /** Current server-side version. */
@@ -86,10 +89,12 @@ export function build409Body(args: {
 }): StaleOrderResponseBody {
   return {
     error: 'order_version_mismatch',
+    code: 'CONFLICT',
     message:
       args.expected_version === null
         ? `Order has been updated. Current version is ${args.current_version}.`
         : `Order was updated by someone else. You sent version ${args.expected_version}; current is ${args.current_version}.`,
+    action: 'Review the latest order state, then re-apply the change.',
     expected_version: args.expected_version,
     current_version: args.current_version,
     current_state: args.current_state,
@@ -226,7 +231,9 @@ export async function assertVersion(
       response: NextResponse.json(
         {
           error: 'precondition_required',
+          code: 'PRECONDITION_REQUIRED',
           message: 'This endpoint requires an If-Match header with the order version.',
+          action: 'Refresh the order and try the change again.',
         },
         { status: 428 }
       ),
@@ -242,7 +249,7 @@ export async function assertVersion(
   if (!loaded) {
     return {
       ok: false,
-      response: NextResponse.json({ error: 'Order not found' }, { status: 404 }),
+      response: apiError(404, 'Order not found'),
     }
   }
 
@@ -312,7 +319,7 @@ export async function checkUpdateAffectedRow(
     options.select
   )
   if (!fresh) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
   return build409Response({
     expected_version: expectedVersion,

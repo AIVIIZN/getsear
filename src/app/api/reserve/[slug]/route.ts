@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -20,10 +21,7 @@ export async function GET(
   const searchParams = Object.fromEntries(request.nextUrl.searchParams.entries())
   const parsed = querySchema.safeParse(searchParams)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid parameters. Required: date (YYYY-MM-DD), party_size (number)' },
-      { status: 400 }
-    )
+    return apiError(400, 'Invalid parameters. Required: date (YYYY-MM-DD), party_size (number)')
   }
 
   const { date, party_size } = parsed.data
@@ -38,7 +36,7 @@ export async function GET(
     .single()
 
   if (locErr || !location) {
-    return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+    return apiError(404, 'Restaurant not found')
   }
 
   // Get all tables that can accommodate the party

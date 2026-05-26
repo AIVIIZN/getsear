@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -30,7 +31,7 @@ export async function POST(
 
   const status = check.currentRow.status as string
   if (status === 'closed' || status === 'voided') {
-    return NextResponse.json({ error: 'Cannot send a closed or voided order' }, { status: 400 })
+    return apiError(400, 'Cannot send a closed or voided order')
   }
 
   // Mark all unsent, non-voided items as sent
@@ -43,7 +44,7 @@ export async function POST(
     .select()
 
   if (itemError) {
-    return NextResponse.json({ error: 'Failed to send items' }, { status: 500 })
+    return apiError(500, 'Failed to send items')
   }
 
   // Transition order status: draft→open on first send, or keep current if already open/fired
@@ -66,7 +67,7 @@ export async function POST(
     .maybeSingle()
 
   if (orderError) {
-    return NextResponse.json({ error: 'Failed to update order status' }, { status: 500 })
+    return apiError(500, 'Failed to update order status')
   }
 
   const staleResp = await checkUpdateAffectedRow(

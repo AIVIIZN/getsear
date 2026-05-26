@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -28,7 +29,7 @@ export async function POST(
 
   const status = check.currentRow.status as string
   if (status === 'closed' || status === 'voided') {
-    return NextResponse.json({ error: 'Cannot hold a closed or voided order' }, { status: 400 })
+    return apiError(400, 'Cannot hold a closed or voided order')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,7 +43,7 @@ export async function POST(
   const { data, error } = await updateQuery.select().maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to hold order' }, { status: 500 })
+    return apiError(500, 'Failed to hold order')
   }
 
   const staleResp = await checkUpdateAffectedRow(

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -31,7 +32,7 @@ export async function GET() {
     .order('sort_order', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch modifier groups' }, { status: 500 })
+    return apiError(500, 'Failed to fetch modifier groups')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -48,15 +49,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createModifierGroupSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -87,7 +85,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (groupErr || !group) {
-    return NextResponse.json({ error: 'Failed to create modifier group' }, { status: 500 })
+    return apiError(500, 'Failed to create modifier group')
   }
 
   // Insert modifiers if provided

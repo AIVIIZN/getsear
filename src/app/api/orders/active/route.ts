@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   const result = await fetchActiveOrders(user.org_id, locationId)
 
   if (result.error) {
-    return NextResponse.json({ error: result.error }, { status: 500 })
+    return apiError(500, result.error)
   }
 
   return NextResponse.json({ data: result.data ?? [] })

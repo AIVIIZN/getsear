@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch purchase orders' }, { status: 500 })
+    return apiError(500, 'Failed to fetch purchase orders')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -65,15 +66,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createPOSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -100,7 +98,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (poErr || !po) {
-    return NextResponse.json({ error: 'Failed to create purchase order' }, { status: 500 })
+    return apiError(500, 'Failed to create purchase order')
   }
 
   // Create PO items
@@ -120,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Rollback PO
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('purchase_orders') as any).delete().eq('id', po.id)
-    return NextResponse.json({ error: 'Failed to create PO items' }, { status: 500 })
+    return apiError(500, 'Failed to create PO items')
   }
 
   return NextResponse.json({ data: po }, { status: 201 })

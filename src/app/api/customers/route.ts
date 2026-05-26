@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
   const { data, error, count } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 })
+    return apiError(500, 'Failed to fetch customers')
   }
 
   return NextResponse.json({
@@ -71,15 +72,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCustomerSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -100,13 +98,7 @@ export async function POST(request: NextRequest) {
 
     const { data: duplicates } = await dupQuery
     if (duplicates && duplicates.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Potential duplicate found',
-          duplicates,
-        },
-        { status: 409 }
-      )
+      return apiError(409, 'Potential duplicate found', { extra: { duplicates } })
     }
   }
   const { data, error } = await supabase.from('customers')
@@ -120,7 +112,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 })
+    return apiError(500, 'Failed to create customer')
   }
 
   return NextResponse.json({ data }, { status: 201 })

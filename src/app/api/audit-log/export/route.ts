@@ -33,7 +33,7 @@ import { compare } from 'bcryptjs'
 import { getAuthUser } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { audit, type AuditAction, type EntityType, type AuditListFilters } from '@/lib/audit/log'
-import { badRequest, forbidden, internalError, unauthorized } from '@/lib/api/error-response'
+import { apiError, badRequest, forbidden, internalError, unauthorized } from '@/lib/api/error-response'
 import { checkRateLimit, applyRateLimitHeaders } from '@/lib/api/rate-limit'
 
 const querySchema = z.object({
@@ -64,10 +64,7 @@ export async function GET(request: NextRequest) {
   // the limiter regardless of org size).
   const rl = await checkRateLimit('bulk', user.id)
   if (!rl.allowed) {
-    const res = NextResponse.json(
-      { error: 'Too many export requests. Please wait.', code: 'RATE_LIMITED' },
-      { status: 429 }
-    )
+    const res = apiError(429, 'Too many export requests. Please wait.')
     applyRateLimitHeaders(res.headers, rl)
     return res
   }

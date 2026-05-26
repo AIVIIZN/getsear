@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -93,15 +94,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = refundSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { payment_id, reason, reason_detail, manager_pin, is_unlinked } = parsed.data
@@ -116,26 +114,20 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (paymentErr || !payment) {
-    return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+    return apiError(404, 'Payment not found')
   }
 
   const paymentData = payment as Record<string, unknown>
 
   if (!['captured', 'settled'].includes(paymentData.status as string)) {
-    return NextResponse.json(
-      { error: 'Payment cannot be refunded in current status. Only captured or settled payments can be refunded.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Payment cannot be refunded in current status. Only captured or settled payments can be refunded.')
   }
 
   // ----- 2. Refund window check --------------------------------------------
   const paymentDate = new Date(paymentData.processed_at as string)
   const daysSincePayment = (Date.now() - paymentDate.getTime()) / (1000 * 60 * 60 * 24)
   if (daysSincePayment > MAX_REFUND_WINDOW_DAYS) {
-    return NextResponse.json(
-      { error: `Transaction exceeds ${MAX_REFUND_WINDOW_DAYS}-day refund window` },
-      { status: 400 }
-    )
+    return apiError(400, `Transaction exceeds ${MAX_REFUND_WINDOW_DAYS}-day refund window`)
   }
 
   const totalCents = Math.round(parseFloat(paymentData.total_amount as string) * 100)
@@ -153,14 +145,7 @@ export async function POST(request: NextRequest) {
     mode = 'tip_only'
     amountCents = parsed.data.tip_amount_cents
     if (amountCents > tipCents) {
-      return NextResponse.json(
-        {
-          error: 'Tip refund exceeds payment tip amount',
-          payment_tip_cents: tipCents,
-          requested_cents: amountCents,
-        },
-        { status: 400 }
-      )
+      return apiError(400, 'Tip refund exceeds payment tip amount', { extra: { "payment_tip_cents": tipCents, "requested_cents": amountCents } })
     }
   } else if ('mode' in parsed.data && parsed.data.mode === 'items') {
     mode = 'items'
@@ -173,10 +158,7 @@ export async function POST(request: NextRequest) {
       .eq('order_id', paymentData.order_id)
 
     if (!items || items.length !== refundedItemIds.length) {
-      return NextResponse.json(
-        { error: 'One or more order_item_ids not found on this order' },
-        { status: 404 }
-      )
+      return apiError(404, 'One or more order_item_ids not found on this order')
     }
 
     // Sum line_total (already incl. modifiers) + tax_amount.
@@ -194,14 +176,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (amountCents > maxRefundable) {
-    return NextResponse.json(
-      {
-        error: 'Refund amount exceeds refundable balance',
-        max_refundable_cents: maxRefundable,
-        existing_refund_cents: existingRefundCents,
-      },
-      { status: 400 }
-    )
+    return apiError(400, 'Refund amount exceeds refundable balance', { extra: { "max_refundable_cents": maxRefundable, "existing_refund_cents": existingRefundCents } })
   }
 
   // ----- 4. Manager PIN check (always required for refunds) ----------------
@@ -214,16 +189,13 @@ export async function POST(request: NextRequest) {
     supabase,
   })
   if (pinResult.kind === 'rate_limited') {
-    const res = NextResponse.json(
-      { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
-      { status: 429 }
-    )
+    const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
     applyRateLimitHeaders(res.headers, pinResult.rateLimit)
     res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
     return res
   }
   if (pinResult.kind === 'invalid') {
-    return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+    return apiError(403, 'Invalid manager PIN')
   }
   const approvedByManagerId = pinResult.manager_user_id
 
@@ -251,10 +223,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!refundResult.success) {
-      return NextResponse.json(
-        { error: 'Refund failed at processor' },
-        { status: 502 }
-      )
+      return apiError(502, 'Refund failed at processor')
     }
   }
 
@@ -306,7 +275,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to update payment record' }, { status: 500 })
+    return apiError(500, 'Failed to update payment record')
   }
 
   // ----- 9. Mark refunded items so the order ledger reflects "3 of 5" -----
@@ -352,7 +321,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       if (err instanceof IllegalTransitionError) {
-        return NextResponse.json({ error: err.message }, { status: 422 })
+        return apiError(422, err.message)
       }
       throw err
     }

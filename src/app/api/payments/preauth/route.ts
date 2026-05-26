@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -25,15 +26,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = preauthSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { order_id, terminal_id, amount_cents } = parsed.data
@@ -47,7 +45,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (orderErr || !order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   const orderData = order as Record<string, unknown>
@@ -79,10 +77,7 @@ export async function POST(request: NextRequest) {
     .limit(1)
 
   if (existingAuth && (existingAuth as unknown[]).length > 0) {
-    return NextResponse.json(
-      { error: 'Order already has an active pre-authorization' },
-      { status: 409 }
-    )
+    return apiError(409, 'Order already has an active pre-authorization')
   }
 
   // Send pre-auth to Valor
@@ -124,21 +119,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (paymentInsertErr) {
-    return NextResponse.json(
-      { error: 'Failed to create pre-auth record' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to create pre-auth record')
   }
 
   if (!authResult.success) {
-    return NextResponse.json(
-      {
-        error: 'Pre-authorization declined',
-        reason: authResult.decline_reason,
-        data: payment,
-      },
-      { status: 402 }
-    )
+    return apiError(402, 'Pre-authorization declined', { extra: { "reason": authResult.decline_reason, "data": payment } })
   }
 
   // Update order status to open if draft

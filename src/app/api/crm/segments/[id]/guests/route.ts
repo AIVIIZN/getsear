@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -22,7 +23,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     .order('added_at', { ascending: false })
     .limit(100)
 
-  if (error) return NextResponse.json({ error: 'Failed to fetch segment guests' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch segment guests')
 
   return NextResponse.json({
     data: (data ?? []).flatMap((row) => {

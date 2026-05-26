@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { z } from 'zod'
@@ -125,7 +126,7 @@ export async function applyResendWebhookEvent(
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET
   if (!webhookSecret) {
-    return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
+    return apiError(500, 'Webhook not configured')
   }
 
   const payload = await request.text()
@@ -137,12 +138,12 @@ export async function POST(request: NextRequest) {
       'svix-signature': request.headers.get('svix-signature') ?? '',
     })
   } catch {
-    return NextResponse.json({ error: 'Invalid webhook' }, { status: 400 })
+    return apiError(400, 'Invalid webhook')
   }
 
   const parsed = ResendWebhookSchema.safeParse(verifiedPayload)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+    return apiError(400, 'Invalid payload')
   }
 
   try {
@@ -150,6 +151,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: { result } })
   } catch (err) {
     console.error('[resend-webhook] Error:', err)
-    return NextResponse.json({ error: 'Webhook processing error' }, { status: 500 })
+    return apiError(500, 'Webhook processing error')
   }
 }

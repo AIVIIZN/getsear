@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,15 +30,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = submitPrintJobSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.flatten().fieldErrors, extra: { "details": parsed.error.flatten().fieldErrors } })
   }
 
   const { printerId, jobType, documentData, priority } = parsed.data
@@ -53,18 +51,18 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (printerError || !printer) {
-    return NextResponse.json({ error: 'Printer not found' }, { status: 404 })
+    return apiError(404, 'Printer not found')
   }
 
   if (!printer.is_active) {
-    return NextResponse.json({ error: 'Printer is not active' }, { status: 400 })
+    return apiError(400, 'Printer is not active')
   }
 
   // Decode base64 to verify it's valid
   try {
     atob(documentData)
   } catch {
-    return NextResponse.json({ error: 'Invalid base64 document data' }, { status: 400 })
+    return apiError(400, 'Invalid base64 document data')
   }
 
   // Insert print job into the database
@@ -84,10 +82,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (insertError) {
-    return NextResponse.json(
-      { error: 'Failed to create print job' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to create print job')
   }
 
   return NextResponse.json({ data: job }, { status: 201 })

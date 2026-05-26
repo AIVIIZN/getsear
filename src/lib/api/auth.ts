@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { forbidden, unauthorized } from '@/lib/api/error-response'
 
 export interface AuthUser {
   id: string
@@ -20,7 +21,7 @@ export async function getAuthUser(): Promise<AuthUser | NextResponse> {
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return unauthorized()
   }
 
   // Use admin client to bypass RLS for profile lookup
@@ -32,7 +33,7 @@ export async function getAuthUser(): Promise<AuthUser | NextResponse> {
     .single()
 
   if (profileError || !profile) {
-    return NextResponse.json({ error: 'User profile not found' }, { status: 401 })
+    return unauthorized('User profile not found')
   }
 
   return profile as AuthUser
@@ -43,10 +44,7 @@ export async function getAuthUser(): Promise<AuthUser | NextResponse> {
  */
 export function requireRole(user: AuthUser, roles: string[]): NextResponse | null {
   if (!roles.includes(user.role)) {
-    return NextResponse.json(
-      { error: 'Forbidden: insufficient permissions' },
-      { status: 403 }
-    )
+    return forbidden()
   }
   return null
 }

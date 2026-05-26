@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id required' }, { status: 400 })
+    return apiError(400, 'location_id required')
   }
 
   const supabase = createAdminClient()
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     .order('template_type')
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   // If no templates exist, return defaults
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const parsed = UpsertTemplateSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+    return apiError(400, parsed.error.issues[0].message)
   }
 
   const supabase = createAdminClient()
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       .select('*')
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return apiError(500, error.message)
     return NextResponse.json({ data })
   }
 
@@ -102,6 +103,6 @@ export async function POST(request: NextRequest) {
     .select('*')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return apiError(500, error.message)
   return NextResponse.json({ data })
 }

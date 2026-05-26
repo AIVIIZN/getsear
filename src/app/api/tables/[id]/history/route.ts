@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .range(offset, offset + limit - 1)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch table history' }, { status: 500 })
+    return apiError(500, 'Failed to fetch table history')
   }
 
   return NextResponse.json({

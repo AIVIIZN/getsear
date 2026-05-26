@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -20,7 +21,7 @@ export async function GET(
     .maybeSingle()
 
   if (error || !account) {
-    return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+    return apiError(404, 'Account not found')
   }
 
   // Fetch recent transactions

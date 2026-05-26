@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .is('deleted_at', null)
     .single()
 
-  if (error || !segment) return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
+  if (error || !segment) return apiError(404, 'Segment not found')
 
   const preview = await previewCrmSegment({ user, ruleTree: segment.rule_tree, supabase })
   const { data: run, error: runError } = await supabase
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .select()
     .single()
 
-  if (runError || !run) return NextResponse.json({ error: 'Failed to save preview' }, { status: 500 })
+  if (runError || !run) return apiError(500, 'Failed to save preview')
 
   await supabase
     .from('crm_segments')

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -40,7 +41,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Printer not found' }, { status: 404 });
+    return apiError(404, 'Printer not found');
   }
 
   return NextResponse.json({ data });
@@ -60,15 +61,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return apiError(400, 'Invalid JSON');
   }
 
   const parsed = updatePrinterSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    );
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } });
   }
 
   const supabase = createAdminClient();
@@ -82,7 +80,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (!existing) {
-    return NextResponse.json({ error: 'Printer not found' }, { status: 404 });
+    return apiError(404, 'Printer not found');
   }
 
   const { data, error } = await supabase
@@ -93,7 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update printer' }, { status: 500 });
+    return apiError(500, 'Failed to update printer');
   }
 
   return NextResponse.json({ data });
@@ -120,7 +118,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (!existing) {
-    return NextResponse.json({ error: 'Printer not found' }, { status: 404 });
+    return apiError(404, 'Printer not found');
   }
 
   const { error } = await supabase
@@ -129,7 +127,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .eq('id', id);
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete printer' }, { status: 500 });
+    return apiError(500, 'Failed to delete printer');
   }
 
   return NextResponse.json({ success: true });

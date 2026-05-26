@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
@@ -21,12 +22,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const stationId = (body as Record<string, unknown>)?.station_id
   if (!stationId || typeof stationId !== 'string') {
-    return NextResponse.json({ error: 'station_id is required' }, { status: 400 })
+    return apiError(400, 'station_id is required')
   }
 
   const supabase = createAdminClient()
@@ -39,7 +40,7 @@ export async function POST(
     .single()
 
   if (fetchError || !message) {
-    return NextResponse.json({ error: 'Message not found' }, { status: 404 })
+    return apiError(404, 'Message not found')
   }
 
   // Add this station to the read_by array if not already present
@@ -58,7 +59,7 @@ export async function POST(
     .eq('id', id)
 
   if (updateError) {
-    return NextResponse.json({ error: 'Failed to mark message as read' }, { status: 500 })
+    return apiError(500, 'Failed to mark message as read')
   }
 
   return NextResponse.json({ data: { id, read_by: readBy } })

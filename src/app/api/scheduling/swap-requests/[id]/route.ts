@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -25,15 +26,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateSwapSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -47,11 +45,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .single()
 
   if (!swap) {
-    return NextResponse.json({ error: 'Swap request not found' }, { status: 404 })
+    return apiError(404, 'Swap request not found')
   }
 
   if (swap.status !== 'pending') {
-    return NextResponse.json({ error: 'Swap request is not pending' }, { status: 400 })
+    return apiError(400, 'Swap request is not pending')
   }
 
   // Update swap status
@@ -64,7 +62,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Failed to update swap request' }, { status: 500 })
+    return apiError(500, 'Failed to update swap request')
   }
 
   // If approved and target_user_id exists, update the shift assignment

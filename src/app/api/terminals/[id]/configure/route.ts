@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -32,7 +33,7 @@ export async function PATCH(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const updatePayload: Record<string, unknown> = {
@@ -42,20 +43,14 @@ export async function PATCH(
   if (body.name !== undefined) {
     const trimmed = body.name.trim()
     if (!trimmed) {
-      return NextResponse.json(
-        { error: 'Terminal name cannot be empty' },
-        { status: 400 }
-      )
+      return apiError(400, 'Terminal name cannot be empty')
     }
     updatePayload.name = trimmed
   }
 
   if (body.default_view !== undefined) {
     if (!VALID_DEFAULT_VIEWS.includes(body.default_view as typeof VALID_DEFAULT_VIEWS[number])) {
-      return NextResponse.json(
-        { error: `Invalid default_view. Must be one of: ${VALID_DEFAULT_VIEWS.join(', ')}` },
-        { status: 400 }
-      )
+      return apiError(400, `Invalid default_view. Must be one of: ${VALID_DEFAULT_VIEWS.join(', ')}`)
     }
     updatePayload.default_view = body.default_view
   }
@@ -78,10 +73,7 @@ export async function PATCH(
     .single()
 
   if (findError || !terminal) {
-    return NextResponse.json(
-      { error: 'Terminal not found' },
-      { status: 404 }
-    )
+    return apiError(404, 'Terminal not found')
   }
 
   const { data, error } = await supabase.from('terminals')
@@ -92,10 +84,7 @@ export async function PATCH(
 
   if (error) {
     console.error('Terminal configure error:', error)
-    return NextResponse.json(
-      { error: 'Failed to configure terminal' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to configure terminal')
   }
 
   return NextResponse.json({ data })

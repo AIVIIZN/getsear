@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { updateEmailStatus } from '@/lib/integrations/sendgrid-client'
 
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
     const events = await request.json()
 
     if (!Array.isArray(events)) {
-      return NextResponse.json({ error: 'Expected array of events' }, { status: 400 })
+      return apiError(400, 'Expected array of events')
     }
 
     for (const event of events) {
@@ -32,6 +33,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: { processed: events.length } })
   } catch (err) {
     console.error('[sendgrid-webhook] Error:', err)
-    return NextResponse.json({ error: 'Webhook processing error' }, { status: 500 })
+    return apiError(500, 'Webhook processing error')
   }
 }

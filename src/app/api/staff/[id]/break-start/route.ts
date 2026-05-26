@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -27,10 +28,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const parsed = breakStartSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -46,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
 
   if (findError || !activeEntry) {
-    return NextResponse.json({ error: 'Staff member is not clocked in' }, { status: 404 })
+    return apiError(404, 'Staff member is not clocked in')
   }
 
   // Check for active break
@@ -59,7 +57,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
 
   if (activeBreak) {
-    return NextResponse.json({ error: 'Break is already in progress' }, { status: 409 })
+    return apiError(409, 'Break is already in progress')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +71,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to start break' }, { status: 500 })
+    return apiError(500, 'Failed to start break')
   }
 
   return NextResponse.json({ data: breakEntry }, { status: 201 })

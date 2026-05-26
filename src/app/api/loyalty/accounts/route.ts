@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
   const { data, error, count } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch loyalty accounts' }, { status: 500 })
+    return apiError(500, 'Failed to fetch loyalty accounts')
   }
 
   return NextResponse.json({
@@ -62,15 +63,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = enrollSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (!customer) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    return apiError(404, 'Customer not found')
   }
 
   // Check program belongs to org
@@ -96,7 +94,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (!program) {
-    return NextResponse.json({ error: 'Program not found' }, { status: 404 })
+    return apiError(404, 'Program not found')
   }
 
   // Check for existing enrollment
@@ -108,7 +106,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ error: 'Customer is already enrolled in this program' }, { status: 409 })
+    return apiError(409, 'Customer is already enrolled in this program')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +125,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to enroll customer' }, { status: 500 })
+    return apiError(500, 'Failed to enroll customer')
   }
 
   return NextResponse.json({ data }, { status: 201 })

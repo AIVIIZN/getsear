@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -16,12 +17,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = buildCrmSegmentDraftSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const result = await buildCrmSegmentDraft(parsed.data.prompt)
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (result.status === 'refused') {
-    return NextResponse.json({ error: result.reason, safety_flags: result.safety_flags }, { status: 422 })
+    return apiError(422, result.reason, { extra: { "safety_flags": result.safety_flags } })
   }
 
   return NextResponse.json({ data: result.draft })

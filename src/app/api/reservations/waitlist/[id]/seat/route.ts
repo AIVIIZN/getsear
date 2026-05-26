@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,10 +30,7 @@ export async function POST(
 
   const parsed = seatFromWaitlistSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -46,14 +44,11 @@ export async function POST(
     .single()
 
   if (fetchErr || !existing) {
-    return NextResponse.json({ error: 'Waitlist entry not found' }, { status: 404 })
+    return apiError(404, 'Waitlist entry not found')
   }
 
   if (existing.status !== 'waiting' && existing.status !== 'notified') {
-    return NextResponse.json(
-      { error: `Cannot seat entry with status "${existing.status}"` },
-      { status: 400 }
-    )
+    return apiError(400, `Cannot seat entry with status "${existing.status}"`)
   }
 
   const updatePayload: Record<string, unknown> = {
@@ -72,7 +67,7 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to seat from waitlist' }, { status: 500 })
+    return apiError(500, 'Failed to seat from waitlist')
   }
 
   // Reposition remaining waitlist entries

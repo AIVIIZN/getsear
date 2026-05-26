@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -22,7 +23,7 @@ export async function POST(
     .single()
 
   if (error || !endpoint) {
-    return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
+    return apiError(404, 'Webhook not found')
   }
 
   const result = await testWebhookEndpoint(endpoint)

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -27,10 +28,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const parsed = clockOutSchema?.safeParse(body)
   if (parsed && !parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -46,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .maybeSingle()
 
   if (findError || !activeEntry) {
-    return NextResponse.json({ error: 'No active clock-in found' }, { status: 404 })
+    return apiError(404, 'No active clock-in found')
   }
 
   const now = new Date()
@@ -95,7 +93,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to clock out' }, { status: 500 })
+    return apiError(500, 'Failed to clock out')
   }
 
   return NextResponse.json({ data: entry })

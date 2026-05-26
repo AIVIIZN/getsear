@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -25,15 +26,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = captureSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { payment_id, tip_cents } = parsed.data
@@ -47,16 +45,13 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (paymentErr || !payment) {
-    return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+    return apiError(404, 'Payment not found')
   }
 
   const paymentData = payment as Record<string, unknown>
 
   if (paymentData.status !== 'authorized') {
-    return NextResponse.json(
-      { error: 'Payment is not in authorized status. Only pre-authorized payments can be captured.' },
-      { status: 400 }
-    )
+    return apiError(400, 'Payment is not in authorized status. Only pre-authorized payments can be captured.')
   }
 
   const processorTxnId = (paymentData.processor_transaction_id as string) ?? ''
@@ -80,17 +75,11 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Capture request failed'
-    return NextResponse.json(
-      { error: 'Capture failed', reason: errorMessage },
-      { status: 500 }
-    )
+    return apiError(500, 'Capture failed', { extra: { "reason": errorMessage } })
   }
 
   if (!captureResult.success) {
-    return NextResponse.json(
-      { error: 'Capture failed at processor' },
-      { status: 500 }
-    )
+    return apiError(500, 'Capture failed at processor')
   }
 
   const totalCents = amountCents + tip_cents
@@ -109,10 +98,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (updateErr) {
-    return NextResponse.json(
-      { error: 'Failed to update payment record' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to update payment record')
   }
 
   // Update order totals

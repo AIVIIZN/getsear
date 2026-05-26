@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listCrmFeedbackQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.source_type) query = query.eq('source_type', parsed.data.source_type)
 
   const { data, error, count } = await query
-  if (error) return NextResponse.json({ error: 'Failed to fetch feedback' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch feedback')
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0 })
 }
@@ -48,12 +49,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmSurveyResponseSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     staffUserId: parsed.data.staff_user_id,
     locationId: parsed.data.location_id,
   })
-  if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 })
+  if (referenceError) return apiError(400, referenceError)
 
   const classification = classifyCrmFeedback({
     rating: parsed.data.rating,
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error || !response) return NextResponse.json({ error: 'Failed to create feedback response' }, { status: 500 })
+  if (error || !response) return apiError(500, 'Failed to create feedback response')
 
   let complaint = null
   let recoveryCase = null
@@ -122,12 +123,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (complaintError || !complaintRow) {
-      return NextResponse.json({ error: 'Feedback saved but recovery routing failed' }, { status: 409 })
+      return apiError(409, 'Feedback saved but recovery routing failed')
     }
     complaint = complaintRow
     const { caseRow, error: recoveryError } = await createRecoveryCaseFromComplaint({ db, user, complaint: complaintRow })
     if (recoveryError || !caseRow) {
-      return NextResponse.json({ error: 'Feedback saved but recovery case creation failed' }, { status: 409 })
+      return apiError(409, 'Feedback saved but recovery case creation failed')
     }
     recoveryCase = caseRow
     operationsInsight = await createRepeatedIssueInsight({

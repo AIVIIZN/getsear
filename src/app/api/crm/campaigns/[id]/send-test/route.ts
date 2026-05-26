@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -22,12 +23,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = testSendCrmCampaignSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .is('deleted_at', null)
     .single()
 
-  if (campaignError || !campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  if (campaignError || !campaign) return apiError(404, 'Campaign not found')
 
   const compliance = assessCrmCampaignCompliance({
     campaign: {
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .select()
     .single()
 
-  if (sendError || !send) return NextResponse.json({ error: 'Failed to record test send' }, { status: 500 })
+  if (sendError || !send) return apiError(500, 'Failed to record test send')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('crm_message_events') as any).insert({

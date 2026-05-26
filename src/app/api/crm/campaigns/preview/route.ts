@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -19,12 +20,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = previewCrmCampaignSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    if (error || !segment) return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
+    if (error || !segment) return apiError(404, 'Segment not found')
     const segmentPreview = await previewCrmSegment({ user, ruleTree: segment.rule_tree, supabase })
     reachability = segmentPreview.reachability
     audienceCount = segmentPreview.total_count

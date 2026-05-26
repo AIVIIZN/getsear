@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
   const { data: chargebacks, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch chargebacks' }, { status: 500 })
+    return apiError(500, 'Failed to fetch chargebacks')
   }
 
   const chargebackList = (chargebacks ?? []) as Record<string, unknown>[]
@@ -149,15 +150,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = submitEvidenceSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { chargeback_id, evidence_type, evidence_url, evidence_text, notes } = parsed.data
@@ -171,26 +169,20 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (cbErr || !chargeback) {
-    return NextResponse.json({ error: 'Chargeback case not found' }, { status: 404 })
+    return apiError(404, 'Chargeback case not found')
   }
 
   const cbData = chargeback as Record<string, unknown>
 
   // Check if case is still open for evidence
   if (!['open', 'evidence_submitted'].includes(cbData.status as string)) {
-    return NextResponse.json(
-      { error: 'Chargeback case is no longer accepting evidence' },
-      { status: 400 }
-    )
+    return apiError(400, 'Chargeback case is no longer accepting evidence')
   }
 
   // Check deadline
   const respondBy = new Date(cbData.respond_by as string)
   if (respondBy < new Date()) {
-    return NextResponse.json(
-      { error: 'Response deadline has passed' },
-      { status: 400 }
-    )
+    return apiError(400, 'Response deadline has passed')
   }
 
   // Auto-gather POS evidence from original payment
@@ -252,7 +244,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to submit evidence' }, { status: 500 })
+    return apiError(500, 'Failed to submit evidence')
   }
 
   // Audit trail

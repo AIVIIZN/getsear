@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api/error-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyStripeSignature } from '@/lib/billing/stripe'
 
@@ -20,13 +21,13 @@ function metadataOrgId(object: Record<string, unknown>) {
 export async function POST(request: NextRequest) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET
   if (!secret) {
-    return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET is not configured' }, { status: 500 })
+    return apiError(500, 'Stripe webhook secret is not configured')
   }
 
   const payload = await request.text()
   const signature = request.headers.get('stripe-signature')
   if (!signature || !(await verifyStripeSignature(payload, signature, secret))) {
-    return NextResponse.json({ error: 'Invalid Stripe signature' }, { status: 400 })
+    return apiError(400, 'Invalid Stripe signature')
   }
 
   const event = JSON.parse(payload) as StripeEvent
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
   const db = createAdminClient()
   const { error } = await db.from('organizations').update(patch).eq('id', orgId)
   if (error) {
-    return NextResponse.json({ error: 'Unable to update billing status' }, { status: 500 })
+    return apiError(500, 'Unable to update billing status')
   }
 
   return NextResponse.json({ data: { processed: true } })

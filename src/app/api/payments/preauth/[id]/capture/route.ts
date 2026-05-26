@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -30,15 +31,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = captureSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { final_amount_cents, tip_cents } = parsed.data
@@ -53,10 +51,7 @@ export async function POST(
     .single()
 
   if (paymentErr || !payment) {
-    return NextResponse.json(
-      { error: 'Active pre-authorization not found' },
-      { status: 404 }
-    )
+    return apiError(404, 'Active pre-authorization not found')
   }
 
   const paymentData = payment as Record<string, unknown>
@@ -71,10 +66,7 @@ export async function POST(
   })
 
   if (!captureResult.success) {
-    return NextResponse.json(
-      { error: 'Capture failed at processor' },
-      { status: 502 }
-    )
+    return apiError(502, 'Capture failed at processor')
   }
 
   // Update payment record to captured
@@ -99,10 +91,7 @@ export async function POST(
     .single()
 
   if (updateErr) {
-    return NextResponse.json(
-      { error: 'Failed to update payment record' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to update payment record')
   }
 
   // Update order balance

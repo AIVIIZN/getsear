@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,7 +30,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .single()
 
   if (error || !po) {
-    return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    return apiError(404, 'Purchase order not found')
   }
 
   // Fetch PO items
@@ -57,15 +58,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updatePOSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -79,7 +77,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Failed to update purchase order' }, { status: 500 })
+    return apiError(500, 'Failed to update purchase order')
   }
 
   return NextResponse.json({ data })
@@ -107,11 +105,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .single()
 
   if (!po) {
-    return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    return apiError(404, 'Purchase order not found')
   }
 
   if (po.status !== 'draft') {
-    return NextResponse.json({ error: 'Only draft POs can be deleted' }, { status: 400 })
+    return apiError(400, 'Only draft POs can be deleted')
   }
 
   // Delete items first, then PO
@@ -127,7 +125,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .eq('org_id', user.org_id)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete purchase order' }, { status: 500 })
+    return apiError(500, 'Failed to delete purchase order')
   }
 
   return NextResponse.json({ success: true })

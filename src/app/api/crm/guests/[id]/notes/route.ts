@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -19,19 +20,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createGuestNoteSchema.safeParse({ ...(body as Record<string, unknown>), guest_id: id })
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   if (parsed.data.note_category === 'sensitive' && parsed.data.visibility === 'service') {
-    return NextResponse.json({ error: 'Sensitive notes must be manager or owner visible' }, { status: 400 })
+    return apiError(400, 'Sensitive notes must be manager or owner visible')
   }
   if (!canWriteGuestVisibility(user, parsed.data.visibility)) {
-    return NextResponse.json({ error: 'Forbidden: insufficient note visibility permissions' }, { status: 403 })
+    return apiError(403, 'Forbidden: insufficient note visibility permissions')
   }
 
   const supabase = createAdminClient()
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!guest) {
-    return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+    return apiError(404, 'Guest not found')
   }
 
   const { data: note, error } = await supabase
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error || !note) {
-    return NextResponse.json({ error: 'Failed to add guest note' }, { status: 500 })
+    return apiError(500, 'Failed to add guest note')
   }
 
   await supabase.from('guest_timeline_events').insert({

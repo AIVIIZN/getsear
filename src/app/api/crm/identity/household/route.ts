@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -15,10 +16,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const parsed = markGuestHouseholdSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
   if (parsed.data.primary_guest_id === parsed.data.secondary_guest_id) {
-    return NextResponse.json({ error: 'Guests must be different' }, { status: 400 })
+    return apiError(400, 'Guests must be different')
   }
 
   const supabase = createAdminClient()
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   const primary = (guests ?? []).find((guest: { id: string }) => guest.id === parsed.data.primary_guest_id)
   const secondary = (guests ?? []).find((guest: { id: string }) => guest.id === parsed.data.secondary_guest_id)
   if (!primary || !secondary) {
-    return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+    return apiError(404, 'Guest not found')
   }
 
   let candidate: Record<string, unknown> | null = null

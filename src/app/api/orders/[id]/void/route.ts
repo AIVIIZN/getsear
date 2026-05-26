@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -93,15 +94,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = voidSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { reason, notes, manager_pin } = parsed.data
@@ -116,17 +114,14 @@ export async function POST(
     .single()
 
   if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    return apiError(404, 'Order not found')
   }
 
   const currentStatus = order.status as OrderState
 
   // Reject terminal states — no double-void / void-of-refunded.
   if (isTerminal(currentStatus)) {
-    return NextResponse.json(
-      { error: `Cannot void order in terminal state "${currentStatus}"` },
-      { status: 422 }
-    )
+    return apiError(422, `Cannot void order in terminal state "${currentStatus}"`)
   }
 
   // ----- 2. Optimistic-lock check (5.4.1) ----------------------------------
@@ -142,10 +137,7 @@ export async function POST(
 
   if (isAfterClose) {
     if (!manager_pin) {
-      return NextResponse.json(
-        { error: 'Manager PIN required to void a closed order' },
-        { status: 403 }
-      )
+      return apiError(403, 'Manager PIN required to void a closed order')
     }
 
     const pinResult = await validateManagerPinForAction({
@@ -155,16 +147,13 @@ export async function POST(
       supabase,
     })
     if (pinResult.kind === 'rate_limited') {
-      const res = NextResponse.json(
-        { error: 'Too many PIN attempts. Please wait 15 minutes before trying again.' },
-        { status: 429 }
-      )
+      const res = apiError(429, 'Too many PIN attempts. Please wait 15 minutes before trying again.')
       applyRateLimitHeaders(res.headers, pinResult.rateLimit)
       res.headers.set('Retry-After', String(pinResult.rateLimit.retryAfterSeconds))
       return res
     }
     if (pinResult.kind === 'invalid') {
-      return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+      return apiError(403, 'Invalid manager PIN')
     }
     approvedByManagerId = pinResult.manager_user_id
   }
@@ -182,7 +171,7 @@ export async function POST(
     }
   } catch (err) {
     if (err instanceof IllegalTransitionError) {
-      return NextResponse.json({ error: err.message }, { status: 422 })
+      return apiError(422, err.message)
     }
     throw err
   }
@@ -225,7 +214,7 @@ export async function POST(
     .single()
 
   if (updateErr) {
-    return NextResponse.json({ error: 'Failed to void order' }, { status: 500 })
+    return apiError(500, 'Failed to void order')
   }
 
   // ----- 7. Release the table if dine-in ------------------------------------

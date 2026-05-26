@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/api/auth'
+import { apiError } from '@/lib/api/error-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { billingPlans } from '@/lib/billing/stripe'
 import { billingFeatures, canUseFeature, normalizeBillingTier } from '@/lib/billing/features'
@@ -16,7 +17,7 @@ export async function GET() {
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Unable to load billing status' }, { status: 500 })
+    return apiError(500, 'Unable to load billing status')
   }
 
   const tier = normalizeBillingTier(data.plan)

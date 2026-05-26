@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const parsed = resolveGuestCandidateSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!candidate) {
-    return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
+    return apiError(404, 'Candidate not found')
   }
 
   const status = parsed.data.decision_type === 'dismiss' ? 'dismissed' : 'kept_separate'

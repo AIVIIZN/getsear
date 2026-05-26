@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -24,7 +25,7 @@ export async function GET(_request: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch swap requests' }, { status: 500 })
+    return apiError(500, 'Failed to fetch swap requests')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -41,15 +42,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createSwapSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -63,11 +61,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!shift) {
-    return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+    return apiError(404, 'Shift not found')
   }
 
   if (shift.user_id !== user.id) {
-    return NextResponse.json({ error: 'You can only request swaps for your own shifts' }, { status: 403 })
+    return apiError(403, 'You can only request swaps for your own shifts')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,7 +81,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to create swap request' }, { status: 500 })
+    return apiError(500, 'Failed to create swap request')
   }
 
   return NextResponse.json({ data }, { status: 201 })

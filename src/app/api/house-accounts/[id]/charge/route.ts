@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -26,15 +27,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = chargeSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -48,11 +46,11 @@ export async function POST(
     .single()
 
   if (accErr || !account) {
-    return NextResponse.json({ error: 'House account not found' }, { status: 404 })
+    return apiError(404, 'House account not found')
   }
 
   if (!account.is_active) {
-    return NextResponse.json({ error: 'Account is inactive' }, { status: 400 })
+    return apiError(400, 'Account is inactive')
   }
 
   const currentBalance = parseFloat(account.current_balance)
@@ -61,16 +59,7 @@ export async function POST(
   const newBalance = currentBalance + chargeAmount
 
   if (newBalance > creditLimit) {
-    return NextResponse.json(
-      {
-        error: 'Charge would exceed credit limit',
-        current_balance: currentBalance,
-        credit_limit: creditLimit,
-        charge_amount: chargeAmount,
-        would_be_balance: newBalance,
-      },
-      { status: 400 }
-    )
+    return apiError(400, 'Charge would exceed credit limit', { extra: { "current_balance": currentBalance, "credit_limit": creditLimit, "charge_amount": chargeAmount, "would_be_balance": newBalance } })
   }
 
   // Create transaction
@@ -87,7 +76,7 @@ export async function POST(
     .single()
 
   if (txErr) {
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
+    return apiError(500, 'Failed to create transaction')
   }
 
   // Update account balance

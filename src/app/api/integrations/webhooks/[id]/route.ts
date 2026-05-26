@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -31,7 +32,7 @@ export async function GET(
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
+    return apiError(404, 'Webhook not found')
   }
 
   return NextResponse.json({
@@ -55,7 +56,7 @@ export async function PUT(
   const body = await request.json()
   const parsed = UpdateWebhookSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+    return apiError(400, parsed.error.issues[0].message)
   }
 
   const supabase = createAdminClient()
@@ -70,7 +71,7 @@ export async function PUT(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   return NextResponse.json({
@@ -98,7 +99,7 @@ export async function DELETE(
     .eq('id', id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   return NextResponse.json({ data: { success: true } })

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
@@ -152,7 +153,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = crmCheckoutLoyaltyQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -175,19 +176,19 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = crmCheckoutLoyaltyActionSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
 
   if (parsed.data.action === 'enroll') {
     const program = await loadActiveProgram(db, user.org_id, parsed.data.program_id)
-    if (!program) return NextResponse.json({ error: 'No active CRM loyalty program found' }, { status: 404 })
+    if (!program) return apiError(404, 'No active CRM loyalty program found')
 
     const { data: existing } = await db
       .from('crm_loyalty_accounts')
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
         guest_id: parsed.data.guest_id,
         metadata: { source: 'pos_checkout', order_id: parsed.data.order_id ?? null },
       })
-      if (error) return NextResponse.json({ error: 'Failed to enroll CRM loyalty account' }, { status: 500 })
+      if (error) return apiError(500, 'Failed to enroll CRM loyalty account')
     }
 
     const state = await loadCheckoutState(db, user.org_id, {
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest) {
   }
 
   const order = await loadOrder(db, user.org_id, parsed.data.order_id)
-  if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  if (!order) return apiError(404, 'Order not found')
 
   const { data: rewardData } = await db
     .from('crm_rewards')
@@ -247,10 +248,10 @@ export async function POST(request: NextRequest) {
     .single()
 
   const reward = rewardData as CheckoutReward | null
-  if (!reward) return NextResponse.json({ error: 'Reward not found' }, { status: 404 })
+  if (!reward) return apiError(404, 'Reward not found')
 
   const discountCents = calculateRewardDiscount(reward, order)
-  if (discountCents <= 0) return NextResponse.json({ error: 'Reward has no checkout discount value' }, { status: 400 })
+  if (discountCents <= 0) return apiError(400, 'Reward has no checkout discount value')
 
   const isManager = (MANAGER_ROLES as readonly string[]).includes(user.role)
   const requiresManagerPin =
@@ -260,7 +261,7 @@ export async function POST(request: NextRequest) {
   let managerPinUserId: string | null = null
   if (requiresManagerPin) {
     if (!parsed.data.manager_pin) {
-      return NextResponse.json({ error: 'Reward requires manager PIN', requires_manager_pin: true }, { status: 403 })
+      return apiError(403, 'Reward requires manager PIN', { extra: { "requires_manager_pin": true } })
     }
     const pin = await validateManagerPinForAction({
       actor: user,
@@ -268,18 +269,18 @@ export async function POST(request: NextRequest) {
       request,
       supabase: db,
     })
-    if (pin.kind === 'rate_limited') return NextResponse.json({ error: 'Too many PIN attempts' }, { status: 429 })
-    if (pin.kind === 'invalid') return NextResponse.json({ error: 'Invalid manager PIN' }, { status: 403 })
+    if (pin.kind === 'rate_limited') return apiError(429, 'Too many PIN attempts')
+    if (pin.kind === 'invalid') return apiError(403, 'Invalid manager PIN')
     managerPinUserId = pin.manager_user_id
   }
 
   const accountResult = await loadAccount(db, user, parsed.data.account_id)
   if (accountResult.error) return accountResult.error
   if (accountResult.account.program_id !== reward.program_id) {
-    return NextResponse.json({ error: 'Reward does not belong to this loyalty account' }, { status: 400 })
+    return apiError(400, 'Reward does not belong to this loyalty account')
   }
   if (accountResult.account.points_balance < reward.points_cost) {
-    return NextResponse.json({ error: 'Insufficient points balance', available: accountResult.account.points_balance }, { status: 400 })
+    return apiError(400, 'Insufficient points balance', { extra: { "available": accountResult.account.points_balance } })
   }
 
   const { data: discount, error: discountError } = await db
@@ -296,7 +297,7 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single()
 
-  if (discountError) return NextResponse.json({ error: 'Failed to apply reward discount' }, { status: 500 })
+  if (discountError) return apiError(500, 'Failed to apply reward discount')
 
   await recalculateOrderTotals(db, order.id, user.org_id, null)
 

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,10 +30,10 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(params.get('limit') ?? '100', 10), 200)
 
   if (!stationId) {
-    return NextResponse.json({ error: 'station_id is required' }, { status: 400 })
+    return apiError(400, 'station_id is required')
   }
   if (!locationId) {
-    return NextResponse.json({ error: 'location_id is required' }, { status: 400 })
+    return apiError(400, 'location_id is required')
   }
 
   const supabase = createAdminClient()
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     .limit(limit)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
+    return apiError(500, 'Failed to fetch messages')
   }
 
   return NextResponse.json({ data: data ?? [] })
@@ -71,15 +72,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = sendMessageSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { from_station_id, to_station_id, message, message_type, location_id } = parsed.data
@@ -123,7 +121,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
+    return apiError(500, 'Failed to send message')
   }
 
   // Broadcast via Supabase Realtime so all KDS screens at this location pick it up

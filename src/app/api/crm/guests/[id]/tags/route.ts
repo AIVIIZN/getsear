@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -28,12 +29,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = tagRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (!guest) {
-    return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
+    return apiError(404, 'Guest not found')
   }
 
   let tagId = parsed.data.tag_id ?? null
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .single()
 
       if (tagError || !tag) {
-        return NextResponse.json({ error: 'Failed to create CRM tag' }, { status: 500 })
+        return apiError(500, 'Failed to create CRM tag')
       }
       tagId = tag.id
     }
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error || !assignment) {
-    return NextResponse.json({ error: 'Failed to tag guest' }, { status: 409 })
+    return apiError(409, 'Failed to tag guest')
   }
 
   await supabase.from('guest_timeline_events').insert({

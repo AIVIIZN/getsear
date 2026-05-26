@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   const parsed = listCrmRecoveryQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
   if (parsed.data.assigned_manager_user_id) query = query.eq('assigned_manager_user_id', parsed.data.assigned_manager_user_id)
 
   const { data, error, count } = await query
-  if (error) return NextResponse.json({ error: 'Failed to fetch recovery cases' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch recovery cases')
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0 })
 }
@@ -48,12 +49,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmRecoveryCaseSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -64,10 +65,10 @@ export async function POST(request: NextRequest) {
       .eq('id', parsed.data.complaint_id)
       .eq('org_id', user.org_id)
       .maybeSingle()
-    if (complaintError || !complaint) return NextResponse.json({ error: 'Complaint not found for this organization' }, { status: 400 })
+    if (complaintError || !complaint) return apiError(400, 'Complaint not found for this organization')
 
     const { caseRow, error } = await createRecoveryCaseFromComplaint({ db, user, complaint: complaint as never })
-    if (error || !caseRow) return NextResponse.json({ error: error ?? 'Failed to create recovery case' }, { status: 500 })
+    if (error || !caseRow) return apiError(500, error ?? 'Failed to create recovery case')
     return NextResponse.json({ data: caseRow }, { status: 201 })
   }
 
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     assignedManagerUserId: parsed.data.assigned_manager_user_id,
     locationId: parsed.data.location_id,
   })
-  if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 })
+  if (referenceError) return apiError(400, referenceError)
 
   const now = new Date().toISOString()
   const status = references.assigned_manager_user_id ? 'assigned' : 'new'
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error || !caseRow) return NextResponse.json({ error: 'Failed to create recovery case' }, { status: 500 })
+  if (error || !caseRow) return apiError(500, 'Failed to create recovery case')
 
   await db.from('crm_recovery_actions').insert({
     org_id: user.org_id,

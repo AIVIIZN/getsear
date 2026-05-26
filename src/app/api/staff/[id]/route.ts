@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { z } from 'zod'
@@ -59,7 +60,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   const result = await fetchStaffMember(user.org_id, id)
   if (result.error || !result.data) {
-    return NextResponse.json({ error: 'Staff member not found' }, { status: 404 })
+    return apiError(404, 'Staff member not found')
   }
 
   // High-churn: NEVER cache. Always fresh.
@@ -95,15 +96,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = updateStaffSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { pin, ...updateData } = parsed.data
@@ -132,10 +130,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         for (const existing of existingStaff) {
           const matches = await bcrypt.compare(pin, existing.pin_hash)
           if (matches) {
-            return NextResponse.json(
-              { error: 'PIN is already in use by another staff member' },
-              { status: 409 }
-            )
+            return apiError(409, 'PIN is already in use by another staff member')
           }
         }
       }
@@ -152,7 +147,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to update staff member' }, { status: 500 })
+    return apiError(500, 'Failed to update staff member')
   }
 
   revalidateTag(cacheTags.staff(user.org_id), CACHE_REVALIDATE_PROFILE)
@@ -174,7 +169,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const { id } = await params
 
   if (id === user.id) {
-    return NextResponse.json({ error: 'Cannot deactivate yourself' }, { status: 400 })
+    return apiError(400, 'Cannot deactivate yourself')
   }
 
   const supabase = createAdminClient()
@@ -189,7 +184,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     .eq('org_id', user.org_id)
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to deactivate staff member' }, { status: 500 })
+    return apiError(500, 'Failed to deactivate staff member')
   }
 
   revalidateTag(cacheTags.staff(user.org_id), CACHE_REVALIDATE_PROFILE)

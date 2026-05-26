@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   const { data: payments, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch settlement data' }, { status: 500 })
+    return apiError(500, 'Failed to fetch settlement data')
   }
 
   const paymentsList = (payments ?? []) as Array<Record<string, unknown>>
@@ -138,15 +139,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = settlementSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { location_id, force } = parsed.data
@@ -160,7 +158,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!location) {
-    return NextResponse.json({ error: 'Location not found' }, { status: 404 })
+    return apiError(404, 'Location not found')
   }
 
   // Pre-settlement checks (unless forced)
@@ -186,14 +184,11 @@ export async function POST(request: NextRequest) {
     const noTipCount = (noTipPayments as unknown[] | null)?.length ?? 0
 
     if (openTabCount > 0 || noTipCount > 0) {
-      return NextResponse.json({
-        error: 'Pre-settlement checks failed',
-        warnings: {
+      return apiError(409, 'Pre-settlement checks failed', { extra: { "warnings": {
           open_tabs: openTabCount,
           transactions_without_tips: noTipCount,
           message: `${openTabCount} open tab(s) and ${noTipCount} transaction(s) without tips. Set force=true to settle anyway.`,
-        },
-      }, { status: 409 })
+        } } })
     }
   }
 
@@ -208,10 +203,7 @@ export async function POST(request: NextRequest) {
   const unsettled = (unsettledPayments ?? []) as Record<string, unknown>[]
 
   if (unsettled.length === 0) {
-    return NextResponse.json(
-      { error: 'No unsettled transactions to settle' },
-      { status: 400 }
-    )
+    return apiError(400, 'No unsettled transactions to settle')
   }
 
   // Calculate batch totals
@@ -228,10 +220,7 @@ export async function POST(request: NextRequest) {
   const batchResult = await valor.batchClose({ location_id })
 
   if (!batchResult.success) {
-    return NextResponse.json(
-      { error: 'Batch settlement failed at processor' },
-      { status: 502 }
-    )
+    return apiError(502, 'Batch settlement failed at processor')
   }
 
   // Record settlement batch
@@ -250,10 +239,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (batchErr) {
-    return NextResponse.json(
-      { error: 'Failed to record settlement batch' },
-      { status: 500 }
-    )
+    return apiError(500, 'Failed to record settlement batch')
   }
 
   // Mark all captured transactions as settled

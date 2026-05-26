@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser, requireRole } from '@/lib/api/auth'
 import { audit } from '@/lib/audit/log'
@@ -20,7 +21,7 @@ export async function GET() {
     .is('deleted_at', null)
     .order('updated_at', { ascending: false })
 
-  if (error) return NextResponse.json({ error: 'Failed to fetch surveys' }, { status: 500 })
+  if (error) return apiError(500, 'Failed to fetch surveys')
   return NextResponse.json({ data: data ?? [] })
 }
 
@@ -35,12 +36,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = createCrmSurveySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const db = createAdminClient()
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error || !data) return NextResponse.json({ error: 'Failed to create survey' }, { status: 500 })
+  if (error || !data) return apiError(500, 'Failed to create survey')
 
   await audit.record({
     actor: user,

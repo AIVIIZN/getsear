@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -30,7 +31,7 @@ export async function POST(
 
   const status = check.currentRow.status as string
   if (status !== 'closed') {
-    return NextResponse.json({ error: 'Only closed orders can be reopened' }, { status: 400 })
+    return apiError(400, 'Only closed orders can be reopened')
   }
 
   const total = check.currentRow.total as string
@@ -53,7 +54,7 @@ export async function POST(
   const { data, error } = await updateQuery.select().maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to reopen order' }, { status: 500 })
+    return apiError(500, 'Failed to reopen order')
   }
 
   const staleResp = await checkUpdateAffectedRow(

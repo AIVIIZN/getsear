@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -54,15 +55,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = commitSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Check the highlighted onboarding fields and try again.', details: parsed.error.issues },
-      { status: 400 },
-    )
+    return apiError(400, 'Check the highlighted onboarding fields and try again.', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const supabase = createAdminClient()
@@ -267,10 +265,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
   } catch (error) {
     console.error('Onboarding commit failed:', error)
-    return NextResponse.json(
-      { error: 'We could not finish onboarding. Your progress is saved, so please try again.' },
-      { status: 500 },
-    )
+    return apiError(500, 'We could not finish onboarding. Your progress is saved, so please try again.')
   }
 }
 

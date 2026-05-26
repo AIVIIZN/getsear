@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -21,15 +22,12 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return apiError(400, 'Invalid JSON')
   }
 
   const parsed = activateSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { card_number, initial_balance_cents, order_id } = parsed.data
@@ -45,7 +43,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (existing) {
-    return NextResponse.json({ error: 'Gift card number already in use' }, { status: 409 })
+    return apiError(409, 'Gift card number already in use')
   }
 
   // Create gift card
@@ -63,7 +61,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (cardErr) {
-    return NextResponse.json({ error: 'Failed to activate gift card' }, { status: 500 })
+    return apiError(500, 'Failed to activate gift card')
   }
 
   // Create activation transaction

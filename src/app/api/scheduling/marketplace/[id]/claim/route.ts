@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/api/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -22,12 +23,12 @@ export async function POST(
     .single()
 
   if (!listing) {
-    return NextResponse.json({ error: 'Listing not found or already claimed' }, { status: 404 })
+    return apiError(404, 'Listing not found or already claimed')
   }
 
   // Cannot claim your own shift
   if (listing.posted_by === user.id) {
-    return NextResponse.json({ error: 'Cannot claim your own shift' }, { status: 400 })
+    return apiError(400, 'Cannot claim your own shift')
   }
 
   // Check for scheduling conflicts
@@ -41,7 +42,7 @@ export async function POST(
     .limit(1)
 
   if (conflicts && conflicts.length > 0) {
-    return NextResponse.json({ error: 'You have a scheduling conflict' }, { status: 409 })
+    return apiError(409, 'You have a scheduling conflict')
   }
 
   // Claim the shift
@@ -55,7 +56,7 @@ export async function POST(
     .eq('id', id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   // Reassign the shift to the new person

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -41,15 +42,12 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return apiError(400, 'Invalid JSON body')
   }
 
   const parsed = refireSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.issues },
-      { status: 400 }
-    )
+    return apiError(400, 'Validation failed', { details: parsed.error.issues, extra: { "details": parsed.error.issues } })
   }
 
   const { station_id: stationId, reason_code: reasonCode } = parsed.data
@@ -57,7 +55,7 @@ export async function POST(
   // Parse order_id from composite ticket ID
   const underscoreIdx = ticketId.indexOf('_')
   if (underscoreIdx === -1) {
-    return NextResponse.json({ error: 'Invalid ticket ID format' }, { status: 400 })
+    return apiError(400, 'Invalid ticket ID format')
   }
   const orderId = ticketId.substring(underscoreIdx + 1)
 
@@ -72,7 +70,7 @@ export async function POST(
     .single()
 
   if (!station) {
-    return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+    return apiError(404, 'Station not found')
   }
 
   // Verify the item exists
@@ -85,7 +83,7 @@ export async function POST(
     .single()
 
   if (!orderItem) {
-    return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+    return apiError(404, 'Order item not found')
   }
 
   // Count existing re-fires for this item
@@ -112,7 +110,7 @@ export async function POST(
     })
 
   if (eventError) {
-    return NextResponse.json({ error: 'Failed to create refire event' }, { status: 500 })
+    return apiError(500, 'Failed to create refire event')
   }
 
   // Reset is_ready on the order item
