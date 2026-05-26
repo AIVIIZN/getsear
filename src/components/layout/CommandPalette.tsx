@@ -33,6 +33,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
+import { helpTopics } from "@/lib/help";
 import { cn } from "@/lib/utils";
 
 type CommandAction = {
@@ -175,6 +176,28 @@ function SearCommandPalette({
               })}
             </CommandGroup>
           ))}
+          <CommandGroup heading="Help topics">
+            {helpTopics.map((topic) => (
+              <CommandItem
+                key={topic.href}
+                value={`${topic.title} ${topic.summary} ${topic.categoryName} ${topic.content}`}
+                onSelect={() => selectAction(topic.href)}
+                className="min-h-12 cursor-pointer rounded-[12px] px-3 py-2"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--color-primary)]">
+                  <Search className="h-4 w-4" strokeWidth={2} />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-semibold leading-5 text-[var(--color-text)]">
+                    {topic.title}
+                  </span>
+                  <span className="truncate text-xs leading-4 text-[var(--color-text-muted)]">
+                    {topic.categoryName}
+                  </span>
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
         </CommandList>
       </Command>
     </CommandDialog>
