@@ -20,6 +20,54 @@ const PUBLIC_ROUTES = [
   '/email-previews',
 ]
 
+const CSRF_COOKIE = 'sear_csrf'
+const CSRF_HEADER = 'x-csrf-token'
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const UNSAFE_CSRF_EXEMPT_ROUTES = [
+  '/api/billing/webhook',
+  '/api/integrations/resend/webhook',
+  '/api/webhooks',
+  '/api/terminals/heartbeat',
+]
+
+function ensureCsrfCookie(request: NextRequest, response: NextResponse): void {
+  if (request.cookies.get(CSRF_COOKIE)?.value) return
+
+  response.cookies.set(CSRF_COOKIE, crypto.randomUUID(), {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  })
+}
+
+function isSameOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get('origin')
+  if (origin) return origin === request.nextUrl.origin
+
+  const referer = request.headers.get('referer')
+  if (!referer) return false
+
+  try {
+    return new URL(referer).origin === request.nextUrl.origin
+  } catch {
+    return false
+  }
+}
+
+function hasValidCsrfToken(request: NextRequest): boolean {
+  const cookieToken = request.cookies.get(CSRF_COOKIE)?.value
+  const headerToken = request.headers.get(CSRF_HEADER)
+  return Boolean(cookieToken && headerToken && cookieToken === headerToken)
+}
+
+function requiresCsrfCheck(request: NextRequest): boolean {
+  const { pathname } = request.nextUrl
+  if (SAFE_METHODS.has(request.method)) return false
+  if (!pathname.startsWith('/api/')) return false
+  return !UNSAFE_CSRF_EXEMPT_ROUTES.some((route) => pathname.startsWith(route))
+}
+
 /**
  * Edge middleware.
  *
@@ -58,9 +106,22 @@ export async function middleware(request: NextRequest) {
     })
   }
 
+  if (requiresCsrfCheck(request) && !isSameOrigin(request) && !hasValidCsrfToken(request)) {
+    return NextResponse.json(
+      {
+        error: 'Cross-site request blocked.',
+        code: 'FORBIDDEN',
+        message: 'Cross-site request blocked.',
+        action: 'Refresh the page and try again from Sear.',
+      },
+      { status: 403, headers: { 'x-request-id': reqId } }
+    )
+  }
+
   if (pathname === '/version') {
     const response = NextResponse.next()
     response.headers.set('x-request-id', reqId)
+    ensureCsrfCookie(request, response)
     return response
   }
 
@@ -73,6 +134,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/email-previews') && process.env.NODE_ENV !== 'production') {
     const response = NextResponse.next()
     response.headers.set('x-request-id', reqId)
+    ensureCsrfCookie(request, response)
     return response
   }
 
@@ -80,6 +142,7 @@ export async function middleware(request: NextRequest) {
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     const { supabaseResponse } = await updateSession(request)
     supabaseResponse.headers.set('x-request-id', reqId)
+    ensureCsrfCookie(request, supabaseResponse)
     return supabaseResponse
   }
 
@@ -97,6 +160,7 @@ export async function middleware(request: NextRequest) {
   }
 
   supabaseResponse.headers.set('x-request-id', reqId)
+  ensureCsrfCookie(request, supabaseResponse)
   return supabaseResponse
 }
 
