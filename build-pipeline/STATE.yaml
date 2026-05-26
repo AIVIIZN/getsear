@@ -1,8 +1,8 @@
 schema_version: 1
 started_at: 2026-05-03T03:45:00Z
-last_updated_at: 2026-05-25T18:45:00Z
+last_updated_at: 2026-05-26T00:24:06Z
 current_version: V8
-current_batch: "8.0"
+current_batch: "8.1"
 in_flight: {}
 status: handoff_2026_05_05
 handoff_doc: SESSION_HANDOFF_2026_05_05.md
@@ -250,18 +250,19 @@ versions:
           "7.6.1": { status: complete, agent: main, eta_hours: 2, name: demo+ship, review: "db:diff clean; lint/test/build/bundle budget pass; production /version reports 2f4a7f9; k6 release run must be dispatched through GitHub Actions secrets because local k6 and LOAD_TEST_DEMO_PASSWORD are unavailable" }
 
   V8:
-    status: pending
+    status: in_progress
     theme: Trust & Onboarding
-    started_at: null
+    started_at: 2026-05-26T00:24:06Z
     completed_at: null
     batches:
       "8.0":
         type: sequential
-        status: pending
+        status: complete
+        completed_at: 2026-05-26T00:24:06Z
         tasks:
-          "8.0.1": { status: pending, agent: coder+frontend-design, eta_hours: 5 }
-          "8.0.2": { status: pending, agent: coder, eta_hours: 4 }
-          "8.0.3": { status: pending, agent: coder+frontend-design, eta_hours: 3 }
+          "8.0.1": { status: complete, agent: coder+frontend-design, eta_hours: 5, review: "six-step authenticated onboarding wizard with saved progress and first-order replay tour" }
+          "8.0.2": { status: complete, agent: coder, eta_hours: 4, review: "six 40-item editable seed menu templates plus authenticated commit endpoint" }
+          "8.0.3": { status: complete, agent: coder+frontend-design, eta_hours: 3, review: "lint/test/build/CI pass; production /version reports 210ba006" }
       "8.1":
         type: parallel
         status: pending
