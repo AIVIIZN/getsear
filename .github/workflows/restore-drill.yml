@@ -19,7 +19,15 @@ jobs:
       - name: Install restore tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client awscli
+          sudo apt-get install -y postgresql-client
+          # awscli is no longer an apt package on Ubuntu 24.04 (noble) runners.
+          # ubuntu-latest ships AWS CLI v2 pre-installed; install it explicitly if absent.
+          if ! command -v aws >/dev/null 2>&1; then
+            curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip
+            unzip -q /tmp/awscliv2.zip -d /tmp
+            sudo /tmp/aws/install
+          fi
+          aws --version
 
       - name: Check restore credentials
         id: restore_credentials
