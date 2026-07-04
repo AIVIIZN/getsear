@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { DenominationCounter } from './DenominationCounter'
 import type { DenominationCount } from '@/lib/staff/denomination-calculator'
+import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 
 interface DrawerData {
@@ -50,6 +51,7 @@ export function CashDrawerDetail({ drawerId, onBack }: CashDrawerDetailProps) {
   const [eventAmount, setEventAmount] = useState('')
   const [eventNotes, setEventNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const user = useAuthStore((s) => s.user)
 
   const loadDrawer = useCallback(async () => {
     setLoading(true)
@@ -74,6 +76,7 @@ export function CashDrawerDetail({ drawerId, onBack }: CashDrawerDetailProps) {
   useEffect(() => { loadDrawer() }, [loadDrawer])
 
   const handleOpen = async () => {
+    if (!user) { toast.error('You must be signed in to open a drawer'); return }
     setSaving(true)
     try {
       const denomMap: Record<string, number> = {}
@@ -83,7 +86,7 @@ export function CashDrawerDetail({ drawerId, onBack }: CashDrawerDetailProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assigned_to: 'current-user', // would use actual user
+          assigned_to: user.id,
           starting_cash: (denomTotal / 100).toFixed(2),
           denominations: denomMap,
         }),
@@ -230,7 +233,7 @@ export function CashDrawerDetail({ drawerId, onBack }: CashDrawerDetailProps) {
             <DenominationCounter onChange={(counts, total) => { setDenomCounts(counts); setDenomTotal(total) }} />
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setMode('view')}>Cancel</Button>
-              <Button onClick={handleOpen} disabled={saving}>
+              <Button onClick={handleOpen} disabled={saving || !user}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Open with ${(denomTotal / 100).toFixed(2)}
               </Button>
