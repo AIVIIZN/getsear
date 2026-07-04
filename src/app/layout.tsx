@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistrar } from "@/components/layout/ServiceWorkerRegistrar";
 import { WebVitalsInit } from "@/components/layout/WebVitalsInit";
+import { CsrfInit } from "@/components/layout/CsrfInit";
 import { TestHarness } from "@/components/dev/TestHarness";
 import "./globals.css";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ServiceWorkerRegistrar />
         <WebVitalsInit />
+        <CsrfInit />
         <TestHarness />
         {children}
         <Toaster position="top-right" richColors closeButton />
