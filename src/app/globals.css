@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "../styles/tokens.css";  /* V6 design tokens v2 — see src/styles/tokens.css */
+@import "../styles/themes.css";  /* RK-0006 competing redesign directions (data-theme; flag-OFF by default) */
 
 /* ============================================================
    SEAR POS DESIGN SYSTEM
