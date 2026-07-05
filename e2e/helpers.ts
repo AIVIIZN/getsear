@@ -1,13 +1,19 @@
-import { expect, type APIRequestContext, type Page, type PlaywrightTestArgs } from '@playwright/test'
+import { type APIRequestContext, type Page, type PlaywrightTestArgs } from '@playwright/test'
+import { buildAuthedContext, DEMO_EMAIL, DEMO_PASSWORD } from './auth-state'
 
 /**
- * Login and get to an authenticated state.
- * Reusable across all test files.
+ * Get to an authenticated page state. Idempotent: when the suite's shared
+ * storageState (see auth.setup.ts) is active the page is already logged in, so
+ * we just confirm /orders loads and return without touching the rate-limited
+ * login form. Falls back to a real form login when no session is present.
  */
 export async function login(page: Page) {
+  await page.goto('/orders')
+  if (/\/orders/.test(page.url())) return
+  // Not authenticated (no shared storageState) — do a real form login.
   await page.goto('/login')
-  await page.fill('input[type="email"]', 'demo@getsear.com')
-  await page.fill('input[type="password"]', 'demo1234')
+  await page.fill('input[type="email"]', DEMO_EMAIL)
+  await page.fill('input[type="password"]', DEMO_PASSWORD)
   await page.click('button[type="submit"]')
   await page.waitForURL(/\/orders/, { timeout: 15000 })
 }
@@ -27,21 +33,16 @@ export const DEMO = {
 } as const
 
 /**
- * Create a logged-in `APIRequestContext` against prod for use in `beforeAll`.
+ * Create a logged-in `APIRequestContext` for use in `beforeAll`. Reuses the
+ * suite-wide shared session (see auth.setup.ts) so it costs zero login attempts,
+ * and carries the browser Origin header so CSRF-guarded mutations succeed.
  * Caller is responsible for `dispose()` in `afterAll`.
  */
 export async function createAuthedRequestContext(
   playwright: PlaywrightTestArgs['playwright']
 ): Promise<APIRequestContext> {
-  const ctx = await playwright.request.newContext({
-    baseURL: 'https://getsear.com',
-    ignoreHTTPSErrors: true,
-  })
-  const res = await ctx.post('/api/auth/login', {
-    data: { email: DEMO.email, password: DEMO.password },
-  })
-  expect(res.status()).toBe(200)
-  return ctx
+  const { request } = await buildAuthedContext(playwright)
+  return request
 }
 
 /**

@@ -1,21 +1,12 @@
 import { test, expect, type APIRequestContext } from '@playwright/test'
+import { createAuthedRequestContext } from './helpers'
+import { loadStoredUser } from './auth-state'
 
 // Use a shared storage state approach — login once, share cookies
 let authedRequest: APIRequestContext
 
 test.beforeAll(async ({ playwright }) => {
-  // Create a request context and login
-  authedRequest = await playwright.request.newContext({
-    baseURL: 'https://getsear.com',
-    ignoreHTTPSErrors: true,
-  })
-
-  const loginRes = await authedRequest.post('/api/auth/login', {
-    data: { email: 'demo@getsear.com', password: 'demo1234' },
-  })
-  expect(loginRes.status()).toBe(200)
-  const loginData = await loginRes.json()
-  expect(loginData.user.display_name).toBe('Marcus Rivera')
+  authedRequest = await createAuthedRequestContext(playwright)
 })
 
 test.afterAll(async () => {
@@ -23,16 +14,18 @@ test.afterAll(async () => {
 })
 
 test.describe('API - Auth', () => {
-  test('login succeeds with valid creds', async () => {
-    const res = await authedRequest.post('/api/auth/login', {
-      data: { email: 'demo@getsear.com', password: 'demo1234' },
-    })
-    expect(res.status()).toBe(200)
-    const data = await res.json()
-    expect(data.user.email).toBe('demo@getsear.com')
-    expect(data.user.role).toBe('owner')
-    expect(data.user.org_id).toBeTruthy()
-    expect(data.user.location_ids.length).toBeGreaterThanOrEqual(1)
+  test.describe.configure({ retries: 0 })
+
+  test('login succeeds with valid creds (shared session profile)', () => {
+    // The setup project performed the real valid-creds login and saved the
+    // resulting profile. Asserting on it here proves the login response shape
+    // without spending another attempt against the 5/15min IP rate limit.
+    const user = loadStoredUser()
+    expect(user.email).toBe('demo@getsear.com')
+    expect(user.role).toBe('owner')
+    expect(user.display_name).toBe('Marcus Rivera')
+    expect(user.org_id).toBeTruthy()
+    expect(user.location_ids.length).toBeGreaterThanOrEqual(1)
   })
 
   test('login fails with wrong password', async () => {

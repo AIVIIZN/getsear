@@ -19,6 +19,7 @@
 
 import { type APIRequestContext, expect } from '@playwright/test'
 import crypto from 'node:crypto'
+import { buildAuthedContext } from '../auth-state'
 
 /**
  * The `playwright` fixture (not `browser`!) is what gives us a request
@@ -69,18 +70,8 @@ export interface AuthedUser {
 export async function newAuthedRequest(
   playwright: PlaywrightFixture
 ): Promise<AuthedContext> {
-  const request = await playwright.request.newContext({
-    baseURL: E2E_BASE_URL,
-    ignoreHTTPSErrors: true,
-  })
-  const loginRes = await request.post('/api/auth/login', {
-    data: { email: DEMO_EMAIL, password: DEMO_PASSWORD },
-  })
-  expect(loginRes.status(), 'demo login should succeed').toBe(200)
-  const body = (await loginRes.json()) as { user: AuthedUser }
-  expect(body.user.org_id).toBeTruthy()
-  expect(body.user.location_ids.length).toBeGreaterThanOrEqual(1)
-  return { request, user: body.user }
+  const { request, user } = await buildAuthedContext(playwright)
+  return { request, user: user as AuthedUser }
 }
 
 /**

@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test'
 
+// This spec exercises the real login flow, so it must start unauthenticated —
+// opt out of the suite-wide shared storageState. Kept serial with retries:0 so
+// a flaky test can't spend a second login attempt against the 5/15min IP cap.
+test.use({ storageState: { cookies: [], origins: [] } })
+test.describe.configure({ retries: 0 })
+
 test.describe('Authentication', () => {
   test('login page loads and displays form', async ({ page }) => {
     await page.goto('/login')
