@@ -1,6 +1,8 @@
 import { apiError } from '@/lib/api/error-response'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
+import { CACHE_REVALIDATE_PROFILE, orderCacheTags } from '@/lib/cache/keys'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthUser } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
@@ -342,6 +344,14 @@ export const POST = withIdempotency('payments.process', async (request: NextRequ
         orderId: order_id,
         request,
       })
+    }
+
+    // Bust the order-detail cache so a read immediately after payment reflects
+    // the new balance / closed status (mirrors the void + add-item routes).
+    // Without this, GET /api/orders/[id] serves stale pre-payment data for up
+    // to the unstable_cache revalidate window (10s).
+    for (const tag of orderCacheTags(user.org_id, order_id)) {
+      revalidateTag(tag, CACHE_REVALIDATE_PROFILE)
     }
   }
 

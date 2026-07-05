@@ -1,11 +1,8 @@
 import { defineConfig } from '@playwright/test'
+import { STORAGE_STATE_PATH } from './e2e/auth-state'
 
 export default defineConfig({
   testDir: './e2e',
-  // Skip dev-only specs that target localhost:3000 — they live in e2e/dev-only/
-  // and run via playwright.dev.config.ts. Including them in the prod run would
-  // 100% fail (no dev server, baseURL mismatch).
-  testIgnore: ['**/dev-only/**'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 1,
@@ -19,9 +16,19 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
   },
   projects: [
+    // Logs in once; writes e2e/.auth/user.json for the chromium project to reuse.
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'chromium',
-      use: { browserName: 'chromium', viewport: { width: 1366, height: 1024 } },
+      testMatch: /.*\.spec\.ts/,
+      // dev-only specs target localhost:3000 and run via playwright.dev.config.ts.
+      testIgnore: '**/dev-only/**',
+      dependencies: ['setup'],
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 1366, height: 1024 },
+        storageState: STORAGE_STATE_PATH,
+      },
     },
   ],
 })

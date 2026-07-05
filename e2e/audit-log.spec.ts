@@ -10,20 +10,12 @@
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test'
-import { login } from './helpers'
+import { createAuthedRequestContext, login } from './helpers'
 
 let authedRequest: APIRequestContext
 
 test.beforeAll(async ({ playwright }) => {
-  authedRequest = await playwright.request.newContext({
-    baseURL: 'https://getsear.com',
-    ignoreHTTPSErrors: true,
-  })
-  // The seed account demo@getsear.com is role=owner (per existing tests).
-  const loginRes = await authedRequest.post('/api/auth/login', {
-    data: { email: 'demo@getsear.com', password: 'demo1234' },
-  })
-  expect(loginRes.status()).toBe(200)
+  authedRequest = await createAuthedRequestContext(playwright)
 })
 
 test.afterAll(async () => {
