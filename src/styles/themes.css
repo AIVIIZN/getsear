@@ -6,7 +6,7 @@
  * existing ui-v2 token system (src/styles/tokens.css + src/app/globals.css).
  *
  * HOW IT WORKS
- *   Each direction is a `[data-theme="…"]` block that RE-MAPS the semantic +
+ *   Each direction is a `:root[data-theme="…"]` block that RE-MAPS the semantic +
  *   shadcn variable layer that every surface already resolves to. Because the
  *   whole app reads var(--background), var(--primary), var(--sidebar),
  *   var(--radius), var(--color-*) … re-defining those variables inside a
@@ -33,14 +33,16 @@
  *                     glanceability: larger type, saturated states, thicker
  *                     borders, a bold ink sidebar, unmistakable hierarchy.
  *
- * Imported LAST from src/app/globals.css so these overrides win the cascade.
+ * Imported from src/app/globals.css. Each block uses the `:root[data-theme]`
+ * selector (specificity 0,2,0) so its literal overrides beat the base
+ * `:root {…}` shadcn mappings regardless of @import source order.
  */
 
 /* ══════════════════════════════════════════════════════════════════════════
    DIRECTION A — REFINED PROFESSIONAL  ·  data-theme="refined"
    Warm hospitality neutrals, terracotta primary, confident ink type.
    ══════════════════════════════════════════════════════════════════════════ */
-[data-theme="refined"] {
+:root[data-theme="refined"] {
   --color-bg:            #FBF8F3;
   --color-bg-subtle:     #F6F1E9;
   --color-bg-muted:      #F1EADE;
@@ -109,7 +111,7 @@
 /* ══════════════════════════════════════════════════════════════════════════
    DIRECTION B — APPLE iPadOS LIGHT  ·  data-theme="ipados"
    ══════════════════════════════════════════════════════════════════════════ */
-[data-theme="ipados"] {
+:root[data-theme="ipados"] {
   --color-bg:            #F2F2F7;
   --color-bg-subtle:     #F7F7FB;
   --color-bg-muted:      #EDEDF2;
@@ -177,9 +179,9 @@
   -webkit-font-smoothing: antialiased;
 }
 
-[data-theme="ipados"] [data-slot="sidebar"],
-[data-theme="ipados"] aside,
-[data-theme="ipados"] .app-sidebar {
+:root[data-theme="ipados"] [data-slot="sidebar"],
+:root[data-theme="ipados"] aside,
+:root[data-theme="ipados"] .app-sidebar {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
@@ -187,7 +189,7 @@
 /* ══════════════════════════════════════════════════════════════════════════
    DIRECTION C — HIGH-CONTRAST OPERATIONAL  ·  data-theme="operational"
    ══════════════════════════════════════════════════════════════════════════ */
-[data-theme="operational"] {
+:root[data-theme="operational"] {
   font-size: 17px;
 
   --color-bg:            #F4F5F7;
@@ -255,9 +257,9 @@
   --weight-regular: 450;
 }
 
-[data-theme="operational"] h1,
-[data-theme="operational"] h2,
-[data-theme="operational"] h3 {
+:root[data-theme="operational"] h1,
+:root[data-theme="operational"] h2,
+:root[data-theme="operational"] h3 {
   letter-spacing: -0.01em;
   font-weight: 700;
 }
