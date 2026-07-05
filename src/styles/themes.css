@@ -263,3 +263,18 @@
   letter-spacing: -0.01em;
   font-weight: 700;
 }
+
+/* Operational: bold ink sidebar for maximum rush-hour glanceability.
+   The app sidebar (src/components/layout/Sidebar.tsx) hardcodes
+   `background: var(--color-bg-muted)` as an INLINE style, and that token is
+   shared with the page background — so a plain token swap can't darken only the
+   sidebar. We override the <aside> directly (an external `!important` rule
+   beats the element's inline style) and re-scope its text tokens to light
+   values, which the nav rows pick up via var() with no !important needed. */
+:root[data-theme="operational"] aside {
+  background: #0E1B2E !important;
+  --primary:              #3B8BFF;   /* wordmark + active-row accent on ink */
+  --color-primary:        #3B8BFF;
+  --color-text-secondary: #C7D2E0;   /* nav labels */
+  --color-text-muted:     #93A2B5;   /* section headers + icons */
+}
