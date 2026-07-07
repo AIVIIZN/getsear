@@ -1,0 +1,280 @@
+/*
+ * Sear POS — Competing Premium Redesign Directions (RK-0006)
+ * ==========================================================
+ * Ian verdict: the current UI "looks childish." This file holds THREE
+ * genuinely different, fully-rendered visual directions layered on top of the
+ * existing ui-v2 token system (src/styles/tokens.css + src/app/globals.css).
+ *
+ * HOW IT WORKS
+ *   Each direction is a `:root[data-theme="…"]` block that RE-MAPS the semantic +
+ *   shadcn variable layer that every surface already resolves to. Because the
+ *   whole app reads var(--background), var(--primary), var(--sidebar),
+ *   var(--radius), var(--color-*) … re-defining those variables inside a
+ *   scoped block re-skins login, POS, KDS, and the owner dashboard at once —
+ *   no component edits required.
+ *
+ * FLAG-OFF BY DEFAULT — SAFE
+ *   With NO `data-theme` attribute on <html>, none of these blocks match and
+ *   the app renders exactly as before. Nothing here changes production until a
+ *   direction is chosen and promoted to :root. To preview:
+ *       document.documentElement.setAttribute('data-theme', 'refined')     // A
+ *       document.documentElement.setAttribute('data-theme', 'ipados')      // B
+ *       document.documentElement.setAttribute('data-theme', 'operational') // C
+ *   Remove the attribute to return to baseline.
+ *
+ * DIRECTIONS
+ *   A "refined"     — Refined Professional (Toast-tier hospitality). Warm
+ *                     neutrals, terracotta/ink confidence, editorial calm.
+ *   B "ipados"      — Apple iPadOS Light. The design-reviewer standard done
+ *                     with discipline: layered whites, translucent light
+ *                     sidebar, tighter SF tracking, generous radius, zero
+ *                     default-Tailwind tells.
+ *   C "operational" — High-Contrast Operational. Built for rush-hour
+ *                     glanceability: larger type, saturated states, thicker
+ *                     borders, a bold ink sidebar, unmistakable hierarchy.
+ *
+ * Imported from src/app/globals.css. Each block uses the `:root[data-theme]`
+ * selector (specificity 0,2,0) so its literal overrides beat the base
+ * `:root {…}` shadcn mappings regardless of @import source order.
+ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIRECTION A — REFINED PROFESSIONAL  ·  data-theme="refined"
+   Warm hospitality neutrals, terracotta primary, confident ink type.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="refined"] {
+  --color-bg:            #FBF8F3;
+  --color-bg-subtle:     #F6F1E9;
+  --color-bg-muted:      #F1EADE;
+  --color-surface:       #FFFDFA;
+  --color-white:         #FFFDFA;
+
+  --color-text:          #2A241D;
+  --color-text-secondary:#453D33;
+  --color-text-muted:    #7A6F60;
+  --color-text-subtle:   #9C9081;
+  --color-primary:       #B24A22;
+  --color-primary-alt:   #9C3F1C;
+  --color-primary-active-alt: #833415;
+  --color-border:        #E4DACB;
+
+  --background:          var(--color-bg);
+  --foreground:          var(--color-text);
+  --card:                var(--color-surface);
+  --card-foreground:     var(--color-text);
+  --popover:             var(--color-surface);
+  --popover-foreground:  var(--color-text);
+  --primary:             var(--color-primary);
+  --primary-foreground:  #FFFDFA;
+  --primary-hover:       var(--color-primary-alt);
+  --primary-active:      #833415;
+  --secondary:           var(--color-bg-muted);
+  --secondary-foreground:var(--color-text-secondary);
+  --muted:               #EDE4D6;
+  --muted-foreground:    var(--color-text-muted);
+  --accent:              rgba(178, 74, 34, 0.08);
+  --accent-foreground:   var(--color-primary);
+  --destructive:         #B4322A;
+  --border:              rgba(66, 54, 40, 0.14);
+  --border-hover:        rgba(66, 54, 40, 0.24);
+  --input:               rgba(66, 54, 40, 0.16);
+  --ring:                var(--color-primary);
+  --separator:           rgba(66, 54, 40, 0.20);
+  --radius:              0.625rem;
+
+  --success:      #2F7D53;  --success-bg:  #E8F3EA;
+  --warning:      #B5791C;  --warning-bg:  #FBF1DE;
+  --error:        #B4322A;  --error-bg:    #F8E7E4;
+  --info:         var(--color-primary); --info-bg: #F6ECE4;
+
+  --shadow-sm: 0 1px 2px rgba(74, 58, 38, 0.06), 0 1px 3px rgba(74, 58, 38, 0.05);
+  --shadow-md: 0 1px 2px rgba(74, 58, 38, 0.07), 0 4px 14px rgba(74, 58, 38, 0.08);
+  --shadow-lg: 0 2px 6px rgba(74, 58, 38, 0.08), 0 12px 32px rgba(74, 58, 38, 0.12);
+  --shadow-xl: 0 4px 10px rgba(74, 58, 38, 0.10), 0 22px 56px rgba(74, 58, 38, 0.16);
+
+  --sidebar:                    #EFE7D8;
+  --sidebar-foreground:         #5A4F41;
+  --sidebar-primary:            var(--color-primary);
+  --sidebar-primary-foreground: #FFFDFA;
+  --sidebar-accent:             rgba(178, 74, 34, 0.12);
+  --sidebar-accent-foreground:  var(--color-primary);
+  --sidebar-border:             rgba(66, 54, 40, 0.12);
+  --sidebar-muted:              var(--color-text-muted);
+
+  --chart-1: #B24A22;  --chart-2: #2F7D53;  --chart-3: #8A5A2B;
+  --chart-4: #B5791C;  --chart-5: #4E7CA1;
+
+  --tracking-tight: -0.006em;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIRECTION B — APPLE iPadOS LIGHT  ·  data-theme="ipados"
+   ══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="ipados"] {
+  --color-bg:            #F2F2F7;
+  --color-bg-subtle:     #F7F7FB;
+  --color-bg-muted:      #EDEDF2;
+  --color-surface:       #FFFFFF;
+  --color-white:         #FFFFFF;
+
+  --color-text:          #1C1C1E;
+  --color-text-secondary:#3C3C43;
+  --color-text-muted:    #8A8A8E;
+  --color-text-subtle:   #AEAEB2;
+  --color-primary:       #0A84FF;
+  --color-primary-alt:   #0071E3;
+  --color-primary-active-alt: #005BB8;
+  --color-border:        #E5E5EA;
+
+  --background:          var(--color-bg);
+  --foreground:          var(--color-text);
+  --card:                #FFFFFF;
+  --card-foreground:     var(--color-text);
+  --popover:             rgba(255, 255, 255, 0.86);
+  --popover-foreground:  var(--color-text);
+  --primary:             var(--color-primary);
+  --primary-foreground:  #FFFFFF;
+  --primary-hover:       var(--color-primary-alt);
+  --primary-active:      #005BB8;
+  --secondary:           #EDEDF2;
+  --secondary-foreground:var(--color-text-secondary);
+  --muted:               #E9E9EE;
+  --muted-foreground:    var(--color-text-muted);
+  --accent:              rgba(10, 132, 255, 0.10);
+  --accent-foreground:   var(--color-primary);
+  --destructive:         #FF3B30;
+  --border:              rgba(60, 60, 67, 0.10);
+  --border-hover:        rgba(60, 60, 67, 0.18);
+  --input:               rgba(60, 60, 67, 0.12);
+  --ring:                var(--color-primary);
+  --separator:           rgba(60, 60, 67, 0.24);
+  --radius:              0.875rem;
+
+  --success:      #34C759;  --success-bg:  rgba(52, 199, 89, 0.12);
+  --warning:      #FF9F0A;  --warning-bg:  rgba(255, 159, 10, 0.12);
+  --error:        #FF3B30;  --error-bg:    rgba(255, 59, 48, 0.10);
+  --info:         var(--color-primary); --info-bg: rgba(10, 132, 255, 0.10);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.06), 0 16px 40px rgba(0, 0, 0, 0.10);
+  --shadow-xl: 0 8px 18px rgba(0, 0, 0, 0.07), 0 28px 64px rgba(0, 0, 0, 0.14);
+
+  --sidebar:                    rgba(242, 242, 247, 0.72);
+  --sidebar-foreground:         #3C3C43;
+  --sidebar-primary:            var(--color-primary);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent:             rgba(10, 132, 255, 0.12);
+  --sidebar-accent-foreground:  var(--color-primary);
+  --sidebar-border:             rgba(60, 60, 67, 0.08);
+  --sidebar-muted:              var(--color-text-muted);
+
+  --chart-1: #0A84FF;  --chart-2: #34C759;  --chart-3: #AF52DE;
+  --chart-4: #FF9F0A;  --chart-5: #5AC8FA;
+
+  --tracking-tight: -0.014em;
+  --tracking-normal: -0.006em;
+  letter-spacing: var(--tracking-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="ipados"] [data-slot="sidebar"],
+:root[data-theme="ipados"] aside,
+:root[data-theme="ipados"] .app-sidebar {
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIRECTION C — HIGH-CONTRAST OPERATIONAL  ·  data-theme="operational"
+   ══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="operational"] {
+  font-size: 17px;
+
+  --color-bg:            #F4F5F7;
+  --color-bg-subtle:     #FFFFFF;
+  --color-bg-muted:      #E9EBEF;
+  --color-surface:       #FFFFFF;
+  --color-white:         #FFFFFF;
+
+  --color-text:          #0B0F14;
+  --color-text-secondary:#1E2530;
+  --color-text-muted:    #4B5563;
+  --color-text-subtle:   #6B7280;
+  --color-primary:       #0B63E5;
+  --color-primary-alt:   #0A52C0;
+  --color-primary-active-alt: #08429B;
+  --color-border:        #C6CBD4;
+
+  --background:          var(--color-bg);
+  --foreground:          var(--color-text);
+  --card:                #FFFFFF;
+  --card-foreground:     var(--color-text);
+  --popover:             #FFFFFF;
+  --popover-foreground:  var(--color-text);
+  --primary:             var(--color-primary);
+  --primary-foreground:  #FFFFFF;
+  --primary-hover:       var(--color-primary-alt);
+  --primary-active:      #08429B;
+  --secondary:           #E4E7EC;
+  --secondary-foreground:#1E2530;
+  --muted:               #DCE0E6;
+  --muted-foreground:    var(--color-text-muted);
+  --accent:              rgba(11, 99, 229, 0.12);
+  --accent-foreground:   var(--color-primary);
+  --destructive:         #D11A1A;
+  --border:              rgba(11, 15, 20, 0.22);
+  --border-hover:        rgba(11, 15, 20, 0.36);
+  --input:               rgba(11, 15, 20, 0.28);
+  --ring:                var(--color-primary);
+  --separator:           rgba(11, 15, 20, 0.30);
+  --radius:              0.5rem;
+
+  --success:      #128A3E;  --success-bg:  #DAF3E2;
+  --warning:      #C2660A;  --warning-bg:  #FCEBCF;
+  --error:        #D11A1A;  --error-bg:    #FADBDB;
+  --info:         var(--color-primary); --info-bg: #DCE9FD;
+
+  --shadow-sm: 0 1px 2px rgba(11, 15, 20, 0.10), 0 1px 3px rgba(11, 15, 20, 0.08);
+  --shadow-md: 0 2px 4px rgba(11, 15, 20, 0.10), 0 6px 16px rgba(11, 15, 20, 0.12);
+  --shadow-lg: 0 4px 8px rgba(11, 15, 20, 0.12), 0 14px 32px rgba(11, 15, 20, 0.18);
+  --shadow-xl: 0 6px 14px rgba(11, 15, 20, 0.14), 0 24px 56px rgba(11, 15, 20, 0.22);
+
+  --sidebar:                    #0E1B2E;
+  --sidebar-foreground:         #C3CDDA;
+  --sidebar-primary:            #3B8BFF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent:             rgba(59, 139, 255, 0.22);
+  --sidebar-accent-foreground:  #FFFFFF;
+  --sidebar-border:             rgba(255, 255, 255, 0.10);
+  --sidebar-muted:              #8A98AA;
+
+  --chart-1: #0B63E5;  --chart-2: #128A3E;  --chart-3: #7C3AED;
+  --chart-4: #C2660A;  --chart-5: #0891B2;
+
+  --tracking-tight: -0.002em;
+  --weight-regular: 450;
+}
+
+:root[data-theme="operational"] h1,
+:root[data-theme="operational"] h2,
+:root[data-theme="operational"] h3 {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+/* Operational: bold ink sidebar for maximum rush-hour glanceability.
+   The app sidebar (src/components/layout/Sidebar.tsx) hardcodes
+   `background: var(--color-bg-muted)` as an INLINE style, and that token is
+   shared with the page background — so a plain token swap can't darken only the
+   sidebar. We override the <aside> directly (an external `!important` rule
+   beats the element's inline style) and re-scope its text tokens to light
+   values, which the nav rows pick up via var() with no !important needed. */
+:root[data-theme="operational"] aside {
+  background: #0E1B2E !important;
+  --primary:              #3B8BFF;   /* wordmark + active-row accent on ink */
+  --color-primary:        #3B8BFF;
+  --color-text-secondary: #C7D2E0;   /* nav labels */
+  --color-text-muted:     #93A2B5;   /* section headers + icons */
+}
